@@ -210,6 +210,53 @@ type Frame struct {
 }
 
 // =============================================================================
+// Board Management Types
+// =============================================================================
+
+// CreateBoardArgs contains parameters for creating a new board.
+type CreateBoardArgs struct {
+	Name        string `json:"name" jsonschema:"required" jsonschema_description:"Name for the new board"`
+	Description string `json:"description,omitempty" jsonschema_description:"Board description"`
+	TeamID      string `json:"team_id,omitempty" jsonschema_description:"Team ID to create board in"`
+}
+
+// CreateBoardResult contains the created board details.
+type CreateBoardResult struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ViewLink    string `json:"view_link"`
+	Message     string `json:"message"`
+}
+
+// CopyBoardArgs contains parameters for copying a board.
+type CopyBoardArgs struct {
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"ID of the board to copy"`
+	Name        string `json:"name,omitempty" jsonschema_description:"Name for the copy (defaults to 'Copy of {original}')"`
+	Description string `json:"description,omitempty" jsonschema_description:"Description for the copy"`
+	TeamID      string `json:"team_id,omitempty" jsonschema_description:"Team ID to copy board to"`
+}
+
+// CopyBoardResult contains the copied board details.
+type CopyBoardResult struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ViewLink    string `json:"view_link"`
+	Message     string `json:"message"`
+}
+
+// DeleteBoardArgs contains parameters for deleting a board.
+type DeleteBoardArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"ID of the board to delete"`
+}
+
+// DeleteBoardResult confirms board deletion.
+type DeleteBoardResult struct {
+	Success bool   `json:"success"`
+	BoardID string `json:"board_id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
 // API Request/Response Types
 // =============================================================================
 

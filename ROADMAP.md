@@ -34,21 +34,34 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (12 total)
+### Implemented Tools (26 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
 | **Boards** | `miro_list_boards` | ListBoards |
 | **Boards** | `miro_get_board` | GetBoard |
+| **Boards** | `miro_create_board` | CreateBoard |
+| **Boards** | `miro_copy_board` | CopyBoard |
+| **Boards** | `miro_delete_board` | DeleteBoard |
 | **Create** | `miro_create_sticky` | CreateSticky |
 | **Create** | `miro_create_shape` | CreateShape |
 | **Create** | `miro_create_text` | CreateText |
 | **Create** | `miro_create_connector` | CreateConnector |
 | **Create** | `miro_create_frame` | CreateFrame |
+| **Create** | `miro_create_card` | CreateCard |
+| **Create** | `miro_create_image` | CreateImage |
+| **Create** | `miro_create_document` | CreateDocument |
+| **Create** | `miro_create_embed` | CreateEmbed |
 | **Create** | `miro_bulk_create` | BulkCreate |
 | **Read** | `miro_list_items` | ListItems |
+| **Read** | `miro_list_all_items` | ListAllItems |
 | **Read** | `miro_get_item` | GetItem |
 | **Read** | `miro_search_board` | SearchBoard |
+| **Tags** | `miro_create_tag` | CreateTag |
+| **Tags** | `miro_list_tags` | ListTags |
+| **Tags** | `miro_attach_tag` | AttachTag |
+| **Tags** | `miro_detach_tag` | DetachTag |
+| **Tags** | `miro_get_item_tags` | GetItemTags |
 | **Update** | `miro_update_item` | UpdateItem |
 | **Delete** | `miro_delete_item` | DeleteItem |
 
@@ -74,25 +87,25 @@ miro-mcp-server/
 | **evalstate/mcp-miro** | TypeScript | 101 | ~8 | Nov 2024 | - |
 | **k-jarzyna/mcp-miro** | TypeScript | 59 | 80+ | Active | Apache 2.0 |
 | **LuotoCompany/mcp-server-miro** | TypeScript | 14 | ~15 | Apr 2025 | MIT |
-| **Ours** | **Go** | - | 12 | Active | - |
+| **Ours** | **Go** | - | 26 | Active | - |
 
 ### Feature Comparison Matrix
 
 | Feature | Ours | Official | evalstate | k-jarzyna | LuotoCompany |
 |---------|------|----------|-----------|-----------|--------------|
 | **Board list/get** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Board create/delete** | ❌ | ? | ❌ | ✅ | ❌ |
-| **Board copy** | ❌ | ? | ❌ | ✅ | ❌ |
+| **Board create/delete** | ✅ | ? | ❌ | ✅ | ❌ |
+| **Board copy** | ✅ | ? | ❌ | ✅ | ❌ |
 | **Sticky notes** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Shapes** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Text** | ✅ | ✅ | ? | ✅ | ✅ |
 | **Connectors** | ✅ | ✅ | ? | ✅ | ✅ |
 | **Frames** | ✅ | ✅ | ✅ | ✅ | ? |
-| **Cards** | ❌ | ? | ? | ✅ | ✅ |
-| **Images** | ❌ | ? | ? | ✅ | ✅ |
-| **Documents** | ❌ | ? | ? | ✅ | ✅ |
-| **Embeds** | ❌ | ? | ? | ✅ | ✅ |
-| **Tags** | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Cards** | ✅ | ? | ? | ✅ | ✅ |
+| **Images** | ✅ | ? | ? | ✅ | ✅ |
+| **Documents** | ✅ | ? | ? | ✅ | ✅ |
+| **Embeds** | ✅ | ? | ? | ✅ | ✅ |
+| **Tags** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Groups** | ❌ | ❌ | ❌ | ✅ | ❌ |
 | **Members/sharing** | ❌ | ❌ | ❌ | ✅ | ❌ |
 | **Mindmaps** | ❌ | ❌ | ❌ | ✅ | ❌ |
@@ -842,49 +855,58 @@ go test -cover ./...
 
 ## Appendix: Full Tool List Target
 
-### Phase 1 Tools (24 total)
+### Phase 1 Tools (26 implemented)
 
 | Tool | Status |
 |------|--------|
 | `miro_list_boards` | ✅ Done |
 | `miro_get_board` | ✅ Done |
-| `miro_create_board` | ❌ TODO |
-| `miro_copy_board` | ❌ TODO |
-| `miro_delete_board` | ❌ TODO |
+| `miro_create_board` | ✅ Done |
+| `miro_copy_board` | ✅ Done |
+| `miro_delete_board` | ✅ Done |
 | `miro_create_sticky` | ✅ Done |
 | `miro_create_shape` | ✅ Done |
 | `miro_create_text` | ✅ Done |
 | `miro_create_connector` | ✅ Done |
 | `miro_create_frame` | ✅ Done |
-| `miro_create_card` | ❌ TODO |
-| `miro_create_image` | ❌ TODO |
+| `miro_create_card` | ✅ Done |
+| `miro_create_image` | ✅ Done |
+| `miro_create_document` | ✅ Done |
+| `miro_create_embed` | ✅ Done |
 | `miro_bulk_create` | ✅ Done |
 | `miro_list_items` | ✅ Done |
+| `miro_list_all_items` | ✅ Done |
 | `miro_get_item` | ✅ Done |
 | `miro_search_board` | ✅ Done |
 | `miro_update_item` | ✅ Done |
 | `miro_delete_item` | ✅ Done |
-| `miro_list_tags` | ❌ TODO |
-| `miro_create_tag` | ❌ TODO |
-| `miro_attach_tag` | ❌ TODO |
-| `miro_detach_tag` | ❌ TODO |
-| `miro_get_item_tags` | ❌ TODO |
-| `miro_delete_tag` | ❌ TODO |
+| `miro_list_tags` | ✅ Done |
+| `miro_create_tag` | ✅ Done |
+| `miro_attach_tag` | ✅ Done |
+| `miro_detach_tag` | ✅ Done |
+| `miro_get_item_tags` | ✅ Done |
 
-### Phase 2 Tools (10 additional)
+### Phase 2 Tools (Differentiation - TODO)
 
 | Tool | Status |
 |------|--------|
 | `miro_get_board_summary` | ❌ TODO |
 | `miro_create_sticky_grid` | ❌ TODO |
 | `miro_find_board_by_name` | ❌ TODO |
-| `miro_create_document` | ❌ TODO |
-| `miro_create_embed` | ❌ TODO |
 | `miro_create_group` | ❌ TODO |
 | `miro_ungroup` | ❌ TODO |
 | `miro_list_board_members` | ❌ TODO |
 | `miro_share_board` | ❌ TODO |
 | `miro_create_mindmap_node` | ❌ TODO |
+
+### Phase 2 Enhancements (TODO)
+
+| Feature | Status |
+|---------|--------|
+| Token validation on startup | ❌ TODO |
+| Board name resolution | ❌ TODO |
+| Input sanitization | ❌ TODO |
+| Retry with exponential backoff | ❌ TODO |
 
 ---
 

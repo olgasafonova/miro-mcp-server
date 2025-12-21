@@ -297,6 +297,103 @@ func (c *Client) GetBoard(ctx context.Context, args GetBoardArgs) (GetBoardResul
 	return result, nil
 }
 
+// CreateBoard creates a new Miro board.
+func (c *Client) CreateBoard(ctx context.Context, args CreateBoardArgs) (CreateBoardResult, error) {
+	if args.Name == "" {
+		return CreateBoardResult{}, fmt.Errorf("name is required")
+	}
+
+	reqBody := map[string]interface{}{
+		"name": args.Name,
+	}
+
+	if args.Description != "" {
+		reqBody["description"] = args.Description
+	}
+
+	if args.TeamID != "" {
+		reqBody["teamId"] = args.TeamID
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards", reqBody)
+	if err != nil {
+		return CreateBoardResult{}, err
+	}
+
+	var board Board
+	if err := json.Unmarshal(respBody, &board); err != nil {
+		return CreateBoardResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return CreateBoardResult{
+		ID:       board.ID,
+		Name:     board.Name,
+		ViewLink: board.ViewLink,
+		Message:  fmt.Sprintf("Created board '%s'", board.Name),
+	}, nil
+}
+
+// CopyBoard copies an existing board.
+func (c *Client) CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardResult, error) {
+	if args.BoardID == "" {
+		return CopyBoardResult{}, fmt.Errorf("board_id is required")
+	}
+
+	reqBody := make(map[string]interface{})
+
+	if args.Name != "" {
+		reqBody["name"] = args.Name
+	}
+	if args.Description != "" {
+		reqBody["description"] = args.Description
+	}
+	if args.TeamID != "" {
+		reqBody["teamId"] = args.TeamID
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/copy", reqBody)
+	if err != nil {
+		return CopyBoardResult{}, err
+	}
+
+	var board Board
+	if err := json.Unmarshal(respBody, &board); err != nil {
+		return CopyBoardResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return CopyBoardResult{
+		ID:       board.ID,
+		Name:     board.Name,
+		ViewLink: board.ViewLink,
+		Message:  fmt.Sprintf("Copied board to '%s'", board.Name),
+	}, nil
+}
+
+// DeleteBoard deletes a board.
+func (c *Client) DeleteBoard(ctx context.Context, args DeleteBoardArgs) (DeleteBoardResult, error) {
+	if args.BoardID == "" {
+		return DeleteBoardResult{}, fmt.Errorf("board_id is required")
+	}
+
+	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID, nil)
+	if err != nil {
+		return DeleteBoardResult{
+			Success: false,
+			BoardID: args.BoardID,
+			Message: fmt.Sprintf("Failed to delete board: %v", err),
+		}, err
+	}
+
+	// Invalidate cache
+	c.cache.Delete("board:" + args.BoardID)
+
+	return DeleteBoardResult{
+		Success: true,
+		BoardID: args.BoardID,
+		Message: "Board deleted successfully",
+	}, nil
+}
+
 // =============================================================================
 // Item Operations
 // =============================================================================

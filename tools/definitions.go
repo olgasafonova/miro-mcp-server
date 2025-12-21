@@ -62,6 +62,54 @@ USE WHEN: User asks "tell me about board X", "what's on this board"
 
 RETURNS: Board name, description, owner, and creation date.`,
 	},
+	{
+		Name:     "miro_create_board",
+		Method:   "CreateBoard",
+		Title:    "Create Board",
+		Category: "boards",
+		Description: `Create a new Miro board.
+
+USE WHEN: User says "create a new board", "make a board called X", "new whiteboard"
+
+PARAMETERS:
+- name: Board name (required)
+- description: Board description
+- team_id: Team ID to create board in
+
+VOICE-FRIENDLY: "Created board 'Sprint Planning'"`,
+	},
+	{
+		Name:     "miro_copy_board",
+		Method:   "CopyBoard",
+		Title:    "Copy Board",
+		Category: "boards",
+		Description: `Copy an existing Miro board.
+
+USE WHEN: User says "copy this board", "duplicate board X", "make a copy of the board"
+
+PARAMETERS:
+- board_id: Board to copy (required)
+- name: Name for the copy (defaults to "Copy of {original}")
+- description: Description for the copy
+- team_id: Team ID to copy board to
+
+VOICE-FRIENDLY: "Copied board to 'Sprint Planning Copy'"`,
+	},
+	{
+		Name:        "miro_delete_board",
+		Method:      "DeleteBoard",
+		Title:       "Delete Board",
+		Category:    "boards",
+		Destructive: true,
+		Description: `Delete a Miro board permanently.
+
+USE WHEN: User says "delete this board", "remove board X"
+
+PARAMETERS:
+- board_id: Board to delete (required)
+
+WARNING: This action cannot be undone. The board and all its contents will be permanently deleted.`,
+	},
 
 	// ==========================================================================
 	// Create Tools - Sticky Notes, Shapes, Text

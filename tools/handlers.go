@@ -42,6 +42,12 @@ func (h *HandlerRegistry) registerByName(server *mcp.Server, spec ToolSpec) {
 		h.register(server, tool, spec, h.client.ListBoards)
 	case "GetBoard":
 		h.register(server, tool, spec, h.client.GetBoard)
+	case "CreateBoard":
+		h.register(server, tool, spec, h.client.CreateBoard)
+	case "CopyBoard":
+		h.register(server, tool, spec, h.client.CopyBoard)
+	case "DeleteBoard":
+		h.register(server, tool, spec, h.client.DeleteBoard)
 
 	// Create tools
 	case "CreateSticky":
@@ -198,6 +204,12 @@ func (h *HandlerRegistry) register(server *mcp.Server, tool *mcp.Tool, spec Tool
 	case func(context.Context, miro.ListBoardsArgs) (miro.ListBoardsResult, error):
 		register(h, server, tool, spec, m)
 	case func(context.Context, miro.GetBoardArgs) (miro.GetBoardResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CreateBoardArgs) (miro.CreateBoardResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CopyBoardArgs) (miro.CopyBoardResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.DeleteBoardArgs) (miro.DeleteBoardResult, error):
 		register(h, server, tool, spec, m)
 
 	// Create tools

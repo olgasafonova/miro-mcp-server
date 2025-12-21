@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 12 tools implemented, targeting 34+ tools for full parity with competitors.
+**Current Status**: 26 tools implemented. Phase 1 complete. Phase 2 differentiation features in progress.
 
 ## Quick Start
 
@@ -98,22 +98,24 @@ case func(context.Context, miro.NewFeatureArgs) (miro.NewFeatureResult, error):
     register(h, server, tool, spec, m)
 ```
 
-## Priority Implementation Order
+## Implementation Status
 
-See `ROADMAP.md` for full details. Quick reference:
+See `ROADMAP.md` for full details.
 
-### Phase 1: Core Completeness (12 new tools)
-1. **Cards**: `POST /v2/boards/{id}/cards` - task tracking with due dates
-2. **Images**: `POST /v2/boards/{id}/images` - visual content
-3. **Tags**: CRUD + attach/detach - organization
-4. **Board create/copy/delete** - full board management
+### Phase 1: Complete ✅ (26 tools)
+- **Boards**: list, get, create, copy, delete
+- **Create**: sticky, shape, text, connector, frame, card, image, document, embed, bulk
+- **Read**: list items, list all items, get item, search
+- **Tags**: create, list, attach, detach, get item tags
+- **Modify**: update item, delete item
 
-### Phase 2: Differentiation (6 new tools + enhancements)
+### Phase 2: Differentiation (Next)
 1. Token validation on startup
 2. Board name resolution (find by name, not just ID)
 3. Composite tools (`miro_get_board_summary`, `miro_create_sticky_grid`)
 4. Input sanitization
 5. Retry with exponential backoff
+6. Groups, members, mindmaps
 
 ## Miro API Quick Reference
 

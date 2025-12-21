@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 29 tools implemented. Phase 1 complete. Phase 2 differentiation features complete.
+**Current Status**: 34 tools implemented. Phase 1, 2, and 3 complete.
 
 ## Quick Start
 
@@ -117,8 +117,10 @@ See `ROADMAP.md` for full details.
   - Input sanitization (validates IDs and content)
   - Retry with exponential backoff (handles rate limits)
 
-### Phase 3: Remaining (TODO)
-- Groups, members, mindmaps
+### Phase 3: Complete ✅ (+5 tools)
+- **Groups**: `miro_create_group`, `miro_ungroup`
+- **Board Members**: `miro_list_board_members`, `miro_share_board`
+- **Mindmaps**: `miro_create_mindmap_node`
 
 ## Miro API Quick Reference
 

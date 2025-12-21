@@ -34,7 +34,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (29 total)
+### Implemented Tools (34 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -43,6 +43,10 @@ miro-mcp-server/
 | **Boards** | `miro_create_board` | CreateBoard |
 | **Boards** | `miro_copy_board` | CopyBoard |
 | **Boards** | `miro_delete_board` | DeleteBoard |
+| **Boards** | `miro_find_board` | FindBoardByNameTool |
+| **Boards** | `miro_get_board_summary` | GetBoardSummary |
+| **Boards** | `miro_share_board` | ShareBoard |
+| **Boards** | `miro_list_board_members` | ListBoardMembers |
 | **Create** | `miro_create_sticky` | CreateSticky |
 | **Create** | `miro_create_shape` | CreateShape |
 | **Create** | `miro_create_text` | CreateText |
@@ -53,6 +57,9 @@ miro-mcp-server/
 | **Create** | `miro_create_document` | CreateDocument |
 | **Create** | `miro_create_embed` | CreateEmbed |
 | **Create** | `miro_bulk_create` | BulkCreate |
+| **Create** | `miro_create_sticky_grid` | CreateStickyGrid |
+| **Create** | `miro_create_group` | CreateGroup |
+| **Create** | `miro_create_mindmap_node` | CreateMindmapNode |
 | **Read** | `miro_list_items` | ListItems |
 | **Read** | `miro_list_all_items` | ListAllItems |
 | **Read** | `miro_get_item` | GetItem |
@@ -63,6 +70,7 @@ miro-mcp-server/
 | **Tags** | `miro_detach_tag` | DetachTag |
 | **Tags** | `miro_get_item_tags` | GetItemTags |
 | **Update** | `miro_update_item` | UpdateItem |
+| **Update** | `miro_ungroup` | Ungroup |
 | **Delete** | `miro_delete_item` | DeleteItem |
 
 ### Existing Strengths
@@ -898,11 +906,6 @@ go test -cover ./...
 | `miro_get_board_summary` | ✅ Done |
 | `miro_create_sticky_grid` | ✅ Done |
 | `miro_find_board` | ✅ Done |
-| `miro_create_group` | ❌ TODO |
-| `miro_ungroup` | ❌ TODO |
-| `miro_list_board_members` | ❌ TODO |
-| `miro_share_board` | ❌ TODO |
-| `miro_create_mindmap_node` | ❌ TODO |
 
 ### Phase 2 Enhancements
 
@@ -912,6 +915,16 @@ go test -cover ./...
 | Board name resolution | ✅ Done |
 | Input sanitization | ✅ Done |
 | Retry with exponential backoff | ✅ Done |
+
+### Phase 3 Tools (Additional Features)
+
+| Tool | Status |
+|------|--------|
+| `miro_create_group` | ✅ Done |
+| `miro_ungroup` | ✅ Done |
+| `miro_list_board_members` | ✅ Done |
+| `miro_share_board` | ✅ Done |
+| `miro_create_mindmap_node` | ✅ Done |
 
 ---
 

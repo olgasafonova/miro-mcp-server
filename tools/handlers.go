@@ -107,6 +107,22 @@ func (h *HandlerRegistry) registerByName(server *mcp.Server, spec ToolSpec) {
 	case "CreateStickyGrid":
 		h.register(server, tool, spec, h.client.CreateStickyGrid)
 
+	// Group tools
+	case "CreateGroup":
+		h.register(server, tool, spec, h.client.CreateGroup)
+	case "Ungroup":
+		h.register(server, tool, spec, h.client.Ungroup)
+
+	// Board member tools
+	case "ListBoardMembers":
+		h.register(server, tool, spec, h.client.ListBoardMembers)
+	case "ShareBoard":
+		h.register(server, tool, spec, h.client.ShareBoard)
+
+	// Mindmap tools
+	case "CreateMindmapNode":
+		h.register(server, tool, spec, h.client.CreateMindmapNode)
+
 	default:
 		h.logger.Error("Unknown method, tool not registered", "method", spec.Method, "tool", spec.Name)
 	}
@@ -276,6 +292,22 @@ func (h *HandlerRegistry) register(server *mcp.Server, tool *mcp.Tool, spec Tool
 	case func(context.Context, miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error):
 		register(h, server, tool, spec, m)
 	case func(context.Context, miro.CreateStickyGridArgs) (miro.CreateStickyGridResult, error):
+		register(h, server, tool, spec, m)
+
+	// Group tools
+	case func(context.Context, miro.CreateGroupArgs) (miro.CreateGroupResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.UngroupArgs) (miro.UngroupResult, error):
+		register(h, server, tool, spec, m)
+
+	// Board member tools
+	case func(context.Context, miro.ListBoardMembersArgs) (miro.ListBoardMembersResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.ShareBoardArgs) (miro.ShareBoardResult, error):
+		register(h, server, tool, spec, m)
+
+	// Mindmap tools
+	case func(context.Context, miro.CreateMindmapNodeArgs) (miro.CreateMindmapNodeResult, error):
 		register(h, server, tool, spec, m)
 
 	default:

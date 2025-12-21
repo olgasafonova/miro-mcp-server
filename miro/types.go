@@ -879,3 +879,115 @@ type CreateStickyGridResult struct {
 	Columns int      `json:"columns"`
 	Message string   `json:"message"`
 }
+
+// =============================================================================
+// Group Types
+// =============================================================================
+
+// Group represents a group of items on a board.
+type Group struct {
+	ID    string   `json:"id"`
+	Items []string `json:"items,omitempty"`
+}
+
+// CreateGroupArgs contains parameters for creating a group.
+type CreateGroupArgs struct {
+	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemIDs []string `json:"item_ids" jsonschema:"required" jsonschema_description:"IDs of items to group together (minimum 2)"`
+}
+
+// CreateGroupResult contains the created group.
+type CreateGroupResult struct {
+	ID      string   `json:"id"`
+	ItemIDs []string `json:"item_ids"`
+	Message string   `json:"message"`
+}
+
+// UngroupArgs contains parameters for ungrouping items.
+type UngroupArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	GroupID string `json:"group_id" jsonschema:"required" jsonschema_description:"ID of the group to ungroup"`
+}
+
+// UngroupResult confirms ungrouping.
+type UngroupResult struct {
+	Success bool   `json:"success"`
+	GroupID string `json:"group_id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Board Member Types
+// =============================================================================
+
+// BoardMember represents a member with access to a board.
+type BoardMember struct {
+	ID    string `json:"id"`
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Role  string `json:"role"` // "viewer", "commenter", "editor", "coowner", "owner"
+}
+
+// ListBoardMembersArgs contains parameters for listing board members.
+type ListBoardMembersArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max members to return (default 50)"`
+	Offset  string `json:"offset,omitempty" jsonschema_description:"Pagination cursor"`
+}
+
+// ListBoardMembersResult contains the list of board members.
+type ListBoardMembersResult struct {
+	Members []BoardMember `json:"members"`
+	Count   int           `json:"count"`
+	HasMore bool          `json:"has_more"`
+	Message string        `json:"message"`
+}
+
+// ShareBoardArgs contains parameters for sharing a board with a user.
+type ShareBoardArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to share"`
+	Email   string `json:"email" jsonschema:"required" jsonschema_description:"Email address of the user to invite"`
+	Role    string `json:"role,omitempty" jsonschema_description:"Access role: viewer, commenter, editor (default: viewer)"`
+	Message string `json:"message,omitempty" jsonschema_description:"Optional message to include in the invitation"`
+}
+
+// ShareBoardResult confirms board sharing.
+type ShareBoardResult struct {
+	Success bool   `json:"success"`
+	Email   string `json:"email"`
+	Role    string `json:"role"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Mindmap Types
+// =============================================================================
+
+// MindmapNode represents a node in a mindmap.
+type MindmapNode struct {
+	ItemBase
+	Data MindmapNodeData `json:"data"`
+}
+
+// MindmapNodeData contains mindmap node specific data.
+type MindmapNodeData struct {
+	NodeView string `json:"nodeView,omitempty"` // "text" or "bubble"
+}
+
+// CreateMindmapNodeArgs contains parameters for creating a mindmap node.
+type CreateMindmapNodeArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Content  string  `json:"content" jsonschema:"required" jsonschema_description:"Text content of the node"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"ID of the parent node (omit for root node)"`
+	NodeView string  `json:"node_view,omitempty" jsonschema_description:"Node style: text (default) or bubble"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position (only for root nodes)"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position (only for root nodes)"`
+}
+
+// CreateMindmapNodeResult contains the created mindmap node.
+type CreateMindmapNodeResult struct {
+	ID       string `json:"id"`
+	Content  string `json:"content"`
+	ParentID string `json:"parent_id,omitempty"`
+	Message  string `json:"message"`
+}

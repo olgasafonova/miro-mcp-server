@@ -95,7 +95,7 @@ func containsWarning(s string) bool {
 
 func TestToolCount(t *testing.T) {
 	// Verify the expected number of tools
-	expectedCount := 29
+	expectedCount := 34
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

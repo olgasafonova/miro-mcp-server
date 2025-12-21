@@ -585,6 +585,108 @@ PARAMETERS:
 
 VOICE-FRIENDLY: "Created 9 stickies in a 3x3 grid"`,
 	},
+
+	// ==========================================================================
+	// Group Tools
+	// ==========================================================================
+	{
+		Name:     "miro_create_group",
+		Method:   "CreateGroup",
+		Title:    "Group Items",
+		Category: "create",
+		Description: `Group multiple items together on a board. Grouped items move and resize together.
+
+USE WHEN: User says "group these items", "combine these shapes", "make a group from these stickies"
+
+PARAMETERS:
+- board_id: Required
+- item_ids: Array of item IDs to group (required, minimum 2 items)
+
+NOTE: At least 2 items are required to create a group. Use list_items to find item IDs.
+
+VOICE-FRIENDLY: "Grouped 4 items together"`,
+	},
+	{
+		Name:        "miro_ungroup",
+		Method:      "Ungroup",
+		Title:       "Ungroup Items",
+		Category:    "update",
+		Description: `Remove a group, releasing its items to be moved independently.
+
+USE WHEN: User says "ungroup these", "separate the group", "break apart the group"
+
+PARAMETERS:
+- board_id: Required
+- group_id: ID of the group to ungroup (required)
+
+VOICE-FRIENDLY: "Items ungrouped successfully"`,
+	},
+
+	// ==========================================================================
+	// Board Member Tools
+	// ==========================================================================
+	{
+		Name:     "miro_list_board_members",
+		Method:   "ListBoardMembers",
+		Title:    "List Board Members",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List all users who have access to a board.
+
+USE WHEN: User asks "who has access to this board", "show board members", "list collaborators"
+
+PARAMETERS:
+- board_id: Required
+- limit: Max members to return (default 50)
+
+RETURNS: Member names, emails, and roles (viewer, commenter, editor, coowner, owner).
+
+VOICE-FRIENDLY: "This board has 5 members: 2 editors, 3 viewers"`,
+	},
+	{
+		Name:     "miro_share_board",
+		Method:   "ShareBoard",
+		Title:    "Share Board",
+		Category: "boards",
+		Description: `Share a board with someone by email. Sends an invitation to collaborate.
+
+USE WHEN: User says "share board with John", "add jane@example.com to the board", "invite someone to the board"
+
+PARAMETERS:
+- board_id: Required
+- email: Email address of the person to invite (required)
+- role: Access level - viewer, commenter, or editor (default: viewer)
+- message: Optional invitation message
+
+VOICE-FRIENDLY: "Shared board with jane@example.com as editor"`,
+	},
+
+	// ==========================================================================
+	// Mindmap Tools
+	// ==========================================================================
+	{
+		Name:     "miro_create_mindmap_node",
+		Method:   "CreateMindmapNode",
+		Title:    "Create Mindmap Node",
+		Category: "create",
+		Description: `Create a mindmap node on a board. Mindmaps are hierarchical diagrams for brainstorming and idea organization.
+
+USE WHEN: User says "create a mindmap", "add mindmap node", "add a branch to the mindmap"
+
+PARAMETERS:
+- board_id: Required
+- content: Node text content (required)
+- parent_id: ID of parent node (omit for root node)
+- node_view: Style - "text" (default) or "bubble"
+- x, y: Position (only for root nodes without parent)
+
+WORKFLOW:
+1. Create root node first (without parent_id)
+2. Add child nodes with parent_id pointing to root
+3. Continue adding nested children as needed
+
+VOICE-FRIENDLY: "Created mindmap node 'Project Ideas' as root"`,
+	},
 }
 
 // ptr is a helper to create a pointer to a value.

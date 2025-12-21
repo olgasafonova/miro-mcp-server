@@ -4,10 +4,11 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 
 ## Features
 
-- **29 tools** for complete Miro control
-- **Board management**: Create, copy, delete, find by name
-- **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds
+- **34 tools** for complete Miro control
+- **Board management**: Create, copy, delete, find by name, share with users
+- **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds, mindmap nodes
 - **Bulk operations**: Create multiple items at once, sticky grids
+- **Groups**: Group and ungroup items
 - **Tags**: Create, attach, and manage tags
 - **Token validation**: Fails fast with clear error if token is invalid
 - **Rate limiting**: Semaphore-based (5 concurrent requests)
@@ -71,7 +72,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-## Available Tools (29 total)
+## Available Tools (34 total)
 
 ### Board Tools
 | Tool | Description |
@@ -83,6 +84,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `miro_delete_board` | Delete a board (destructive) |
 | `miro_find_board` | Find board by name (fuzzy match) |
 | `miro_get_board_summary` | Get board with item counts and stats |
+| `miro_share_board` | Share a board with someone by email |
+| `miro_list_board_members` | List users with access to a board |
 
 ### Create Tools
 | Tool | Description |
@@ -98,6 +101,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `miro_create_embed` | Embed external content (YouTube, Figma, etc.) |
 | `miro_bulk_create` | Create multiple items at once |
 | `miro_create_sticky_grid` | Create stickies in a grid layout |
+| `miro_create_group` | Group multiple items together |
+| `miro_create_mindmap_node` | Create a mindmap node (root or child) |
 
 ### Read Tools
 | Tool | Description |
@@ -121,6 +126,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 |------|-------------|
 | `miro_update_item` | Update an item's content or position |
 | `miro_delete_item` | Delete an item (destructive) |
+| `miro_ungroup` | Ungroup items (release from a group) |
 
 ## Example Usage
 

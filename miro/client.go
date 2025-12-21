@@ -1985,6 +1985,235 @@ func (c *Client) CreateStickyGrid(ctx context.Context, args CreateStickyGridArgs
 }
 
 // =============================================================================
+// Group Operations
+// =============================================================================
+
+// CreateGroup groups multiple items together on a board.
+func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateGroupResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateGroupResult{}, err
+	}
+	if len(args.ItemIDs) < 2 {
+		return CreateGroupResult{}, fmt.Errorf("at least 2 items are required to create a group")
+	}
+
+	reqBody := map[string]interface{}{
+		"items": args.ItemIDs,
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/groups", reqBody)
+	if err != nil {
+		return CreateGroupResult{}, err
+	}
+
+	var group Group
+	if err := json.Unmarshal(respBody, &group); err != nil {
+		return CreateGroupResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return CreateGroupResult{
+		ID:      group.ID,
+		ItemIDs: args.ItemIDs,
+		Message: fmt.Sprintf("Grouped %d items together", len(args.ItemIDs)),
+	}, nil
+}
+
+// Ungroup removes a group, releasing its items.
+func (c *Client) Ungroup(ctx context.Context, args UngroupArgs) (UngroupResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UngroupResult{}, err
+	}
+	if err := ValidateItemID(args.GroupID); err != nil {
+		return UngroupResult{}, fmt.Errorf("invalid group_id: %w", err)
+	}
+
+	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID+"/groups/"+args.GroupID, nil)
+	if err != nil {
+		return UngroupResult{
+			Success: false,
+			GroupID: args.GroupID,
+			Message: fmt.Sprintf("Failed to ungroup: %v", err),
+		}, err
+	}
+
+	return UngroupResult{
+		Success: true,
+		GroupID: args.GroupID,
+		Message: "Items ungrouped successfully",
+	}, nil
+}
+
+// =============================================================================
+// Board Member Operations
+// =============================================================================
+
+// ListBoardMembers retrieves members with access to a board.
+func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs) (ListBoardMembersResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListBoardMembersResult{}, err
+	}
+
+	params := url.Values{}
+	limit := 50
+	if args.Limit > 0 && args.Limit <= 100 {
+		limit = args.Limit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	if args.Offset != "" {
+		params.Set("offset", args.Offset)
+	}
+
+	path := "/boards/" + args.BoardID + "/members?" + params.Encode()
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return ListBoardMembersResult{}, err
+	}
+
+	var resp struct {
+		Data   []BoardMember `json:"data"`
+		Total  int           `json:"total,omitempty"`
+		Offset string        `json:"offset,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return ListBoardMembersResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	message := fmt.Sprintf("Found %d board members", len(resp.Data))
+	if len(resp.Data) == 0 {
+		message = "No members found on this board"
+	}
+
+	return ListBoardMembersResult{
+		Members: resp.Data,
+		Count:   len(resp.Data),
+		HasMore: resp.Offset != "" && len(resp.Data) >= limit,
+		Message: message,
+	}, nil
+}
+
+// ShareBoard shares a board with a user by email.
+func (c *Client) ShareBoard(ctx context.Context, args ShareBoardArgs) (ShareBoardResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ShareBoardResult{}, err
+	}
+	if args.Email == "" {
+		return ShareBoardResult{}, fmt.Errorf("email is required")
+	}
+
+	// Default role
+	role := args.Role
+	if role == "" {
+		role = "viewer"
+	}
+
+	// Validate role
+	validRoles := map[string]bool{"viewer": true, "commenter": true, "editor": true}
+	if !validRoles[role] {
+		return ShareBoardResult{}, fmt.Errorf("invalid role '%s': must be viewer, commenter, or editor", role)
+	}
+
+	reqBody := map[string]interface{}{
+		"emails": []string{args.Email},
+		"role":   role,
+	}
+
+	if args.Message != "" {
+		reqBody["message"] = args.Message
+	}
+
+	_, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/members", reqBody)
+	if err != nil {
+		return ShareBoardResult{
+			Success: false,
+			Email:   args.Email,
+			Role:    role,
+			Message: fmt.Sprintf("Failed to share board: %v", err),
+		}, err
+	}
+
+	return ShareBoardResult{
+		Success: true,
+		Email:   args.Email,
+		Role:    role,
+		Message: fmt.Sprintf("Shared board with %s as %s", args.Email, role),
+	}, nil
+}
+
+// =============================================================================
+// Mindmap Operations
+// =============================================================================
+
+// CreateMindmapNode creates a mindmap node on a board.
+func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeArgs) (CreateMindmapNodeResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateMindmapNodeResult{}, err
+	}
+	if args.Content == "" {
+		return CreateMindmapNodeResult{}, fmt.Errorf("content is required")
+	}
+	if err := ValidateContent(args.Content); err != nil {
+		return CreateMindmapNodeResult{}, err
+	}
+
+	// Build request body
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"content": args.Content,
+		},
+	}
+
+	// Set node view style
+	if args.NodeView != "" {
+		data := reqBody["data"].(map[string]interface{})
+		data["nodeView"] = args.NodeView
+	}
+
+	// If parent is specified, this is a child node
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	} else {
+		// Root node - set position
+		reqBody["position"] = map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/mind_map_nodes", reqBody)
+	if err != nil {
+		return CreateMindmapNodeResult{}, err
+	}
+
+	var node struct {
+		ID   string `json:"id"`
+		Data struct {
+			Content string `json:"content"`
+		} `json:"data"`
+		Parent *struct {
+			ID string `json:"id"`
+		} `json:"parent"`
+	}
+	if err := json.Unmarshal(respBody, &node); err != nil {
+		return CreateMindmapNodeResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	result := CreateMindmapNodeResult{
+		ID:      node.ID,
+		Content: node.Data.Content,
+		Message: fmt.Sprintf("Created mindmap node '%s'", truncate(args.Content, 30)),
+	}
+	if node.Parent != nil {
+		result.ParentID = node.Parent.ID
+	}
+
+	return result, nil
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 

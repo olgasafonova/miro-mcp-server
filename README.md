@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 
 ## Features
 
-- **48 tools** for complete Miro control
+- **50 tools** for complete Miro control
 - **AI Diagram Generation**: Create flowcharts from Mermaid syntax with auto-layout
 - **Board management**: Create, copy, delete, find by name, share with users
 - **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds, mindmap nodes

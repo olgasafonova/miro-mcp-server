@@ -24,10 +24,19 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 	// Clean up the diagram input
 	diagramCode := strings.TrimSpace(args.Diagram)
 
-	// Parse the Mermaid diagram
-	parser := diagrams.NewMermaidParser()
-	diagram, err := parser.Parse(diagramCode)
+	// Validate input before parsing
+	if err := diagrams.ValidateDiagramInput(diagramCode); err != nil {
+		return GenerateDiagramResult{}, err
+	}
+
+	// Parse the Mermaid diagram (auto-detects flowchart vs sequence)
+	diagram, err := diagrams.ParseMermaid(diagramCode)
 	if err != nil {
+		// Wrap with helpful context
+		hint := diagrams.DiagramTypeHint(diagramCode)
+		if hint != "" {
+			return GenerateDiagramResult{}, fmt.Errorf("failed to parse diagram: %w. Hint: %s", err, hint)
+		}
 		return GenerateDiagramResult{}, fmt.Errorf("failed to parse diagram: %w", err)
 	}
 

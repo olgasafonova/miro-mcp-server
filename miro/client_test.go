@@ -2893,3 +2893,521 @@ func TestGetExportJobResults_NotCompleted(t *testing.T) {
 		t.Errorf("expected 'not yet available' message, got: %s", result.Message)
 	}
 }
+
+// =============================================================================
+// Mindmap Tests
+// =============================================================================
+
+func TestCreateMindmapNode_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/mind_map_nodes") {
+			t.Errorf("expected mind_map_nodes path, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "mindmap123",
+			"data": map[string]interface{}{
+				"content": "Root Node",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
+		BoardID: "board123",
+		Content: "Root Node",
+		X:       100,
+		Y:       200,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "mindmap123" {
+		t.Errorf("ID = %q, want 'mindmap123'", result.ID)
+	}
+	if result.Content != "Root Node" {
+		t.Errorf("Content = %q, want 'Root Node'", result.Content)
+	}
+}
+
+func TestCreateMindmapNode_WithParent(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+
+		parent, ok := body["parent"].(map[string]interface{})
+		if !ok {
+			t.Error("expected parent in request body")
+		}
+		if parent["id"] != "parent123" {
+			t.Errorf("parent id = %v, want 'parent123'", parent["id"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "child123",
+			"data": map[string]interface{}{
+				"content": "Child Node",
+			},
+			"parent": map[string]interface{}{
+				"id": "parent123",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
+		BoardID:  "board123",
+		Content:  "Child Node",
+		ParentID: "parent123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ParentID != "parent123" {
+		t.Errorf("ParentID = %q, want 'parent123'", result.ParentID)
+	}
+}
+
+func TestCreateMindmapNode_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    CreateMindmapNodeArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    CreateMindmapNodeArgs{Content: "Test"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty content",
+			args:    CreateMindmapNodeArgs{BoardID: "board123"},
+			wantErr: "content is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.CreateMindmapNode(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestTruncateMindmap(t *testing.T) {
+	tests := []struct {
+		input  string
+		max    int
+		expect string
+	}{
+		{"short", 10, "short"},
+		{"exactly ten", 10, "exactly..."},
+		{"longer string", 10, "longer ..."},
+	}
+
+	for _, tt := range tests {
+		result := truncateMindmap(tt.input, tt.max)
+		if result != tt.expect {
+			t.Errorf("truncateMindmap(%q, %d) = %q, want %q", tt.input, tt.max, result, tt.expect)
+		}
+	}
+}
+
+// =============================================================================
+// Connector Update/Delete Tests
+// =============================================================================
+
+func TestUpdateConnector_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/connectors/") {
+			t.Errorf("expected connectors path, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "conn123",
+			"captions": []map[string]interface{}{
+				{"content": "Updated Caption"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateConnector(context.Background(), UpdateConnectorArgs{
+		BoardID:     "board123",
+		ConnectorID: "conn123",
+		Caption:     "Updated Caption",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "conn123" {
+		t.Errorf("ID = %q, want 'conn123'", result.ID)
+	}
+}
+
+func TestUpdateConnector_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    UpdateConnectorArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    UpdateConnectorArgs{ConnectorID: "conn123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty connector ID",
+			args:    UpdateConnectorArgs{BoardID: "board123"},
+			wantErr: "connector_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.UpdateConnector(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDeleteConnector_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/connectors/") {
+			t.Errorf("expected connectors path, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.DeleteConnector(context.Background(), DeleteConnectorArgs{
+		BoardID:     "board123",
+		ConnectorID: "conn123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "conn123" {
+		t.Errorf("ID = %q, want 'conn123'", result.ID)
+	}
+}
+
+// =============================================================================
+// BulkCreate Tests
+// =============================================================================
+
+func TestBulkCreate_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "item123",
+			"data": map[string]interface{}{
+				"content": "Test",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.BulkCreate(context.Background(), BulkCreateArgs{
+		BoardID: "board123",
+		Items: []BulkCreateItem{
+			{Type: "sticky_note", Content: "Note 1"},
+			{Type: "sticky_note", Content: "Note 2"},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Created != 2 {
+		t.Errorf("Created = %d, want 2", result.Created)
+	}
+}
+
+func TestBulkCreate_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    BulkCreateArgs
+		wantErr string
+	}{
+		{
+			name: "empty board ID",
+			args: BulkCreateArgs{
+				Items: []BulkCreateItem{{Type: "sticky_note", Content: "Test"}},
+			},
+			wantErr: "board_id is required",
+		},
+		{
+			name: "empty items",
+			args: BulkCreateArgs{
+				BoardID: "board123",
+				Items:   []BulkCreateItem{},
+			},
+			wantErr: "at least one item is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.BulkCreate(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// CreateStickyGrid Tests
+// =============================================================================
+
+func TestCreateStickyGrid_Success(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": fmt.Sprintf("sticky%d", callCount),
+			"data": map[string]interface{}{
+				"content": "Test",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateStickyGrid(context.Background(), CreateStickyGridArgs{
+		BoardID:  "board123",
+		Contents: []string{"Note 1", "Note 2", "Note 3"},
+		Columns:  2,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Created != 3 {
+		t.Errorf("Created = %d, want 3", result.Created)
+	}
+	if len(result.ItemIDs) != 3 {
+		t.Errorf("ItemIDs length = %d, want 3", len(result.ItemIDs))
+	}
+}
+
+func TestCreateStickyGrid_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    CreateStickyGridArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    CreateStickyGridArgs{Contents: []string{"Test"}},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty contents",
+			args:    CreateStickyGridArgs{BoardID: "board123"},
+			wantErr: "at least one content item is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.CreateStickyGrid(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// CreateDocument Tests
+// =============================================================================
+
+func TestCreateDocument_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/documents") {
+			t.Errorf("expected documents path, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "doc123",
+			"data": map[string]interface{}{
+				"title": "Test Document",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateDocument(context.Background(), CreateDocumentArgs{
+		BoardID: "board123",
+		Title:   "Test Document",
+		URL:     "https://example.com/doc.pdf",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "doc123" {
+		t.Errorf("ID = %q, want 'doc123'", result.ID)
+	}
+}
+
+func TestCreateDocument_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    CreateDocumentArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    CreateDocumentArgs{URL: "https://example.com/doc.pdf"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty URL",
+			args:    CreateDocumentArgs{BoardID: "board123"},
+			wantErr: "url is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.CreateDocument(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// CreateEmbed Tests
+// =============================================================================
+
+func TestCreateEmbed_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/embeds") {
+			t.Errorf("expected embeds path, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "embed123",
+			"data": map[string]interface{}{
+				"url": "https://youtube.com/watch?v=test",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateEmbed(context.Background(), CreateEmbedArgs{
+		BoardID: "board123",
+		URL:     "https://youtube.com/watch?v=test",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "embed123" {
+		t.Errorf("ID = %q, want 'embed123'", result.ID)
+	}
+}
+
+func TestCreateEmbed_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    CreateEmbedArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    CreateEmbedArgs{URL: "https://youtube.com/watch?v=test"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty URL",
+			args:    CreateEmbedArgs{BoardID: "board123"},
+			wantErr: "url is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.CreateEmbed(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}

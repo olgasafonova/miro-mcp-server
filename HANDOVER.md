@@ -3,8 +3,8 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.2.1 (development)
-> **Latest Commit**: `332a8da`
+> **Version**: v1.3.0
+> **Latest Session**: Performance & Polish + Test Coverage + Release Prep
 
 ---
 
@@ -24,117 +24,88 @@ go test ./...
 
 ## Just Completed This Session
 
-### Test Coverage Improvements (miro/ package: 20.5% → 61.5%)
+### 1. Priority 3: Performance & Polish (COMPLETED)
 
-Significant test coverage improvement using `httptest.NewServer` mock pattern.
+- **Added `--verbose` flag**: Debug logging with `./miro-mcp-server --verbose`
+- **Created benchmarks**: `miro/diagrams/benchmark_test.go` for parsing/layout performance
+- **Improved error messages**: New `miro/diagrams/errors.go` with structured DiagramError
+  - Error codes (NO_NODES, INVALID_SYNTAX, MISSING_HEADER, etc.)
+  - Line numbers for syntax errors
+  - Actionable suggestions for all error types
+  - DiagramTypeHint() for context-aware hints
+- **Updated version**: ServerVersion changed to "1.3.0" in main.go
+
+### 2. Priority 1: Test Coverage Improvements (COMPLETED)
 
 **Coverage Progress:**
 
 | Package | Before | After | Change |
 |---------|--------|-------|--------|
-| miro/ | 20.5% | **61.5%** | +41% |
+| miro/ | 61.5% | **71.9%** | +10.4% |
 | miro/audit | 78.2% | 78.2% | - |
-| miro/diagrams | 78.4% | 78.4% | - |
-| miro/oauth | 31.3% | 31.3% | - |
-| miro/webhooks | 40.8% | 40.8% | - |
+| miro/diagrams | 71.2% | 71.2% | - |
+| miro/oauth | 31.3% | **46.6%** | +15.3% |
+| miro/webhooks | 40.8% | **53.2%** | +12.4% |
 
-**Tests Added to `miro/client_test.go`:**
+**Tests Added:**
 
-| Domain | Functions Tested |
-|--------|-----------------|
-| items.go | ListItems, GetItem, UpdateItem, DeleteItem, SearchBoard, ListAllItems |
-| tags.go | CreateTag, ListTags, AttachTag, DetachTag, GetItemTags, UpdateTag, DeleteTag |
-| create.go | CreateShape, CreateText, CreateConnector, CreateFrame, CreateCard, CreateImage, ListConnectors, GetConnector |
-| boards.go | CopyBoard, FindBoardByNameTool, GetBoardSummary |
-| groups.go | CreateGroup, Ungroup |
-| members.go | ListBoardMembers, ShareBoard |
-| export.go | GetBoardPicture, CreateExportJob, GetExportJobStatus, GetExportJobResults |
+- `miro/client_test.go`: CreateMindmapNode, UpdateConnector, DeleteConnector, BulkCreate, CreateStickyGrid, CreateDocument, CreateEmbed
+- `miro/oauth/oauth_test.go`: CallbackServer tests (success, error, missing code, root handler, timeout)
+- `miro/webhooks/webhooks_test.go`: SSEHandler tests (ServeHTTP, board filter, no flusher)
 
-**Test Pattern Used:**
-```go
-func TestXxx_Success(t *testing.T) {
-    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Verify method, path, body
-        // Return mock JSON response
-    }))
-    defer server.Close()
+### 3. Priority 4: Release Prep v1.3.0 (COMPLETED)
 
-    client := newTestClientWithServer(server.URL)
-    result, err := client.Xxx(context.Background(), XxxArgs{...})
-    // Assertions
-}
-```
+- Updated README.md to reflect 50 tools
+- Created CHANGELOG.md with full version history
+- Ready to commit and tag v1.3.0
 
 ---
 
-## Tool Count History
+## Files Changed This Session
 
-| Version | Tools | Notes |
-|---------|-------|-------|
-| v1.0.0 | 38 | Initial release |
-| v1.1.0 | 43 | Phase 5 (audit, webhooks) |
-| v1.2.0 | 44 | Phase 6 (diagram generation) |
-| v1.2.1-dev | 48 | Tag/connector update/delete |
-| **Current** | **50** | Connector list/get, sequence diagrams |
-
----
-
-## Key Documentation
-
-| File | Purpose |
-|------|---------|
-| `CLAUDE.md` | Architecture, patterns, how to add tools |
-| `ROADMAP.md` | Full implementation plan and status |
-| `docs/PHASE5_PLAN.md` | Phase 5 design details |
+| File | Change |
+|------|--------|
+| `main.go` | Added --verbose flag, updated version to 1.3.0 |
+| `miro/diagrams.go` | Added ValidateDiagramInput, DiagramTypeHint integration |
+| `miro/diagrams/errors.go` | NEW - Structured error handling |
+| `miro/diagrams/benchmark_test.go` | NEW - Performance benchmarks |
+| `miro/client_test.go` | Added 10+ new test functions |
+| `miro/oauth/oauth_test.go` | Added CallbackServer tests |
+| `miro/webhooks/webhooks_test.go` | Added SSEHandler tests |
+| `README.md` | Updated tool count to 50 |
+| `CHANGELOG.md` | NEW - Version history |
 
 ---
 
 ## What's Next? (Recommendations)
 
-### Priority 1: Continue Test Coverage to 80%+
+### Priority 1: Tag and Release v1.3.0
 
-Current gaps to address:
+```bash
+git add -A
+git commit -m "v1.3.0: Performance polish, improved errors, test coverage"
+git tag v1.3.0
+git push origin main --tags
+```
+
+### Priority 2: Continue Test Coverage to 80%+
+
+Current gaps:
 
 | Package | Current | Target | Focus Areas |
 |---------|---------|--------|-------------|
-| miro/ | 61.5% | 80%+ | mindmaps.go, BulkCreate, CreateStickyGrid |
-| miro/oauth | 31.3% | 60%+ | Token refresh, PKCE flow |
-| miro/webhooks | 40.8% | 60%+ | Subscription management |
+| miro/ | 71.9% | 80%+ | Remaining untested methods |
+| miro/oauth | 46.6% | 60%+ | ExchangeCode, RefreshToken (need mock server) |
+| miro/webhooks | 53.2% | 60%+ | Manager CRUD (Create, Get, Delete webhooks) |
+| tools/ | 16.8% | 50%+ | Handler tests |
 
-```bash
-# Check coverage
-go test -cover ./miro/...
-
-# Detailed coverage report
-go test -coverprofile=coverage.out ./miro/...
-go tool cover -html=coverage.out
-```
-
-### Priority 2: Additional Diagram Types
-
-The parser architecture supports extension:
+### Priority 3: Additional Diagram Types
 
 | Diagram Type | Complexity | Value |
 |--------------|------------|-------|
-| Class diagrams | Medium | High (developers) |
-| State diagrams | Medium | High (product teams) |
+| Class diagrams | Medium | High |
+| State diagrams | Medium | High |
 | ER diagrams | High | Medium |
-| Gantt charts | High | Medium |
-
-### Priority 3: Performance & Polish
-
-- Add benchmarks for diagram parsing/layout
-- Profile memory usage for large boards
-- Improve error messages with suggestions
-- Add `--verbose` flag for debugging
-
-### Priority 4: Release Prep
-
-For v1.3.0 release:
-1. Update README with sequence diagram examples
-2. Add CHANGELOG.md entry
-3. Tag and push release
-4. Update any package managers
 
 ---
 
@@ -142,31 +113,22 @@ For v1.3.0 release:
 
 ```
 miro-mcp-server/
-├── main.go                 # Entry point
+├── main.go                 # Entry point + --verbose flag
 ├── miro/
 │   ├── client.go           # HTTP client with retry/caching
-│   ├── client_test.go      # Main test file (2900+ lines)
-│   ├── interfaces.go       # All service interfaces (12 interfaces)
-│   ├── boards.go           # Board operations
-│   ├── items.go            # Item CRUD
-│   ├── create.go           # Create operations + connector list/get
-│   ├── tags.go             # Tag operations
-│   ├── groups.go           # Group operations
-│   ├── members.go          # Member operations
-│   ├── export.go           # Export operations
-│   ├── diagrams.go         # Diagram generation
-│   ├── diagrams/           # Mermaid parsers + layout
-│   │   ├── mermaid.go      # Flowchart parser + auto-detect
+│   ├── client_test.go      # Tests (3300+ lines)
+│   ├── diagrams.go         # Diagram generation + validation
+│   ├── diagrams/
+│   │   ├── errors.go       # Structured error handling
+│   │   ├── benchmark_test.go # Performance benchmarks
+│   │   ├── mermaid.go      # Flowchart parser
 │   │   ├── sequence.go     # Sequence diagram parser
-│   │   ├── layout.go       # Sugiyama-style algorithm
-│   │   └── converter.go    # Diagram → Miro items
-│   ├── audit/              # Audit logging
-│   ├── oauth/              # OAuth 2.1 + PKCE
-│   └── webhooks/           # Webhook subscriptions
+│   │   └── layout.go       # Sugiyama-style algorithm
+│   ├── oauth/              # OAuth 2.1 + PKCE + tests
+│   └── webhooks/           # Webhook subscriptions + SSE + tests
 └── tools/
     ├── definitions.go      # Tool specs (50 tools)
-    ├── handlers.go         # Handler registration
-    └── mock_client_test.go # Mock for testing
+    └── handlers.go         # Handler registration
 ```
 
 ---
@@ -177,41 +139,29 @@ miro-mcp-server/
 # Build
 go build -o miro-mcp-server .
 
-# Run (stdio)
-MIRO_ACCESS_TOKEN=xxx ./miro-mcp-server
+# Run (verbose mode)
+MIRO_ACCESS_TOKEN=xxx ./miro-mcp-server --verbose
 
-# Run (HTTP with webhooks)
-MIRO_ACCESS_TOKEN=xxx MIRO_WEBHOOKS_ENABLED=true ./miro-mcp-server -http :8080
-
-# Test
-go test ./...
+# Run benchmarks
+go test -bench=. ./miro/diagrams/...
 
 # Test with coverage
 go test -cover ./...
 
-# Test specific package
-go test ./miro/... -v
+# Detailed coverage
+go test -coverprofile=coverage.out ./miro/...
+go tool cover -func=coverage.out
 ```
-
----
-
-## Known Limitations
-
-1. **Comments API**: Miro REST API v2 does not expose comments. This is a community-requested feature.
-
-2. **Sequence diagram layout**: Currently places participants horizontally but messages use connector positioning (may need visual adjustment for complex sequences).
-
-3. **Enterprise features**: Export jobs require Enterprise plan.
 
 ---
 
 ## Competitive Position
 
-| Server | Tools | Diagram Gen | Sequence | Language |
-|--------|-------|-------------|----------|----------|
-| **This server** | 50 | Flowchart + Sequence | ✅ | Go |
-| k-jarzyna/miro-mcp | 87 | ❌ | ❌ | TypeScript |
-| Official Miro MCP | ~10 | Flowchart only | ❌ | TypeScript |
+| Server | Tools | Diagram Gen | Sequence | Language | Test Coverage |
+|--------|-------|-------------|----------|----------|---------------|
+| **This server** | 50 | Flowchart + Sequence | ✅ | Go | ~72% |
+| k-jarzyna/miro-mcp | 87 | ❌ | ❌ | TypeScript | ? |
+| Official Miro MCP | ~10 | Flowchart only | ❌ | TypeScript | ? |
 
 **Unique advantages:**
 - Only Go-based Miro MCP (single binary, fast)
@@ -219,4 +169,5 @@ go test ./miro/... -v
 - Full connector CRUD
 - Rate limiting + caching built-in
 - Voice-optimized tool descriptions
-- **61.5% test coverage on core package**
+- Structured error messages with suggestions
+- **71.9% test coverage on core package**

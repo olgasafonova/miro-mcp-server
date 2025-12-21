@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -501,6 +502,212 @@ func TestGetCallbackPort(t *testing.T) {
 				t.Errorf("GetCallbackPort() = %q, want %q", port, tt.expected)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// CallbackServer Tests
+// =============================================================================
+
+func TestNewCallbackServer(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Test successful creation
+	server, err := NewCallbackServer(":0", logger) // :0 picks a random available port
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	if server.Addr() == "" {
+		t.Error("server address should not be empty")
+	}
+}
+
+func TestNewCallbackServer_InvalidAddress(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Try to bind to an invalid address
+	_, err := NewCallbackServer("invalid:address:format", logger)
+	if err == nil {
+		t.Error("expected error for invalid address")
+	}
+}
+
+func TestCallbackServer_HandleCallback_Success(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	server, err := NewCallbackServer(":0", logger)
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	server.Start()
+
+	// Make a request to the callback endpoint with code and state
+	addr := "http://" + server.Addr()
+	resp, err := http.Get(addr + "/callback?code=test-auth-code&state=test-state")
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	// Wait for the result
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	result, err := server.WaitForCallback(ctx, 2*time.Second)
+	if err != nil {
+		t.Fatalf("WaitForCallback() error = %v", err)
+	}
+
+	if result.Code != "test-auth-code" {
+		t.Errorf("Code = %q, want %q", result.Code, "test-auth-code")
+	}
+	if result.State != "test-state" {
+		t.Errorf("State = %q, want %q", result.State, "test-state")
+	}
+	if result.Error != nil {
+		t.Errorf("Error should be nil, got %v", result.Error)
+	}
+}
+
+func TestCallbackServer_HandleCallback_Error(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	server, err := NewCallbackServer(":0", logger)
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	server.Start()
+
+	// Make a request with an error
+	addr := "http://" + server.Addr()
+	resp, err := http.Get(addr + "/callback?error=access_denied&error_description=User+denied+access")
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+
+	// Wait for the result
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	result, err := server.WaitForCallback(ctx, 2*time.Second)
+	if err != nil {
+		t.Fatalf("WaitForCallback() error = %v", err)
+	}
+
+	if result.Error == nil {
+		t.Fatal("Error should not be nil")
+	}
+	if result.Error.Code != "access_denied" {
+		t.Errorf("Error.Code = %q, want %q", result.Error.Code, "access_denied")
+	}
+	if result.Error.Description != "User denied access" {
+		t.Errorf("Error.Description = %q, want %q", result.Error.Description, "User denied access")
+	}
+}
+
+func TestCallbackServer_HandleCallback_MissingCode(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	server, err := NewCallbackServer(":0", logger)
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	server.Start()
+
+	// Make a request without a code
+	addr := "http://" + server.Addr()
+	resp, err := http.Get(addr + "/callback?state=test-state")
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+
+	// Wait for the result
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	result, err := server.WaitForCallback(ctx, 2*time.Second)
+	if err != nil {
+		t.Fatalf("WaitForCallback() error = %v", err)
+	}
+
+	if result.Error == nil {
+		t.Fatal("Error should not be nil")
+	}
+	if result.Error.Code != "missing_code" {
+		t.Errorf("Error.Code = %q, want %q", result.Error.Code, "missing_code")
+	}
+}
+
+func TestCallbackServer_HandleRoot(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	server, err := NewCallbackServer(":0", logger)
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	server.Start()
+
+	// Make a request to root
+	addr := "http://" + server.Addr()
+	resp, err := http.Get(addr + "/")
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "text/html; charset=utf-8" {
+		t.Errorf("Content-Type = %q, want %q", contentType, "text/html; charset=utf-8")
+	}
+}
+
+func TestCallbackServer_WaitForCallback_Timeout(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	server, err := NewCallbackServer(":0", logger)
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	server.Start()
+
+	// Wait with a very short timeout (no callback will come)
+	ctx := context.Background()
+	_, err = server.WaitForCallback(ctx, 10*time.Millisecond)
+	if err == nil {
+		t.Error("expected timeout error")
+	}
+	if !containsSubstring(err.Error(), "timed out") {
+		t.Errorf("error should mention timeout, got %q", err.Error())
 	}
 }
 

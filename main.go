@@ -23,7 +23,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.0.0"
+	ServerVersion = "1.3.0"
 )
 
 func main() {
@@ -35,11 +35,16 @@ func main() {
 
 	// Parse command-line flags
 	httpAddr := flag.String("http", "", "HTTP address to listen on (e.g., :8080). If empty, uses stdio transport.")
+	verbose := flag.Bool("verbose", false, "Enable verbose debug logging")
 	flag.Parse()
 
 	// Configure logging to stderr (stdout is used for MCP protocol in stdio mode)
+	logLevel := slog.LevelInfo
+	if *verbose {
+		logLevel = slog.LevelDebug
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 
 	// Load configuration from environment
@@ -95,12 +100,13 @@ func main() {
 
 	// Choose transport based on flags
 	if *httpAddr != "" {
-		runHTTPServer(server, logger, *httpAddr)
+		runHTTPServer(server, logger, *httpAddr, *verbose)
 	} else {
 		// stdio transport mode (default)
 		logger.Info("Starting Miro MCP Server (stdio mode)",
 			"name", ServerName,
 			"version", ServerVersion,
+			"verbose", *verbose,
 		)
 
 		if err := server.Run(ctx, &mcp.StdioTransport{}); err != nil {
@@ -110,7 +116,7 @@ func main() {
 }
 
 // runHTTPServer starts the MCP server with HTTP transport
-func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string) {
+func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose bool) {
 	// Create the Streamable HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
@@ -162,6 +168,7 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string) {
 		"name", ServerName,
 		"version", ServerVersion,
 		"address", addr,
+		"verbose", verbose,
 	)
 
 	// Security warning

@@ -506,6 +506,64 @@ PARAMETERS:
 
 WARNING: This action cannot be undone.`,
 	},
+
+	// ==========================================================================
+	// Composite Tools
+	// ==========================================================================
+	{
+		Name:     "miro_find_board",
+		Method:   "FindBoardByNameTool",
+		Title:    "Find Board by Name",
+		Category: "boards",
+		ReadOnly: true,
+		Description: `Find a Miro board by name. No need to know the board ID!
+
+USE WHEN: User says "find board named X", "get the Design Sprint board", "open my Planning board"
+
+PARAMETERS:
+- name: Board name to search for (required, case-insensitive, supports partial matching)
+
+RETURNS: Board ID, name, and view link. Use the ID for subsequent operations.
+
+VOICE-FRIENDLY: "Found 'Design Sprint' board - ready to work on it"`,
+	},
+	{
+		Name:     "miro_get_board_summary",
+		Method:   "GetBoardSummary",
+		Title:    "Get Board Summary",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get a comprehensive summary of a Miro board with item counts and statistics.
+
+USE WHEN: User asks "summarize this board", "what's the overview", "board stats"
+
+PARAMETERS:
+- board_id: Required
+
+RETURNS: Board name, description, item counts by type, total items, and 5 recent items.
+
+VOICE-FRIENDLY: "Design Sprint has 15 stickies, 8 shapes, and 3 frames - 26 items total"`,
+	},
+	{
+		Name:     "miro_create_sticky_grid",
+		Method:   "CreateStickyGrid",
+		Title:    "Create Sticky Grid",
+		Category: "create",
+		Description: `Create multiple sticky notes arranged in a grid layout.
+
+USE WHEN: User says "add a grid of stickies", "create 6 stickies in rows", "make sticky notes for each of these ideas"
+
+PARAMETERS:
+- board_id: Required
+- contents: Array of text for each sticky (required, max 50)
+- columns: Number of columns (default 3)
+- color: Color for all stickies (yellow, green, blue, pink, etc.)
+- start_x, start_y: Grid starting position
+- spacing: Gap between stickies (default 220)
+- parent_id: Frame to place in
+
+VOICE-FRIENDLY: "Created 9 stickies in a 3x3 grid"`,
+	},
 }
 
 // ptr is a helper to create a pointer to a value.

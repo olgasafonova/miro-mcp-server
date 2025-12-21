@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -94,6 +95,64 @@ type Client struct {
 type cacheEntry struct {
 	data      interface{}
 	expiresAt time.Time
+}
+
+// UserInfo contains authenticated user information.
+type UserInfo struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+// =============================================================================
+// Input Validation
+// =============================================================================
+
+var (
+	// validIDPattern matches safe Miro IDs (alphanumeric, underscore, hyphen, equals)
+	validIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_=\-]+$`)
+
+	// maxContentLen is the maximum allowed content length
+	maxContentLen = 10000
+
+	// maxIDLen is the maximum allowed ID length
+	maxIDLen = 100
+)
+
+// ValidateBoardID ensures board ID is safe and well-formed.
+func ValidateBoardID(id string) error {
+	if id == "" {
+		return fmt.Errorf("board_id is required")
+	}
+	if len(id) > maxIDLen {
+		return fmt.Errorf("board_id too long (max %d characters)", maxIDLen)
+	}
+	if !validIDPattern.MatchString(id) {
+		return fmt.Errorf("board_id contains invalid characters")
+	}
+	return nil
+}
+
+// ValidateItemID ensures item ID is safe and well-formed.
+func ValidateItemID(id string) error {
+	if id == "" {
+		return fmt.Errorf("item_id is required")
+	}
+	if len(id) > maxIDLen {
+		return fmt.Errorf("item_id too long (max %d characters)", maxIDLen)
+	}
+	if !validIDPattern.MatchString(id) {
+		return fmt.Errorf("item_id contains invalid characters")
+	}
+	return nil
+}
+
+// ValidateContent ensures content is within allowed limits.
+func ValidateContent(content string) error {
+	if len(content) > maxContentLen {
+		return fmt.Errorf("content exceeds maximum length of %d characters", maxContentLen)
+	}
+	return nil
 }
 
 // NewClient creates a new Miro API client.
@@ -200,6 +259,128 @@ func (c *Client) setCache(key string, data interface{}) {
 		data:      data,
 		expiresAt: time.Now().Add(c.cacheTTL),
 	})
+}
+
+// =============================================================================
+// Token Validation
+// =============================================================================
+
+// ValidateToken verifies the access token by calling /v2/users/me.
+// Call this on startup to fail fast with a clear error message.
+func (c *Client) ValidateToken(ctx context.Context) (*UserInfo, error) {
+	// Check cache first (valid for 5 minutes)
+	if cached, ok := c.getCached("token:userinfo"); ok {
+		return cached.(*UserInfo), nil
+	}
+
+	respBody, err := c.request(ctx, http.MethodGet, "/users/me", nil)
+	if err != nil {
+		return nil, fmt.Errorf("token validation failed: %w", err)
+	}
+
+	var user UserInfo
+	if err := json.Unmarshal(respBody, &user); err != nil {
+		return nil, fmt.Errorf("failed to parse user info: %w", err)
+	}
+
+	// Cache for 5 minutes
+	c.cache.Store("token:userinfo", &cacheEntry{
+		data:      &user,
+		expiresAt: time.Now().Add(5 * time.Minute),
+	})
+
+	return &user, nil
+}
+
+// =============================================================================
+// Request with Retry
+// =============================================================================
+
+// requestWithRetry wraps request with exponential backoff for rate limit errors.
+func (c *Client) requestWithRetry(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	maxRetries := 3
+	baseDelay := 1 * time.Second
+
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		respBody, err := c.request(ctx, method, path, body)
+		if err == nil {
+			return respBody, nil
+		}
+
+		// Check if rate limited (429)
+		if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "rate limit") {
+			delay := baseDelay * time.Duration(1<<uint(attempt)) // Exponential: 1s, 2s, 4s, 8s
+			c.logger.Warn("Rate limited, retrying",
+				"attempt", attempt+1,
+				"max_retries", maxRetries,
+				"delay", delay,
+				"path", path,
+			)
+			select {
+			case <-time.After(delay):
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		lastErr = err
+		break // Don't retry non-rate-limit errors
+	}
+
+	return nil, lastErr
+}
+
+// =============================================================================
+// Board Name Resolution
+// =============================================================================
+
+// FindBoardByName finds a board by exact or partial name match.
+// Returns the best matching board, preferring exact matches.
+func (c *Client) FindBoardByName(ctx context.Context, name string) (*BoardSummary, error) {
+	if name == "" {
+		return nil, fmt.Errorf("board name is required")
+	}
+
+	// Search for boards with the given name
+	result, err := c.ListBoards(ctx, ListBoardsArgs{
+		Query: name,
+		Limit: 20,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to search boards: %w", err)
+	}
+
+	if len(result.Boards) == 0 {
+		return nil, fmt.Errorf("no board found matching '%s'", name)
+	}
+
+	nameLower := strings.ToLower(name)
+
+	// First pass: exact match
+	for i := range result.Boards {
+		if strings.ToLower(result.Boards[i].Name) == nameLower {
+			return &result.Boards[i], nil
+		}
+	}
+
+	// Second pass: starts with match
+	for i := range result.Boards {
+		if strings.HasPrefix(strings.ToLower(result.Boards[i].Name), nameLower) {
+			return &result.Boards[i], nil
+		}
+	}
+
+	// Third pass: contains match
+	for i := range result.Boards {
+		if strings.Contains(strings.ToLower(result.Boards[i].Name), nameLower) {
+			return &result.Boards[i], nil
+		}
+	}
+
+	// Return first result as fallback
+	return &result.Boards[0], nil
 }
 
 // =============================================================================
@@ -1664,6 +1845,138 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 		TotalPages: pageCount,
 		Truncated:  truncated,
 		Message:    message,
+	}, nil
+}
+
+// =============================================================================
+// Composite Tools
+// =============================================================================
+
+// FindBoardByNameTool wraps FindBoardByName with args/result types for MCP.
+func (c *Client) FindBoardByNameTool(ctx context.Context, args FindBoardByNameArgs) (FindBoardByNameResult, error) {
+	board, err := c.FindBoardByName(ctx, args.Name)
+	if err != nil {
+		return FindBoardByNameResult{}, err
+	}
+
+	return FindBoardByNameResult{
+		ID:          board.ID,
+		Name:        board.Name,
+		Description: board.Description,
+		ViewLink:    board.ViewLink,
+		Message:     fmt.Sprintf("Found board '%s'", board.Name),
+	}, nil
+}
+
+// GetBoardSummary retrieves a board with item counts and statistics.
+func (c *Client) GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) (GetBoardSummaryResult, error) {
+	if args.BoardID == "" {
+		return GetBoardSummaryResult{}, fmt.Errorf("board_id is required")
+	}
+
+	// Get board details
+	board, err := c.GetBoard(ctx, GetBoardArgs{BoardID: args.BoardID})
+	if err != nil {
+		return GetBoardSummaryResult{}, fmt.Errorf("failed to get board: %w", err)
+	}
+
+	// Get items (first 100)
+	items, err := c.ListItems(ctx, ListItemsArgs{BoardID: args.BoardID, Limit: 100})
+	if err != nil {
+		return GetBoardSummaryResult{}, fmt.Errorf("failed to list items: %w", err)
+	}
+
+	// Count items by type
+	counts := make(map[string]int)
+	for _, item := range items.Items {
+		counts[item.Type]++
+	}
+
+	// Get recent items (first 5)
+	recentItems := items.Items
+	if len(recentItems) > 5 {
+		recentItems = recentItems[:5]
+	}
+
+	return GetBoardSummaryResult{
+		ID:          board.ID,
+		Name:        board.Name,
+		Description: board.Description,
+		ViewLink:    board.ViewLink,
+		ItemCounts:  counts,
+		TotalItems:  items.Count,
+		RecentItems: recentItems,
+		Message:     fmt.Sprintf("Board '%s' has %d items", board.Name, items.Count),
+	}, nil
+}
+
+// CreateStickyGrid creates multiple sticky notes in a grid layout.
+func (c *Client) CreateStickyGrid(ctx context.Context, args CreateStickyGridArgs) (CreateStickyGridResult, error) {
+	if args.BoardID == "" {
+		return CreateStickyGridResult{}, fmt.Errorf("board_id is required")
+	}
+	if len(args.Contents) == 0 {
+		return CreateStickyGridResult{}, fmt.Errorf("at least one content item is required")
+	}
+	if len(args.Contents) > 50 {
+		return CreateStickyGridResult{}, fmt.Errorf("maximum 50 stickies per grid")
+	}
+
+	// Defaults
+	columns := args.Columns
+	if columns <= 0 {
+		columns = 3
+	}
+	spacing := args.Spacing
+	if spacing == 0 {
+		spacing = 220
+	}
+
+	// Build items for bulk create
+	items := make([]BulkCreateItem, len(args.Contents))
+	for i, content := range args.Contents {
+		row := i / columns
+		col := i % columns
+		items[i] = BulkCreateItem{
+			Type:     "sticky_note",
+			Content:  content,
+			X:        args.StartX + float64(col)*spacing,
+			Y:        args.StartY + float64(row)*spacing,
+			Color:    args.Color,
+			ParentID: args.ParentID,
+		}
+	}
+
+	// Create in batches of 20
+	var allIDs []string
+	for i := 0; i < len(items); i += 20 {
+		end := i + 20
+		if end > len(items) {
+			end = len(items)
+		}
+
+		result, err := c.BulkCreate(ctx, BulkCreateArgs{
+			BoardID: args.BoardID,
+			Items:   items[i:end],
+		})
+		if err != nil {
+			// Return partial results if some succeeded
+			if len(allIDs) > 0 {
+				break
+			}
+			return CreateStickyGridResult{}, err
+		}
+		allIDs = append(allIDs, result.ItemIDs...)
+	}
+
+	rows := (len(args.Contents) + columns - 1) / columns
+
+	return CreateStickyGridResult{
+		Created: len(allIDs),
+		ItemIDs: allIDs,
+		Rows:    rows,
+		Columns: columns,
+		Message: fmt.Sprintf("Created %d stickies in %dx%d grid", len(allIDs), columns, rows),
 	}, nil
 }
 

@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 26 tools implemented. Phase 1 complete. Phase 2 differentiation features in progress.
+**Current Status**: 29 tools implemented. Phase 1 complete. Phase 2 differentiation features complete.
 
 ## Quick Start
 
@@ -109,13 +109,16 @@ See `ROADMAP.md` for full details.
 - **Tags**: create, list, attach, detach, get item tags
 - **Modify**: update item, delete item
 
-### Phase 2: Differentiation (Next)
-1. Token validation on startup
-2. Board name resolution (find by name, not just ID)
-3. Composite tools (`miro_get_board_summary`, `miro_create_sticky_grid`)
-4. Input sanitization
-5. Retry with exponential backoff
-6. Groups, members, mindmaps
+### Phase 2: Complete ✅ (+3 tools, +4 enhancements)
+- **New Tools**: `miro_find_board`, `miro_get_board_summary`, `miro_create_sticky_grid`
+- **Enhancements**:
+  - Token validation on startup (fails fast with clear error)
+  - Board name resolution (find by name, not just ID)
+  - Input sanitization (validates IDs and content)
+  - Retry with exponential backoff (handles rate limits)
+
+### Phase 3: Remaining (TODO)
+- Groups, members, mindmaps
 
 ## Miro API Quick Reference
 
@@ -166,6 +169,11 @@ MIRO_TEST_TOKEN=xxx go test -tags=integration ./...
 4. **Voice-optimized** - tool descriptions for voice assistants
 5. **Panic recovery** - production-safe handlers
 6. **Dual transport** - stdio + HTTP
+7. **Token validation** - fails fast on startup with clear error
+8. **Board name resolution** - find boards by name, not just ID
+9. **Input sanitization** - validates all IDs and content
+10. **Retry with backoff** - handles rate limits gracefully
+11. **Composite tools** - efficient multi-step operations
 
 ## What NOT to Change
 

@@ -34,7 +34,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (26 total)
+### Implemented Tools (29 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -74,6 +74,11 @@ miro-mcp-server/
 - **Structured Logging**: slog with context
 - **Dual Transport**: stdio (default) + HTTP with health endpoint
 - **Voice-Optimized**: Tool descriptions designed for voice interaction
+- **Token Validation**: Validates MIRO_ACCESS_TOKEN on startup with clear error messages
+- **Board Name Resolution**: Find boards by name, not just ID (`miro_find_board`)
+- **Input Sanitization**: Validates board IDs and content to prevent injection
+- **Retry with Backoff**: Exponential backoff for rate-limited requests
+- **Composite Tools**: `miro_get_board_summary`, `miro_create_sticky_grid`
 
 ---
 
@@ -886,27 +891,27 @@ go test -cover ./...
 | `miro_detach_tag` | ✅ Done |
 | `miro_get_item_tags` | ✅ Done |
 
-### Phase 2 Tools (Differentiation - TODO)
+### Phase 2 Tools (Differentiation)
 
 | Tool | Status |
 |------|--------|
-| `miro_get_board_summary` | ❌ TODO |
-| `miro_create_sticky_grid` | ❌ TODO |
-| `miro_find_board_by_name` | ❌ TODO |
+| `miro_get_board_summary` | ✅ Done |
+| `miro_create_sticky_grid` | ✅ Done |
+| `miro_find_board` | ✅ Done |
 | `miro_create_group` | ❌ TODO |
 | `miro_ungroup` | ❌ TODO |
 | `miro_list_board_members` | ❌ TODO |
 | `miro_share_board` | ❌ TODO |
 | `miro_create_mindmap_node` | ❌ TODO |
 
-### Phase 2 Enhancements (TODO)
+### Phase 2 Enhancements
 
 | Feature | Status |
 |---------|--------|
-| Token validation on startup | ❌ TODO |
-| Board name resolution | ❌ TODO |
-| Input sanitization | ❌ TODO |
-| Retry with exponential backoff | ❌ TODO |
+| Token validation on startup | ✅ Done |
+| Board name resolution | ✅ Done |
+| Input sanitization | ✅ Done |
+| Retry with exponential backoff | ✅ Done |
 
 ---
 

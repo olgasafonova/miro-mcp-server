@@ -823,3 +823,59 @@ type PaginatedResponse struct {
 	Limit  int           `json:"limit,omitempty"`
 	Cursor string        `json:"cursor,omitempty"`
 }
+
+// =============================================================================
+// Composite Tool Types
+// =============================================================================
+
+// FindBoardByNameArgs contains parameters for finding a board by name.
+type FindBoardByNameArgs struct {
+	Name string `json:"name" jsonschema:"required" jsonschema_description:"Board name to search for (case-insensitive, supports partial matching)"`
+}
+
+// FindBoardByNameResult contains the found board.
+type FindBoardByNameResult struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	ViewLink    string `json:"view_link"`
+	Message     string `json:"message"`
+}
+
+// GetBoardSummaryArgs contains parameters for getting a board summary.
+type GetBoardSummaryArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to summarize"`
+}
+
+// GetBoardSummaryResult contains the board summary with item counts.
+type GetBoardSummaryResult struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	ViewLink    string         `json:"view_link"`
+	ItemCounts  map[string]int `json:"item_counts"`  // {"sticky_note": 15, "shape": 8, ...}
+	TotalItems  int            `json:"total_items"`
+	RecentItems []ItemSummary  `json:"recent_items,omitempty"` // Last 5 modified
+	Message     string         `json:"message"`
+}
+
+// CreateStickyGridArgs contains parameters for creating multiple stickies in a grid.
+type CreateStickyGridArgs struct {
+	BoardID  string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Contents []string `json:"contents" jsonschema:"required" jsonschema_description:"Text for each sticky note"`
+	Columns  int      `json:"columns,omitempty" jsonschema_description:"Number of columns in grid (default 3)"`
+	Color    string   `json:"color,omitempty" jsonschema_description:"Color for all stickies: yellow, green, blue, pink, orange, etc."`
+	StartX   float64  `json:"start_x,omitempty" jsonschema_description:"Starting X position (default 0)"`
+	StartY   float64  `json:"start_y,omitempty" jsonschema_description:"Starting Y position (default 0)"`
+	Spacing  float64  `json:"spacing,omitempty" jsonschema_description:"Space between stickies in pixels (default 220)"`
+	ParentID string   `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place stickies in"`
+}
+
+// CreateStickyGridResult contains the result of creating a sticky grid.
+type CreateStickyGridResult struct {
+	Created int      `json:"created"`
+	ItemIDs []string `json:"item_ids"`
+	Rows    int      `json:"rows"`
+	Columns int      `json:"columns"`
+	Message string   `json:"message"`
+}

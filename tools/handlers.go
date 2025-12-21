@@ -99,6 +99,14 @@ func (h *HandlerRegistry) registerByName(server *mcp.Server, spec ToolSpec) {
 	case "DeleteItem":
 		h.register(server, tool, spec, h.client.DeleteItem)
 
+	// Composite tools
+	case "FindBoardByNameTool":
+		h.register(server, tool, spec, h.client.FindBoardByNameTool)
+	case "GetBoardSummary":
+		h.register(server, tool, spec, h.client.GetBoardSummary)
+	case "CreateStickyGrid":
+		h.register(server, tool, spec, h.client.CreateStickyGrid)
+
 	default:
 		h.logger.Error("Unknown method, tool not registered", "method", spec.Method, "tool", spec.Name)
 	}
@@ -260,6 +268,14 @@ func (h *HandlerRegistry) register(server *mcp.Server, tool *mcp.Tool, spec Tool
 	case func(context.Context, miro.UpdateItemArgs) (miro.UpdateItemResult, error):
 		register(h, server, tool, spec, m)
 	case func(context.Context, miro.DeleteItemArgs) (miro.DeleteItemResult, error):
+		register(h, server, tool, spec, m)
+
+	// Composite tools
+	case func(context.Context, miro.FindBoardByNameArgs) (miro.FindBoardByNameResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CreateStickyGridArgs) (miro.CreateStickyGridResult, error):
 		register(h, server, tool, spec, m)
 
 	default:

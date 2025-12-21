@@ -47,6 +47,13 @@ func main() {
 	// Create Miro client
 	client := miro.NewClient(config, logger)
 
+	// Validate token on startup
+	user, err := client.ValidateToken(context.Background())
+	if err != nil {
+		log.Fatalf("Token validation failed: %v\nGet a valid token at https://miro.com/app/settings/user-profile/apps", err)
+	}
+	logger.Info("Token validated successfully", "user", user.Name, "email", user.Email)
+
 	// Create MCP server with instructions for LLMs
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    ServerName,

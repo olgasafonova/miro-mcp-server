@@ -213,9 +213,11 @@ func getShapeColor(shape NodeShape) string {
 const (
 	seqParticipantWidth   = 120.0
 	seqParticipantHeight  = 50.0
-	seqLifelineWidth      = 4.0
-	seqAnchorSize         = 12.0 // Small anchor points for message connections
+	seqLifelineWidth      = 10.0  // Wide enough to be clearly visible
+	seqAnchorSize         = 8.0   // Minimum size allowed by Miro API
 	seqMessageSpacing     = 60.0
+	seqLifelineColor      = "#90CAF9" // Visible blue for lifelines
+	seqAnchorColor        = "#90CAF9" // Match lifeline color so anchors blend in
 )
 
 // ConvertSequenceToMiro converts a sequence diagram to Miro items.
@@ -293,7 +295,7 @@ func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
 			Y:       p.node.Y + p.node.Height + lifelineHeight/2 + 10,
 			Width:   seqLifelineWidth,
 			Height:  lifelineHeight,
-			Color:   "#BBDEFB", // Light blue, slightly visible
+			Color:   seqLifelineColor, // Visible blue lifeline
 		}
 		output.Shapes = append(output.Shapes, lifeline)
 	}
@@ -309,6 +311,7 @@ func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
 		}
 
 		// Create anchor shape at the "from" position
+		// Anchors are small circles that blend with lifeline color
 		fromAnchorIdx := len(output.Shapes)
 		fromAnchor := MiroShape{
 			Shape:   "circle",
@@ -317,7 +320,7 @@ func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
 			Y:       edge.Y,
 			Width:   seqAnchorSize,
 			Height:  seqAnchorSize,
-			Color:   "#FFFFFF", // White/transparent appearance
+			Color:   seqAnchorColor, // Match lifeline so it blends in
 		}
 		output.Shapes = append(output.Shapes, fromAnchor)
 
@@ -330,7 +333,7 @@ func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
 			Y:       edge.Y,
 			Width:   seqAnchorSize,
 			Height:  seqAnchorSize,
-			Color:   "#FFFFFF",
+			Color:   seqAnchorColor,
 		}
 		output.Shapes = append(output.Shapes, toAnchor)
 

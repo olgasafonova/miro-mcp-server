@@ -3,8 +3,8 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.4.0 (ready for release)
-> **Latest Session**: Sequence Diagram Output Complete
+> **Version**: v1.4.1 (visual fixes applied)
+> **Latest Session**: Sequence Diagram Visual Improvements
 
 ---
 
@@ -24,9 +24,17 @@ go test ./...
 
 ## Just Completed This Session
 
-### Sequence Diagram Rendering
+### Sequence Diagram Visual Fixes
 
-Previously, sequence diagrams were parsed but not rendered to Miro. Now complete:
+After real Miro API testing, fixed rendering issues:
+
+| Issue | Fix |
+|-------|-----|
+| Lifelines invisible (4px) | Increased to 10px |
+| White anchor dots showing | Changed to match lifeline color (#90CAF9) |
+| Anchors too small (6px) | Increased to 8px (Miro API minimum) |
+
+### Previous: Sequence Diagram Rendering
 
 | Component | Status |
 |-----------|--------|
@@ -65,18 +73,17 @@ Previously, sequence diagrams were parsed but not rendered to Miro. Now complete
 
 ## Ready for Release
 
-To release v1.4.0:
+To release v1.4.1:
 
 ```bash
 git add .
-git commit -m "feat: sequence diagram Miro output
+git commit -m "fix: sequence diagram visual improvements
 
-- ConvertSequenceToMiro creates participant boxes, lifelines, message arrows
-- Auto-detection routes sequence diagrams to specialized converter
-- 10 new tests for sequence rendering
-- Diagrams coverage: 71.2% → 73.4%"
+- Lifelines now 10px (was 4px) for visibility
+- Anchors match lifeline color (#90CAF9) instead of white
+- Anchor size 8px to meet Miro API minimum"
 
-git tag v1.4.0
+git tag v1.4.1
 git push origin main --tags
 
 # Build binaries
@@ -85,7 +92,7 @@ GOOS=darwin GOARCH=amd64 go build -o dist/miro-mcp-server-darwin-amd64 .
 GOOS=linux GOARCH=amd64 go build -o dist/miro-mcp-server-linux-amd64 .
 GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
 
-gh release create v1.4.0 dist/* --title "v1.4.0: Sequence Diagram Rendering" --notes "Full Miro output for sequence diagrams with participants, lifelines, and messages."
+gh release create v1.4.1 dist/* --title "v1.4.1: Visual Fixes" --notes "Improved sequence diagram rendering with visible lifelines and properly blended anchors."
 ```
 
 ---

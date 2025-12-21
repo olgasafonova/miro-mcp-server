@@ -66,14 +66,6 @@ type ItemBase struct {
 // API Response Types
 // =============================================================================
 
-// APIError represents a Miro API error response.
-type APIError struct {
-	Status  int    `json:"status"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Type    string `json:"type"`
-}
-
 // PaginatedResponse wraps paginated API responses.
 type PaginatedResponse struct {
 	Data   []interface{} `json:"data"`

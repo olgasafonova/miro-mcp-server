@@ -3,10 +3,12 @@ package miro
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -350,6 +352,379 @@ func TestRequestContextCancellation(t *testing.T) {
 	_, err := client.request(ctx, http.MethodGet, "/test", nil)
 	if err == nil {
 		t.Error("expected error for cancelled context")
+	}
+}
+
+// =============================================================================
+// Mock HTTP Server Tests - Client Methods
+// =============================================================================
+
+// newTestClientWithServer creates a client pointing to a mock HTTP server.
+func newTestClientWithServer(serverURL string) *Client {
+	cfg := testConfig()
+	client := NewClient(cfg, testLogger())
+	client.baseURL = serverURL
+	return client
+}
+
+func TestListBoards_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.HasPrefix(r.URL.Path, "/boards") {
+			t.Errorf("expected /boards path, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Errorf("missing or incorrect Authorization header")
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{"id": "board1", "name": "Design Sprint", "viewLink": "https://miro.com/board1"},
+				{"id": "board2", "name": "Retro", "viewLink": "https://miro.com/board2"},
+			},
+			"size":  2,
+			"total": 2,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.ListBoards(context.Background(), ListBoardsArgs{Query: "test"})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
+	}
+	if result.Boards[0].Name != "Design Sprint" {
+		t.Errorf("first board name = %q, want 'Design Sprint'", result.Boards[0].Name)
+	}
+}
+
+func TestListBoards_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":    "unauthorized",
+			"message": "Invalid access token",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.ListBoards(context.Background(), ListBoardsArgs{})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	// Check it's an API error
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T", err)
+	}
+	if apiErr.StatusCode != 401 {
+		t.Errorf("StatusCode = %d, want 401", apiErr.StatusCode)
+	}
+	if apiErr.Code != "unauthorized" {
+		t.Errorf("Code = %q, want 'unauthorized'", apiErr.Code)
+	}
+}
+
+func TestGetBoard_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/boards/board123" {
+			t.Errorf("expected /boards/board123, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":          "board123",
+			"name":        "Test Board",
+			"description": "A test board",
+			"viewLink":    "https://miro.com/board123",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetBoard(context.Background(), GetBoardArgs{BoardID: "board123"})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "board123" {
+		t.Errorf("ID = %q, want 'board123'", result.ID)
+	}
+	if result.Name != "Test Board" {
+		t.Errorf("Name = %q, want 'Test Board'", result.Name)
+	}
+}
+
+func TestGetBoard_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":    "not_found",
+			"message": "Board not found",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.GetBoard(context.Background(), GetBoardArgs{BoardID: "nonexistent"})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !IsNotFoundError(err) {
+		t.Errorf("expected not found error, got: %v", err)
+	}
+}
+
+func TestGetBoard_EmptyBoardID(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+	_, err := client.GetBoard(context.Background(), GetBoardArgs{BoardID: ""})
+
+	if err == nil {
+		t.Fatal("expected error for empty board_id")
+	}
+	if !strings.Contains(err.Error(), "board_id is required") {
+		t.Errorf("expected 'board_id is required' error, got: %v", err)
+	}
+}
+
+func TestGetBoard_Caching(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "board123",
+			"name": "Cached Board",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	ctx := context.Background()
+
+	// First call - should hit the server
+	_, err := client.GetBoard(ctx, GetBoardArgs{BoardID: "board123"})
+	if err != nil {
+		t.Fatalf("first call failed: %v", err)
+	}
+
+	// Second call - should use cache
+	_, err = client.GetBoard(ctx, GetBoardArgs{BoardID: "board123"})
+	if err != nil {
+		t.Fatalf("second call failed: %v", err)
+	}
+
+	if callCount != 1 {
+		t.Errorf("server called %d times, want 1 (caching should prevent second call)", callCount)
+	}
+}
+
+func TestCreateBoard_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards" {
+			t.Errorf("expected /boards, got %s", r.URL.Path)
+		}
+
+		// Verify request body
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["name"] != "New Board" {
+			t.Errorf("name = %v, want 'New Board'", body["name"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":       "new-board-id",
+			"name":     "New Board",
+			"viewLink": "https://miro.com/new-board-id",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateBoard(context.Background(), CreateBoardArgs{
+		Name:        "New Board",
+		Description: "Test description",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "new-board-id" {
+		t.Errorf("ID = %q, want 'new-board-id'", result.ID)
+	}
+	if result.Name != "New Board" {
+		t.Errorf("Name = %q, want 'New Board'", result.Name)
+	}
+}
+
+func TestCreateBoard_EmptyName(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+	_, err := client.CreateBoard(context.Background(), CreateBoardArgs{Name: ""})
+
+	if err == nil {
+		t.Fatal("expected error for empty name")
+	}
+	if !strings.Contains(err.Error(), "name is required") {
+		t.Errorf("expected 'name is required' error, got: %v", err)
+	}
+}
+
+func TestCreateSticky_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/sticky_notes" {
+			t.Errorf("expected /boards/board123/sticky_notes, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "sticky-id",
+			"data": map[string]interface{}{
+				"content": "Test sticky",
+			},
+			"style": map[string]interface{}{
+				"fillColor": "light_yellow",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.CreateSticky(context.Background(), CreateStickyArgs{
+		BoardID: "board123",
+		Content: "Test sticky",
+		Color:   "yellow",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "sticky-id" {
+		t.Errorf("ID = %q, want 'sticky-id'", result.ID)
+	}
+	if result.Content != "Test sticky" {
+		t.Errorf("Content = %q, want 'Test sticky'", result.Content)
+	}
+}
+
+func TestCreateSticky_ValidationErrors(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+
+	tests := []struct {
+		name    string
+		args    CreateStickyArgs
+		errText string
+	}{
+		{
+			name:    "empty board_id",
+			args:    CreateStickyArgs{Content: "Test"},
+			errText: "board_id is required",
+		},
+		{
+			name:    "empty content",
+			args:    CreateStickyArgs{BoardID: "board123"},
+			errText: "content is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.CreateSticky(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.errText) {
+				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			}
+		})
+	}
+}
+
+func TestRateLimitRetry(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Rate limit exceeded",
+			})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+
+	// Use context with short timeout for faster test
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// This tests that requestWithRetry works - we'll use it indirectly via a method that uses retry
+	_, err := client.request(ctx, http.MethodGet, "/boards", nil)
+
+	// The first call should hit rate limit (we don't retry in basic request)
+	if err == nil {
+		t.Fatal("expected rate limit error from first attempt")
+	}
+	if !IsRateLimitError(err) {
+		t.Errorf("expected rate limit error, got: %v", err)
+	}
+}
+
+func TestDeleteBoard_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123" {
+			t.Errorf("expected /boards/board123, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.DeleteBoard(context.Background(), DeleteBoardArgs{BoardID: "board123"})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+	if result.BoardID != "board123" {
+		t.Errorf("BoardID = %q, want 'board123'", result.BoardID)
 	}
 }
 

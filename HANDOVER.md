@@ -3,16 +3,16 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.4.1 (visual fixes applied)
-> **Latest Session**: Sequence Diagram Visual Improvements
+> **Version**: v1.4.1 (released)
+> **Latest Session**: Sequence Diagram Visual Fixes
 
 ---
 
 ## Current State
 
-**50 MCP tools** for Miro whiteboard control. Phases 1-6 complete. **Sequence diagram rendering now fully implemented.**
+**50 MCP tools** for Miro whiteboard control. Phases 1-6 complete. **Sequence diagram rendering fully working.**
 
-All tests passing. Build works.
+All tests passing. Build works. v1.4.1 released on GitHub.
 
 ```bash
 # Verify
@@ -22,19 +22,19 @@ go test ./...
 
 ---
 
-## Just Completed This Session
+## Just Completed
 
-### Sequence Diagram Visual Fixes
+### v1.4.1 - Visual Fixes (Released)
 
-After real Miro API testing, fixed rendering issues:
+After real Miro API testing, fixed sequence diagram rendering:
 
-| Issue | Fix |
-|-------|-----|
-| Lifelines invisible (4px) | Increased to 10px |
-| White anchor dots showing | Changed to match lifeline color (#90CAF9) |
-| Anchors too small (6px) | Increased to 8px (Miro API minimum) |
+| Issue | Before | After |
+|-------|--------|-------|
+| Lifelines invisible | 4px | 10px |
+| Anchors visible as white dots | #FFFFFF | #90CAF9 (matches lifeline) |
+| Anchors rejected by API | 6px | 8px (Miro minimum) |
 
-### Previous: Sequence Diagram Rendering
+### v1.4.0 - Sequence Diagram Output
 
 | Component | Status |
 |-----------|--------|
@@ -50,62 +50,46 @@ After real Miro API testing, fixed rendering issues:
 │  Alice  │          │   Bob   │
 └────┬────┘          └────┬────┘
      │                    │
-     │ ←-- lifelines --→  │
+     █ ←-- lifelines --→  █   (10px wide, #90CAF9)
      │                    │
-   ──●────────────────────●──  ← message 1
+   ──●────────────────────●──  ← message with arrow
      │   "Hello Bob!"     │
-     │                    │
-   ──●────────────────────●──  ← message 2
-     │   "Hi Alice!"      │
 ```
-
-### Files Changed
-
-| File | Changes |
-|------|---------|
-| `miro/diagrams/types.go` | Added `Y float64` to Edge struct |
-| `miro/diagrams/sequence.go` | Store Y positions, calculate diagram bounds |
-| `miro/diagrams/converter.go` | New `ConvertSequenceToMiro`, auto-detection |
-| `miro/diagrams/mermaid_test.go` | 10 new sequence converter tests |
-| `CHANGELOG.md` | Added v1.4.0 entry |
 
 ---
 
-## Ready for Release
+## Files Changed This Session
 
-To release v1.4.1:
+| File | Changes |
+|------|---------|
+| `miro/diagrams/converter.go` | Visual constants: lifeline 10px, anchor 8px, colors #90CAF9 |
+| `CHANGELOG.md` | Added v1.4.1 entry |
+| `HANDOVER.md` | This file |
 
+---
+
+## OAuth Setup (Working)
+
+Token stored at `~/.miro/tokens.json`. Credentials:
+- Client ID: `3458764653228771705`
+- Redirect URI: `http://localhost:8089/callback`
+
+To re-authenticate:
 ```bash
-git add .
-git commit -m "fix: sequence diagram visual improvements
-
-- Lifelines now 10px (was 4px) for visibility
-- Anchors match lifeline color (#90CAF9) instead of white
-- Anchor size 8px to meet Miro API minimum"
-
-git tag v1.4.1
-git push origin main --tags
-
-# Build binaries
-GOOS=darwin GOARCH=arm64 go build -o dist/miro-mcp-server-darwin-arm64 .
-GOOS=darwin GOARCH=amd64 go build -o dist/miro-mcp-server-darwin-amd64 .
-GOOS=linux GOARCH=amd64 go build -o dist/miro-mcp-server-linux-amd64 .
-GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
-
-gh release create v1.4.1 dist/* --title "v1.4.1: Visual Fixes" --notes "Improved sequence diagram rendering with visible lifelines and properly blended anchors."
+MIRO_CLIENT_ID=3458764653228771705 MIRO_CLIENT_SECRET=xxx ./miro-mcp-server auth login
 ```
+
+Test board: https://miro.com/app/board/uXjVOXQCe5c=/
 
 ---
 
 ## What's Next? (Recommendations)
 
-### Priority 1: Test with Real Miro API
-
-The sequence output is untested against real Miro. Should verify:
-- Participant boxes render correctly
-- Lifelines appear as thin vertical bars
-- Message connectors with labels display properly
-- Layout looks good visually
+### Priority 1: Visual Polish
+The sequence diagram works but could look better:
+- Add dashed line style for async messages (`-->>`)
+- Consider using text labels instead of connectors for messages
+- Add activation boxes (tall thin rectangles on lifelines)
 
 ### Priority 2: Additional Diagram Types
 
@@ -116,10 +100,8 @@ The sequence output is untested against real Miro. Should verify:
 | ER diagrams | High | Medium |
 
 ### Priority 3: CI/CD Pipeline
-
 - GitHub Actions for automated testing
 - Automated release builds on tag push
-- Cross-platform binary generation
 
 ---
 
@@ -158,17 +140,20 @@ go test -cover ./...
 # Test sequence rendering specifically
 go test -v ./miro/diagrams/... -run Sequence
 
-# Run benchmarks
-go test -bench=. ./miro/diagrams/...
+# Run with token
+MIRO_ACCESS_TOKEN=xxx ./miro-mcp-server
+
+# Run with OAuth
+MIRO_CLIENT_ID=xxx MIRO_CLIENT_SECRET=yyy ./miro-mcp-server
 ```
 
 ---
 
-## Competitive Position (Updated)
+## Competitive Position
 
 | Server | Tools | Flowchart | Sequence Output | Language |
 |--------|-------|-----------|-----------------|----------|
-| **This server** | 50 | ✅ | ✅ **NEW** | Go |
+| **This server** | 50 | ✅ | ✅ | Go |
 | k-jarzyna/miro-mcp | 87 | ❌ | ❌ | TypeScript |
 | Official Miro MCP | ~10 | ✅ | ❌ | TypeScript |
 
@@ -178,3 +163,12 @@ go test -bench=. ./miro/diagrams/...
 - Rate limiting + caching built-in
 - Voice-optimized tool descriptions
 - 73.4% test coverage on diagrams package
+
+---
+
+## Session Notes
+
+- Miro API minimum shape size is 8px (discovered during testing)
+- Shapes can't be truly "invisible" - use matching colors to blend
+- Connector captions work but positioning is automatic
+- OAuth tokens expire after ~1 hour, stored in ~/.miro/tokens.json

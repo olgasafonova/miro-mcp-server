@@ -4,12 +4,13 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 
 ## Features
 
-- **34 tools** for complete Miro control
+- **38 tools** for complete Miro control
 - **Board management**: Create, copy, delete, find by name, share with users
 - **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds, mindmap nodes
 - **Bulk operations**: Create multiple items at once, sticky grids
 - **Groups**: Group and ungroup items
 - **Tags**: Create, attach, and manage tags
+- **Export**: Board pictures (all plans) and PDF/SVG/HTML export (Enterprise)
 - **Token validation**: Fails fast with clear error if token is invalid
 - **Rate limiting**: Semaphore-based (5 concurrent requests)
 - **Caching**: 2-minute TTL for board data
@@ -17,42 +18,65 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 - **Dual transport**: stdio (default) + HTTP
 - **Voice-optimized**: Short, speakable responses
 
+## Installation
+
+### Option 1: Download Pre-built Binary (Recommended)
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/olgasafonova/miro-mcp-server/releases):
+
+| Platform | Binary |
+|----------|--------|
+| macOS (Apple Silicon) | `miro-mcp-server-darwin-arm64` |
+| macOS (Intel) | `miro-mcp-server-darwin-amd64` |
+| Linux | `miro-mcp-server-linux-amd64` |
+| Windows | `miro-mcp-server-windows-amd64.exe` |
+
+```bash
+# macOS/Linux: Make executable after download
+chmod +x miro-mcp-server-*
+
+# Move to a location in your PATH (optional)
+sudo mv miro-mcp-server-darwin-arm64 /usr/local/bin/miro-mcp-server
+```
+
+### Option 2: Build from Source
+
+Requires Go 1.21 or later.
+
+```bash
+git clone https://github.com/olgasafonova/miro-mcp-server.git
+cd miro-mcp-server
+go build -o miro-mcp-server .
+```
+
+### Option 3: Go Install
+
+```bash
+go install github.com/olgasafonova/miro-mcp-server@latest
+```
+
 ## Quick Start
 
 ### 1. Get a Miro Access Token
 
 1. Go to [Miro Developer Settings](https://miro.com/app/settings/user-profile/apps)
 2. Create a new app or use an existing one
-3. Install the app to your team
+3. Install the app to your team with required scopes:
+   - `boards:read` - Read board data
+   - `boards:write` - Create and modify items
+   - `boards:export` - Export boards (Enterprise only)
 4. Copy the access token
 
-### 2. Install
-
-```bash
-# Clone and build
-git clone https://github.com/olgasafonova/miro-mcp-server.git
-cd miro-mcp-server
-go build -o miro-mcp-server .
-```
-
-### 3. Configure
-
-Set your access token:
-
-```bash
-export MIRO_ACCESS_TOKEN="your-token-here"
-```
-
-### 4. Run
+### 2. Run
 
 **Stdio mode** (for Claude Desktop, Cursor):
 ```bash
-./miro-mcp-server
+MIRO_ACCESS_TOKEN="your-token" ./miro-mcp-server
 ```
 
 **HTTP mode** (for remote clients):
 ```bash
-./miro-mcp-server -http :8080
+MIRO_ACCESS_TOKEN="your-token" ./miro-mcp-server -http :8080
 ```
 
 ## Claude Desktop Configuration
@@ -72,7 +96,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-## Available Tools (34 total)
+## Available Tools (38 total)
 
 ### Board Tools
 | Tool | Description |
@@ -127,6 +151,14 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `miro_update_item` | Update an item's content or position |
 | `miro_delete_item` | Delete an item (destructive) |
 | `miro_ungroup` | Ungroup items (release from a group) |
+
+### Export Tools
+| Tool | Description |
+|------|-------------|
+| `miro_get_board_picture` | Get board thumbnail image URL (all plans) |
+| `miro_create_export_job` | Create PDF/SVG/HTML export job (Enterprise) |
+| `miro_get_export_job_status` | Check export job progress (Enterprise) |
+| `miro_get_export_job_results` | Get download links for exported boards (Enterprise) |
 
 ## Example Usage
 

@@ -3,8 +3,8 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.2.0-dev (unreleased)
-> **Latest Commit**: `494eaef`
+> **Version**: v1.2.0 (released)
+> **Latest Commit**: `7d55dc7`
 
 ---
 

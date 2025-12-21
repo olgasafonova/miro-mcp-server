@@ -15,6 +15,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
+	"github.com/olgasafonova/miro-mcp-server/miro/audit"
+	"github.com/olgasafonova/miro-mcp-server/miro/oauth"
 	"github.com/olgasafonova/miro-mcp-server/tools"
 )
 
@@ -24,6 +26,12 @@ const (
 )
 
 func main() {
+	// Check for auth subcommand first
+	if len(os.Args) > 1 && os.Args[1] == "auth" {
+		runAuthCommand(os.Args[2:])
+		return
+	}
+
 	// Parse command-line flags
 	httpAddr := flag.String("http", "", "HTTP address to listen on (e.g., :8080). If empty, uses stdio transport.")
 	flag.Parse()
@@ -54,6 +62,19 @@ func main() {
 	}
 	logger.Info("Token validated successfully", "user", user.Name, "email", user.Email)
 
+	// Initialize audit logger
+	auditConfig := audit.LoadConfigFromEnv()
+	auditLogger, err := audit.NewLogger(auditConfig)
+	if err != nil {
+		logger.Warn("Failed to initialize audit logger, using in-memory", "error", err)
+		auditLogger = audit.NewMemoryLogger(1000, auditConfig)
+	}
+	defer auditLogger.Close()
+
+	if auditConfig.Enabled {
+		logger.Info("Audit logging enabled", "path", auditConfig.Path)
+	}
+
 	// Create MCP server with instructions for LLMs
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    ServerName,
@@ -63,8 +84,10 @@ func main() {
 		Instructions: serverInstructions,
 	})
 
-	// Register all Miro tools
-	registry := tools.NewHandlerRegistry(client, logger)
+	// Register all Miro tools with audit logging
+	registry := tools.NewHandlerRegistry(client, logger).
+		WithAuditLogger(auditLogger).
+		WithUser(user.ID, user.Email)
 	registry.RegisterAll(server)
 
 	ctx := context.Background()
@@ -189,4 +212,87 @@ rectangle, round_rectangle, circle, triangle, rhombus, star, hexagon, pentagon
 
 Requires MIRO_ACCESS_TOKEN environment variable.
 Get a token at: https://miro.com/app/settings/user-profile/apps
+
+Or use OAuth: ./miro-mcp-server auth login
 `
+
+// runAuthCommand handles auth subcommands (login, status, logout)
+func runAuthCommand(args []string) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	oauthConfig := oauth.LoadConfigFromEnv()
+
+	if !oauthConfig.IsConfigured() {
+		fmt.Println("OAuth not configured. Set MIRO_CLIENT_ID and MIRO_CLIENT_SECRET.")
+		fmt.Println("\nTo get OAuth credentials:")
+		fmt.Println("1. Go to https://miro.com/app/settings/user-profile/apps")
+		fmt.Println("2. Create a new app or edit an existing one")
+		fmt.Println("3. Copy Client ID and Client Secret")
+		os.Exit(1)
+	}
+
+	authFlow := oauth.NewAuthFlow(oauthConfig, logger)
+	ctx := context.Background()
+
+	if len(args) == 0 {
+		printAuthUsage()
+		return
+	}
+
+	switch args[0] {
+	case "login":
+		fmt.Println("Starting OAuth login flow...")
+		tokens, err := authFlow.Login(ctx)
+		if err != nil {
+			log.Fatalf("Login failed: %v", err)
+		}
+		fmt.Printf("\nLogged in successfully!\n")
+		fmt.Printf("User ID: %s\n", tokens.UserID)
+		fmt.Printf("Team ID: %s\n", tokens.TeamID)
+		fmt.Printf("Token expires: %s\n", tokens.ExpiresAt.Format(time.RFC3339))
+		fmt.Printf("\nTokens saved to: %s\n", oauthConfig.TokenStorePath)
+
+	case "status":
+		tokens, err := authFlow.Status(ctx)
+		if err != nil {
+			fmt.Printf("Not logged in: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Authentication status: Logged in")
+		fmt.Printf("User ID: %s\n", tokens.UserID)
+		fmt.Printf("Team ID: %s\n", tokens.TeamID)
+		if tokens.IsExpired() {
+			fmt.Println("Token status: Expired (will refresh on next use)")
+		} else {
+			fmt.Printf("Token expires: %s\n", tokens.ExpiresAt.Format(time.RFC3339))
+		}
+
+	case "logout":
+		if err := authFlow.Logout(ctx); err != nil {
+			log.Fatalf("Logout failed: %v", err)
+		}
+		fmt.Println("Logged out successfully.")
+
+	default:
+		fmt.Printf("Unknown auth command: %s\n\n", args[0])
+		printAuthUsage()
+		os.Exit(1)
+	}
+}
+
+func printAuthUsage() {
+	fmt.Println("Usage: miro-mcp-server auth <command>")
+	fmt.Println("")
+	fmt.Println("Commands:")
+	fmt.Println("  login   Start OAuth login flow (opens browser)")
+	fmt.Println("  status  Show current authentication status")
+	fmt.Println("  logout  Revoke tokens and log out")
+	fmt.Println("")
+	fmt.Println("Environment variables:")
+	fmt.Println("  MIRO_CLIENT_ID      OAuth client ID (required)")
+	fmt.Println("  MIRO_CLIENT_SECRET  OAuth client secret (required)")
+	fmt.Println("  MIRO_REDIRECT_URI   Callback URL (default: http://localhost:8089/callback)")
+	fmt.Println("  MIRO_TOKEN_PATH     Token storage path (default: ~/.miro/tokens.json)")
+}

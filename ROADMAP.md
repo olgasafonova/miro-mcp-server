@@ -2,7 +2,7 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
-> **Status**: 38 tools implemented. Phases 1-4 complete.
+> **Status**: 39 tools implemented. Phases 1-4 complete, Phase 5 in progress (audit logging + OAuth 2.1 done).
 > **Last Updated**: 2025-12-21
 
 ---
@@ -939,6 +939,34 @@ go test -cover ./...
 | `miro_create_export_job` | ✅ Done | Enterprise only - PDF/SVG/HTML export |
 | `miro_get_export_job_status` | ✅ Done | Enterprise only - check progress |
 | `miro_get_export_job_results` | ✅ Done | Enterprise only - get download links |
+
+### Phase 5: Enterprise Features (In Progress)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Audit Logging (Local) | ✅ Done | File/memory logger, middleware integration, query tool |
+| OAuth 2.1 Flow | ✅ Done | Full OAuth with PKCE, auto-refresh, CLI commands |
+| Webhooks Support | 🔲 Planned | Real-time board event notifications |
+
+#### Phase 5 Tools
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `miro_get_audit_log` | ✅ Done | Query local audit log for MCP tool executions |
+
+#### Phase 5 Enhancements
+
+| Feature | Status |
+|---------|--------|
+| Audit event logging for all tool calls | ✅ Done |
+| File-based audit logger with rotation | ✅ Done |
+| Memory-based audit logger (dev/testing) | ✅ Done |
+| Sensitive input sanitization | ✅ Done |
+| Event builder with fluent API | ✅ Done |
+| OAuth 2.1 with PKCE support | ✅ Done |
+| OAuth token auto-refresh | ✅ Done |
+| OAuth CLI commands (login/status/logout) | ✅ Done |
+| Secure token storage (~/.miro/tokens.json) | ✅ Done |
 
 ---
 

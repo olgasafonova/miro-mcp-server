@@ -773,6 +773,35 @@ NOTE: If links expired, call this again to regenerate them.
 
 VOICE-FRIENDLY: "Export ready - 4 boards available for download"`,
 	},
+
+	// ==========================================================================
+	// Audit Tools (Local Operations)
+	// ==========================================================================
+	{
+		Name:     "miro_get_audit_log",
+		Method:   "GetAuditLog",
+		Title:    "Get Audit Log",
+		Category: "audit",
+		ReadOnly: true,
+		Description: `Query the local audit log for MCP tool executions.
+
+USE WHEN: User asks "what operations have been performed", "show recent activity", "audit trail"
+
+PARAMETERS:
+- since: Return events after this time (ISO 8601 format)
+- until: Return events before this time (ISO 8601 format)
+- tool: Filter by tool name (e.g., miro_create_sticky)
+- board_id: Filter by board ID
+- action: Filter by action type (create, read, update, delete, export, auth)
+- success: Filter by success status (true/false)
+- limit: Maximum events to return (default 50, max 500)
+
+RETURNS: List of audit events with timestamps, tools, actions, and results.
+
+NOTE: This queries the LOCAL audit log of this MCP server session, not Miro's enterprise audit logs.
+
+VOICE-FRIENDLY: "Found 15 operations in the last hour - 12 creates, 3 reads"`,
+	},
 }
 
 // ptr is a helper to create a pointer to a value.

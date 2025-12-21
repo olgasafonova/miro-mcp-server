@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 38 tools implemented. Phases 1-4 complete.
+**Current Status**: 39 tools implemented. Phases 1-4 complete, Phase 5 in progress (audit logging + OAuth 2.1 done).
 
 ## Quick Start
 
@@ -14,11 +14,14 @@ This file provides context for Claude Code sessions working on this repository.
 # Build
 go build -o miro-mcp-server .
 
-# Run (stdio mode)
+# Run (stdio mode) with static token
 MIRO_ACCESS_TOKEN=your_token ./miro-mcp-server
 
 # Run (HTTP mode)
 MIRO_ACCESS_TOKEN=your_token ./miro-mcp-server -http :8080
+
+# OAuth login (alternative to static token)
+MIRO_CLIENT_ID=xxx MIRO_CLIENT_SECRET=yyy ./miro-mcp-server auth login
 
 # Test
 go test ./...
@@ -28,9 +31,9 @@ go test ./...
 
 ```
 miro-mcp-server/
-├── main.go                    # Entry point, transport setup
+├── main.go                    # Entry point, transport setup, auth CLI
 ├── miro/
-│   ├── client.go              # Base client (HTTP, retry, caching)
+│   ├── client.go              # Base client (HTTP, retry, caching, token refresh)
 │   ├── interfaces.go          # MiroClient interface + service interfaces
 │   ├── config.go              # Environment config
 │   │
@@ -52,11 +55,24 @@ miro-mcp-server/
 │   ├── types_groups.go        # Group types
 │   ├── types_members.go       # Member types
 │   ├── types_mindmaps.go      # Mindmap types
-│   └── types_export.go        # Export types
+│   ├── types_export.go        # Export types
+│   │
+│   ├── audit/                 # Audit logging package
+│   │   ├── types.go           # Event types and config
+│   │   ├── file.go            # File-based JSON Lines logger
+│   │   ├── memory.go          # In-memory ring buffer logger
+│   │   └── factory.go         # Logger factory and helpers
+│   │
+│   └── oauth/                 # OAuth 2.1 package
+│       ├── types.go           # Config, TokenSet, errors
+│       ├── provider.go        # OAuth flow (PKCE, token exchange)
+│       ├── tokens.go          # Token storage (file, memory)
+│       ├── server.go          # Local callback server
+│       └── auth.go            # AuthFlow orchestration
 │
 └── tools/
     ├── definitions.go         # Tool specs (add new tools here)
-    ├── handlers.go            # Map-based handler registration
+    ├── handlers.go            # Map-based handler registration + audit
     ├── mock_client_test.go    # Mock implementation for testing
     └── handlers_test.go       # Handler unit tests
 ```
@@ -269,6 +285,8 @@ if !mock.WasCalled("CreateSticky") {
 11. **Composite tools** - efficient multi-step operations
 12. **Interface-based design** - enables mock-based unit testing
 13. **Generic handler registration** - type-safe, single-line tool registration
+14. **Audit logging** - track all tool executions with file/memory loggers
+15. **OAuth 2.1 with PKCE** - secure authentication with auto-refresh
 
 ## What NOT to Change
 

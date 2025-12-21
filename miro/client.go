@@ -76,7 +76,7 @@ const (
 
 // Config holds Miro client configuration.
 type Config struct {
-	// AccessToken is the OAuth access token (required).
+	// AccessToken is the OAuth access token (required if not using TokenRefresher).
 	// Get one at https://miro.com/app/settings/user-profile/apps
 	AccessToken string
 
@@ -85,6 +85,12 @@ type Config struct {
 
 	// UserAgent identifies this client in API requests.
 	UserAgent string
+}
+
+// TokenRefresher provides automatic token refresh for OAuth.
+type TokenRefresher interface {
+	// GetAccessToken returns a valid access token, refreshing if needed.
+	GetAccessToken(ctx context.Context) (string, error)
 }
 
 // =============================================================================
@@ -104,6 +110,11 @@ type Client struct {
 	// cache stores API responses with TTL.
 	cache    sync.Map
 	cacheTTL time.Duration
+
+	// tokenRefresher provides automatic OAuth token refresh.
+	// If nil, uses config.AccessToken (static token mode).
+	tokenRefresher TokenRefresher
+	tokenMu        sync.RWMutex
 }
 
 // cacheEntry holds cached data with expiration.
@@ -136,6 +147,28 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 		semaphore: make(chan struct{}, MaxConcurrentRequests),
 		cacheTTL:  DefaultCacheTTL,
 	}
+}
+
+// WithTokenRefresher sets an OAuth token refresher for automatic token management.
+// When set, the client will use the refresher to get valid access tokens instead
+// of using the static AccessToken from config.
+func (c *Client) WithTokenRefresher(refresher TokenRefresher) *Client {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	c.tokenRefresher = refresher
+	return c
+}
+
+// getAccessToken returns the current access token, refreshing if needed.
+func (c *Client) getAccessToken(ctx context.Context) (string, error) {
+	c.tokenMu.RLock()
+	refresher := c.tokenRefresher
+	c.tokenMu.RUnlock()
+
+	if refresher != nil {
+		return refresher.GetAccessToken(ctx)
+	}
+	return c.config.AccessToken, nil
 }
 
 // =============================================================================
@@ -203,6 +236,12 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 		return nil, fmt.Errorf("context cancelled while waiting for rate limiter: %w", ctx.Err())
 	}
 
+	// Get access token (may refresh if using OAuth)
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get access token: %w", err)
+	}
+
 	// Build request URL
 	reqURL := BaseURL + path
 
@@ -223,7 +262,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	}
 
 	// Set headers
-	req.Header.Set("Authorization", "Bearer "+c.config.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", c.config.UserAgent)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

@@ -2,28 +2,48 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
+	"github.com/olgasafonova/miro-mcp-server/miro/audit"
 )
 
 // HandlerRegistry provides type-safe tool registration.
 type HandlerRegistry struct {
-	client   miro.MiroClient
-	logger   *slog.Logger
-	handlers map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
+	client      miro.MiroClient
+	logger      *slog.Logger
+	auditLogger audit.Logger
+	userID      string // Miro user ID from token validation
+	userEmail   string // Miro user email from token validation
+	handlers    map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
 }
 
 // NewHandlerRegistry creates a new handler registry.
 func NewHandlerRegistry(client miro.MiroClient, logger *slog.Logger) *HandlerRegistry {
 	h := &HandlerRegistry{
-		client: client,
-		logger: logger,
+		client:      client,
+		logger:      logger,
+		auditLogger: audit.NewNoopLogger(), // Default to noop
 	}
 	h.handlers = h.buildHandlerMap()
+	return h
+}
+
+// WithAuditLogger sets the audit logger for the registry.
+func (h *HandlerRegistry) WithAuditLogger(auditLogger audit.Logger) *HandlerRegistry {
+	h.auditLogger = auditLogger
+	return h
+}
+
+// WithUser sets the user info for audit events.
+func (h *HandlerRegistry) WithUser(userID, userEmail string) *HandlerRegistry {
+	h.userID = userID
+	h.userEmail = userEmail
 	return h
 }
 
@@ -96,7 +116,79 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"CreateExportJob":     makeHandler(h, h.client.CreateExportJob),
 		"GetExportJobStatus":  makeHandler(h, h.client.GetExportJobStatus),
 		"GetExportJobResults": makeHandler(h, h.client.GetExportJobResults),
+
+		// Audit tools (local, not Miro API)
+		"GetAuditLog": makeHandler(h, h.GetAuditLog),
 	}
+}
+
+// GetAuditLog queries the local audit log.
+func (h *HandlerRegistry) GetAuditLog(ctx context.Context, args miro.GetAuditLogArgs) (miro.GetAuditLogResult, error) {
+	// Parse time range
+	var since, until time.Time
+	if args.Since != "" {
+		t, err := time.Parse(time.RFC3339, args.Since)
+		if err != nil {
+			return miro.GetAuditLogResult{}, fmt.Errorf("invalid 'since' time format: %w", err)
+		}
+		since = t
+	}
+	if args.Until != "" {
+		t, err := time.Parse(time.RFC3339, args.Until)
+		if err != nil {
+			return miro.GetAuditLogResult{}, fmt.Errorf("invalid 'until' time format: %w", err)
+		}
+		until = t
+	}
+
+	// Set defaults
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	// Build query options
+	opts := audit.QueryOptions{
+		Since:   since,
+		Until:   until,
+		Tool:    args.Tool,
+		BoardID: args.BoardID,
+		Action:  audit.Action(args.Action),
+		Success: args.Success,
+		Limit:   limit,
+	}
+
+	// Execute query
+	result, err := h.auditLogger.Query(ctx, opts)
+	if err != nil {
+		return miro.GetAuditLogResult{}, fmt.Errorf("audit query failed: %w", err)
+	}
+
+	// Convert to response type
+	events := make([]miro.AuditLogEvent, len(result.Events))
+	for i, e := range result.Events {
+		events[i] = miro.AuditLogEvent{
+			ID:         e.ID,
+			Timestamp:  e.Timestamp,
+			Tool:       e.Tool,
+			Action:     string(e.Action),
+			BoardID:    e.BoardID,
+			ItemID:     e.ItemID,
+			Success:    e.Success,
+			Error:      e.Error,
+			DurationMs: e.DurationMs,
+		}
+	}
+
+	return miro.GetAuditLogResult{
+		Events:  events,
+		Total:   result.Total,
+		HasMore: result.HasMore,
+		Message: fmt.Sprintf("Found %d audit events", len(events)),
+	}, nil
 }
 
 // makeHandler creates a registration function for a typed client method.
@@ -148,7 +240,16 @@ func registerTool[Args, Result any](
 	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, args Args) (*mcp.CallToolResult, Result, error) {
 		defer h.recoverPanic(spec.Name)
 
+		start := time.Now()
 		result, err := method(ctx, args)
+		duration := time.Since(start)
+
+		// Create and log audit event
+		event := h.createAuditEvent(spec, args, result, err, duration)
+		if auditErr := h.auditLogger.Log(ctx, event); auditErr != nil {
+			h.logger.Warn("Failed to log audit event", "error", auditErr)
+		}
+
 		if err != nil {
 			var zero Result
 			return nil, zero, fmt.Errorf("%s failed: %w", spec.Name, err)
@@ -157,6 +258,58 @@ func registerTool[Args, Result any](
 		h.logExecution(spec, args, result)
 		return nil, result, nil
 	})
+}
+
+// createAuditEvent creates an audit event from tool execution details.
+func (h *HandlerRegistry) createAuditEvent(spec ToolSpec, args, result any, err error, duration time.Duration) audit.Event {
+	event := audit.NewEvent(spec.Name, spec.Method, audit.DetectAction(spec.Method)).
+		WithUser(h.userID, h.userEmail).
+		WithDuration(duration)
+
+	// Extract board_id and item_id from args
+	if input := argsToMap(args); input != nil {
+		event.WithInput(input)
+		if boardID, ok := input["board_id"].(string); ok {
+			event.WithBoard(boardID)
+		}
+		if itemID, ok := input["item_id"].(string); ok {
+			event.WithItem(itemID, "")
+		}
+	}
+
+	// Mark success or failure
+	if err != nil {
+		event.Failure(err)
+	} else {
+		event.Success()
+		// Extract item_id and count from result
+		if resultMap := argsToMap(result); resultMap != nil {
+			if itemID, ok := resultMap["id"].(string); ok {
+				event.WithItem(itemID, "")
+			}
+			if created, ok := resultMap["created"].(float64); ok {
+				event.WithItemCount(int(created))
+			}
+		}
+	}
+
+	return event.Build()
+}
+
+// argsToMap converts a struct to a map for audit logging.
+func argsToMap(v any) map[string]interface{} {
+	if v == nil {
+		return nil
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil
+	}
+	return result
 }
 
 // recoverPanic recovers from panics in tool handlers.

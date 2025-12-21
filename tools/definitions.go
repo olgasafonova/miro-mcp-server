@@ -1,4 +1,25 @@
-// Package tools provides MCP tool definitions for the Miro MCP server.
+// Package tools provides MCP tool definitions and handlers for the Miro MCP server.
+//
+// This package defines all available tools that can be invoked through the
+// Model Context Protocol (MCP). Each tool corresponds to a Miro API operation
+// and includes metadata for LLM-friendly descriptions.
+//
+// # Tool Categories
+//
+//   - boards: List, create, copy, delete boards
+//   - create: Create items (stickies, shapes, text, connectors, frames, etc.)
+//   - read: List and get item details
+//   - tags: Create, list, attach, and detach tags
+//   - update: Modify existing items
+//   - delete: Remove items from boards
+//
+// # Adding New Tools
+//
+// To add a new tool:
+//  1. Add Args/Result types in miro/types.go
+//  2. Add the method in miro/client.go
+//  3. Add a ToolSpec entry in AllTools
+//  4. Register the method in handlers.go
 package tools
 
 // ToolSpec defines a tool's metadata for declarative registration.

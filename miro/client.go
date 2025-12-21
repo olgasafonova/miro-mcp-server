@@ -1,3 +1,34 @@
+// Package miro provides a client for the Miro REST API v2.
+//
+// This package implements a high-level client for interacting with Miro boards,
+// including creating, reading, updating, and deleting board items like sticky notes,
+// shapes, text, connectors, frames, cards, images, documents, and embeds.
+//
+// # Features
+//
+//   - Rate limiting with configurable concurrency
+//   - Response caching with TTL
+//   - Automatic retry with exponential backoff for rate limit errors
+//   - Input validation for IDs and content
+//   - Board name resolution (find boards by name, not just ID)
+//
+// # Usage
+//
+//	config, err := miro.LoadConfigFromEnv()
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	client := miro.NewClient(config, logger)
+//
+//	// Validate token on startup
+//	user, err := client.ValidateToken(ctx)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// List boards
+//	result, err := client.ListBoards(ctx, miro.ListBoardsArgs{})
 package miro
 
 import (
@@ -16,77 +47,51 @@ import (
 	"time"
 )
 
+// API and client configuration constants.
 const (
-	// BaseURL is the Miro API base URL
+	// BaseURL is the Miro REST API v2 base URL.
 	BaseURL = "https://api.miro.com/v2"
 
-	// DefaultTimeout for API requests
+	// DefaultTimeout is the default HTTP request timeout.
 	DefaultTimeout = 30 * time.Second
 
-	// MaxConcurrentRequests limits parallel API calls
+	// MaxConcurrentRequests limits parallel API calls to prevent rate limiting.
 	MaxConcurrentRequests = 5
 
-	// Rate limit: 100,000 credits per minute, but we'll be conservative
-	DefaultRateLimit = 100 // requests per minute per user
+	// DefaultCacheTTL is the default cache time-to-live for board data.
+	DefaultCacheTTL = 2 * time.Minute
+
+	// MaxRetries is the maximum number of retry attempts for rate-limited requests.
+	MaxRetries = 3
+
+	// BaseRetryDelay is the initial delay for exponential backoff.
+	BaseRetryDelay = 1 * time.Second
 )
 
 // Config holds Miro client configuration.
 type Config struct {
-	// AccessToken is the OAuth access token (required)
+	// AccessToken is the OAuth access token (required).
+	// Get one at https://miro.com/app/settings/user-profile/apps
 	AccessToken string
 
-	// Timeout for HTTP requests (default 30s)
+	// Timeout for HTTP requests (default 30s).
 	Timeout time.Duration
 
-	// UserAgent for API requests
+	// UserAgent identifies this client in API requests.
 	UserAgent string
 }
 
-// LoadConfig creates a Config from environment variables.
-func LoadConfig() (*Config, error) {
-	token := getEnv("MIRO_ACCESS_TOKEN", "")
-	if token == "" {
-		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN environment variable is required")
-	}
-
-	timeout := DefaultTimeout
-	if t := getEnv("MIRO_TIMEOUT", ""); t != "" {
-		if d, err := time.ParseDuration(t); err == nil {
-			timeout = d
-		}
-	}
-
-	return &Config{
-		AccessToken: token,
-		Timeout:     timeout,
-		UserAgent:   getEnv("MIRO_USER_AGENT", "miro-mcp-server/1.0"),
-	}, nil
-}
-
-// getEnv returns environment variable value or default.
-func getEnv(key, defaultVal string) string {
-	if val := lookupEnv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}
-
-// lookupEnv is a variable to allow testing.
-var lookupEnv = func(key string) string {
-	// Import os in the actual implementation
-	return ""
-}
-
 // Client handles communication with the Miro API.
+// It provides rate limiting, caching, and retry capabilities.
 type Client struct {
 	config     *Config
 	httpClient *http.Client
 	logger     *slog.Logger
 
-	// Rate limiting with semaphore
+	// semaphore limits concurrent API requests.
 	semaphore chan struct{}
 
-	// Simple response cache
+	// cache stores API responses with TTL.
 	cache    sync.Map
 	cacheTTL time.Duration
 }
@@ -155,7 +160,8 @@ func ValidateContent(content string) error {
 	return nil
 }
 
-// NewClient creates a new Miro API client.
+// NewClient creates a new Miro API client with the given configuration.
+// The client is safe for concurrent use by multiple goroutines.
 func NewClient(config *Config, logger *slog.Logger) *Client {
 	return &Client{
 		config: config,
@@ -169,7 +175,7 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 		},
 		logger:    logger,
 		semaphore: make(chan struct{}, MaxConcurrentRequests),
-		cacheTTL:  2 * time.Minute,
+		cacheTTL:  DefaultCacheTTL,
 	}
 }
 
@@ -296,13 +302,11 @@ func (c *Client) ValidateToken(ctx context.Context) (*UserInfo, error) {
 // Request with Retry
 // =============================================================================
 
-// requestWithRetry wraps request with exponential backoff for rate limit errors.
+// requestWithRetry wraps request with exponential backoff for rate limit errors (HTTP 429).
+// It will retry up to MaxRetries times with exponentially increasing delays.
 func (c *Client) requestWithRetry(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	maxRetries := 3
-	baseDelay := 1 * time.Second
-
 	var lastErr error
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	for attempt := 0; attempt <= MaxRetries; attempt++ {
 		respBody, err := c.request(ctx, method, path, body)
 		if err == nil {
 			return respBody, nil
@@ -310,10 +314,10 @@ func (c *Client) requestWithRetry(ctx context.Context, method, path string, body
 
 		// Check if rate limited (429)
 		if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "rate limit") {
-			delay := baseDelay * time.Duration(1<<uint(attempt)) // Exponential: 1s, 2s, 4s, 8s
+			delay := BaseRetryDelay * time.Duration(1<<uint(attempt)) // Exponential: 1s, 2s, 4s, 8s
 			c.logger.Warn("Rate limited, retrying",
 				"attempt", attempt+1,
-				"max_retries", maxRetries,
+				"max_retries", MaxRetries,
 				"delay", delay,
 				"path", path,
 			)

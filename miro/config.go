@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-func init() {
-	// Override the lookupEnv function with actual os.Getenv
-	lookupEnv = os.Getenv
-}
-
 // LoadConfigFromEnv creates a Config from environment variables.
 // Required: MIRO_ACCESS_TOKEN
 // Optional: MIRO_TIMEOUT, MIRO_USER_AGENT

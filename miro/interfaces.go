@@ -57,6 +57,8 @@ type TagService interface {
 
 // ConnectorService handles connector operations.
 type ConnectorService interface {
+	ListConnectors(ctx context.Context, args ListConnectorsArgs) (ListConnectorsResult, error)
+	GetConnector(ctx context.Context, args GetConnectorArgs) (GetConnectorResult, error)
 	CreateConnector(ctx context.Context, args CreateConnectorArgs) (CreateConnectorResult, error)
 	UpdateConnector(ctx context.Context, args UpdateConnectorArgs) (UpdateConnectorResult, error)
 	DeleteConnector(ctx context.Context, args DeleteConnectorArgs) (DeleteConnectorResult, error)

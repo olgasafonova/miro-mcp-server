@@ -314,7 +314,28 @@ func (p *MermaidParser) parseNodeLine(diagram *Diagram, line string, subgraph st
 }
 
 // ParseMermaid is a convenience function to parse Mermaid syntax.
+// It auto-detects the diagram type (flowchart or sequence).
 func ParseMermaid(input string) (*Diagram, error) {
+	// Check for sequence diagram
+	if isSequenceDiagram(input) {
+		parser := NewSequenceParser()
+		return parser.Parse(input)
+	}
+
+	// Default to flowchart
 	parser := NewMermaidParser()
 	return parser.Parse(input)
+}
+
+// isSequenceDiagram checks if the input is a sequence diagram.
+func isSequenceDiagram(input string) bool {
+	lines := strings.Split(input, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(strings.ToLower(line))
+		if line == "" || strings.HasPrefix(line, "%%") {
+			continue
+		}
+		return line == "sequencediagram"
+	}
+	return false
 }

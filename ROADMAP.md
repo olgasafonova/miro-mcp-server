@@ -2,7 +2,7 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
-> **Status**: 43 tools implemented. Phases 1-5 complete.
+> **Status**: 50 tools implemented. Phases 1-6 complete.
 > **Last Updated**: 2025-12-21
 
 ---
@@ -35,7 +35,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (43 total)
+### Implemented Tools (50 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -70,6 +70,12 @@ miro-mcp-server/
 | **Tags** | `miro_attach_tag` | AttachTag |
 | **Tags** | `miro_detach_tag` | DetachTag |
 | **Tags** | `miro_get_item_tags` | GetItemTags |
+| **Tags** | `miro_update_tag` | UpdateTag |
+| **Tags** | `miro_delete_tag` | DeleteTag |
+| **Connectors** | `miro_list_connectors` | ListConnectors |
+| **Connectors** | `miro_get_connector` | GetConnector |
+| **Connectors** | `miro_update_connector` | UpdateConnector |
+| **Connectors** | `miro_delete_connector` | DeleteConnector |
 | **Update** | `miro_update_item` | UpdateItem |
 | **Update** | `miro_ungroup` | Ungroup |
 | **Delete** | `miro_delete_item` | DeleteItem |
@@ -82,6 +88,7 @@ miro-mcp-server/
 | **Webhooks** | `miro_list_webhooks` | ListWebhooks |
 | **Webhooks** | `miro_delete_webhook` | DeleteWebhook |
 | **Webhooks** | `miro_get_webhook` | GetWebhook |
+| **Diagrams** | `miro_generate_diagram` | GenerateDiagram |
 
 ### Existing Strengths
 
@@ -981,6 +988,37 @@ go test -cover ./...
 | Ring buffer for recent events | ✅ Done |
 | SSE endpoint for real-time streaming | ✅ Done |
 | Webhook challenge validation | ✅ Done |
+
+### Phase 6: Extended Features (Complete ✅)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Diagram Generation | ✅ Done | Mermaid flowchart and sequence diagrams → Miro shapes |
+| Connector List/Get | ✅ Done | Full CRUD for connectors |
+| Tag Update/Delete | ✅ Done | Complete tag management |
+
+#### Phase 6 Tools
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `miro_generate_diagram` | ✅ Done | Convert Mermaid to Miro shapes/connectors |
+| `miro_list_connectors` | ✅ Done | List all connectors on a board |
+| `miro_get_connector` | ✅ Done | Get full connector details |
+| `miro_update_connector` | ✅ Done | Update connector style/endpoints |
+| `miro_delete_connector` | ✅ Done | Delete a connector |
+| `miro_update_tag` | ✅ Done | Update tag title/color |
+| `miro_delete_tag` | ✅ Done | Delete a tag |
+
+#### Phase 6 Enhancements
+
+| Feature | Status |
+|---------|--------|
+| Mermaid flowchart parser | ✅ Done |
+| Mermaid sequence diagram parser | ✅ Done |
+| Sugiyama-style layout algorithm | ✅ Done |
+| Auto-layout for diagrams | ✅ Done |
+| Support for 7 node shapes | ✅ Done |
+| Support for 4 edge styles | ✅ Done |
 
 ---
 

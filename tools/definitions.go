@@ -606,6 +606,42 @@ WARNING: This action cannot be undone.
 
 VOICE-FRIENDLY: "Connector deleted successfully"`,
 	},
+	{
+		Name:     "miro_list_connectors",
+		Method:   "ListConnectors",
+		Title:    "List Connectors",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List all connectors (lines/arrows) on a Miro board.
+
+USE WHEN: User asks "show me all connections", "list connectors", "what's connected on this board"
+
+PARAMETERS:
+- board_id: Required
+- limit: Max connectors to return (default 50, max 100)
+
+RETURNS: List of connectors with IDs, connected item IDs, style, and any labels.
+
+VOICE-FRIENDLY: "Found 12 connectors on the board"`,
+	},
+	{
+		Name:     "miro_get_connector",
+		Method:   "GetConnector",
+		Title:    "Get Connector Details",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get full details of a specific connector by ID.
+
+USE WHEN: User asks "show me this connection", "details of that arrow", "what does this line connect"
+
+PARAMETERS:
+- board_id: Required
+- connector_id: Required
+
+RETURNS: Connector details including connected items, style, arrow types, color, and timestamps.
+
+VOICE-FRIENDLY: "This connector links Item A to Item B with a curved arrow"`,
+	},
 
 	// ==========================================================================
 	// Composite Tools
@@ -969,14 +1005,16 @@ VOICE-FRIENDLY: "Webhook is active - watching board X since yesterday"`,
 		Name:     "miro_generate_diagram",
 		Method:   "GenerateDiagram",
 		Title:    "Generate Diagram from Code",
-		Category: "create",
-		Description: `Generate a visual diagram on a Miro board from Mermaid code. Automatically creates shapes and connectors with proper layout.
+		Category: "diagrams",
+		Description: `Generate a visual diagram on a Miro board from Mermaid code. Supports flowcharts and sequence diagrams. Automatically creates shapes and connectors with proper layout.
 
-USE WHEN: User says "create a flowchart", "generate diagram from this code", "draw process flow", "visualize this workflow"
+USE WHEN: User says "create a flowchart", "generate diagram from this code", "draw process flow", "visualize this workflow", "create sequence diagram"
 
-MERMAID SYNTAX EXAMPLES:
+SUPPORTED DIAGRAM TYPES:
+1. Flowcharts (flowchart/graph)
+2. Sequence diagrams (sequenceDiagram)
 
-Flowchart (top to bottom):
+FLOWCHART SYNTAX:
 ` + "```" + `
 flowchart TB
     A[Start] --> B{Is it working?}
@@ -985,36 +1023,40 @@ flowchart TB
     D --> B
 ` + "```" + `
 
-Flowchart (left to right):
+SEQUENCE DIAGRAM SYNTAX:
 ` + "```" + `
-flowchart LR
-    Input --> Process --> Output
+sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    A->>B: Hello Bob!
+    B-->>A: Hi Alice!
+    A->>B: How are you?
 ` + "```" + `
 
-SHAPE TYPES IN MERMAID:
+FLOWCHART SHAPES:
 - [text] = Rectangle
-- (text) = Rounded rectangle / Stadium
+- (text) = Rounded rectangle
 - {text} = Diamond (decision)
 - ((text)) = Circle
 - {{text}} = Hexagon
 
-EDGE TYPES:
-- --> Arrow
-- --- Line (no arrow)
-- -.-> Dotted arrow
-- ==> Thick arrow
-- -->|label| Arrow with label
+SEQUENCE DIAGRAM ELEMENTS:
+- participant X = Declare participant
+- actor X = Declare actor (circle shape)
+- A->>B: text = Sync message (solid arrow)
+- A-->>B: text = Async message (dotted arrow)
+- A-xB: text = Lost message (cross end)
 
 PARAMETERS:
 - board_id: Required. Board to create diagram on
-- diagram: Required. Mermaid diagram code (flowchart/graph syntax)
+- diagram: Required. Mermaid diagram code
 - start_x, start_y: Starting position (default: 0, 0)
 - node_width: Width of each node (default: 180)
 - parent_id: Frame ID to place diagram inside
 
 RETURNS: Count of created nodes, connectors, and their IDs.
 
-VOICE-FRIENDLY: "Created flowchart with 5 nodes and 6 connectors"`,
+VOICE-FRIENDLY: "Created sequence diagram with 3 participants and 5 messages"`,
 	},
 }
 

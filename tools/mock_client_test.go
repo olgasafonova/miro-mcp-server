@@ -55,6 +55,8 @@ type MockClient struct {
 	DeleteTagFn   func(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error)
 
 	// Connector operations
+	ListConnectorsFn  func(ctx context.Context, args miro.ListConnectorsArgs) (miro.ListConnectorsResult, error)
+	GetConnectorFn    func(ctx context.Context, args miro.GetConnectorArgs) (miro.GetConnectorResult, error)
 	UpdateConnectorFn func(ctx context.Context, args miro.UpdateConnectorArgs) (miro.UpdateConnectorResult, error)
 	DeleteConnectorFn func(ctx context.Context, args miro.DeleteConnectorArgs) (miro.DeleteConnectorResult, error)
 
@@ -564,6 +566,37 @@ func (m *MockClient) DeleteTag(ctx context.Context, args miro.DeleteTagArgs) (mi
 // =============================================================================
 // ConnectorService Implementation
 // =============================================================================
+
+func (m *MockClient) ListConnectors(ctx context.Context, args miro.ListConnectorsArgs) (miro.ListConnectorsResult, error) {
+	m.recordCall("ListConnectors", args)
+	if m.ListConnectorsFn != nil {
+		return m.ListConnectorsFn(ctx, args)
+	}
+	return miro.ListConnectorsResult{
+		Connectors: []miro.ConnectorSummary{
+			{ID: "conn-1", StartItemID: "item-1", EndItemID: "item-2", Style: "elbowed"},
+			{ID: "conn-2", StartItemID: "item-2", EndItemID: "item-3", Style: "straight"},
+		},
+		Count:   2,
+		HasMore: false,
+		Message: "Found 2 connectors",
+	}, nil
+}
+
+func (m *MockClient) GetConnector(ctx context.Context, args miro.GetConnectorArgs) (miro.GetConnectorResult, error) {
+	m.recordCall("GetConnector", args)
+	if m.GetConnectorFn != nil {
+		return m.GetConnectorFn(ctx, args)
+	}
+	return miro.GetConnectorResult{
+		ID:          args.ConnectorID,
+		StartItemID: "item-1",
+		EndItemID:   "item-2",
+		Style:       "elbowed",
+		EndCap:      "arrow",
+		Message:     "Retrieved connector details",
+	}, nil
+}
 
 func (m *MockClient) UpdateConnector(ctx context.Context, args miro.UpdateConnectorArgs) (miro.UpdateConnectorResult, error) {
 	m.recordCall("UpdateConnector", args)

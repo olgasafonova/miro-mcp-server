@@ -94,6 +94,8 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"DeleteTag":   makeHandler(h, h.client.DeleteTag),
 
 		// Connector tools
+		"ListConnectors":  makeHandler(h, h.client.ListConnectors),
+		"GetConnector":    makeHandler(h, h.client.GetConnector),
 		"UpdateConnector": makeHandler(h, h.client.UpdateConnector),
 		"DeleteConnector": makeHandler(h, h.client.DeleteConnector),
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // =============================================================================
@@ -197,6 +198,119 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 		Content: text.Data.Content,
 		Message: fmt.Sprintf("Created text '%s'", truncate(args.Content, 30)),
 	}, nil
+}
+
+// ListConnectors returns a list of connectors on a board.
+func (c *Client) ListConnectors(ctx context.Context, args ListConnectorsArgs) (ListConnectorsResult, error) {
+	if args.BoardID == "" {
+		return ListConnectorsResult{}, fmt.Errorf("board_id is required")
+	}
+
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	path := fmt.Sprintf("/boards/%s/connectors?limit=%d", args.BoardID, limit)
+	if args.Cursor != "" {
+		path += "&cursor=" + args.Cursor
+	}
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return ListConnectorsResult{}, err
+	}
+
+	var resp struct {
+		Data   []Connector `json:"data"`
+		Cursor string      `json:"cursor,omitempty"`
+		Total  int         `json:"total,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return ListConnectorsResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	connectors := make([]ConnectorSummary, len(resp.Data))
+	for i, c := range resp.Data {
+		connectors[i] = ConnectorSummary{
+			ID:          c.ID,
+			StartItemID: c.StartItem.ItemID,
+			EndItemID:   c.EndItem.ItemID,
+			Style:       c.Shape,
+			Caption:     extractCaption(c.Captions),
+		}
+	}
+
+	hasMore := resp.Cursor != ""
+	return ListConnectorsResult{
+		Connectors: connectors,
+		Count:      len(connectors),
+		HasMore:    hasMore,
+		Cursor:     resp.Cursor,
+		Message:    fmt.Sprintf("Found %d connectors", len(connectors)),
+	}, nil
+}
+
+// extractCaption gets the text from the first caption if present.
+func extractCaption(captions []Caption) string {
+	if len(captions) > 0 {
+		return captions[0].Content
+	}
+	return ""
+}
+
+// GetConnector retrieves a specific connector by ID.
+func (c *Client) GetConnector(ctx context.Context, args GetConnectorArgs) (GetConnectorResult, error) {
+	if args.BoardID == "" {
+		return GetConnectorResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ConnectorID == "" {
+		return GetConnectorResult{}, fmt.Errorf("connector_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/connectors/%s", args.BoardID, args.ConnectorID)
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return GetConnectorResult{}, err
+	}
+
+	var connector Connector
+	if err := json.Unmarshal(respBody, &connector); err != nil {
+		return GetConnectorResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	result := GetConnectorResult{
+		ID:          connector.ID,
+		StartItemID: connector.StartItem.ItemID,
+		EndItemID:   connector.EndItem.ItemID,
+		Style:       connector.Shape,
+		Caption:     extractCaption(connector.Captions),
+		Message:     "Retrieved connector details",
+	}
+
+	// Extract style details if present
+	if connector.Style.StartStrokeCap != "" {
+		result.StartCap = connector.Style.StartStrokeCap
+	}
+	if connector.Style.EndStrokeCap != "" {
+		result.EndCap = connector.Style.EndStrokeCap
+	}
+	if connector.Style.Color != "" {
+		result.Color = connector.Style.Color
+	}
+
+	// Format timestamps
+	if !connector.CreatedAt.IsZero() {
+		result.CreatedAt = connector.CreatedAt.Format(time.RFC3339)
+	}
+	if !connector.ModifiedAt.IsZero() {
+		result.ModifiedAt = connector.ModifiedAt.Format(time.RFC3339)
+	}
+
+	return result, nil
 }
 
 // CreateConnector creates a connector between two items.

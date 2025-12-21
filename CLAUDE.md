@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 48 tools implemented. Phases 1-6 complete.
+**Current Status**: 50 tools implemented. Phases 1-6 complete.
 
 ## Quick Start
 
@@ -106,6 +106,7 @@ type TokenService interface { ... }
 type ExportService interface { ... }
 type WebhookService interface { ... }
 type DiagramService interface { ... }
+type ConnectorService interface { ... }
 
 // MiroClient embeds all service interfaces
 type MiroClient interface {

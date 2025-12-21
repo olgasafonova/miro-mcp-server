@@ -17,6 +17,7 @@ import (
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
 	"github.com/olgasafonova/miro-mcp-server/miro/oauth"
+	"github.com/olgasafonova/miro-mcp-server/miro/webhooks"
 	"github.com/olgasafonova/miro-mcp-server/tools"
 )
 
@@ -125,6 +126,25 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"healthy","server":"%s","version":"%s"}`, ServerName, ServerVersion)
 	})
+
+	// Webhook endpoints (if enabled)
+	webhookConfig := webhooks.LoadConfigFromEnv()
+	if webhookConfig.Enabled {
+		webhookHandler := webhooks.NewHandler(webhookConfig, logger)
+		sseHandler := webhooks.NewSSEHandler(webhookHandler.EventBus())
+
+		// Miro sends webhook events here
+		mux.Handle("/webhooks", webhookHandler)
+		mux.Handle("/webhooks/", webhookHandler)
+
+		// SSE endpoint for real-time event streaming to clients
+		mux.Handle("/events", sseHandler)
+
+		logger.Info("Webhook endpoints enabled",
+			"callback", "/webhooks",
+			"sse", "/events",
+		)
+	}
 
 	// MCP endpoint
 	mux.Handle("/", mcpHandler)

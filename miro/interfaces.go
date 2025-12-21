@@ -84,6 +84,14 @@ type ExportService interface {
 	GetExportJobResults(ctx context.Context, args GetExportJobResultsArgs) (GetExportJobResultsResult, error)
 }
 
+// WebhookService handles webhook subscription operations.
+type WebhookService interface {
+	CreateWebhook(ctx context.Context, args CreateWebhookArgs) (CreateWebhookResult, error)
+	ListWebhooks(ctx context.Context, args ListWebhooksArgs) (ListWebhooksResult, error)
+	DeleteWebhook(ctx context.Context, args DeleteWebhookArgs) (DeleteWebhookResult, error)
+	GetWebhook(ctx context.Context, args GetWebhookArgs) (GetWebhookResult, error)
+}
+
 // =============================================================================
 // Composite Interface
 // =============================================================================
@@ -100,6 +108,7 @@ type MiroClient interface {
 	MindmapService
 	TokenService
 	ExportService
+	WebhookService
 }
 
 // Verify that Client implements MiroClient at compile time.

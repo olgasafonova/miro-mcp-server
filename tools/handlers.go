@@ -119,6 +119,12 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 
 		// Audit tools (local, not Miro API)
 		"GetAuditLog": makeHandler(h, h.GetAuditLog),
+
+		// Webhook tools
+		"CreateWebhook": makeHandler(h, h.client.CreateWebhook),
+		"ListWebhooks":  makeHandler(h, h.client.ListWebhooks),
+		"DeleteWebhook": makeHandler(h, h.client.DeleteWebhook),
+		"GetWebhook":    makeHandler(h, h.client.GetWebhook),
 	}
 }
 

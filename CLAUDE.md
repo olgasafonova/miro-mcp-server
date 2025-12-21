@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 39 tools implemented. Phases 1-4 complete, Phase 5 in progress (audit logging + OAuth 2.1 done).
+**Current Status**: 43 tools implemented. Phases 1-5 complete.
 
 ## Quick Start
 
@@ -63,12 +63,18 @@ miro-mcp-server/
 │   │   ├── memory.go          # In-memory ring buffer logger
 │   │   └── factory.go         # Logger factory and helpers
 │   │
-│   └── oauth/                 # OAuth 2.1 package
-│       ├── types.go           # Config, TokenSet, errors
-│       ├── provider.go        # OAuth flow (PKCE, token exchange)
-│       ├── tokens.go          # Token storage (file, memory)
-│       ├── server.go          # Local callback server
-│       └── auth.go            # AuthFlow orchestration
+│   ├── oauth/                 # OAuth 2.1 package
+│   │   ├── types.go           # Config, TokenSet, errors
+│   │   ├── provider.go        # OAuth flow (PKCE, token exchange)
+│   │   ├── tokens.go          # Token storage (file, memory)
+│   │   ├── server.go          # Local callback server
+│   │   └── auth.go            # AuthFlow orchestration
+│   │
+│   └── webhooks/              # Webhooks package
+│       ├── types.go           # Config, Subscription, Event types
+│       ├── handler.go         # HTTP callback + signature verification
+│       ├── manager.go         # Subscription CRUD via Miro API
+│       └── events.go          # EventBus, RingBuffer, SSEHandler
 │
 └── tools/
     ├── definitions.go         # Tool specs (add new tools here)
@@ -90,6 +96,8 @@ type MemberService interface { ... }
 type MindmapService interface { ... }
 type TokenService interface { ... }
 type ExportService interface { ... }
+type AuditService interface { ... }
+type WebhookService interface { ... }
 
 // MiroClient embeds all service interfaces
 type MiroClient interface {
@@ -102,6 +110,8 @@ type MiroClient interface {
     MindmapService
     TokenService
     ExportService
+    AuditService
+    WebhookService
 }
 ```
 

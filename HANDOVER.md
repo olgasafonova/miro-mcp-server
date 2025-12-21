@@ -3,6 +3,7 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
+> **Status**: Phase 5 Complete - Ready for v1.1.0 release
 
 ---
 
@@ -10,7 +11,7 @@
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 39 tools implemented. Phases 1-4 complete, Phase 5 in progress (audit logging + OAuth 2.1 done).
+**Current Status**: 43 tools implemented. Phases 1-5 complete.
 
 **Repository**: https://github.com/olgasafonova/miro-mcp-server.git
 
@@ -18,46 +19,44 @@
 
 ## What Was Accomplished This Session
 
-### 1. Audit Logging (Phase 5.1) ✅
-- Created `miro/audit/` package with:
-  - `types.go` - Event, Config, Logger interface, QueryOptions
-  - `memory.go` - In-memory ring buffer logger
-  - `file.go` - File-based JSON Lines logger with rotation
-  - `factory.go` - Factory function, EventBuilder, NoopLogger
-  - `audit_test.go` - 78.2% test coverage
-- Integrated audit middleware into `tools/handlers.go`
-- Added `miro_get_audit_log` tool (#39)
+### Webhooks Implementation (Phase 5.3) ✅
 
-### 2. OAuth 2.1 Authentication (Phase 5.2) ✅
-- Created `miro/oauth/` package with:
-  - `types.go` - Config, TokenSet, TokenResponse, AuthorizationState, AuthError
-  - `provider.go` - OAuth 2.1 flow with PKCE support
-  - `tokens.go` - FileTokenStore and MemoryTokenStore
-  - `server.go` - Local callback server for OAuth redirect
-  - `auth.go` - AuthFlow orchestration (login, status, logout)
-  - `oauth_test.go` - 31.3% test coverage
-- Added `TokenRefresher` interface to `miro/client.go`
-- Added `WithTokenRefresher()` method for OAuth token injection
-- Modified `request()` for dynamic token retrieval with auto-refresh
-- Added CLI auth subcommands to `main.go`:
-  ```bash
-  ./miro-mcp-server auth login   # Opens browser for OAuth
-  ./miro-mcp-server auth status  # Shows auth status
-  ./miro-mcp-server auth logout  # Revokes tokens
-  ```
+Created `miro/webhooks/` package:
+- `types.go` - Config, EventType, Status, Subscription, Event, WebhookPayload
+- `handler.go` - HTTP callback handler with challenge validation + HMAC signature verification
+- `manager.go` - Subscription CRUD via Miro experimental API
+- `events.go` - EventBus pub/sub, RingBuffer for recent events, SSEHandler for streaming
+- `webhooks_test.go` - Comprehensive tests for all components
 
-### 3. Documentation Updates
-- Updated `ROADMAP.md` with Phase 5 progress
-- Updated `CLAUDE.md` with OAuth architecture and advantages
-- Updated `docs/PHASE5_PLAN.md` (created earlier)
+New types in `miro/types_webhooks.go`:
+- CreateWebhookArgs/Result
+- ListWebhooksArgs/Result
+- DeleteWebhookArgs/Result
+- GetWebhookArgs/Result
+
+New service interface in `miro/interfaces.go`:
+- WebhookService interface
+
+Implementation in `miro/webhooks.go`:
+- Client webhook methods
+
+New MCP tools (4 total):
+- `miro_create_webhook` - Subscribe to board events
+- `miro_list_webhooks` - List active subscriptions
+- `miro_delete_webhook` - Remove subscription
+- `miro_get_webhook` - Get subscription details
+
+HTTP endpoints (when `MIRO_WEBHOOKS_ENABLED=true`):
+- `/webhooks` - Callback handler for Miro events
+- `/events` - SSE endpoint for real-time streaming
 
 ---
 
-## Current Architecture
+## Architecture
 
 ```
 miro-mcp-server/
-├── main.go                    # Entry point, transport setup, auth CLI
+├── main.go                    # Entry point, transport setup, auth CLI, webhook endpoints
 ├── miro/
 │   ├── client.go              # Base client (HTTP, retry, caching, token refresh)
 │   ├── interfaces.go          # MiroClient interface + service interfaces
@@ -70,95 +69,62 @@ miro-mcp-server/
 │   ├── members.go             # Member operations
 │   ├── mindmaps.go            # Mindmap operations
 │   ├── export.go              # Export operations
+│   ├── webhooks.go            # ✅ Webhook operations
 │   ├── types_*.go             # Domain-specific types
 │   │
-│   ├── audit/                 # Audit logging package ✅ NEW
+│   ├── audit/                 # Audit logging
 │   │   ├── types.go
 │   │   ├── file.go
 │   │   ├── memory.go
 │   │   ├── factory.go
 │   │   └── audit_test.go
 │   │
-│   └── oauth/                 # OAuth 2.1 package ✅ NEW
-│       ├── types.go
-│       ├── provider.go
-│       ├── tokens.go
-│       ├── server.go
-│       ├── auth.go
-│       └── oauth_test.go
+│   ├── oauth/                 # OAuth 2.1
+│   │   ├── types.go
+│   │   ├── provider.go
+│   │   ├── tokens.go
+│   │   ├── server.go
+│   │   ├── auth.go
+│   │   └── oauth_test.go
+│   │
+│   └── webhooks/              # ✅ Webhooks package
+│       ├── types.go           # Config, Subscription, Event types
+│       ├── handler.go         # HTTP callback + signature verification
+│       ├── manager.go         # Subscription CRUD
+│       ├── events.go          # EventBus, RingBuffer, SSEHandler
+│       └── webhooks_test.go
 │
-└── tools/
-    ├── definitions.go         # 39 tool specs
-    ├── handlers.go            # Handler registration + audit middleware
-    └── *_test.go              # Tests
+├── tools/
+│   ├── definitions.go         # 43 tool specs
+│   ├── handlers.go            # Handler registration + audit middleware
+│   └── *_test.go
+│
+└── docs/
+    └── PHASE5_PLAN.md         # Phase 5 design
 ```
-
----
-
-## Test Coverage
-
-```
-miro/audit:  78.2%
-miro/oauth:  31.3%
-miro:         8.5%
-tools:       17.1%
-```
-
-All tests pass: `go test ./...`
 
 ---
 
 ## Environment Variables
 
-### Required (one of these auth methods):
 ```bash
-# Option 1: Static token
-MIRO_ACCESS_TOKEN=your_token
+# Authentication (choose one)
+MIRO_ACCESS_TOKEN=xxx              # Static token
+# OR
+MIRO_CLIENT_ID=xxx                 # OAuth client ID
+MIRO_CLIENT_SECRET=yyy             # OAuth client secret
 
-# Option 2: OAuth (use `auth login` command)
-MIRO_CLIENT_ID=xxx
-MIRO_CLIENT_SECRET=yyy
+# Optional
+MIRO_REDIRECT_URI=http://localhost:8089/callback
+MIRO_TOKEN_PATH=~/.miro/tokens.json
+MIRO_AUDIT_ENABLED=true
+MIRO_AUDIT_PATH=/var/log/miro/
+
+# Webhooks (HTTP mode only)
+MIRO_WEBHOOKS_ENABLED=true
+MIRO_WEBHOOKS_CALLBACK_URL=https://your-server.com/webhooks
+MIRO_WEBHOOKS_SECRET=your-secret
 ```
-
-### Optional:
-```bash
-MIRO_REDIRECT_URI=http://localhost:8089/callback  # OAuth callback
-MIRO_TOKEN_PATH=~/.miro/tokens.json               # Token storage
-MIRO_AUDIT_ENABLED=true                            # Enable audit logging
-MIRO_AUDIT_PATH=/var/log/miro/                     # Audit log directory
-```
-
----
-
-## What Remains (Phase 5.3)
-
-### Webhooks Support 🔲
-The last Phase 5 feature. Implementation plan in `docs/PHASE5_PLAN.md`:
-
-1. Create `miro/webhooks/` package:
-   - `types.go` - WebhookConfig, Subscription, Event types
-   - `handler.go` - HTTP callback handler with challenge validation
-   - `manager.go` - Subscription CRUD via Miro API
-   - `events.go` - Event parsing
-
-2. New MCP tools:
-   - `miro_create_webhook` - Subscribe to board events
-   - `miro_list_webhooks` - List active subscriptions
-   - `miro_delete_webhook` - Remove subscription
-
-3. Add endpoints in HTTP mode:
-   - `/webhooks` - Callback handler
-   - `/events` - SSE endpoint for streaming
-
-4. Miro Webhook API:
-   - `POST /v2-experimental/webhooks/board_subscriptions` - Create
-   - `GET /v2-experimental/webhooks/board_subscriptions/{id}` - Get
-   - `DELETE /v2-experimental/webhooks/board_subscriptions/{id}` - Delete
-
-5. Supported events:
-   - `board.item.create`
-   - `board.item.update`
-   - `board.item.delete`
 
 ---
 
@@ -168,54 +134,41 @@ The last Phase 5 feature. Implementation plan in `docs/PHASE5_PLAN.md`:
 # Build
 go build -o miro-mcp-server .
 
-# Run (stdio mode)
+# Run (stdio)
 MIRO_ACCESS_TOKEN=xxx ./miro-mcp-server
 
-# Run (HTTP mode)
-MIRO_ACCESS_TOKEN=xxx ./miro-mcp-server -http :8080
+# Run (HTTP with webhooks)
+MIRO_ACCESS_TOKEN=xxx MIRO_WEBHOOKS_ENABLED=true ./miro-mcp-server -http :8080
 
 # OAuth login
 MIRO_CLIENT_ID=xxx MIRO_CLIENT_SECRET=yyy ./miro-mcp-server auth login
 
 # Test
 go test ./...
-
-# Test with coverage
 go test -cover ./...
 ```
 
 ---
 
-## Key Files to Review
+## Phase 5 Status
 
-1. `CLAUDE.md` - Project instructions and architecture
-2. `ROADMAP.md` - Full implementation plan and status
-3. `docs/PHASE5_PLAN.md` - Phase 5 detailed design
-4. `miro/oauth/` - OAuth implementation (just completed)
-5. `miro/audit/` - Audit logging implementation
-
----
-
-## Notes
-
-- OAuth uses PKCE (S256) for security
-- Token auto-refresh happens 5 minutes before expiry
-- Audit logs use JSON Lines format for easy parsing
-- All 39 tools work with both static tokens and OAuth
-- Webhooks API is experimental (`v2-experimental`)
+| Feature | Status |
+|---------|--------|
+| Audit Logging | ✅ Complete |
+| OAuth 2.1 | ✅ Complete |
+| Webhooks | ✅ Complete |
 
 ---
 
-## Next Session Tasks
+## Next Steps
 
-1. **Implement Webhooks Support** (Phase 5.3)
-   - Create `miro/webhooks/` package
-   - Add webhook management tools
-   - Integrate with HTTP server mode
-   - Add SSE endpoint for event streaming
-   - Write tests
+1. **Commit and push changes** to origin/main
+2. **Release v1.1.0** with all Phase 5 features:
+   - Audit logging with file/memory loggers
+   - OAuth 2.1 with PKCE and auto-refresh
+   - Webhooks with real-time event streaming
 
-2. **After Phase 5**:
-   - Release v1.1.0 with Phase 5 features
-   - Update README with new auth options
-   - Consider Phase 6 features (diagram generation, etc.)
+3. **Optional future enhancements**:
+   - Multi-board webhook subscriptions
+   - Webhook event filtering by type
+   - Webhook retry logic for failed deliveries

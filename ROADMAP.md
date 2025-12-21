@@ -2,7 +2,7 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
-> **Status**: 39 tools implemented. Phases 1-4 complete, Phase 5 in progress (audit logging + OAuth 2.1 done).
+> **Status**: 43 tools implemented. Phases 1-5 complete.
 > **Last Updated**: 2025-12-21
 
 ---
@@ -35,7 +35,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (38 total)
+### Implemented Tools (43 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -77,6 +77,11 @@ miro-mcp-server/
 | **Export** | `miro_create_export_job` | CreateExportJob |
 | **Export** | `miro_get_export_job_status` | GetExportJobStatus |
 | **Export** | `miro_get_export_job_results` | GetExportJobResults |
+| **Audit** | `miro_get_audit_log` | GetAuditLog |
+| **Webhooks** | `miro_create_webhook` | CreateWebhook |
+| **Webhooks** | `miro_list_webhooks` | ListWebhooks |
+| **Webhooks** | `miro_delete_webhook` | DeleteWebhook |
+| **Webhooks** | `miro_get_webhook` | GetWebhook |
 
 ### Existing Strengths
 
@@ -940,19 +945,23 @@ go test -cover ./...
 | `miro_get_export_job_status` | ✅ Done | Enterprise only - check progress |
 | `miro_get_export_job_results` | ✅ Done | Enterprise only - get download links |
 
-### Phase 5: Enterprise Features (In Progress)
+### Phase 5: Enterprise Features (Complete ✅)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Audit Logging (Local) | ✅ Done | File/memory logger, middleware integration, query tool |
 | OAuth 2.1 Flow | ✅ Done | Full OAuth with PKCE, auto-refresh, CLI commands |
-| Webhooks Support | 🔲 Planned | Real-time board event notifications |
+| Webhooks Support | ✅ Done | Real-time board event notifications via SSE |
 
 #### Phase 5 Tools
 
 | Tool | Status | Notes |
 |------|--------|-------|
 | `miro_get_audit_log` | ✅ Done | Query local audit log for MCP tool executions |
+| `miro_create_webhook` | ✅ Done | Subscribe to board events |
+| `miro_list_webhooks` | ✅ Done | List webhook subscriptions for a board |
+| `miro_delete_webhook` | ✅ Done | Remove a webhook subscription |
+| `miro_get_webhook` | ✅ Done | Get details of a webhook subscription |
 
 #### Phase 5 Enhancements
 
@@ -967,6 +976,11 @@ go test -cover ./...
 | OAuth token auto-refresh | ✅ Done |
 | OAuth CLI commands (login/status/logout) | ✅ Done |
 | Secure token storage (~/.miro/tokens.json) | ✅ Done |
+| Webhook handler with HMAC verification | ✅ Done |
+| Event bus with pub/sub pattern | ✅ Done |
+| Ring buffer for recent events | ✅ Done |
+| SSE endpoint for real-time streaming | ✅ Done |
+| Webhook challenge validation | ✅ Done |
 
 ---
 

@@ -39,10 +39,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/olgasafonova/miro-mcp-server/miro/webhooks"
 )
 
 // =============================================================================
@@ -103,6 +106,7 @@ type Client struct {
 	config     *Config
 	httpClient *http.Client
 	logger     *slog.Logger
+	baseURL    string
 
 	// semaphore limits concurrent API requests.
 	semaphore chan struct{}
@@ -115,6 +119,13 @@ type Client struct {
 	// If nil, uses config.AccessToken (static token mode).
 	tokenRefresher TokenRefresher
 	tokenMu        sync.RWMutex
+
+	// webhookMgr handles webhook subscription CRUD.
+	webhookMgr *webhooks.Manager
+	// webhookCallbackURL is the default callback URL for webhooks.
+	webhookCallbackURL string
+	// mu protects lazy-initialized fields.
+	mu sync.Mutex
 }
 
 // cacheEntry holds cached data with expiration.
@@ -134,7 +145,8 @@ type UserInfo struct {
 // The client is safe for concurrent use by multiple goroutines.
 func NewClient(config *Config, logger *slog.Logger) *Client {
 	return &Client{
-		config: config,
+		config:  config,
+		baseURL: BaseURL,
 		httpClient: &http.Client{
 			Timeout: config.Timeout,
 			Transport: &http.Transport{
@@ -143,9 +155,10 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
-		logger:    logger,
-		semaphore: make(chan struct{}, MaxConcurrentRequests),
-		cacheTTL:  DefaultCacheTTL,
+		logger:             logger,
+		semaphore:          make(chan struct{}, MaxConcurrentRequests),
+		cacheTTL:           DefaultCacheTTL,
+		webhookCallbackURL: os.Getenv("MIRO_WEBHOOKS_CALLBACK_URL"),
 	}
 }
 

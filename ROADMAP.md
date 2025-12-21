@@ -2,6 +2,7 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
+> **Status**: 38 tools implemented. Phases 1-4 complete.
 > **Last Updated**: 2025-12-21
 
 ---
@@ -34,7 +35,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (34 total)
+### Implemented Tools (38 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -72,6 +73,10 @@ miro-mcp-server/
 | **Update** | `miro_update_item` | UpdateItem |
 | **Update** | `miro_ungroup` | Ungroup |
 | **Delete** | `miro_delete_item` | DeleteItem |
+| **Export** | `miro_get_board_picture` | GetBoardPicture |
+| **Export** | `miro_create_export_job` | CreateExportJob |
+| **Export** | `miro_get_export_job_status` | GetExportJobStatus |
+| **Export** | `miro_get_export_job_results` | GetExportJobResults |
 
 ### Existing Strengths
 
@@ -100,7 +105,7 @@ miro-mcp-server/
 | **evalstate/mcp-miro** | TypeScript | 101 | ~8 | Nov 2024 | - |
 | **k-jarzyna/mcp-miro** | TypeScript | 59 | 80+ | Active | Apache 2.0 |
 | **LuotoCompany/mcp-server-miro** | TypeScript | 14 | ~15 | Apr 2025 | MIT |
-| **Ours** | **Go** | - | 26 | Active | - |
+| **Ours** | **Go** | - | 38 | Active | MIT |
 
 ### Feature Comparison Matrix
 
@@ -119,10 +124,10 @@ miro-mcp-server/
 | **Documents** | ✅ | ? | ? | ✅ | ✅ |
 | **Embeds** | ✅ | ? | ? | ✅ | ✅ |
 | **Tags** | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Groups** | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Members/sharing** | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Mindmaps** | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Export** | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Groups** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Members/sharing** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Mindmaps** | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Export** | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Bulk operations** | ✅ | ? | ✅ | ✅ | ? |
 | **Rate limiting** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Caching** | ✅ | ? | ❌ | ❌ | ❌ |
@@ -925,6 +930,15 @@ go test -cover ./...
 | `miro_list_board_members` | ✅ Done |
 | `miro_share_board` | ✅ Done |
 | `miro_create_mindmap_node` | ✅ Done |
+
+### Phase 4 Tools (Export)
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `miro_get_board_picture` | ✅ Done | All plans - gets board thumbnail URL |
+| `miro_create_export_job` | ✅ Done | Enterprise only - PDF/SVG/HTML export |
+| `miro_get_export_job_status` | ✅ Done | Enterprise only - check progress |
+| `miro_get_export_job_results` | ✅ Done | Enterprise only - get download links |
 
 ---
 

@@ -56,6 +56,14 @@ func (h *HandlerRegistry) registerByName(server *mcp.Server, spec ToolSpec) {
 		h.register(server, tool, spec, h.client.CreateFrame)
 	case "BulkCreate":
 		h.register(server, tool, spec, h.client.BulkCreate)
+	case "CreateCard":
+		h.register(server, tool, spec, h.client.CreateCard)
+	case "CreateImage":
+		h.register(server, tool, spec, h.client.CreateImage)
+	case "CreateDocument":
+		h.register(server, tool, spec, h.client.CreateDocument)
+	case "CreateEmbed":
+		h.register(server, tool, spec, h.client.CreateEmbed)
 
 	// Read tools
 	case "ListItems":
@@ -64,6 +72,20 @@ func (h *HandlerRegistry) registerByName(server *mcp.Server, spec ToolSpec) {
 		h.register(server, tool, spec, h.client.GetItem)
 	case "SearchBoard":
 		h.register(server, tool, spec, h.client.SearchBoard)
+	case "ListAllItems":
+		h.register(server, tool, spec, h.client.ListAllItems)
+
+	// Tag tools
+	case "CreateTag":
+		h.register(server, tool, spec, h.client.CreateTag)
+	case "ListTags":
+		h.register(server, tool, spec, h.client.ListTags)
+	case "AttachTag":
+		h.register(server, tool, spec, h.client.AttachTag)
+	case "DetachTag":
+		h.register(server, tool, spec, h.client.DetachTag)
+	case "GetItemTags":
+		h.register(server, tool, spec, h.client.GetItemTags)
 
 	// Update/Delete tools
 	case "UpdateItem":
@@ -191,6 +213,14 @@ func (h *HandlerRegistry) register(server *mcp.Server, tool *mcp.Tool, spec Tool
 		register(h, server, tool, spec, m)
 	case func(context.Context, miro.BulkCreateArgs) (miro.BulkCreateResult, error):
 		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CreateCardArgs) (miro.CreateCardResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CreateImageArgs) (miro.CreateImageResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CreateDocumentArgs) (miro.CreateDocumentResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.CreateEmbedArgs) (miro.CreateEmbedResult, error):
+		register(h, server, tool, spec, m)
 
 	// Read tools
 	case func(context.Context, miro.ListItemsArgs) (miro.ListItemsResult, error):
@@ -198,6 +228,20 @@ func (h *HandlerRegistry) register(server *mcp.Server, tool *mcp.Tool, spec Tool
 	case func(context.Context, miro.GetItemArgs) (miro.GetItemResult, error):
 		register(h, server, tool, spec, m)
 	case func(context.Context, miro.SearchBoardArgs) (miro.SearchBoardResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.ListAllItemsArgs) (miro.ListAllItemsResult, error):
+		register(h, server, tool, spec, m)
+
+	// Tag tools
+	case func(context.Context, miro.CreateTagArgs) (miro.CreateTagResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.ListTagsArgs) (miro.ListTagsResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.AttachTagArgs) (miro.AttachTagResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.DetachTagArgs) (miro.DetachTagResult, error):
+		register(h, server, tool, spec, m)
+	case func(context.Context, miro.GetItemTagsArgs) (miro.GetItemTagsResult, error):
 		register(h, server, tool, spec, m)
 
 	// Update/Delete tools

@@ -1071,8 +1071,530 @@ func createSnippet(content, query string, contextLen int) string {
 }
 
 // =============================================================================
+// Card Operations
+// =============================================================================
+
+// CreateCard creates a card on a board.
+func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCardResult, error) {
+	if args.BoardID == "" {
+		return CreateCardResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.Title == "" {
+		return CreateCardResult{}, fmt.Errorf("title is required")
+	}
+
+	// Default width
+	width := args.Width
+	if width == 0 {
+		width = 320
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"title":       args.Title,
+			"description": args.Description,
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+		"geometry": map[string]interface{}{
+			"width": width,
+		},
+	}
+
+	if args.DueDate != "" {
+		data := reqBody["data"].(map[string]interface{})
+		data["dueDate"] = args.DueDate
+	}
+
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/cards", reqBody)
+	if err != nil {
+		return CreateCardResult{}, err
+	}
+
+	var card Card
+	if err := json.Unmarshal(respBody, &card); err != nil {
+		return CreateCardResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return CreateCardResult{
+		ID:      card.ID,
+		Title:   card.Data.Title,
+		Message: fmt.Sprintf("Created card '%s'", truncate(args.Title, 30)),
+	}, nil
+}
+
+// =============================================================================
+// Image Operations
+// =============================================================================
+
+// CreateImage creates an image on a board from a URL.
+func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateImageResult, error) {
+	if args.BoardID == "" {
+		return CreateImageResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.URL == "" {
+		return CreateImageResult{}, fmt.Errorf("url is required")
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"url": args.URL,
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+	}
+
+	if args.Title != "" {
+		data := reqBody["data"].(map[string]interface{})
+		data["title"] = args.Title
+	}
+
+	if args.Width > 0 {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": args.Width,
+		}
+	}
+
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/images", reqBody)
+	if err != nil {
+		return CreateImageResult{}, err
+	}
+
+	var image Image
+	if err := json.Unmarshal(respBody, &image); err != nil {
+		return CreateImageResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	title := image.Data.Title
+	if title == "" {
+		title = "image"
+	}
+
+	return CreateImageResult{
+		ID:      image.ID,
+		Title:   title,
+		URL:     image.Data.ImageURL,
+		Message: fmt.Sprintf("Added image '%s'", truncate(title, 30)),
+	}, nil
+}
+
+// =============================================================================
+// Document Operations
+// =============================================================================
+
+// CreateDocument creates a document on a board from a URL.
+func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (CreateDocumentResult, error) {
+	if args.BoardID == "" {
+		return CreateDocumentResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.URL == "" {
+		return CreateDocumentResult{}, fmt.Errorf("url is required")
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"url": args.URL,
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+	}
+
+	if args.Title != "" {
+		data := reqBody["data"].(map[string]interface{})
+		data["title"] = args.Title
+	}
+
+	if args.Width > 0 {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": args.Width,
+		}
+	}
+
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/documents", reqBody)
+	if err != nil {
+		return CreateDocumentResult{}, err
+	}
+
+	var doc Document
+	if err := json.Unmarshal(respBody, &doc); err != nil {
+		return CreateDocumentResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	title := doc.Data.Title
+	if title == "" {
+		title = "document"
+	}
+
+	return CreateDocumentResult{
+		ID:      doc.ID,
+		Title:   title,
+		Message: fmt.Sprintf("Added document '%s'", truncate(title, 30)),
+	}, nil
+}
+
+// =============================================================================
+// Embed Operations
+// =============================================================================
+
+// CreateEmbed creates an embedded content item on a board.
+func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateEmbedResult, error) {
+	if args.BoardID == "" {
+		return CreateEmbedResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.URL == "" {
+		return CreateEmbedResult{}, fmt.Errorf("url is required")
+	}
+
+	// Default dimensions
+	width := args.Width
+	if width == 0 {
+		width = 400
+	}
+	height := args.Height
+	if height == 0 {
+		height = 300
+	}
+
+	mode := args.Mode
+	if mode == "" {
+		mode = "inline"
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"url":  args.URL,
+			"mode": mode,
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+		"geometry": map[string]interface{}{
+			"width":  width,
+			"height": height,
+		},
+	}
+
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/embeds", reqBody)
+	if err != nil {
+		return CreateEmbedResult{}, err
+	}
+
+	var embed Embed
+	if err := json.Unmarshal(respBody, &embed); err != nil {
+		return CreateEmbedResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return CreateEmbedResult{
+		ID:       embed.ID,
+		URL:      embed.Data.URL,
+		Provider: embed.Data.ProviderName,
+		Message:  fmt.Sprintf("Embedded content from %s", embed.Data.ProviderName),
+	}, nil
+}
+
+// =============================================================================
+// Tag Operations
+// =============================================================================
+
+// CreateTag creates a tag on a board.
+func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagResult, error) {
+	if args.BoardID == "" {
+		return CreateTagResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.Title == "" {
+		return CreateTagResult{}, fmt.Errorf("title is required")
+	}
+
+	reqBody := map[string]interface{}{
+		"title": args.Title,
+	}
+
+	if args.Color != "" {
+		reqBody["fillColor"] = normalizeTagColor(args.Color)
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/tags", reqBody)
+	if err != nil {
+		return CreateTagResult{}, err
+	}
+
+	var tag Tag
+	if err := json.Unmarshal(respBody, &tag); err != nil {
+		return CreateTagResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return CreateTagResult{
+		ID:      tag.ID,
+		Title:   tag.Title,
+		Color:   tag.FillColor,
+		Message: fmt.Sprintf("Created tag '%s'", args.Title),
+	}, nil
+}
+
+// ListTags retrieves all tags from a board.
+func (c *Client) ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResult, error) {
+	if args.BoardID == "" {
+		return ListTagsResult{}, fmt.Errorf("board_id is required")
+	}
+
+	params := url.Values{}
+	limit := 50
+	if args.Limit > 0 && args.Limit <= 50 {
+		limit = args.Limit
+	}
+	params.Set("limit", strconv.Itoa(limit))
+
+	path := "/boards/" + args.BoardID + "/tags?" + params.Encode()
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return ListTagsResult{}, err
+	}
+
+	var resp struct {
+		Data []Tag `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return ListTagsResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	message := fmt.Sprintf("Found %d tags", len(resp.Data))
+	if len(resp.Data) == 0 {
+		message = "No tags on this board"
+	}
+
+	return ListTagsResult{
+		Tags:    resp.Data,
+		Count:   len(resp.Data),
+		Message: message,
+	}, nil
+}
+
+// AttachTag attaches a tag to an item (sticky note).
+func (c *Client) AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error) {
+	if args.BoardID == "" {
+		return AttachTagResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ItemID == "" {
+		return AttachTagResult{}, fmt.Errorf("item_id is required")
+	}
+	if args.TagID == "" {
+		return AttachTagResult{}, fmt.Errorf("tag_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", args.BoardID, args.ItemID, args.TagID)
+
+	_, err := c.request(ctx, http.MethodPost, path, nil)
+	if err != nil {
+		return AttachTagResult{
+			Success: false,
+			ItemID:  args.ItemID,
+			TagID:   args.TagID,
+			Message: fmt.Sprintf("Failed to attach tag: %v", err),
+		}, err
+	}
+
+	return AttachTagResult{
+		Success: true,
+		ItemID:  args.ItemID,
+		TagID:   args.TagID,
+		Message: "Tag attached successfully",
+	}, nil
+}
+
+// DetachTag removes a tag from an item.
+func (c *Client) DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error) {
+	if args.BoardID == "" {
+		return DetachTagResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ItemID == "" {
+		return DetachTagResult{}, fmt.Errorf("item_id is required")
+	}
+	if args.TagID == "" {
+		return DetachTagResult{}, fmt.Errorf("tag_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", args.BoardID, args.ItemID, args.TagID)
+
+	_, err := c.request(ctx, http.MethodDelete, path, nil)
+	if err != nil {
+		return DetachTagResult{
+			Success: false,
+			ItemID:  args.ItemID,
+			TagID:   args.TagID,
+			Message: fmt.Sprintf("Failed to detach tag: %v", err),
+		}, err
+	}
+
+	return DetachTagResult{
+		Success: true,
+		ItemID:  args.ItemID,
+		TagID:   args.TagID,
+		Message: "Tag removed successfully",
+	}, nil
+}
+
+// GetItemTags retrieves tags attached to an item.
+func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error) {
+	if args.BoardID == "" {
+		return GetItemTagsResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ItemID == "" {
+		return GetItemTagsResult{}, fmt.Errorf("item_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/items/%s/tags", args.BoardID, args.ItemID)
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return GetItemTagsResult{}, err
+	}
+
+	var resp struct {
+		Data []Tag `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return GetItemTagsResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	message := fmt.Sprintf("Item has %d tags", len(resp.Data))
+	if len(resp.Data) == 0 {
+		message = "No tags on this item"
+	}
+
+	return GetItemTagsResult{
+		Tags:    resp.Data,
+		Count:   len(resp.Data),
+		ItemID:  args.ItemID,
+		Message: message,
+	}, nil
+}
+
+// =============================================================================
+// Pagination Operations
+// =============================================================================
+
+// ListAllItems retrieves all items from a board with automatic pagination.
+func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListAllItemsResult, error) {
+	if args.BoardID == "" {
+		return ListAllItemsResult{}, fmt.Errorf("board_id is required")
+	}
+
+	maxItems := args.MaxItems
+	if maxItems == 0 {
+		maxItems = 500
+	}
+	if maxItems > 10000 {
+		maxItems = 10000
+	}
+
+	var allItems []ItemSummary
+	cursor := ""
+	pageCount := 0
+	truncated := false
+
+	for {
+		result, err := c.ListItems(ctx, ListItemsArgs{
+			BoardID: args.BoardID,
+			Type:    args.Type,
+			Limit:   100, // Max per page
+			Cursor:  cursor,
+		})
+		if err != nil {
+			return ListAllItemsResult{}, err
+		}
+
+		pageCount++
+		allItems = append(allItems, result.Items...)
+
+		// Check if we've hit the max items limit
+		if len(allItems) >= maxItems {
+			allItems = allItems[:maxItems]
+			truncated = true
+			break
+		}
+
+		// Check if there are more pages
+		if !result.HasMore || result.Cursor == "" {
+			break
+		}
+		cursor = result.Cursor
+	}
+
+	message := fmt.Sprintf("Retrieved %d items in %d pages", len(allItems), pageCount)
+	if truncated {
+		message = fmt.Sprintf("Retrieved %d items (truncated at max_items limit)", len(allItems))
+	}
+
+	return ListAllItemsResult{
+		Items:      allItems,
+		Count:      len(allItems),
+		TotalPages: pageCount,
+		Truncated:  truncated,
+		Message:    message,
+	}, nil
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
+
+// normalizeTagColor converts color names to Miro's expected format for tags.
+func normalizeTagColor(color string) string {
+	colorMap := map[string]string{
+		"red":     "red",
+		"magenta": "magenta",
+		"violet":  "violet",
+		"blue":    "blue",
+		"cyan":    "cyan",
+		"green":   "green",
+		"yellow":  "yellow",
+		"orange":  "orange",
+		"gray":    "gray",
+		"grey":    "gray",
+	}
+
+	lower := strings.ToLower(color)
+	if mapped, ok := colorMap[lower]; ok {
+		return mapped
+	}
+	return color
+}
 
 // normalizeStickyColor converts color names to Miro's expected format.
 func normalizeStickyColor(color string) string {

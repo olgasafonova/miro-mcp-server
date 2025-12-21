@@ -4,9 +4,11 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 
 ## Features
 
-- **Create items**: Sticky notes, shapes, text, connectors, frames
+- **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds
 - **Bulk operations**: Add multiple items at once (up to 20)
 - **Board management**: List and browse boards
+- **Tags**: Create, attach, and manage tags on sticky notes
+- **Pagination**: Retrieve all items from large boards automatically
 - **Voice-optimized**: Short, speakable responses for voice assistants
 
 ## Quick Start
@@ -80,12 +82,32 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `miro_create_text` | Create a text element |
 | `miro_create_connector` | Connect two items with a line |
 | `miro_create_frame` | Create a frame container |
+| `miro_create_card` | Create a card (enhanced sticky with title, description, due date) |
+| `miro_create_image` | Add an image from URL |
+| `miro_create_document` | Add a document (PDF, etc.) from URL |
+| `miro_create_embed` | Embed external content (YouTube, Figma, etc.) |
 | `miro_bulk_create` | Create multiple items at once |
+
+### Read Tools
+| Tool | Description |
+|------|-------------|
+| `miro_list_items` | List items on a board (paginated) |
+| `miro_list_all_items` | Retrieve ALL items with automatic pagination |
+| `miro_get_item` | Get full details of a specific item |
+| `miro_search_board` | Search for items by content |
+
+### Tag Tools
+| Tool | Description |
+|------|-------------|
+| `miro_create_tag` | Create a new tag on a board |
+| `miro_list_tags` | List all tags on a board |
+| `miro_attach_tag` | Attach a tag to a sticky note |
+| `miro_detach_tag` | Remove a tag from a sticky note |
+| `miro_get_item_tags` | List tags on a specific item |
 
 ### Modify Tools
 | Tool | Description |
 |------|-------------|
-| `miro_list_items` | List items on a board |
 | `miro_update_item` | Update an item's content or position |
 | `miro_delete_item` | Delete an item |
 
@@ -128,6 +150,20 @@ Assistant: [Uses miro_list_boards to find Design board]
 **Extended**: parallelogram, trapezoid, pentagon, hexagon, octagon, star
 
 **Flowchart**: flow_chart_predefined_process, wedge_round_rectangle_callout
+
+## Tag Colors
+
+| Color | Name |
+|-------|------|
+| 🔴 | red |
+| 🩷 | magenta |
+| 🟣 | violet |
+| 🔵 | blue |
+| 🩵 | cyan |
+| 🟢 | green |
+| 🟡 | yellow |
+| 🟠 | orange |
+| ⚫ | gray |
 
 ## Environment Variables
 

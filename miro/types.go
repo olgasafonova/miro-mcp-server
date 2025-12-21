@@ -501,6 +501,261 @@ type ItemMatch struct {
 }
 
 // =============================================================================
+// Card Types
+// =============================================================================
+
+// CardData contains card specific data.
+type CardData struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	DueDate     string `json:"dueDate,omitempty"`  // ISO 8601 format
+	Assignee    *User  `json:"assignee,omitempty"`
+}
+
+// CardStyle defines card appearance.
+type CardStyle struct {
+	CardTheme string `json:"cardTheme,omitempty"` // "#1a1a2e", "#2d3748", etc.
+}
+
+// Card represents a card item.
+type Card struct {
+	ItemBase
+	Data  CardData  `json:"data"`
+	Style CardStyle `json:"style,omitempty"`
+}
+
+// CreateCardArgs contains parameters for creating a card.
+type CreateCardArgs struct {
+	BoardID     string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Title       string  `json:"title" jsonschema:"required" jsonschema_description:"Card title"`
+	Description string  `json:"description,omitempty" jsonschema_description:"Card description/body text"`
+	DueDate     string  `json:"due_date,omitempty" jsonschema_description:"Due date in ISO 8601 format (e.g., 2024-12-31)"`
+	X           float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y           float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	Width       float64 `json:"width,omitempty" jsonschema_description:"Card width (default 320)"`
+	ParentID    string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place card in"`
+}
+
+// CreateCardResult contains the created card.
+type CreateCardResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Image Types
+// =============================================================================
+
+// ImageData contains image specific data.
+type ImageData struct {
+	Title    string `json:"title,omitempty"`
+	URL      string `json:"url,omitempty"` // Source URL for create
+	ImageURL string `json:"imageUrl,omitempty"` // Miro-hosted URL after create
+}
+
+// Image represents an image item.
+type Image struct {
+	ItemBase
+	Data ImageData `json:"data"`
+}
+
+// CreateImageArgs contains parameters for creating an image.
+type CreateImageArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	URL      string  `json:"url" jsonschema:"required" jsonschema_description:"URL of the image to add (must be publicly accessible)"`
+	Title    string  `json:"title,omitempty" jsonschema_description:"Image title/alt text"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	Width    float64 `json:"width,omitempty" jsonschema_description:"Image width (preserves aspect ratio)"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place image in"`
+}
+
+// CreateImageResult contains the created image.
+type CreateImageResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Document Types
+// =============================================================================
+
+// DocumentData contains document specific data.
+type DocumentData struct {
+	Title       string `json:"title,omitempty"`
+	URL         string `json:"url,omitempty"` // Source URL for create
+	DocumentURL string `json:"documentUrl,omitempty"` // Miro-hosted URL after create
+}
+
+// Document represents a document item.
+type Document struct {
+	ItemBase
+	Data DocumentData `json:"data"`
+}
+
+// CreateDocumentArgs contains parameters for creating a document.
+type CreateDocumentArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	URL      string  `json:"url" jsonschema:"required" jsonschema_description:"URL of the document (PDF, etc.) to add"`
+	Title    string  `json:"title,omitempty" jsonschema_description:"Document title"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	Width    float64 `json:"width,omitempty" jsonschema_description:"Document preview width"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place document in"`
+}
+
+// CreateDocumentResult contains the created document.
+type CreateDocumentResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Embed Types
+// =============================================================================
+
+// EmbedData contains embed specific data.
+type EmbedData struct {
+	URL         string `json:"url,omitempty"`
+	Mode        string `json:"mode,omitempty"`        // "inline" or "modal"
+	PreviewURL  string `json:"previewUrl,omitempty"`
+	ProviderName string `json:"providerName,omitempty"` // YouTube, Vimeo, etc.
+}
+
+// Embed represents an embedded content item.
+type Embed struct {
+	ItemBase
+	Data EmbedData `json:"data"`
+}
+
+// CreateEmbedArgs contains parameters for creating an embed.
+type CreateEmbedArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	URL      string  `json:"url" jsonschema:"required" jsonschema_description:"URL to embed (YouTube, Vimeo, Figma, Google Docs, etc.)"`
+	Mode     string  `json:"mode,omitempty" jsonschema_description:"Display mode: inline (default) or modal"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	Width    float64 `json:"width,omitempty" jsonschema_description:"Embed width (default 400)"`
+	Height   float64 `json:"height,omitempty" jsonschema_description:"Embed height (default 300)"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place embed in"`
+}
+
+// CreateEmbedResult contains the created embed.
+type CreateEmbedResult struct {
+	ID       string `json:"id"`
+	URL      string `json:"url"`
+	Provider string `json:"provider,omitempty"`
+	Message  string `json:"message"`
+}
+
+// =============================================================================
+// Tag Types
+// =============================================================================
+
+// Tag represents a tag that can be attached to items.
+type Tag struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	FillColor string `json:"fillColor,omitempty"`
+}
+
+// CreateTagArgs contains parameters for creating a tag.
+type CreateTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Title   string `json:"title" jsonschema:"required" jsonschema_description:"Tag text (e.g., 'Urgent', 'Done', 'Review')"`
+	Color   string `json:"color,omitempty" jsonschema_description:"Tag color: red, magenta, violet, blue, cyan, green, yellow, orange, gray"`
+}
+
+// CreateTagResult contains the created tag.
+type CreateTagResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Color   string `json:"color"`
+	Message string `json:"message"`
+}
+
+// ListTagsArgs contains parameters for listing tags on a board.
+type ListTagsArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max tags to return (default 50)"`
+}
+
+// ListTagsResult contains the list of tags.
+type ListTagsResult struct {
+	Tags    []Tag  `json:"tags"`
+	Count   int    `json:"count"`
+	Message string `json:"message"`
+}
+
+// AttachTagArgs contains parameters for attaching a tag to an item.
+type AttachTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item to tag (sticky note only)"`
+	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to attach"`
+}
+
+// AttachTagResult confirms tag attachment.
+type AttachTagResult struct {
+	Success bool   `json:"success"`
+	ItemID  string `json:"item_id"`
+	TagID   string `json:"tag_id"`
+	Message string `json:"message"`
+}
+
+// DetachTagArgs contains parameters for removing a tag from an item.
+type DetachTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item to untag"`
+	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to remove"`
+}
+
+// DetachTagResult confirms tag removal.
+type DetachTagResult struct {
+	Success bool   `json:"success"`
+	ItemID  string `json:"item_id"`
+	TagID   string `json:"tag_id"`
+	Message string `json:"message"`
+}
+
+// GetItemTagsArgs contains parameters for listing tags on an item.
+type GetItemTagsArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item"`
+}
+
+// GetItemTagsResult contains tags attached to an item.
+type GetItemTagsResult struct {
+	Tags    []Tag  `json:"tags"`
+	Count   int    `json:"count"`
+	ItemID  string `json:"item_id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Pagination Types
+// =============================================================================
+
+// ListAllItemsArgs extends ListItemsArgs for full pagination.
+type ListAllItemsArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Type    string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, connector, frame, card, image, document, embed"`
+	MaxItems int   `json:"max_items,omitempty" jsonschema_description:"Maximum total items to fetch across all pages (default 500, max 10000)"`
+}
+
+// ListAllItemsResult contains all items from a board.
+type ListAllItemsResult struct {
+	Items       []ItemSummary `json:"items"`
+	Count       int           `json:"count"`
+	TotalPages  int           `json:"total_pages"`
+	Truncated   bool          `json:"truncated"` // True if max_items limit was reached
+	Message     string        `json:"message"`
+}
+
+// =============================================================================
 // API Response Wrappers
 // =============================================================================
 

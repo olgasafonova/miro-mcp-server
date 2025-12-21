@@ -240,6 +240,187 @@ VOICE-FRIENDLY: "Found 3 stickies mentioning 'budget': 'Q4 budget review', 'Budg
 	},
 
 	// ==========================================================================
+	// Card, Image, Document, Embed Tools
+	// ==========================================================================
+	{
+		Name:     "miro_create_card",
+		Method:   "CreateCard",
+		Title:    "Create Card",
+		Category: "create",
+		Description: `Create a card on a Miro board. Cards are like enhanced sticky notes with title, description, and due dates.
+
+USE WHEN: User says "add a card", "create a task card", "add card with due date"
+
+PARAMETERS:
+- board_id: Required
+- title: Card title (required)
+- description: Card body text
+- due_date: Due date in ISO format (e.g., 2024-12-31)
+- x, y: Position
+- width: Card width (default 320)
+
+VOICE-FRIENDLY: "Created card 'Review design specs'"`,
+	},
+	{
+		Name:     "miro_create_image",
+		Method:   "CreateImage",
+		Title:    "Create Image",
+		Category: "create",
+		Description: `Add an image to a Miro board from a URL.
+
+USE WHEN: User says "add an image", "insert picture from URL", "put this image on the board"
+
+PARAMETERS:
+- board_id: Required
+- url: Image URL (must be publicly accessible, required)
+- title: Alt text / title
+- width: Image width (preserves aspect ratio)
+- x, y: Position
+
+NOTE: The image URL must be publicly accessible. Private URLs won't work.`,
+	},
+	{
+		Name:     "miro_create_document",
+		Method:   "CreateDocument",
+		Title:    "Create Document",
+		Category: "create",
+		Description: `Add a document (PDF, etc.) to a Miro board from a URL.
+
+USE WHEN: User says "add a PDF", "embed this document", "put document on board"
+
+PARAMETERS:
+- board_id: Required
+- url: Document URL (required)
+- title: Document title
+- width: Preview width
+- x, y: Position
+
+NOTE: Supports PDF and other document formats. URL must be publicly accessible.`,
+	},
+	{
+		Name:     "miro_create_embed",
+		Method:   "CreateEmbed",
+		Title:    "Create Embed",
+		Category: "create",
+		Description: `Embed external content (YouTube, Figma, Google Docs, etc.) on a Miro board.
+
+USE WHEN: User says "embed this video", "add YouTube link", "embed Figma design", "add Google Doc"
+
+PARAMETERS:
+- board_id: Required
+- url: URL to embed (required)
+- mode: "inline" (default) or "modal"
+- width, height: Embed dimensions
+- x, y: Position
+
+SUPPORTED: YouTube, Vimeo, Figma, Google Docs, Loom, and many more.`,
+	},
+
+	// ==========================================================================
+	// Tag Tools
+	// ==========================================================================
+	{
+		Name:     "miro_create_tag",
+		Method:   "CreateTag",
+		Title:    "Create Tag",
+		Category: "tags",
+		Description: `Create a tag on a Miro board. Tags can be attached to sticky notes.
+
+USE WHEN: User says "create a tag", "add label called X", "make an Urgent tag"
+
+PARAMETERS:
+- board_id: Required
+- title: Tag text (required, e.g., "Urgent", "Done", "Review")
+- color: red, magenta, violet, blue, cyan, green, yellow, orange, gray
+
+VOICE-FRIENDLY: "Created red tag 'Urgent'"`,
+	},
+	{
+		Name:     "miro_list_tags",
+		Method:   "ListTags",
+		Title:    "List Tags",
+		Category: "tags",
+		ReadOnly: true,
+		Description: `List all tags on a Miro board.
+
+USE WHEN: User asks "what tags exist", "show me all labels", "list available tags"
+
+PARAMETERS:
+- board_id: Required
+
+RETURNS: List of tags with IDs, titles, and colors.`,
+	},
+	{
+		Name:     "miro_attach_tag",
+		Method:   "AttachTag",
+		Title:    "Attach Tag",
+		Category: "tags",
+		Description: `Attach a tag to a sticky note.
+
+USE WHEN: User says "tag this sticky as Urgent", "add Done label to item", "mark as reviewed"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Sticky note ID (required)
+- tag_id: Tag ID (required, get from list_tags or create_tag)
+
+NOTE: Tags can only be attached to sticky notes, not other item types.`,
+	},
+	{
+		Name:     "miro_detach_tag",
+		Method:   "DetachTag",
+		Title:    "Remove Tag",
+		Category: "tags",
+		Description: `Remove a tag from a sticky note.
+
+USE WHEN: User says "remove tag from sticky", "untag this item", "remove Urgent label"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Sticky note ID (required)
+- tag_id: Tag ID to remove (required)`,
+	},
+	{
+		Name:     "miro_get_item_tags",
+		Method:   "GetItemTags",
+		Title:    "Get Item Tags",
+		Category: "tags",
+		ReadOnly: true,
+		Description: `List tags attached to a specific item.
+
+USE WHEN: User asks "what tags are on this sticky", "show labels for this item"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Item ID (required)
+
+RETURNS: List of tags attached to the item.`,
+	},
+
+	// ==========================================================================
+	// Pagination Tools
+	// ==========================================================================
+	{
+		Name:     "miro_list_all_items",
+		Method:   "ListAllItems",
+		Title:    "List All Items (Paginated)",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Retrieve ALL items from a board with automatic pagination. Use for large boards.
+
+USE WHEN: User asks "get everything on board", "list all items", "export board contents"
+
+PARAMETERS:
+- board_id: Required
+- type: Filter by type (sticky_note, shape, text, etc.)
+- max_items: Max items to fetch (default 500, max 10000)
+
+NOTE: This handles pagination automatically. Use regular list_items for quick lookups.
+
+VOICE-FRIENDLY: "Retrieved 847 items in 9 pages"`,
+	},
+
+	// ==========================================================================
 	// Update/Delete Tools
 	// ==========================================================================
 	{

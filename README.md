@@ -1,15 +1,20 @@
 # Miro MCP Server
 
-A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI assistants. Designed for voice interaction and hands-free whiteboard management.
+A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI assistants. Built in Go for performance and single-binary deployment.
 
 ## Features
 
+- **29 tools** for complete Miro control
+- **Board management**: Create, copy, delete, find by name
 - **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds
-- **Bulk operations**: Add multiple items at once (up to 20)
-- **Board management**: List and browse boards
-- **Tags**: Create, attach, and manage tags on sticky notes
-- **Pagination**: Retrieve all items from large boards automatically
-- **Voice-optimized**: Short, speakable responses for voice assistants
+- **Bulk operations**: Create multiple items at once, sticky grids
+- **Tags**: Create, attach, and manage tags
+- **Token validation**: Fails fast with clear error if token is invalid
+- **Rate limiting**: Semaphore-based (5 concurrent requests)
+- **Caching**: 2-minute TTL for board data
+- **Retry with backoff**: Handles rate limits gracefully
+- **Dual transport**: stdio (default) + HTTP
+- **Voice-optimized**: Short, speakable responses
 
 ## Quick Start
 
@@ -66,13 +71,18 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-## Available Tools
+## Available Tools (29 total)
 
 ### Board Tools
 | Tool | Description |
 |------|-------------|
 | `miro_list_boards` | List accessible boards |
 | `miro_get_board` | Get board details |
+| `miro_create_board` | Create a new board |
+| `miro_copy_board` | Copy an existing board |
+| `miro_delete_board` | Delete a board (destructive) |
+| `miro_find_board` | Find board by name (fuzzy match) |
+| `miro_get_board_summary` | Get board with item counts and stats |
 
 ### Create Tools
 | Tool | Description |
@@ -82,11 +92,12 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `miro_create_text` | Create a text element |
 | `miro_create_connector` | Connect two items with a line |
 | `miro_create_frame` | Create a frame container |
-| `miro_create_card` | Create a card (enhanced sticky with title, description, due date) |
+| `miro_create_card` | Create a card with title, description, due date |
 | `miro_create_image` | Add an image from URL |
 | `miro_create_document` | Add a document (PDF, etc.) from URL |
 | `miro_create_embed` | Embed external content (YouTube, Figma, etc.) |
 | `miro_bulk_create` | Create multiple items at once |
+| `miro_create_sticky_grid` | Create stickies in a grid layout |
 
 ### Read Tools
 | Tool | Description |
@@ -109,7 +120,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | Tool | Description |
 |------|-------------|
 | `miro_update_item` | Update an item's content or position |
-| `miro_delete_item` | Delete an item |
+| `miro_delete_item` | Delete an item (destructive) |
 
 ## Example Usage
 

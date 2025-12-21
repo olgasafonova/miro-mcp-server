@@ -28,19 +28,68 @@ go test ./...
 
 ```
 miro-mcp-server/
-├── main.go              # Entry point, transport setup
+├── main.go                    # Entry point, transport setup
 ├── miro/
-│   ├── client.go        # API client (add new API methods here)
-│   ├── config.go        # Environment config
-│   └── types.go         # All types (Args/Result structs)
+│   ├── client.go              # Base client (HTTP, retry, caching)
+│   ├── interfaces.go          # MiroClient interface + service interfaces
+│   ├── config.go              # Environment config
+│   │
+│   │   # Domain implementations (one file per domain)
+│   ├── boards.go              # Board operations (list, get, create, copy, delete)
+│   ├── items.go               # Item CRUD (list, get, update, delete, search)
+│   ├── create.go              # Create operations (sticky, shape, text, etc.)
+│   ├── tags.go                # Tag operations (create, attach, detach)
+│   ├── groups.go              # Group operations (create, ungroup)
+│   ├── members.go             # Member operations (list, share)
+│   ├── mindmaps.go            # Mindmap operations
+│   │
+│   │   # Domain types (one file per domain)
+│   ├── types_boards.go        # Board-related types
+│   ├── types_items.go         # Item-related types
+│   ├── types_operations.go    # CRUD operation types
+│   ├── types_tags.go          # Tag types
+│   ├── types_groups.go        # Group types
+│   ├── types_members.go       # Member types
+│   └── types_mindmaps.go      # Mindmap types
+│
 └── tools/
-    ├── definitions.go   # Tool specs (add new tools here)
-    └── handlers.go      # Handler registration
+    ├── definitions.go         # Tool specs (add new tools here)
+    ├── handlers.go            # Map-based handler registration
+    ├── mock_client_test.go    # Mock implementation for testing
+    └── handlers_test.go       # Handler unit tests
+```
+
+### Key Interfaces (miro/interfaces.go)
+
+```go
+// Service interfaces enable mock-based testing
+type BoardService interface { ... }
+type ItemService interface { ... }
+type CreateService interface { ... }
+type TagService interface { ... }
+type GroupService interface { ... }
+type MemberService interface { ... }
+type MindmapService interface { ... }
+type TokenService interface { ... }
+
+// MiroClient embeds all service interfaces
+type MiroClient interface {
+    BoardService
+    ItemService
+    CreateService
+    TagService
+    GroupService
+    MemberService
+    MindmapService
+    TokenService
+}
 ```
 
 ## Adding a New Tool (4 Steps)
 
-### 1. Add types in `miro/types.go`
+### 1. Add types in domain-specific type file
+
+Add to the appropriate `miro/types_*.go` file (e.g., `types_operations.go` for new create operations):
 
 ```go
 type NewFeatureArgs struct {
@@ -54,8 +103,17 @@ type NewFeatureResult struct {
 }
 ```
 
-### 2. Add method in `miro/client.go`
+### 2. Add method to service interface and implementation
 
+First, add to the appropriate interface in `miro/interfaces.go`:
+```go
+type CreateService interface {
+    // ... existing methods ...
+    NewFeature(ctx context.Context, args NewFeatureArgs) (NewFeatureResult, error)
+}
+```
+
+Then implement in the domain file (e.g., `miro/create.go`):
 ```go
 func (c *Client) NewFeature(ctx context.Context, args NewFeatureArgs) (NewFeatureResult, error) {
     if args.BoardID == "" {
@@ -86,17 +144,12 @@ VOICE-FRIENDLY: "Created X"`,
 
 ### 4. Register in `tools/handlers.go`
 
-Add to `registerByName()` switch:
+Add one line to `buildHandlerMap()`:
 ```go
-case "NewFeature":
-    h.register(server, tool, spec, h.client.NewFeature)
+"NewFeature": makeHandler(h, h.client.NewFeature),
 ```
 
-Add to `register()` switch:
-```go
-case func(context.Context, miro.NewFeatureArgs) (miro.NewFeatureResult, error):
-    register(h, server, tool, spec, m)
-```
+That's it! The generic `makeHandler` function handles type-safe registration automatically.
 
 ## Implementation Status
 
@@ -146,7 +199,7 @@ Base: `https://api.miro.com/v2`
 ## Testing
 
 ```bash
-# Unit tests
+# Unit tests (uses MockClient, no API calls)
 go test ./...
 
 # With coverage
@@ -156,12 +209,40 @@ go test -cover ./...
 MIRO_TEST_TOKEN=xxx go test -tags=integration ./...
 ```
 
+### Mock-Based Testing
+
+The `tools/` package includes a complete mock implementation:
+
+- `mock_client_test.go` - MockClient implementing MiroClient interface
+- `handlers_test.go` - Unit tests for all handlers
+
+MockClient features:
+- **Function injection** - Override any method with custom behavior
+- **Call tracking** - Verify which methods were called with what arguments
+- **Default responses** - Returns sensible defaults for quick testing
+
+```go
+// Example: Test with custom behavior
+mock := &MockClient{
+    CreateStickyFn: func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error) {
+        return miro.CreateStickyResult{}, errors.New("API error")
+    },
+}
+
+// Example: Verify calls
+if !mock.WasCalled("CreateSticky") {
+    t.Error("expected CreateSticky to be called")
+}
+```
+
 ## Key Files to Review First
 
-1. `miro/client.go` - See `CreateSticky` as template
-2. `miro/types.go` - Many types already defined (Cards, Images, Tags)
-3. `tools/definitions.go` - Tool description format
-4. `ROADMAP.md` - Full implementation plan
+1. `miro/interfaces.go` - All service interfaces and MiroClient composite
+2. `miro/create.go` - See `CreateSticky` as implementation template
+3. `miro/types_operations.go` - Common Args/Result types
+4. `tools/definitions.go` - Tool description format
+5. `tools/handlers.go` - Map-based registration with generics
+6. `ROADMAP.md` - Full implementation plan
 
 ## Current Advantages Over Competitors
 
@@ -176,6 +257,8 @@ MIRO_TEST_TOKEN=xxx go test -tags=integration ./...
 9. **Input sanitization** - validates all IDs and content
 10. **Retry with backoff** - handles rate limits gracefully
 11. **Composite tools** - efficient multi-step operations
+12. **Interface-based design** - enables mock-based unit testing
+13. **Generic handler registration** - type-safe, single-line tool registration
 
 ## What NOT to Change
 

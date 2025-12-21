@@ -3,16 +3,16 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.4.1 (released)
-> **Latest Session**: Sequence Diagram Visual Fixes
+> **Version**: v1.4.2 (ready for release)
+> **Latest Session**: CRITICAL Sequence Diagram Layout Fix
 
 ---
 
 ## Current State
 
-**50 MCP tools** for Miro whiteboard control. Phases 1-6 complete. **Sequence diagram rendering fully working.**
+**50 MCP tools** for Miro whiteboard control. Phases 1-6 complete. **Sequence diagram rendering NOW WORKING.**
 
-All tests passing. Build works. v1.4.1 released on GitHub.
+All tests passing. Build works. v1.4.2 ready for release.
 
 ```bash
 # Verify
@@ -24,9 +24,28 @@ go test ./...
 
 ## Just Completed
 
-### v1.4.1 - Visual Fixes (Released)
+### v1.4.2 - CRITICAL Layout Fix (Ready for Release)
 
-After real Miro API testing, fixed sequence diagram rendering:
+**Root Cause**: The `Layout()` function in `diagrams.go` was being applied to ALL diagrams, including sequence diagrams. The flowchart Sugiyama layout algorithm was destroying the carefully-set positions from the sequence parser.
+
+**Symptoms Observed**:
+- Participants (Alice, Bob) scattered randomly instead of horizontal row
+- Multiple duplicate-looking boxes (lifelines + anchors at wrong positions)
+- Message connectors curved/chaotic instead of straight horizontal
+
+**Fix**: Skip `Layout()` call for sequence diagrams since they already have correct positions from the parser.
+
+```go
+// In miro/diagrams.go - line 55-68
+if diagram.Type != diagrams.TypeSequence {
+    diagrams.Layout(diagram, config)
+} else {
+    // Apply startX/startY offset if provided
+    ...
+}
+```
+
+### v1.4.1 - Visual Fixes (Released)
 
 | Issue | Before | After |
 |-------|--------|-------|
@@ -34,16 +53,7 @@ After real Miro API testing, fixed sequence diagram rendering:
 | Anchors visible as white dots | #FFFFFF | #90CAF9 (matches lifeline) |
 | Anchors rejected by API | 6px | 8px (Miro minimum) |
 
-### v1.4.0 - Sequence Diagram Output
-
-| Component | Status |
-|-----------|--------|
-| Parser stores message Y positions | ✅ |
-| ConvertSequenceToMiro converter | ✅ |
-| Auto-detection in ConvertToMiro | ✅ |
-| 10 new converter tests | ✅ |
-
-### What Gets Rendered
+### What Should Render Correctly Now
 
 ```
 ┌─────────┐          ┌─────────┐
@@ -52,7 +62,7 @@ After real Miro API testing, fixed sequence diagram rendering:
      │                    │
      █ ←-- lifelines --→  █   (10px wide, #90CAF9)
      │                    │
-   ──●────────────────────●──  ← message with arrow
+   ──●────────────────────●──  ← message with arrow (straight!)
      │   "Hello Bob!"     │
 ```
 
@@ -62,8 +72,8 @@ After real Miro API testing, fixed sequence diagram rendering:
 
 | File | Changes |
 |------|---------|
-| `miro/diagrams/converter.go` | Visual constants: lifeline 10px, anchor 8px, colors #90CAF9 |
-| `CHANGELOG.md` | Added v1.4.1 entry |
+| `miro/diagrams.go` | **CRITICAL FIX**: Skip Layout() for sequence diagrams, add startX/startY offset support |
+| `CHANGELOG.md` | Added v1.4.2 entry |
 | `HANDOVER.md` | This file |
 
 ---

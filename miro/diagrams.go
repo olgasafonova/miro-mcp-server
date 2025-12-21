@@ -52,8 +52,21 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 		config.NodeWidth = args.NodeWidth
 	}
 
-	// Apply layout
-	diagrams.Layout(diagram, config)
+	// Apply layout only for flowcharts - sequence diagrams already have positions set by parser
+	if diagram.Type != diagrams.TypeSequence {
+		diagrams.Layout(diagram, config)
+	} else {
+		// For sequence diagrams, apply startX/startY offset if provided
+		if config.StartX != 0 || config.StartY != 0 {
+			for _, node := range diagram.Nodes {
+				node.X += config.StartX
+				node.Y += config.StartY
+			}
+			for _, edge := range diagram.Edges {
+				edge.Y += config.StartY
+			}
+		}
+	}
 
 	// Convert to Miro items
 	miroOutput := diagrams.ConvertToMiro(diagram)

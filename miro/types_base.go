@@ -15,6 +15,7 @@ type Board struct {
 	CreatedAt   time.Time `json:"createdAt,omitempty"`
 	ModifiedAt  time.Time `json:"modifiedAt,omitempty"`
 	ViewLink    string    `json:"viewLink,omitempty"`
+	Picture     *Picture  `json:"picture,omitempty"`
 	Owner       *User     `json:"owner,omitempty"`
 	Team        *Team     `json:"team,omitempty"`
 }

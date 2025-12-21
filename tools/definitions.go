@@ -687,6 +687,92 @@ WORKFLOW:
 
 VOICE-FRIENDLY: "Created mindmap node 'Project Ideas' as root"`,
 	},
+
+	// ==========================================================================
+	// Export Tools
+	// ==========================================================================
+	{
+		Name:     "miro_get_board_picture",
+		Method:   "GetBoardPicture",
+		Title:    "Get Board Picture",
+		Category: "export",
+		ReadOnly: true,
+		Description: `Get the preview image URL for a board. Works for all Miro plans.
+
+USE WHEN: User says "get board thumbnail", "show board preview", "get picture of the board"
+
+PARAMETERS:
+- board_id: Required
+
+RETURNS: URL to the board's preview image. This is a thumbnail/snapshot of the board.
+
+NOTE: This works for all Miro plans. For full PDF/SVG exports, use the Enterprise export tools.
+
+VOICE-FRIENDLY: "Got preview image for the board"`,
+	},
+	{
+		Name:     "miro_create_export_job",
+		Method:   "CreateExportJob",
+		Title:    "Create Export Job",
+		Category: "export",
+		Description: `Create an export job to export one or more boards to PDF, SVG, or HTML.
+
+USE WHEN: User says "export board as PDF", "download board", "export to PDF", "backup board"
+
+PARAMETERS:
+- org_id: Organization ID (required, Enterprise feature)
+- board_ids: Array of board IDs to export (required, max 50)
+- format: Export format - pdf (default), svg, or html
+- request_id: Unique ID for idempotency (auto-generated if not provided)
+
+ENTERPRISE ONLY: This feature requires an Enterprise Miro plan with eDiscovery enabled.
+
+RETURNS: Job ID and status. Use get_export_job_status to monitor progress.
+
+VOICE-FRIENDLY: "Started export job for 3 boards"`,
+	},
+	{
+		Name:     "miro_get_export_job_status",
+		Method:   "GetExportJobStatus",
+		Title:    "Get Export Job Status",
+		Category: "export",
+		ReadOnly: true,
+		Description: `Check the status of a board export job.
+
+USE WHEN: User asks "is the export done", "check export status", "how's the export going"
+
+PARAMETERS:
+- org_id: Organization ID (required)
+- job_id: Export job ID from create_export_job (required)
+
+RETURNS: Job status (in_progress, completed, failed), progress percentage, and boards exported count.
+
+ENTERPRISE ONLY: This feature requires an Enterprise Miro plan.
+
+VOICE-FRIENDLY: "Export is 75% complete - 3 of 4 boards done"`,
+	},
+	{
+		Name:     "miro_get_export_job_results",
+		Method:   "GetExportJobResults",
+		Title:    "Get Export Job Results",
+		Category: "export",
+		ReadOnly: true,
+		Description: `Get download links for a completed export job.
+
+USE WHEN: User says "get export download link", "download the exported boards", "where's my export"
+
+PARAMETERS:
+- org_id: Organization ID (required)
+- job_id: Export job ID (required)
+
+RETURNS: Download URLs for each exported board. Links expire in 15 minutes.
+
+ENTERPRISE ONLY: This feature requires an Enterprise Miro plan.
+
+NOTE: If links expired, call this again to regenerate them.
+
+VOICE-FRIENDLY: "Export ready - 4 boards available for download"`,
+	},
 }
 
 // ptr is a helper to create a pointer to a value.

@@ -66,6 +66,12 @@ type MockClient struct {
 	// Token operations
 	ValidateTokenFn func(ctx context.Context) (*miro.UserInfo, error)
 
+	// Export operations
+	GetBoardPictureFn     func(ctx context.Context, args miro.GetBoardPictureArgs) (miro.GetBoardPictureResult, error)
+	CreateExportJobFn     func(ctx context.Context, args miro.CreateExportJobArgs) (miro.CreateExportJobResult, error)
+	GetExportJobStatusFn  func(ctx context.Context, args miro.GetExportJobStatusArgs) (miro.GetExportJobStatusResult, error)
+	GetExportJobResultsFn func(ctx context.Context, args miro.GetExportJobResultsArgs) (miro.GetExportJobResultsResult, error)
+
 	// Call tracking
 	Calls []MockCall
 }
@@ -594,6 +600,71 @@ func (m *MockClient) ValidateToken(ctx context.Context) (*miro.UserInfo, error) 
 		ID:    "user-123",
 		Name:  "Test User",
 		Email: "test@example.com",
+	}, nil
+}
+
+// =============================================================================
+// ExportService Implementation
+// =============================================================================
+
+func (m *MockClient) GetBoardPicture(ctx context.Context, args miro.GetBoardPictureArgs) (miro.GetBoardPictureResult, error) {
+	m.recordCall("GetBoardPicture", args)
+	if m.GetBoardPictureFn != nil {
+		return m.GetBoardPictureFn(ctx, args)
+	}
+	return miro.GetBoardPictureResult{
+		BoardID:  args.BoardID,
+		ImageURL: "https://miro.com/boards/" + args.BoardID + "/picture.png",
+		Message:  "Board picture URL retrieved successfully",
+	}, nil
+}
+
+func (m *MockClient) CreateExportJob(ctx context.Context, args miro.CreateExportJobArgs) (miro.CreateExportJobResult, error) {
+	m.recordCall("CreateExportJob", args)
+	if m.CreateExportJobFn != nil {
+		return m.CreateExportJobFn(ctx, args)
+	}
+	return miro.CreateExportJobResult{
+		JobID:     "export-job-123",
+		Status:    "in_progress",
+		RequestID: "request-123",
+		Message:   fmt.Sprintf("Export job created for %d board(s)", len(args.BoardIDs)),
+	}, nil
+}
+
+func (m *MockClient) GetExportJobStatus(ctx context.Context, args miro.GetExportJobStatusArgs) (miro.GetExportJobStatusResult, error) {
+	m.recordCall("GetExportJobStatus", args)
+	if m.GetExportJobStatusFn != nil {
+		return m.GetExportJobStatusFn(ctx, args)
+	}
+	return miro.GetExportJobStatusResult{
+		JobID:          args.JobID,
+		Status:         "completed",
+		Progress:       100,
+		BoardsTotal:    2,
+		BoardsExported: 2,
+		Message:        "Export job completed: 2/2 boards exported",
+	}, nil
+}
+
+func (m *MockClient) GetExportJobResults(ctx context.Context, args miro.GetExportJobResultsArgs) (miro.GetExportJobResultsResult, error) {
+	m.recordCall("GetExportJobResults", args)
+	if m.GetExportJobResultsFn != nil {
+		return m.GetExportJobResultsFn(ctx, args)
+	}
+	return miro.GetExportJobResultsResult{
+		JobID:  args.JobID,
+		Status: "completed",
+		Boards: []miro.ExportedBoard{
+			{
+				BoardID:     "board1",
+				BoardName:   "Test Board 1",
+				DownloadURL: "https://miro.com/export/board1.pdf",
+				Format:      "pdf",
+			},
+		},
+		ExpiresIn: "15 minutes",
+		Message:   "Export completed: 1 board(s) ready for download",
 	}, nil
 }
 

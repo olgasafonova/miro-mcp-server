@@ -90,6 +90,12 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 
 		// Mindmap tools
 		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
+
+		// Export tools
+		"GetBoardPicture":     makeHandler(h, h.client.GetBoardPicture),
+		"CreateExportJob":     makeHandler(h, h.client.CreateExportJob),
+		"GetExportJobStatus":  makeHandler(h, h.client.GetExportJobStatus),
+		"GetExportJobResults": makeHandler(h, h.client.GetExportJobResults),
 	}
 }
 

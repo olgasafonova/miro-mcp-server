@@ -76,6 +76,14 @@ type TokenService interface {
 	ValidateToken(ctx context.Context) (*UserInfo, error)
 }
 
+// ExportService handles board export operations.
+type ExportService interface {
+	GetBoardPicture(ctx context.Context, args GetBoardPictureArgs) (GetBoardPictureResult, error)
+	CreateExportJob(ctx context.Context, args CreateExportJobArgs) (CreateExportJobResult, error)
+	GetExportJobStatus(ctx context.Context, args GetExportJobStatusArgs) (GetExportJobStatusResult, error)
+	GetExportJobResults(ctx context.Context, args GetExportJobResultsArgs) (GetExportJobResultsResult, error)
+}
+
 // =============================================================================
 // Composite Interface
 // =============================================================================
@@ -91,6 +99,7 @@ type MiroClient interface {
 	MemberService
 	MindmapService
 	TokenService
+	ExportService
 }
 
 // Verify that Client implements MiroClient at compile time.

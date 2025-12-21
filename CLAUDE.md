@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 34 tools implemented. Phase 1, 2, and 3 complete.
+**Current Status**: 38 tools implemented. Phases 1-4 complete.
 
 ## Quick Start
 
@@ -42,6 +42,7 @@ miro-mcp-server/
 │   ├── groups.go              # Group operations (create, ungroup)
 │   ├── members.go             # Member operations (list, share)
 │   ├── mindmaps.go            # Mindmap operations
+│   ├── export.go              # Export operations (picture, export jobs)
 │   │
 │   │   # Domain types (one file per domain)
 │   ├── types_boards.go        # Board-related types
@@ -50,7 +51,8 @@ miro-mcp-server/
 │   ├── types_tags.go          # Tag types
 │   ├── types_groups.go        # Group types
 │   ├── types_members.go       # Member types
-│   └── types_mindmaps.go      # Mindmap types
+│   ├── types_mindmaps.go      # Mindmap types
+│   └── types_export.go        # Export types
 │
 └── tools/
     ├── definitions.go         # Tool specs (add new tools here)
@@ -71,6 +73,7 @@ type GroupService interface { ... }
 type MemberService interface { ... }
 type MindmapService interface { ... }
 type TokenService interface { ... }
+type ExportService interface { ... }
 
 // MiroClient embeds all service interfaces
 type MiroClient interface {
@@ -82,6 +85,7 @@ type MiroClient interface {
     MemberService
     MindmapService
     TokenService
+    ExportService
 }
 ```
 
@@ -175,6 +179,10 @@ See `ROADMAP.md` for full details.
 - **Board Members**: `miro_list_board_members`, `miro_share_board`
 - **Mindmaps**: `miro_create_mindmap_node`
 
+### Phase 4: Complete ✅ (+4 tools)
+- **Export**: `miro_get_board_picture`, `miro_create_export_job`, `miro_get_export_job_status`, `miro_get_export_job_results`
+- **Note**: Export jobs require Enterprise plan; board picture works for all plans
+
 ## Miro API Quick Reference
 
 Base: `https://api.miro.com/v2`
@@ -188,6 +196,8 @@ Base: `https://api.miro.com/v2`
 | `POST /boards` | Create board |
 | `POST /boards/{id}/copy` | Copy board |
 | `GET /users/me` | Token validation |
+| `POST /orgs/{id}/boards/export/jobs` | Create export job (Enterprise) |
+| `GET /orgs/{id}/boards/export/jobs/{id}` | Get export status (Enterprise) |
 
 ## Code Style
 

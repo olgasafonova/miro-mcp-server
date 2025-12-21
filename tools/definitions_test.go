@@ -51,6 +51,7 @@ func TestToolCategories(t *testing.T) {
 		"update": true,
 		"delete": true,
 		"tags":   true,
+		"export": true,
 	}
 
 	for _, tool := range AllTools {
@@ -95,7 +96,7 @@ func containsWarning(s string) bool {
 
 func TestToolCount(t *testing.T) {
 	// Verify the expected number of tools
-	expectedCount := 34
+	expectedCount := 38
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

@@ -3,16 +3,16 @@
 > **Date**: 2025-12-21
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.2.0 (released)
-> **Latest Commit**: `7d55dc7`
+> **Version**: v1.2.1 (development)
+> **Latest Commit**: `332a8da`
 
 ---
 
 ## Current State
 
-**48 MCP tools** for Miro whiteboard control. Phases 1-6 complete.
+**50 MCP tools** for Miro whiteboard control. Phases 1-6 complete.
 
-All tests passing. Build works. Ready for v1.2.0 release or continued development.
+All tests passing. Build works.
 
 ```bash
 # Verify
@@ -22,36 +22,61 @@ go test ./...
 
 ---
 
-## Just Completed: Phase 6 - Diagram Generation
+## Just Completed This Session
 
-New `miro_generate_diagram` tool that parses Mermaid flowchart syntax and creates visual diagrams on Miro boards.
+### 1. Connector List/Get Tools (+2 tools)
 
-### Files Added
-| File | Purpose |
+New tools for complete connector CRUD:
+
+| Tool | Purpose |
 |------|---------|
-| `miro/diagrams/types.go` | Diagram, Node, Edge data structures |
-| `miro/diagrams/mermaid.go` | Mermaid flowchart parser |
-| `miro/diagrams/layout.go` | Sugiyama-style auto-layout algorithm |
-| `miro/diagrams/converter.go` | Convert diagram to Miro API items |
-| `miro/diagrams.go` | GenerateDiagram method |
-| `miro/types_diagrams.go` | Args/Result types |
-| `miro/diagrams/*_test.go` | 19 unit tests |
+| `miro_list_connectors` | List all connectors on a board with pagination |
+| `miro_get_connector` | Get full details of a specific connector |
 
-### Supported Mermaid Features
-- Keywords: `flowchart`, `graph`
-- Directions: TB, LR, BT, RL
-- Node shapes: Rectangle `[]`, Diamond `{}`, Circle `(())`, Stadium `()`, Hexagon `{{}}`
-- Edges: `-->`, `---|text|-->`, chained `A --> B --> C`
-- Subgraphs: `subgraph Name ... end`
-- Comments: `%% comment`
+Files modified:
+- `miro/create.go` - Added implementations
+- `miro/types_operations.go` - New types
+- `miro/interfaces.go` - Updated ConnectorService
+- `tools/definitions.go` - Tool specs
+- `tools/handlers.go` - Handler registration
 
-### Example Usage
+### 2. Sequence Diagram Support
+
+Extended Mermaid parser to handle sequence diagrams:
+
+```mermaid
+sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    A->>B: Hello Bob!
+    B-->>A: Hi Alice!
 ```
-miro_generate_diagram board_id="xxx" diagram="flowchart TB
-    A[Start] --> B{Decision}
-    B -->|Yes| C[Success]
-    B -->|No| D[Retry]"
-```
+
+**Supported syntax:**
+- `sequenceDiagram` header
+- `participant X` / `participant X as Label`
+- `actor X` (renders as circle)
+- `A->>B: text` (sync message, solid arrow)
+- `A-->>B: text` (async message, dotted arrow)
+- `A-xB: text` (lost message, cross end)
+- `loop`, `alt`, `else`, `end` blocks
+
+Files added/modified:
+- `miro/diagrams/sequence.go` - NEW: Sequence parser
+- `miro/diagrams/mermaid.go` - Auto-detection
+- `miro/diagrams/mermaid_test.go` - 8 new tests
+
+---
+
+## Tool Count History
+
+| Version | Tools | Notes |
+|---------|-------|-------|
+| v1.0.0 | 38 | Initial release |
+| v1.1.0 | 43 | Phase 5 (audit, webhooks) |
+| v1.2.0 | 44 | Phase 6 (diagram generation) |
+| v1.2.1-dev | 48 | Tag/connector update/delete |
+| **Current** | **50** | Connector list/get, sequence diagrams |
 
 ---
 
@@ -65,43 +90,84 @@ miro_generate_diagram board_id="xxx" diagram="flowchart TB
 
 ---
 
-## Competitive Position
+## What's Next? (Recommendations)
 
-| Server | Tools | Diagram Gen | Language |
-|--------|-------|-------------|----------|
-| **This server** | 48 | ✅ Yes | Go |
-| k-jarzyna/miro-mcp | 87 | ❌ No | TypeScript |
-| Official Miro MCP | 2 | ✅ Yes | TypeScript |
+### Priority 1: Strengthen Test Coverage
 
-**Differentiator**: Only open-source Miro MCP with AI diagram generation.
+Current coverage is good but could be improved:
+
+```bash
+go test -cover ./...
+# Target: 80%+ coverage on miro/ package
+```
+
+Areas to add tests:
+- Integration tests with mock HTTP server
+- Edge cases in sequence diagram parser
+- Error handling paths in connector operations
+
+### Priority 2: Additional Diagram Types
+
+The parser architecture supports extension:
+
+| Diagram Type | Complexity | Value |
+|--------------|------------|-------|
+| Class diagrams | Medium | High (developers) |
+| State diagrams | Medium | High (product teams) |
+| ER diagrams | High | Medium |
+| Gantt charts | High | Medium |
+
+### Priority 3: Performance & Polish
+
+- Add benchmarks for diagram parsing/layout
+- Profile memory usage for large boards
+- Improve error messages with suggestions
+- Add `--verbose` flag for debugging
+
+### Priority 4: New Capabilities
+
+| Feature | API Available? | Notes |
+|---------|---------------|-------|
+| Item comments | **No** | Not in Miro REST API v2 |
+| Board templates | Yes | `POST /v2/boards` with `from_template` |
+| Presentation mode | No | Not exposed via API |
+| Advanced search | Partial | Can filter by type, tags |
+
+### Priority 5: Release Prep
+
+For v1.3.0 release:
+1. Update README with sequence diagram examples
+2. Add CHANGELOG.md entry
+3. Tag and push release
+4. Update any package managers
 
 ---
 
-## What's Next?
+## Architecture Summary
 
-### Option A: Release v1.2.0
-- Update README with diagram generation docs
-- Create GitHub release
-- Update npm/homebrew if applicable
-
-### Option B: Extend Diagram Support
-- Sequence diagrams (`sequenceDiagram`)
-- Class diagrams (`classDiagram`)
-- State diagrams (`stateDiagram`)
-- Flowchart styling (colors, line styles)
-
-### Option C: New Features (Phase 7)
-- Multi-board operations (bulk actions across boards)
-- Board templates (create from template)
-- Advanced search (fuzzy matching, filters)
-- Presentation mode tools
-- Item comments support
-
-### Option D: Polish & Hardening
-- Integration tests with real Miro API
-- Performance benchmarks
-- Error message improvements
-- Rate limit handling refinements
+```
+miro-mcp-server/
+├── main.go                 # Entry point
+├── miro/
+│   ├── client.go           # HTTP client with retry/caching
+│   ├── interfaces.go       # All service interfaces (12 interfaces)
+│   ├── boards.go           # Board operations
+│   ├── items.go            # Item CRUD
+│   ├── create.go           # Create operations + connector list/get
+│   ├── diagrams.go         # Diagram generation
+│   ├── diagrams/           # Mermaid parsers + layout
+│   │   ├── mermaid.go      # Flowchart parser + auto-detect
+│   │   ├── sequence.go     # Sequence diagram parser (NEW)
+│   │   ├── layout.go       # Sugiyama-style algorithm
+│   │   └── converter.go    # Diagram → Miro items
+│   ├── audit/              # Audit logging
+│   ├── oauth/              # OAuth 2.1 + PKCE
+│   └── webhooks/           # Webhook subscriptions
+└── tools/
+    ├── definitions.go      # Tool specs (50 tools)
+    ├── handlers.go         # Handler registration
+    └── mock_client_test.go # Mock for testing
+```
 
 ---
 
@@ -122,36 +188,34 @@ go test ./...
 
 # Test with coverage
 go test -cover ./...
+
+# Test specific package
+go test ./miro/diagrams/... -v
 ```
 
 ---
 
-## Architecture Summary
+## Known Limitations
 
-```
-miro-mcp-server/
-├── main.go                 # Entry point
-├── miro/
-│   ├── client.go           # HTTP client with retry/caching
-│   ├── interfaces.go       # All service interfaces
-│   ├── boards.go           # Board operations
-│   ├── items.go            # Item CRUD
-│   ├── create.go           # Create operations
-│   ├── diagrams.go         # Diagram generation (NEW)
-│   ├── diagrams/           # Mermaid parser + layout (NEW)
-│   ├── audit/              # Audit logging
-│   ├── oauth/              # OAuth 2.1 + PKCE
-│   └── webhooks/           # Webhook subscriptions
-└── tools/
-    ├── definitions.go      # Tool specs (48 tools)
-    └── handlers.go         # Handler registration
-```
+1. **Comments API**: Miro REST API v2 does not expose comments. This is a community-requested feature.
+
+2. **Sequence diagram layout**: Currently places participants horizontally but messages use connector positioning (may need visual adjustment for complex sequences).
+
+3. **Enterprise features**: Export jobs require Enterprise plan.
 
 ---
 
-## Notes
+## Competitive Position
 
-- All 48 tools registered and working
-- MockClient updated for testing
-- Tool count test updated (43 → 44)
-- Diagrams category added to valid categories
+| Server | Tools | Diagram Gen | Sequence | Language |
+|--------|-------|-------------|----------|----------|
+| **This server** | 50 | Flowchart + Sequence | ✅ | Go |
+| k-jarzyna/miro-mcp | 87 | ❌ | ❌ | TypeScript |
+| Official Miro MCP | ~10 | Flowchart only | ❌ | TypeScript |
+
+**Unique advantages:**
+- Only Go-based Miro MCP (single binary, fast)
+- Sequence diagram support
+- Full connector CRUD
+- Rate limiting + caching built-in
+- Voice-optimized tool descriptions

@@ -12,118 +12,103 @@ import (
 
 // HandlerRegistry provides type-safe tool registration.
 type HandlerRegistry struct {
-	client *miro.Client
-	logger *slog.Logger
+	client   miro.MiroClient
+	logger   *slog.Logger
+	handlers map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
 }
 
 // NewHandlerRegistry creates a new handler registry.
-func NewHandlerRegistry(client *miro.Client, logger *slog.Logger) *HandlerRegistry {
-	return &HandlerRegistry{
+func NewHandlerRegistry(client miro.MiroClient, logger *slog.Logger) *HandlerRegistry {
+	h := &HandlerRegistry{
 		client: client,
 		logger: logger,
 	}
+	h.handlers = h.buildHandlerMap()
+	return h
 }
 
 // RegisterAll registers all tools with the MCP server.
 func (h *HandlerRegistry) RegisterAll(server *mcp.Server) {
 	for _, spec := range AllTools {
-		h.registerByName(server, spec)
+		h.registerTool(server, spec)
 	}
 	h.logger.Info("Registered all Miro tools", "count", len(AllTools))
 }
 
-// registerByName dispatches to the correct typed registration function.
-func (h *HandlerRegistry) registerByName(server *mcp.Server, spec ToolSpec) {
+// buildHandlerMap creates a map of method names to registration functions.
+// Adding a new tool requires only one entry here.
+func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		// Board tools
+		"ListBoards":  makeHandler(h, h.client.ListBoards),
+		"GetBoard":    makeHandler(h, h.client.GetBoard),
+		"CreateBoard": makeHandler(h, h.client.CreateBoard),
+		"CopyBoard":   makeHandler(h, h.client.CopyBoard),
+		"DeleteBoard": makeHandler(h, h.client.DeleteBoard),
+
+		// Create tools
+		"CreateSticky":    makeHandler(h, h.client.CreateSticky),
+		"CreateShape":     makeHandler(h, h.client.CreateShape),
+		"CreateText":      makeHandler(h, h.client.CreateText),
+		"CreateConnector": makeHandler(h, h.client.CreateConnector),
+		"CreateFrame":     makeHandler(h, h.client.CreateFrame),
+		"BulkCreate":      makeHandler(h, h.client.BulkCreate),
+		"CreateCard":      makeHandler(h, h.client.CreateCard),
+		"CreateImage":     makeHandler(h, h.client.CreateImage),
+		"CreateDocument":  makeHandler(h, h.client.CreateDocument),
+		"CreateEmbed":     makeHandler(h, h.client.CreateEmbed),
+
+		// Read tools
+		"ListItems":    makeHandler(h, h.client.ListItems),
+		"GetItem":      makeHandler(h, h.client.GetItem),
+		"SearchBoard":  makeHandler(h, h.client.SearchBoard),
+		"ListAllItems": makeHandler(h, h.client.ListAllItems),
+
+		// Tag tools
+		"CreateTag":   makeHandler(h, h.client.CreateTag),
+		"ListTags":    makeHandler(h, h.client.ListTags),
+		"AttachTag":   makeHandler(h, h.client.AttachTag),
+		"DetachTag":   makeHandler(h, h.client.DetachTag),
+		"GetItemTags": makeHandler(h, h.client.GetItemTags),
+
+		// Update/Delete tools
+		"UpdateItem": makeHandler(h, h.client.UpdateItem),
+		"DeleteItem": makeHandler(h, h.client.DeleteItem),
+
+		// Composite tools
+		"FindBoardByNameTool": makeHandler(h, h.client.FindBoardByNameTool),
+		"GetBoardSummary":     makeHandler(h, h.client.GetBoardSummary),
+		"CreateStickyGrid":    makeHandler(h, h.client.CreateStickyGrid),
+
+		// Group tools
+		"CreateGroup": makeHandler(h, h.client.CreateGroup),
+		"Ungroup":     makeHandler(h, h.client.Ungroup),
+
+		// Board member tools
+		"ListBoardMembers": makeHandler(h, h.client.ListBoardMembers),
+		"ShareBoard":       makeHandler(h, h.client.ShareBoard),
+
+		// Mindmap tools
+		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
+	}
+}
+
+// makeHandler creates a registration function for a typed client method.
+func makeHandler[Args, Result any](
+	h *HandlerRegistry,
+	method func(context.Context, Args) (Result, error),
+) func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec) {
+		registerTool(h, server, tool, spec, method)
+	}
+}
+
+// registerTool looks up and calls the registration function for a tool spec.
+func (h *HandlerRegistry) registerTool(server *mcp.Server, spec ToolSpec) {
 	tool := h.buildTool(spec)
-
-	switch spec.Method {
-	// Board tools
-	case "ListBoards":
-		h.register(server, tool, spec, h.client.ListBoards)
-	case "GetBoard":
-		h.register(server, tool, spec, h.client.GetBoard)
-	case "CreateBoard":
-		h.register(server, tool, spec, h.client.CreateBoard)
-	case "CopyBoard":
-		h.register(server, tool, spec, h.client.CopyBoard)
-	case "DeleteBoard":
-		h.register(server, tool, spec, h.client.DeleteBoard)
-
-	// Create tools
-	case "CreateSticky":
-		h.register(server, tool, spec, h.client.CreateSticky)
-	case "CreateShape":
-		h.register(server, tool, spec, h.client.CreateShape)
-	case "CreateText":
-		h.register(server, tool, spec, h.client.CreateText)
-	case "CreateConnector":
-		h.register(server, tool, spec, h.client.CreateConnector)
-	case "CreateFrame":
-		h.register(server, tool, spec, h.client.CreateFrame)
-	case "BulkCreate":
-		h.register(server, tool, spec, h.client.BulkCreate)
-	case "CreateCard":
-		h.register(server, tool, spec, h.client.CreateCard)
-	case "CreateImage":
-		h.register(server, tool, spec, h.client.CreateImage)
-	case "CreateDocument":
-		h.register(server, tool, spec, h.client.CreateDocument)
-	case "CreateEmbed":
-		h.register(server, tool, spec, h.client.CreateEmbed)
-
-	// Read tools
-	case "ListItems":
-		h.register(server, tool, spec, h.client.ListItems)
-	case "GetItem":
-		h.register(server, tool, spec, h.client.GetItem)
-	case "SearchBoard":
-		h.register(server, tool, spec, h.client.SearchBoard)
-	case "ListAllItems":
-		h.register(server, tool, spec, h.client.ListAllItems)
-
-	// Tag tools
-	case "CreateTag":
-		h.register(server, tool, spec, h.client.CreateTag)
-	case "ListTags":
-		h.register(server, tool, spec, h.client.ListTags)
-	case "AttachTag":
-		h.register(server, tool, spec, h.client.AttachTag)
-	case "DetachTag":
-		h.register(server, tool, spec, h.client.DetachTag)
-	case "GetItemTags":
-		h.register(server, tool, spec, h.client.GetItemTags)
-
-	// Update/Delete tools
-	case "UpdateItem":
-		h.register(server, tool, spec, h.client.UpdateItem)
-	case "DeleteItem":
-		h.register(server, tool, spec, h.client.DeleteItem)
-
-	// Composite tools
-	case "FindBoardByNameTool":
-		h.register(server, tool, spec, h.client.FindBoardByNameTool)
-	case "GetBoardSummary":
-		h.register(server, tool, spec, h.client.GetBoardSummary)
-	case "CreateStickyGrid":
-		h.register(server, tool, spec, h.client.CreateStickyGrid)
-
-	// Group tools
-	case "CreateGroup":
-		h.register(server, tool, spec, h.client.CreateGroup)
-	case "Ungroup":
-		h.register(server, tool, spec, h.client.Ungroup)
-
-	// Board member tools
-	case "ListBoardMembers":
-		h.register(server, tool, spec, h.client.ListBoardMembers)
-	case "ShareBoard":
-		h.register(server, tool, spec, h.client.ShareBoard)
-
-	// Mindmap tools
-	case "CreateMindmapNode":
-		h.register(server, tool, spec, h.client.CreateMindmapNode)
-
-	default:
+	if handler, ok := h.handlers[spec.Method]; ok {
+		handler(server, tool, spec)
+	} else {
 		h.logger.Error("Unknown method, tool not registered", "method", spec.Method, "tool", spec.Name)
 	}
 }
@@ -146,8 +131,8 @@ func (h *HandlerRegistry) buildTool(spec ToolSpec) *mcp.Tool {
 	}
 }
 
-// register is a generic helper that registers a tool with the MCP server.
-func register[Args, Result any](
+// registerTool is a generic helper that registers a tool with the MCP server.
+func registerTool[Args, Result any](
 	h *HandlerRegistry,
 	server *mcp.Server,
 	tool *mcp.Tool,
@@ -221,96 +206,3 @@ func (h *HandlerRegistry) logExecution(spec ToolSpec, args, result any) {
 	h.logger.Info("Tool executed", attrs...)
 }
 
-// Convenience function to call the generic register with method receiver
-func (h *HandlerRegistry) register(server *mcp.Server, tool *mcp.Tool, spec ToolSpec, method any) {
-	switch m := method.(type) {
-	// Board tools
-	case func(context.Context, miro.ListBoardsArgs) (miro.ListBoardsResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.GetBoardArgs) (miro.GetBoardResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateBoardArgs) (miro.CreateBoardResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CopyBoardArgs) (miro.CopyBoardResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.DeleteBoardArgs) (miro.DeleteBoardResult, error):
-		register(h, server, tool, spec, m)
-
-	// Create tools
-	case func(context.Context, miro.CreateStickyArgs) (miro.CreateStickyResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateShapeArgs) (miro.CreateShapeResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateTextArgs) (miro.CreateTextResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateConnectorArgs) (miro.CreateConnectorResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateFrameArgs) (miro.CreateFrameResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.BulkCreateArgs) (miro.BulkCreateResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateCardArgs) (miro.CreateCardResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateImageArgs) (miro.CreateImageResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateDocumentArgs) (miro.CreateDocumentResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateEmbedArgs) (miro.CreateEmbedResult, error):
-		register(h, server, tool, spec, m)
-
-	// Read tools
-	case func(context.Context, miro.ListItemsArgs) (miro.ListItemsResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.GetItemArgs) (miro.GetItemResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.SearchBoardArgs) (miro.SearchBoardResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.ListAllItemsArgs) (miro.ListAllItemsResult, error):
-		register(h, server, tool, spec, m)
-
-	// Tag tools
-	case func(context.Context, miro.CreateTagArgs) (miro.CreateTagResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.ListTagsArgs) (miro.ListTagsResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.AttachTagArgs) (miro.AttachTagResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.DetachTagArgs) (miro.DetachTagResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.GetItemTagsArgs) (miro.GetItemTagsResult, error):
-		register(h, server, tool, spec, m)
-
-	// Update/Delete tools
-	case func(context.Context, miro.UpdateItemArgs) (miro.UpdateItemResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.DeleteItemArgs) (miro.DeleteItemResult, error):
-		register(h, server, tool, spec, m)
-
-	// Composite tools
-	case func(context.Context, miro.FindBoardByNameArgs) (miro.FindBoardByNameResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.CreateStickyGridArgs) (miro.CreateStickyGridResult, error):
-		register(h, server, tool, spec, m)
-
-	// Group tools
-	case func(context.Context, miro.CreateGroupArgs) (miro.CreateGroupResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.UngroupArgs) (miro.UngroupResult, error):
-		register(h, server, tool, spec, m)
-
-	// Board member tools
-	case func(context.Context, miro.ListBoardMembersArgs) (miro.ListBoardMembersResult, error):
-		register(h, server, tool, spec, m)
-	case func(context.Context, miro.ShareBoardArgs) (miro.ShareBoardResult, error):
-		register(h, server, tool, spec, m)
-
-	// Mindmap tools
-	case func(context.Context, miro.CreateMindmapNodeArgs) (miro.CreateMindmapNodeResult, error):
-		register(h, server, tool, spec, m)
-
-	default:
-		h.logger.Error("Unknown method type, tool not registered", "tool", spec.Name)
-	}
-}

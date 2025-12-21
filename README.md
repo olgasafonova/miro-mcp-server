@@ -4,13 +4,17 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 
 ## Features
 
-- **38 tools** for complete Miro control
+- **44 tools** for complete Miro control
+- **AI Diagram Generation**: Create flowcharts from Mermaid syntax with auto-layout
 - **Board management**: Create, copy, delete, find by name, share with users
 - **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds, mindmap nodes
 - **Bulk operations**: Create multiple items at once, sticky grids
 - **Groups**: Group and ungroup items
 - **Tags**: Create, attach, and manage tags
 - **Export**: Board pictures (all plans) and PDF/SVG/HTML export (Enterprise)
+- **Webhooks**: Subscribe to board events
+- **Audit logging**: Track all tool executions
+- **OAuth 2.1**: PKCE flow with auto-refresh
 - **Token validation**: Fails fast with clear error if token is invalid
 - **Rate limiting**: Semaphore-based (5 concurrent requests)
 - **Caching**: 2-minute TTL for board data
@@ -96,7 +100,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-## Available Tools (38 total)
+## Available Tools (44 total)
 
 ### Board Tools
 | Tool | Description |
@@ -160,6 +164,24 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `miro_get_export_job_status` | Check export job progress (Enterprise) |
 | `miro_get_export_job_results` | Get download links for exported boards (Enterprise) |
 
+### Diagram Tools
+| Tool | Description |
+|------|-------------|
+| `miro_generate_diagram` | Create flowcharts from Mermaid syntax with auto-layout |
+
+### Webhook Tools
+| Tool | Description |
+|------|-------------|
+| `miro_create_webhook` | Subscribe to board events |
+| `miro_list_webhooks` | List active webhook subscriptions |
+| `miro_get_webhook` | Get webhook details |
+| `miro_delete_webhook` | Remove a webhook subscription |
+
+### Audit Tools
+| Tool | Description |
+|------|-------------|
+| `miro_get_audit_log` | Query local audit log of tool executions |
+
 ## Example Usage
 
 ### Voice Commands
@@ -222,13 +244,79 @@ Assistant: [Uses miro_list_boards to find Design board]
 | `MIRO_TIMEOUT` | No | Request timeout (default: 30s) |
 | `MIRO_USER_AGENT` | No | Custom user agent string |
 
+## AI Diagram Generation
+
+Generate flowcharts from Mermaid syntax with automatic layout:
+
+```
+miro_generate_diagram board_id="xxx" diagram="flowchart TB
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Success]
+    B -->|No| D[Retry]
+    D --> B"
+```
+
+### Supported Mermaid Features
+
+| Feature | Syntax | Example |
+|---------|--------|---------|
+| **Keywords** | `flowchart`, `graph` | `flowchart TB` |
+| **Directions** | TB, LR, BT, RL | `flowchart LR` (left to right) |
+| **Rectangle** | `[text]` | `A[Start]` |
+| **Diamond** | `{text}` | `B{Decision}` |
+| **Circle** | `((text))` | `C((End))` |
+| **Stadium** | `(text)` | `D(Process)` |
+| **Hexagon** | `{{text}}` | `E{{Prepare}}` |
+| **Arrow** | `-->` | `A --> B` |
+| **Labeled edge** | `--\|text\|-->` | `A --\|yes\|--> B` |
+| **Chain** | `-->` | `A --> B --> C` |
+| **Subgraph** | `subgraph...end` | `subgraph Group ... end` |
+| **Comment** | `%%` | `%% This is ignored` |
+
+### Diagram Examples
+
+**Simple flow:**
+```
+flowchart LR
+    A[Input] --> B[Process] --> C[Output]
+```
+
+**Decision tree:**
+```
+flowchart TB
+    Start[Start] --> Check{Valid?}
+    Check -->|Yes| Success[Continue]
+    Check -->|No| Error[Handle Error]
+    Error --> Start
+```
+
+**With subgroups:**
+```
+flowchart TB
+    subgraph Frontend
+        A[React] --> B[API Call]
+    end
+    subgraph Backend
+        C[Server] --> D[Database]
+    end
+    B --> C
+```
+
+### Layout Algorithm
+
+The diagram generator uses a Sugiyama-style layered layout:
+- **Topological ordering**: Nodes arranged by dependency
+- **Layer assignment**: Nodes grouped into horizontal/vertical layers
+- **Barycenter ordering**: Minimizes edge crossings
+- **Configurable spacing**: Adjust node width, height, and gaps
+
 ## Voice Demo Use Case
 
 This server is designed for "manage your Miro with your voice" scenarios:
 
 1. **Brainstorming**: "Add stickies for each of these ideas: A, B, C, D"
 2. **Retrospectives**: "Create a frame called 'What went well'"
-3. **Diagramming**: "Draw a box, then another box below it, connect them"
+3. **Diagramming**: "Create a flowchart: Start goes to Process, Process goes to End"
 4. **Organization**: "Move all the red stickies to the Done frame"
 
 ## License

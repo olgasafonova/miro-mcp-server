@@ -51,6 +51,12 @@ type MockClient struct {
 	AttachTagFn   func(ctx context.Context, args miro.AttachTagArgs) (miro.AttachTagResult, error)
 	DetachTagFn   func(ctx context.Context, args miro.DetachTagArgs) (miro.DetachTagResult, error)
 	GetItemTagsFn func(ctx context.Context, args miro.GetItemTagsArgs) (miro.GetItemTagsResult, error)
+	UpdateTagFn   func(ctx context.Context, args miro.UpdateTagArgs) (miro.UpdateTagResult, error)
+	DeleteTagFn   func(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error)
+
+	// Connector operations
+	UpdateConnectorFn func(ctx context.Context, args miro.UpdateConnectorArgs) (miro.UpdateConnectorResult, error)
+	DeleteConnectorFn func(ctx context.Context, args miro.DeleteConnectorArgs) (miro.DeleteConnectorResult, error)
 
 	// Group operations
 	CreateGroupFn func(ctx context.Context, args miro.CreateGroupArgs) (miro.CreateGroupResult, error)
@@ -518,6 +524,68 @@ func (m *MockClient) GetItemTags(ctx context.Context, args miro.GetItemTagsArgs)
 		},
 		Count:  1,
 		ItemID: args.ItemID,
+	}, nil
+}
+
+func (m *MockClient) UpdateTag(ctx context.Context, args miro.UpdateTagArgs) (miro.UpdateTagResult, error) {
+	m.recordCall("UpdateTag", args)
+	if m.UpdateTagFn != nil {
+		return m.UpdateTagFn(ctx, args)
+	}
+	title := args.Title
+	if title == "" {
+		title = "Updated Tag"
+	}
+	color := args.Color
+	if color == "" {
+		color = "green"
+	}
+	return miro.UpdateTagResult{
+		Success: true,
+		ID:      args.TagID,
+		Title:   title,
+		Color:   color,
+		Message: fmt.Sprintf("Updated tag '%s'", title),
+	}, nil
+}
+
+func (m *MockClient) DeleteTag(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error) {
+	m.recordCall("DeleteTag", args)
+	if m.DeleteTagFn != nil {
+		return m.DeleteTagFn(ctx, args)
+	}
+	return miro.DeleteTagResult{
+		Success: true,
+		TagID:   args.TagID,
+		Message: "Tag deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// ConnectorService Implementation
+// =============================================================================
+
+func (m *MockClient) UpdateConnector(ctx context.Context, args miro.UpdateConnectorArgs) (miro.UpdateConnectorResult, error) {
+	m.recordCall("UpdateConnector", args)
+	if m.UpdateConnectorFn != nil {
+		return m.UpdateConnectorFn(ctx, args)
+	}
+	return miro.UpdateConnectorResult{
+		Success: true,
+		ID:      args.ConnectorID,
+		Message: "Connector updated successfully",
+	}, nil
+}
+
+func (m *MockClient) DeleteConnector(ctx context.Context, args miro.DeleteConnectorArgs) (miro.DeleteConnectorResult, error) {
+	m.recordCall("DeleteConnector", args)
+	if m.DeleteConnectorFn != nil {
+		return m.DeleteConnectorFn(ctx, args)
+	}
+	return miro.DeleteConnectorResult{
+		Success: true,
+		ID:      args.ConnectorID,
+		Message: "Connector deleted successfully",
 	}, nil
 }
 

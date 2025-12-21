@@ -188,6 +188,74 @@ func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItem
 	}, nil
 }
 
+// UpdateTag updates an existing tag on a board.
+func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagResult, error) {
+	if args.BoardID == "" {
+		return UpdateTagResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.TagID == "" {
+		return UpdateTagResult{}, fmt.Errorf("tag_id is required")
+	}
+	if args.Title == "" && args.Color == "" {
+		return UpdateTagResult{}, fmt.Errorf("at least one of title or color is required")
+	}
+
+	reqBody := make(map[string]interface{})
+	if args.Title != "" {
+		reqBody["title"] = args.Title
+	}
+	if args.Color != "" {
+		reqBody["fillColor"] = normalizeTagColor(args.Color)
+	}
+
+	path := fmt.Sprintf("/boards/%s/tags/%s", args.BoardID, args.TagID)
+
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateTagResult{}, err
+	}
+
+	var tag Tag
+	if err := json.Unmarshal(respBody, &tag); err != nil {
+		return UpdateTagResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return UpdateTagResult{
+		Success: true,
+		ID:      tag.ID,
+		Title:   tag.Title,
+		Color:   tag.FillColor,
+		Message: fmt.Sprintf("Updated tag '%s'", tag.Title),
+	}, nil
+}
+
+// DeleteTag removes a tag from a board.
+func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagResult, error) {
+	if args.BoardID == "" {
+		return DeleteTagResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.TagID == "" {
+		return DeleteTagResult{}, fmt.Errorf("tag_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/tags/%s", args.BoardID, args.TagID)
+
+	_, err := c.request(ctx, http.MethodDelete, path, nil)
+	if err != nil {
+		return DeleteTagResult{
+			Success: false,
+			TagID:   args.TagID,
+			Message: fmt.Sprintf("Failed to delete tag: %v", err),
+		}, err
+	}
+
+	return DeleteTagResult{
+		Success: true,
+		TagID:   args.TagID,
+		Message: "Tag deleted successfully",
+	}, nil
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================

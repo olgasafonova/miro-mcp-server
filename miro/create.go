@@ -259,6 +259,90 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 	}, nil
 }
 
+// UpdateConnector updates an existing connector.
+func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) (UpdateConnectorResult, error) {
+	if args.BoardID == "" {
+		return UpdateConnectorResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ConnectorID == "" {
+		return UpdateConnectorResult{}, fmt.Errorf("connector_id is required")
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Set shape (style) if provided
+	if args.Style != "" {
+		reqBody["shape"] = args.Style
+	}
+
+	// Build style object for caps and color
+	connectorStyle := make(map[string]interface{})
+	if args.StartCap != "" {
+		connectorStyle["startStrokeCap"] = args.StartCap
+	}
+	if args.EndCap != "" {
+		connectorStyle["endStrokeCap"] = args.EndCap
+	}
+	if args.Color != "" {
+		connectorStyle["strokeColor"] = args.Color
+	}
+	if len(connectorStyle) > 0 {
+		reqBody["style"] = connectorStyle
+	}
+
+	// Set caption if provided
+	if args.Caption != "" {
+		reqBody["captions"] = []map[string]interface{}{
+			{"content": args.Caption},
+		}
+	}
+
+	// If nothing to update, return error
+	if len(reqBody) == 0 {
+		return UpdateConnectorResult{}, fmt.Errorf("at least one update field is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/connectors/%s", args.BoardID, args.ConnectorID)
+
+	_, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateConnectorResult{}, err
+	}
+
+	return UpdateConnectorResult{
+		Success: true,
+		ID:      args.ConnectorID,
+		Message: "Connector updated successfully",
+	}, nil
+}
+
+// DeleteConnector removes a connector from a board.
+func (c *Client) DeleteConnector(ctx context.Context, args DeleteConnectorArgs) (DeleteConnectorResult, error) {
+	if args.BoardID == "" {
+		return DeleteConnectorResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ConnectorID == "" {
+		return DeleteConnectorResult{}, fmt.Errorf("connector_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/connectors/%s", args.BoardID, args.ConnectorID)
+
+	_, err := c.request(ctx, http.MethodDelete, path, nil)
+	if err != nil {
+		return DeleteConnectorResult{
+			Success: false,
+			ID:      args.ConnectorID,
+			Message: fmt.Sprintf("Failed to delete connector: %v", err),
+		}, err
+	}
+
+	return DeleteConnectorResult{
+		Success: true,
+		ID:      args.ConnectorID,
+		Message: "Connector deleted successfully",
+	}, nil
+}
+
 // CreateFrame creates a frame container on a board.
 func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateFrameResult, error) {
 	if args.BoardID == "" {

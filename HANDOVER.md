@@ -10,7 +10,7 @@
 
 ## Current State
 
-**44 MCP tools** for Miro whiteboard control. Phases 1-6 complete.
+**48 MCP tools** for Miro whiteboard control. Phases 1-6 complete.
 
 All tests passing. Build works. Ready for v1.2.0 release or continued development.
 
@@ -69,7 +69,7 @@ miro_generate_diagram board_id="xxx" diagram="flowchart TB
 
 | Server | Tools | Diagram Gen | Language |
 |--------|-------|-------------|----------|
-| **This server** | 44 | ✅ Yes | Go |
+| **This server** | 48 | ✅ Yes | Go |
 | k-jarzyna/miro-mcp | 87 | ❌ No | TypeScript |
 | Official Miro MCP | 2 | ✅ Yes | TypeScript |
 
@@ -143,7 +143,7 @@ miro-mcp-server/
 │   ├── oauth/              # OAuth 2.1 + PKCE
 │   └── webhooks/           # Webhook subscriptions
 └── tools/
-    ├── definitions.go      # Tool specs (44 tools)
+    ├── definitions.go      # Tool specs (48 tools)
     └── handlers.go         # Handler registration
 ```
 
@@ -151,7 +151,7 @@ miro-mcp-server/
 
 ## Notes
 
-- All 44 tools registered and working
+- All 48 tools registered and working
 - MockClient updated for testing
 - Tool count test updated (43 → 44)
 - Diagrams category added to valid categories

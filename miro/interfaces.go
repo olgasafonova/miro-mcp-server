@@ -36,7 +36,6 @@ type CreateService interface {
 	CreateSticky(ctx context.Context, args CreateStickyArgs) (CreateStickyResult, error)
 	CreateShape(ctx context.Context, args CreateShapeArgs) (CreateShapeResult, error)
 	CreateText(ctx context.Context, args CreateTextArgs) (CreateTextResult, error)
-	CreateConnector(ctx context.Context, args CreateConnectorArgs) (CreateConnectorResult, error)
 	CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateFrameResult, error)
 	CreateCard(ctx context.Context, args CreateCardArgs) (CreateCardResult, error)
 	CreateImage(ctx context.Context, args CreateImageArgs) (CreateImageResult, error)
@@ -52,6 +51,15 @@ type TagService interface {
 	AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error)
 	DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error)
 	GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error)
+	UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagResult, error)
+	DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagResult, error)
+}
+
+// ConnectorService handles connector operations.
+type ConnectorService interface {
+	CreateConnector(ctx context.Context, args CreateConnectorArgs) (CreateConnectorResult, error)
+	UpdateConnector(ctx context.Context, args UpdateConnectorArgs) (UpdateConnectorResult, error)
+	DeleteConnector(ctx context.Context, args DeleteConnectorArgs) (DeleteConnectorResult, error)
 }
 
 // GroupService handles item grouping.
@@ -115,6 +123,7 @@ type MiroClient interface {
 	ExportService
 	WebhookService
 	DiagramService
+	ConnectorService
 }
 
 // Verify that Client implements MiroClient at compile time.

@@ -102,3 +102,41 @@ type GetItemTagsResult struct {
 	ItemID  string `json:"item_id"`
 	Message string `json:"message"`
 }
+
+// =============================================================================
+// Update Tag
+// =============================================================================
+
+// UpdateTagArgs contains parameters for updating a tag.
+type UpdateTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to update"`
+	Title   string `json:"title,omitempty" jsonschema_description:"New tag text"`
+	Color   string `json:"color,omitempty" jsonschema_description:"New tag color: red, magenta, violet, blue, cyan, green, yellow, orange, gray"`
+}
+
+// UpdateTagResult confirms tag update.
+type UpdateTagResult struct {
+	Success bool   `json:"success"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Color   string `json:"color"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Delete Tag
+// =============================================================================
+
+// DeleteTagArgs contains parameters for deleting a tag.
+type DeleteTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to delete"`
+}
+
+// DeleteTagResult confirms tag deletion.
+type DeleteTagResult struct {
+	Success bool   `json:"success"`
+	TagID   string `json:"tag_id"`
+	Message string `json:"message"`
+}

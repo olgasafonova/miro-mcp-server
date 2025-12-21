@@ -465,6 +465,44 @@ PARAMETERS:
 
 RETURNS: List of tags attached to the item.`,
 	},
+	{
+		Name:       "miro_update_tag",
+		Method:     "UpdateTag",
+		Title:      "Update Tag",
+		Category:   "tags",
+		Idempotent: true,
+		Description: `Update an existing tag's title or color.
+
+USE WHEN: User says "rename the tag", "change tag color", "update the Urgent tag to red"
+
+PARAMETERS:
+- board_id: Required
+- tag_id: Tag ID to update (required)
+- title: New tag text
+- color: New color (red, magenta, violet, blue, cyan, green, yellow, orange, gray)
+
+NOTE: At least one of title or color must be provided.
+
+VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
+	},
+	{
+		Name:        "miro_delete_tag",
+		Method:      "DeleteTag",
+		Title:       "Delete Tag",
+		Category:    "tags",
+		Destructive: true,
+		Description: `Delete a tag from a board. This removes the tag from all items it was attached to.
+
+USE WHEN: User says "delete this tag", "remove the Urgent tag", "get rid of that label"
+
+PARAMETERS:
+- board_id: Required
+- tag_id: Tag ID to delete (required)
+
+WARNING: This removes the tag from all items and cannot be undone.
+
+VOICE-FRIENDLY: "Tag deleted successfully"`,
+	},
 
 	// ==========================================================================
 	// Pagination Tools
@@ -526,6 +564,47 @@ PARAMETERS:
 - item_id: Required
 
 WARNING: This action cannot be undone.`,
+	},
+	{
+		Name:       "miro_update_connector",
+		Method:     "UpdateConnector",
+		Title:      "Update Connector",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update an existing connector's style, arrows, or label.
+
+USE WHEN: User says "change the arrow style", "update connector color", "add label to the line"
+
+PARAMETERS:
+- board_id: Required
+- connector_id: Connector ID to update (required)
+- style: Line style (straight, elbowed, curved)
+- start_cap: Arrow at start (none, arrow, filled_arrow, diamond)
+- end_cap: Arrow at end (none, arrow, filled_arrow, diamond)
+- caption: Text label on the connector
+- color: Line color (hex code)
+
+NOTE: At least one update field must be provided.
+
+VOICE-FRIENDLY: "Updated connector to curved style with arrow"`,
+	},
+	{
+		Name:        "miro_delete_connector",
+		Method:      "DeleteConnector",
+		Title:       "Delete Connector",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete a connector line from a Miro board.
+
+USE WHEN: User says "remove this line", "delete the connection", "disconnect these items"
+
+PARAMETERS:
+- board_id: Required
+- connector_id: Connector ID to delete (required)
+
+WARNING: This action cannot be undone.
+
+VOICE-FRIENDLY: "Connector deleted successfully"`,
 	},
 
 	// ==========================================================================

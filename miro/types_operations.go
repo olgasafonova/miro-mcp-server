@@ -93,6 +93,45 @@ type CreateConnectorResult struct {
 }
 
 // =============================================================================
+// Update Connector
+// =============================================================================
+
+// UpdateConnectorArgs contains parameters for updating a connector.
+type UpdateConnectorArgs struct {
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ConnectorID string `json:"connector_id" jsonschema:"required" jsonschema_description:"ID of the connector to update"`
+	Style       string `json:"style,omitempty" jsonschema_description:"Connector style: straight, elbowed, curved"`
+	StartCap    string `json:"start_cap,omitempty" jsonschema_description:"Start arrow: none, arrow, filled_arrow, diamond, etc."`
+	EndCap      string `json:"end_cap,omitempty" jsonschema_description:"End arrow: none, arrow, filled_arrow, diamond, etc."`
+	Caption     string `json:"caption,omitempty" jsonschema_description:"Text label on the connector"`
+	Color       string `json:"color,omitempty" jsonschema_description:"Connector line color (hex)"`
+}
+
+// UpdateConnectorResult confirms connector update.
+type UpdateConnectorResult struct {
+	Success bool   `json:"success"`
+	ID      string `json:"id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Delete Connector
+// =============================================================================
+
+// DeleteConnectorArgs contains parameters for deleting a connector.
+type DeleteConnectorArgs struct {
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ConnectorID string `json:"connector_id" jsonschema:"required" jsonschema_description:"ID of the connector to delete"`
+}
+
+// DeleteConnectorResult confirms connector deletion.
+type DeleteConnectorResult struct {
+	Success bool   `json:"success"`
+	ID      string `json:"id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
 // Create Frame
 // =============================================================================
 

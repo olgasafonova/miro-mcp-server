@@ -404,3 +404,268 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// =============================================================================
+// Sequence Diagram Converter Tests
+// =============================================================================
+
+func TestConvertSequenceToMiro_BasicOutput(t *testing.T) {
+	input := `sequenceDiagram
+    Alice->>Bob: Hello Bob!
+    Bob-->>Alice: Hi Alice!`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// Should have: 2 participants + 2 lifelines + 4 anchors (2 per message)
+	expectedShapes := 2 + 2 + 4
+	if len(output.Shapes) != expectedShapes {
+		t.Errorf("Expected %d shapes, got %d", expectedShapes, len(output.Shapes))
+	}
+
+	// Should have 2 connectors (one per message)
+	if len(output.Connectors) != 2 {
+		t.Errorf("Expected 2 connectors, got %d", len(output.Connectors))
+	}
+}
+
+func TestConvertSequenceToMiro_ParticipantPositions(t *testing.T) {
+	input := `sequenceDiagram
+    participant A
+    participant B
+    participant C
+    A->>B: msg`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// First 3 shapes should be participant boxes
+	if len(output.Shapes) < 3 {
+		t.Fatalf("Expected at least 3 shapes for participants")
+	}
+
+	// Participants should be arranged left to right (X increasing)
+	prevX := -1000.0
+	for i := 0; i < 3; i++ {
+		if output.Shapes[i].X <= prevX {
+			t.Errorf("Participant %d X position (%f) should be > previous (%f)", i, output.Shapes[i].X, prevX)
+		}
+		prevX = output.Shapes[i].X
+	}
+
+	// All participants should have same Y position
+	y0 := output.Shapes[0].Y
+	for i := 1; i < 3; i++ {
+		if output.Shapes[i].Y != y0 {
+			t.Errorf("All participants should have same Y, got %f and %f", y0, output.Shapes[i].Y)
+		}
+	}
+}
+
+func TestConvertSequenceToMiro_LifelineCreated(t *testing.T) {
+	input := `sequenceDiagram
+    participant A
+    A->>A: self call`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// Should have: 1 participant + 1 lifeline + 2 anchors
+	if len(output.Shapes) < 2 {
+		t.Fatalf("Expected at least 2 shapes")
+	}
+
+	// Second shape should be the lifeline (thin rectangle)
+	lifeline := output.Shapes[1]
+	if lifeline.Width >= lifeline.Height {
+		t.Errorf("Lifeline should be taller than wide, got w=%f h=%f", lifeline.Width, lifeline.Height)
+	}
+}
+
+func TestConvertSequenceToMiro_MessageYPositions(t *testing.T) {
+	input := `sequenceDiagram
+    Alice->>Bob: First
+    Bob->>Alice: Second
+    Alice->>Bob: Third`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// Check that connectors have captions
+	if len(output.Connectors) != 3 {
+		t.Fatalf("Expected 3 connectors")
+	}
+
+	if output.Connectors[0].Caption != "First" {
+		t.Errorf("First connector caption should be 'First', got '%s'", output.Connectors[0].Caption)
+	}
+	if output.Connectors[1].Caption != "Second" {
+		t.Errorf("Second connector caption should be 'Second', got '%s'", output.Connectors[1].Caption)
+	}
+	if output.Connectors[2].Caption != "Third" {
+		t.Errorf("Third connector caption should be 'Third', got '%s'", output.Connectors[2].Caption)
+	}
+}
+
+func TestConvertSequenceToMiro_MessageAnchorYProgression(t *testing.T) {
+	input := `sequenceDiagram
+    A->>B: msg1
+    B->>A: msg2
+    A->>B: msg3`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// Shapes: 2 participants + 2 lifelines + 6 anchors (2 per message)
+	// Anchors start at index 4
+	if len(output.Shapes) < 10 {
+		t.Fatalf("Expected at least 10 shapes, got %d", len(output.Shapes))
+	}
+
+	// Get Y positions of message anchors (every pair of anchors)
+	// First message anchors at index 4,5
+	// Second message anchors at index 6,7
+	// Third message anchors at index 8,9
+	msg1Y := output.Shapes[4].Y
+	msg2Y := output.Shapes[6].Y
+	msg3Y := output.Shapes[8].Y
+
+	// Each message should be lower (higher Y) than the previous
+	if msg2Y <= msg1Y {
+		t.Errorf("Message 2 Y (%f) should be > message 1 Y (%f)", msg2Y, msg1Y)
+	}
+	if msg3Y <= msg2Y {
+		t.Errorf("Message 3 Y (%f) should be > message 2 Y (%f)", msg3Y, msg2Y)
+	}
+}
+
+func TestConvertSequenceToMiro_ActorShape(t *testing.T) {
+	input := `sequenceDiagram
+    actor User
+    participant System
+    User->>System: Request`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// First two shapes are participants
+	// Actor should be circle, participant should be rectangle
+	foundCircle := false
+	foundRectangle := false
+
+	for i := 0; i < 2; i++ {
+		if output.Shapes[i].Shape == "circle" && output.Shapes[i].Content == "User" {
+			foundCircle = true
+		}
+		if output.Shapes[i].Shape == "rectangle" && output.Shapes[i].Content == "System" {
+			foundRectangle = true
+		}
+	}
+
+	if !foundCircle {
+		t.Error("Actor should be rendered as circle")
+	}
+	if !foundRectangle {
+		t.Error("Participant should be rendered as rectangle")
+	}
+}
+
+func TestConvertSequenceToMiro_ConnectorStyle(t *testing.T) {
+	input := `sequenceDiagram
+    A->>B: Sync
+    A-->>B: Async`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	output := ConvertSequenceToMiro(diagram)
+
+	if len(output.Connectors) != 2 {
+		t.Fatalf("Expected 2 connectors")
+	}
+
+	// Both should have arrow end cap
+	if output.Connectors[0].EndCap != "arrow" {
+		t.Errorf("Sync message should have arrow end cap, got %s", output.Connectors[0].EndCap)
+	}
+	if output.Connectors[1].EndCap != "arrow" {
+		t.Errorf("Async message should have arrow end cap, got %s", output.Connectors[1].EndCap)
+	}
+
+	// Both should be straight style
+	if output.Connectors[0].Style != "straight" {
+		t.Errorf("Message style should be straight, got %s", output.Connectors[0].Style)
+	}
+}
+
+func TestConvertSequenceToMiro_DiagramDetection(t *testing.T) {
+	// Test that ConvertToMiro correctly routes to sequence converter
+	input := `sequenceDiagram
+    A->>B: test`
+
+	diagram, err := ParseMermaid(input)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Use the main ConvertToMiro function
+	output := ConvertToMiro(diagram)
+
+	// Should have sequence diagram structure (anchors, lifelines)
+	// Not flowchart structure (simple node shapes)
+	if len(output.Shapes) < 4 { // At least: 2 participants + 2 lifelines
+		t.Errorf("Expected at least 4 shapes for sequence diagram, got %d", len(output.Shapes))
+	}
+}
+
+func TestConvertSequenceToMiro_EmptyDiagram(t *testing.T) {
+	// Create a minimal sequence diagram with no messages
+	diagram := NewDiagram(TypeSequence)
+	diagram.AddNode(&Node{
+		ID:     "A",
+		Label:  "A",
+		Shape:  ShapeRectangle,
+		X:      0,
+		Y:      50,
+		Width:  120,
+		Height: 50,
+	})
+
+	output := ConvertSequenceToMiro(diagram)
+
+	// Should have 1 participant + 1 lifeline
+	if len(output.Shapes) != 2 {
+		t.Errorf("Expected 2 shapes for single participant, got %d", len(output.Shapes))
+	}
+
+	// No connectors
+	if len(output.Connectors) != 0 {
+		t.Errorf("Expected 0 connectors, got %d", len(output.Connectors))
+	}
+}

@@ -252,7 +252,7 @@ func (p *SequenceParser) Parse(input string) (*Diagram, error) {
 		diagram.AddNode(node)
 	}
 
-	// Create edges for messages
+	// Create edges for messages with Y positions
 	for i, msg := range messages {
 		y := startY + participantHeight + 30 + float64(i)*messageSpacing
 
@@ -261,6 +261,7 @@ func (p *SequenceParser) Parse(input string) (*Diagram, error) {
 			FromID: msg.From,
 			ToID:   msg.To,
 			Label:  msg.Text,
+			Y:      y, // Store Y position for sequence diagram rendering
 		}
 
 		// Set arrow styles based on message type
@@ -273,6 +274,10 @@ func (p *SequenceParser) Parse(input string) (*Diagram, error) {
 			edge.Style = EdgeDotted
 			edge.StartCap = ArrowNone
 			edge.EndCap = ArrowNormal
+		case "async_open":
+			edge.Style = EdgeDotted
+			edge.StartCap = ArrowNone
+			edge.EndCap = ArrowNormal
 		case "cross":
 			edge.Style = EdgeSolid
 			edge.StartCap = ArrowNone
@@ -282,10 +287,18 @@ func (p *SequenceParser) Parse(input string) (*Diagram, error) {
 			edge.EndCap = ArrowNormal
 		}
 
-		// Store Y position for layout (will need custom converter)
-		_ = y // Placeholder for future enhanced layout
-
 		diagram.AddEdge(edge)
+	}
+
+	// Calculate diagram dimensions
+	if len(participants) > 0 {
+		diagram.Width = float64(len(participants)-1)*participantSpacing + participantWidth
+	}
+	if len(messages) > 0 {
+		lastMessageY := startY + participantHeight + 30 + float64(len(messages)-1)*messageSpacing
+		diagram.Height = lastMessageY + messageSpacing // Add padding at bottom
+	} else {
+		diagram.Height = startY + participantHeight + 50
 	}
 
 	return diagram, nil

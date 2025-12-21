@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-21
+
+### Added
+- **Sequence diagram rendering**: Full Miro output for sequence diagrams
+  - Participant headers (rectangle or circle for actors)
+  - Vertical lifelines below each participant
+  - Horizontal message arrows with labels
+  - Support for sync (`->>`) and async (`-->>`) messages
+  - Proper Y positioning for message ordering
+- **New sequence converter tests**: 10 comprehensive tests for sequence diagram rendering
+
+### Changed
+- `ConvertToMiro` now auto-detects diagram type and uses appropriate converter
+- Edge struct extended with Y position for sequence message placement
+- Improved diagrams package coverage: 71.2% → 73.4%
+
+### Technical
+- Sequence messages rendered via anchor shapes + connectors
+- Lifelines as thin vertical rectangle shapes
+- Maintains flowchart compatibility (no breaking changes)
+
 ## [1.3.0] - 2025-12-21
 
 ### Added

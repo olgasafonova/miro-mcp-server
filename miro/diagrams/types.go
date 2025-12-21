@@ -81,6 +81,9 @@ type Edge struct {
 	StartCap  ArrowType // Arrow at start
 	EndCap    ArrowType // Arrow at end
 	IsBidirectional bool
+
+	// Sequence diagram specific
+	Y float64 // Y position for sequence diagram messages (0 for flowcharts)
 }
 
 // SubGraph represents a grouping of nodes.

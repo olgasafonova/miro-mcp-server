@@ -39,7 +39,16 @@ type MiroOutput struct {
 }
 
 // ConvertToMiro converts a laid-out diagram to Miro API items.
+// Automatically detects sequence diagrams and uses appropriate converter.
 func ConvertToMiro(diagram *Diagram) *MiroOutput {
+	if diagram.Type == TypeSequence {
+		return ConvertSequenceToMiro(diagram)
+	}
+	return convertFlowchartToMiro(diagram)
+}
+
+// convertFlowchartToMiro converts a flowchart diagram to Miro items.
+func convertFlowchartToMiro(diagram *Diagram) *MiroOutput {
 	output := &MiroOutput{
 		Shapes:     make([]MiroShape, 0),
 		Connectors: make([]MiroConnector, 0),
@@ -194,4 +203,154 @@ func getShapeColor(shape NodeShape) string {
 	default:
 		return "#E3F2FD" // Default light blue
 	}
+}
+
+// =============================================================================
+// Sequence Diagram Converter
+// =============================================================================
+
+// SequenceLayout constants for sequence diagram rendering
+const (
+	seqParticipantWidth   = 120.0
+	seqParticipantHeight  = 50.0
+	seqLifelineWidth      = 4.0
+	seqAnchorSize         = 12.0 // Small anchor points for message connections
+	seqMessageSpacing     = 60.0
+)
+
+// ConvertSequenceToMiro converts a sequence diagram to Miro items.
+// Creates: participant boxes, lifeline anchors, and message connectors.
+func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
+	output := &MiroOutput{
+		Shapes:     make([]MiroShape, 0),
+		Connectors: make([]MiroConnector, 0),
+		Frames:     make([]MiroFrame, 0),
+	}
+
+	// Collect and sort participants by their X position (order)
+	type participantInfo struct {
+		id    string
+		node  *Node
+		index int // Index in output.Shapes for this participant
+	}
+	participants := make([]participantInfo, 0, len(diagram.Nodes))
+
+	for id, node := range diagram.Nodes {
+		participants = append(participants, participantInfo{
+			id:   id,
+			node: node,
+		})
+	}
+
+	// Sort by X position (which was set based on Order in parser)
+	for i := 0; i < len(participants); i++ {
+		for j := i + 1; j < len(participants); j++ {
+			if participants[i].node.X > participants[j].node.X {
+				participants[i], participants[j] = participants[j], participants[i]
+			}
+		}
+	}
+
+	// Map participant ID to their center X coordinate and shape index
+	participantCenterX := make(map[string]float64)
+	participantShapeIndex := make(map[string]int)
+
+	// Create participant header boxes
+	for i, p := range participants {
+		shape := MiroShape{
+			Shape:   "rectangle",
+			Content: p.node.Label,
+			X:       p.node.X + p.node.Width/2,
+			Y:       p.node.Y + p.node.Height/2,
+			Width:   p.node.Width,
+			Height:  p.node.Height,
+			Color:   "#E3F2FD", // Light blue for participants
+		}
+
+		if p.node.Shape == ShapeCircle {
+			// Actor represented as circle
+			shape.Shape = "circle"
+			shape.Color = "#FFF9C4" // Light yellow for actors
+		}
+
+		participantCenterX[p.id] = p.node.X + p.node.Width/2
+		participantShapeIndex[p.id] = len(output.Shapes)
+		participants[i].index = len(output.Shapes)
+		output.Shapes = append(output.Shapes, shape)
+	}
+
+	// Create lifeline shapes (thin vertical rectangles below each participant)
+	lifelineHeight := diagram.Height - seqParticipantHeight - 30
+	if lifelineHeight < 50 {
+		lifelineHeight = 100 // Minimum lifeline height
+	}
+
+	for _, p := range participants {
+		lifeline := MiroShape{
+			Shape:   "rectangle",
+			Content: "", // No text on lifeline
+			X:       participantCenterX[p.id],
+			Y:       p.node.Y + p.node.Height + lifelineHeight/2 + 10,
+			Width:   seqLifelineWidth,
+			Height:  lifelineHeight,
+			Color:   "#BBDEFB", // Light blue, slightly visible
+		}
+		output.Shapes = append(output.Shapes, lifeline)
+	}
+
+	// Create anchor points and connectors for each message
+	// We need small anchor shapes at each end of each message for connectors
+	for _, edge := range diagram.Edges {
+		fromX, fromExists := participantCenterX[edge.FromID]
+		toX, toExists := participantCenterX[edge.ToID]
+
+		if !fromExists || !toExists {
+			continue
+		}
+
+		// Create anchor shape at the "from" position
+		fromAnchorIdx := len(output.Shapes)
+		fromAnchor := MiroShape{
+			Shape:   "circle",
+			Content: "",
+			X:       fromX,
+			Y:       edge.Y,
+			Width:   seqAnchorSize,
+			Height:  seqAnchorSize,
+			Color:   "#FFFFFF", // White/transparent appearance
+		}
+		output.Shapes = append(output.Shapes, fromAnchor)
+
+		// Create anchor shape at the "to" position
+		toAnchorIdx := len(output.Shapes)
+		toAnchor := MiroShape{
+			Shape:   "circle",
+			Content: "",
+			X:       toX,
+			Y:       edge.Y,
+			Width:   seqAnchorSize,
+			Height:  seqAnchorSize,
+			Color:   "#FFFFFF",
+		}
+		output.Shapes = append(output.Shapes, toAnchor)
+
+		// Create connector between the anchors
+		connector := MiroConnector{
+			StartItemIndex: fromAnchorIdx,
+			EndItemIndex:   toAnchorIdx,
+			Caption:        edge.Label,
+			Style:          "straight", // Sequence messages are straight horizontal lines
+			StartCap:       convertArrowType(edge.StartCap),
+			EndCap:         convertArrowType(edge.EndCap),
+		}
+
+		// Handle edge styles
+		if edge.Style == EdgeDotted {
+			connector.Style = "straight" // Miro doesn't have dotted style, keep straight
+		}
+
+		output.Connectors = append(output.Connectors, connector)
+	}
+
+	return output
 }

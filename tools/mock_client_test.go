@@ -78,6 +78,9 @@ type MockClient struct {
 	DeleteWebhookFn func(ctx context.Context, args miro.DeleteWebhookArgs) (miro.DeleteWebhookResult, error)
 	GetWebhookFn    func(ctx context.Context, args miro.GetWebhookArgs) (miro.GetWebhookResult, error)
 
+	// Diagram operations
+	GenerateDiagramFn func(ctx context.Context, args miro.GenerateDiagramArgs) (miro.GenerateDiagramResult, error)
+
 	// Call tracking
 	Calls []MockCall
 }
@@ -734,6 +737,28 @@ func (m *MockClient) GetWebhook(ctx context.Context, args miro.GetWebhookArgs) (
 		CallbackURL: "https://example.com/webhook",
 		Status:      "enabled",
 		Message:     fmt.Sprintf("Webhook %s for board board123", args.WebhookID),
+	}, nil
+}
+
+// =============================================================================
+// DiagramService Implementation
+// =============================================================================
+
+func (m *MockClient) GenerateDiagram(ctx context.Context, args miro.GenerateDiagramArgs) (miro.GenerateDiagramResult, error) {
+	m.recordCall("GenerateDiagram", args)
+	if m.GenerateDiagramFn != nil {
+		return m.GenerateDiagramFn(ctx, args)
+	}
+	return miro.GenerateDiagramResult{
+		NodesCreated:      3,
+		ConnectorsCreated: 2,
+		FramesCreated:     0,
+		NodeIDs:           []string{"node-1", "node-2", "node-3"},
+		ConnectorIDs:      []string{"conn-1", "conn-2"},
+		FrameIDs:          []string{},
+		DiagramWidth:      400,
+		DiagramHeight:     300,
+		Message:           "Created diagram with 3 nodes and 2 connectors",
 	}, nil
 }
 

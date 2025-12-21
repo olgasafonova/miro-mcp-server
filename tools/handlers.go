@@ -111,6 +111,9 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		// Mindmap tools
 		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
 
+		// Diagram generation tools
+		"GenerateDiagram": makeHandler(h, h.client.GenerateDiagram),
+
 		// Export tools
 		"GetBoardPicture":     makeHandler(h, h.client.GetBoardPicture),
 		"CreateExportJob":     makeHandler(h, h.client.CreateExportJob),
@@ -350,6 +353,8 @@ func (h *HandlerRegistry) logExecution(spec ToolSpec, args, result any) {
 		attrs = append(attrs, "board_id", a.BoardID, "items_count", len(a.Items))
 	case miro.DeleteItemArgs:
 		attrs = append(attrs, "board_id", a.BoardID, "item_id", a.ItemID)
+	case miro.GenerateDiagramArgs:
+		attrs = append(attrs, "board_id", a.BoardID, "diagram_len", len(a.Diagram))
 	}
 
 	// Add context from result types
@@ -366,6 +371,8 @@ func (h *HandlerRegistry) logExecution(spec ToolSpec, args, result any) {
 		attrs = append(attrs, "created", r.Created, "errors", len(r.Errors))
 	case miro.DeleteItemResult:
 		attrs = append(attrs, "success", r.Success)
+	case miro.GenerateDiagramResult:
+		attrs = append(attrs, "nodes", r.NodesCreated, "connectors", r.ConnectorsCreated)
 	}
 
 	h.logger.Info("Tool executed", attrs...)

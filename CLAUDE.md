@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 43 tools implemented. Phases 1-5 complete.
+**Current Status**: 44 tools implemented. Phases 1-6 complete.
 
 ## Quick Start
 
@@ -46,6 +46,7 @@ miro-mcp-server/
 │   ├── members.go             # Member operations (list, share)
 │   ├── mindmaps.go            # Mindmap operations
 │   ├── export.go              # Export operations (picture, export jobs)
+│   ├── diagrams.go            # Diagram generation from Mermaid
 │   │
 │   │   # Domain types (one file per domain)
 │   ├── types_boards.go        # Board-related types
@@ -56,6 +57,7 @@ miro-mcp-server/
 │   ├── types_members.go       # Member types
 │   ├── types_mindmaps.go      # Mindmap types
 │   ├── types_export.go        # Export types
+│   ├── types_diagrams.go      # Diagram types
 │   │
 │   ├── audit/                 # Audit logging package
 │   │   ├── types.go           # Event types and config
@@ -70,11 +72,17 @@ miro-mcp-server/
 │   │   ├── server.go          # Local callback server
 │   │   └── auth.go            # AuthFlow orchestration
 │   │
-│   └── webhooks/              # Webhooks package
-│       ├── types.go           # Config, Subscription, Event types
-│       ├── handler.go         # HTTP callback + signature verification
-│       ├── manager.go         # Subscription CRUD via Miro API
-│       └── events.go          # EventBus, RingBuffer, SSEHandler
+│   ├── webhooks/              # Webhooks package
+│   │   ├── types.go           # Config, Subscription, Event types
+│   │   ├── handler.go         # HTTP callback + signature verification
+│   │   ├── manager.go         # Subscription CRUD via Miro API
+│   │   └── events.go          # EventBus, RingBuffer, SSEHandler
+│   │
+│   └── diagrams/              # Diagram parsing and layout
+│       ├── types.go           # Diagram, Node, Edge types
+│       ├── mermaid.go         # Mermaid flowchart parser
+│       ├── layout.go          # Auto-layout algorithm (Sugiyama-style)
+│       └── converter.go       # Convert to Miro API items
 │
 └── tools/
     ├── definitions.go         # Tool specs (add new tools here)
@@ -96,8 +104,8 @@ type MemberService interface { ... }
 type MindmapService interface { ... }
 type TokenService interface { ... }
 type ExportService interface { ... }
-type AuditService interface { ... }
 type WebhookService interface { ... }
+type DiagramService interface { ... }
 
 // MiroClient embeds all service interfaces
 type MiroClient interface {
@@ -110,8 +118,8 @@ type MiroClient interface {
     MindmapService
     TokenService
     ExportService
-    AuditService
     WebhookService
+    DiagramService
 }
 ```
 
@@ -208,6 +216,16 @@ See `ROADMAP.md` for full details.
 ### Phase 4: Complete ✅ (+4 tools)
 - **Export**: `miro_get_board_picture`, `miro_create_export_job`, `miro_get_export_job_status`, `miro_get_export_job_results`
 - **Note**: Export jobs require Enterprise plan; board picture works for all plans
+
+### Phase 5: Complete ✅ (+5 tools)
+- **Audit**: `miro_get_audit_log` (file/memory loggers)
+- **Webhooks**: `miro_create_webhook`, `miro_list_webhooks`, `miro_get_webhook`, `miro_delete_webhook`
+- **OAuth 2.1**: PKCE flow with auto-refresh
+
+### Phase 6: Complete ✅ (+1 tool)
+- **Diagrams**: `miro_generate_diagram` (Mermaid flowchart → Miro shapes)
+- **Parser**: flowchart/graph keywords, TB/LR/BT/RL directions, 5 node shapes
+- **Layout**: Sugiyama-style layered algorithm with barycenter ordering
 
 ## Miro API Quick Reference
 

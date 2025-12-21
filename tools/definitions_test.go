@@ -54,6 +54,7 @@ func TestToolCategories(t *testing.T) {
 		"export":   true,
 		"audit":    true,
 		"webhooks": true,
+		"diagrams": true,
 	}
 
 	for _, tool := range AllTools {
@@ -98,8 +99,8 @@ func containsWarning(s string) bool {
 
 func TestToolCount(t *testing.T) {
 	// Verify the expected number of tools
-	// Phase 1-4: 38 tools, Phase 5: +1 audit + 4 webhook tools = 43
-	expectedCount := 43
+	// Phase 1-4: 38 tools, Phase 5: +1 audit + 4 webhook tools = 43, Phase 6: +1 diagram = 44
+	expectedCount := 44
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

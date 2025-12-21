@@ -882,6 +882,61 @@ RETURNS: Webhook details including board ID, callback URL, status, and timestamp
 
 VOICE-FRIENDLY: "Webhook is active - watching board X since yesterday"`,
 	},
+
+	// ==========================================================================
+	// Diagram Generation Tools (AI-Powered)
+	// ==========================================================================
+	{
+		Name:     "miro_generate_diagram",
+		Method:   "GenerateDiagram",
+		Title:    "Generate Diagram from Code",
+		Category: "create",
+		Description: `Generate a visual diagram on a Miro board from Mermaid code. Automatically creates shapes and connectors with proper layout.
+
+USE WHEN: User says "create a flowchart", "generate diagram from this code", "draw process flow", "visualize this workflow"
+
+MERMAID SYNTAX EXAMPLES:
+
+Flowchart (top to bottom):
+` + "```" + `
+flowchart TB
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug]
+    D --> B
+` + "```" + `
+
+Flowchart (left to right):
+` + "```" + `
+flowchart LR
+    Input --> Process --> Output
+` + "```" + `
+
+SHAPE TYPES IN MERMAID:
+- [text] = Rectangle
+- (text) = Rounded rectangle / Stadium
+- {text} = Diamond (decision)
+- ((text)) = Circle
+- {{text}} = Hexagon
+
+EDGE TYPES:
+- --> Arrow
+- --- Line (no arrow)
+- -.-> Dotted arrow
+- ==> Thick arrow
+- -->|label| Arrow with label
+
+PARAMETERS:
+- board_id: Required. Board to create diagram on
+- diagram: Required. Mermaid diagram code (flowchart/graph syntax)
+- start_x, start_y: Starting position (default: 0, 0)
+- node_width: Width of each node (default: 180)
+- parent_id: Frame ID to place diagram inside
+
+RETURNS: Count of created nodes, connectors, and their IDs.
+
+VOICE-FRIENDLY: "Created flowchart with 5 nodes and 6 connectors"`,
+	},
 }
 
 // ptr is a helper to create a pointer to a value.

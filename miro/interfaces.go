@@ -92,6 +92,11 @@ type WebhookService interface {
 	GetWebhook(ctx context.Context, args GetWebhookArgs) (GetWebhookResult, error)
 }
 
+// DiagramService handles diagram generation from code.
+type DiagramService interface {
+	GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) (GenerateDiagramResult, error)
+}
+
 // =============================================================================
 // Composite Interface
 // =============================================================================
@@ -109,6 +114,7 @@ type MiroClient interface {
 	TokenService
 	ExportService
 	WebhookService
+	DiagramService
 }
 
 // Verify that Client implements MiroClient at compile time.

@@ -24,47 +24,46 @@ go test ./...
 
 ## Just Completed This Session
 
-### 1. Connector List/Get Tools (+2 tools)
+### Test Coverage Improvements (miro/ package: 20.5% → 61.5%)
 
-New tools for complete connector CRUD:
+Significant test coverage improvement using `httptest.NewServer` mock pattern.
 
-| Tool | Purpose |
-|------|---------|
-| `miro_list_connectors` | List all connectors on a board with pagination |
-| `miro_get_connector` | Get full details of a specific connector |
+**Coverage Progress:**
 
-Files modified:
-- `miro/create.go` - Added implementations
-- `miro/types_operations.go` - New types
-- `miro/interfaces.go` - Updated ConnectorService
-- `tools/definitions.go` - Tool specs
-- `tools/handlers.go` - Handler registration
+| Package | Before | After | Change |
+|---------|--------|-------|--------|
+| miro/ | 20.5% | **61.5%** | +41% |
+| miro/audit | 78.2% | 78.2% | - |
+| miro/diagrams | 78.4% | 78.4% | - |
+| miro/oauth | 31.3% | 31.3% | - |
+| miro/webhooks | 40.8% | 40.8% | - |
 
-### 2. Sequence Diagram Support
+**Tests Added to `miro/client_test.go`:**
 
-Extended Mermaid parser to handle sequence diagrams:
+| Domain | Functions Tested |
+|--------|-----------------|
+| items.go | ListItems, GetItem, UpdateItem, DeleteItem, SearchBoard, ListAllItems |
+| tags.go | CreateTag, ListTags, AttachTag, DetachTag, GetItemTags, UpdateTag, DeleteTag |
+| create.go | CreateShape, CreateText, CreateConnector, CreateFrame, CreateCard, CreateImage, ListConnectors, GetConnector |
+| boards.go | CopyBoard, FindBoardByNameTool, GetBoardSummary |
+| groups.go | CreateGroup, Ungroup |
+| members.go | ListBoardMembers, ShareBoard |
+| export.go | GetBoardPicture, CreateExportJob, GetExportJobStatus, GetExportJobResults |
 
-```mermaid
-sequenceDiagram
-    participant A as Alice
-    participant B as Bob
-    A->>B: Hello Bob!
-    B-->>A: Hi Alice!
+**Test Pattern Used:**
+```go
+func TestXxx_Success(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Verify method, path, body
+        // Return mock JSON response
+    }))
+    defer server.Close()
+
+    client := newTestClientWithServer(server.URL)
+    result, err := client.Xxx(context.Background(), XxxArgs{...})
+    // Assertions
+}
 ```
-
-**Supported syntax:**
-- `sequenceDiagram` header
-- `participant X` / `participant X as Label`
-- `actor X` (renders as circle)
-- `A->>B: text` (sync message, solid arrow)
-- `A-->>B: text` (async message, dotted arrow)
-- `A-xB: text` (lost message, cross end)
-- `loop`, `alt`, `else`, `end` blocks
-
-Files added/modified:
-- `miro/diagrams/sequence.go` - NEW: Sequence parser
-- `miro/diagrams/mermaid.go` - Auto-detection
-- `miro/diagrams/mermaid_test.go` - 8 new tests
 
 ---
 
@@ -92,19 +91,24 @@ Files added/modified:
 
 ## What's Next? (Recommendations)
 
-### Priority 1: Strengthen Test Coverage
+### Priority 1: Continue Test Coverage to 80%+
 
-Current coverage is good but could be improved:
+Current gaps to address:
+
+| Package | Current | Target | Focus Areas |
+|---------|---------|--------|-------------|
+| miro/ | 61.5% | 80%+ | mindmaps.go, BulkCreate, CreateStickyGrid |
+| miro/oauth | 31.3% | 60%+ | Token refresh, PKCE flow |
+| miro/webhooks | 40.8% | 60%+ | Subscription management |
 
 ```bash
-go test -cover ./...
-# Target: 80%+ coverage on miro/ package
-```
+# Check coverage
+go test -cover ./miro/...
 
-Areas to add tests:
-- Integration tests with mock HTTP server
-- Edge cases in sequence diagram parser
-- Error handling paths in connector operations
+# Detailed coverage report
+go test -coverprofile=coverage.out ./miro/...
+go tool cover -html=coverage.out
+```
 
 ### Priority 2: Additional Diagram Types
 
@@ -124,16 +128,7 @@ The parser architecture supports extension:
 - Improve error messages with suggestions
 - Add `--verbose` flag for debugging
 
-### Priority 4: New Capabilities
-
-| Feature | API Available? | Notes |
-|---------|---------------|-------|
-| Item comments | **No** | Not in Miro REST API v2 |
-| Board templates | Yes | `POST /v2/boards` with `from_template` |
-| Presentation mode | No | Not exposed via API |
-| Advanced search | Partial | Can filter by type, tags |
-
-### Priority 5: Release Prep
+### Priority 4: Release Prep
 
 For v1.3.0 release:
 1. Update README with sequence diagram examples
@@ -150,14 +145,19 @@ miro-mcp-server/
 ├── main.go                 # Entry point
 ├── miro/
 │   ├── client.go           # HTTP client with retry/caching
+│   ├── client_test.go      # Main test file (2900+ lines)
 │   ├── interfaces.go       # All service interfaces (12 interfaces)
 │   ├── boards.go           # Board operations
 │   ├── items.go            # Item CRUD
 │   ├── create.go           # Create operations + connector list/get
+│   ├── tags.go             # Tag operations
+│   ├── groups.go           # Group operations
+│   ├── members.go          # Member operations
+│   ├── export.go           # Export operations
 │   ├── diagrams.go         # Diagram generation
 │   ├── diagrams/           # Mermaid parsers + layout
 │   │   ├── mermaid.go      # Flowchart parser + auto-detect
-│   │   ├── sequence.go     # Sequence diagram parser (NEW)
+│   │   ├── sequence.go     # Sequence diagram parser
 │   │   ├── layout.go       # Sugiyama-style algorithm
 │   │   └── converter.go    # Diagram → Miro items
 │   ├── audit/              # Audit logging
@@ -190,7 +190,7 @@ go test ./...
 go test -cover ./...
 
 # Test specific package
-go test ./miro/diagrams/... -v
+go test ./miro/... -v
 ```
 
 ---
@@ -219,3 +219,4 @@ go test ./miro/diagrams/... -v
 - Full connector CRUD
 - Rate limiting + caching built-in
 - Voice-optimized tool descriptions
+- **61.5% test coverage on core package**

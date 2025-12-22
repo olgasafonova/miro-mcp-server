@@ -25,7 +25,7 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 		params.Set("type", args.Type)
 	}
 	limit := 50
-	if args.Limit > 0 && args.Limit <= 100 {
+	if args.Limit > 0 && args.Limit <= 50 {
 		limit = args.Limit
 	}
 	params.Set("limit", strconv.Itoa(limit))

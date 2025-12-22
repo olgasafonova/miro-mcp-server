@@ -259,18 +259,27 @@ func TestClientCache(t *testing.T) {
 func TestValidateToken(t *testing.T) {
 	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/users/me" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
+		// Now uses /boards?limit=1 instead of /users/me due to Miro API bug
+		if r.URL.Path != "/boards" {
+			t.Errorf("unexpected path: %s, want /boards", r.URL.Path)
 		}
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			t.Error("missing or incorrect Authorization header")
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(UserInfo{
-			ID:    "user123",
-			Name:  "Test User",
-			Email: "test@example.com",
+		// Return a boards response with owner info
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":   "board123",
+					"name": "Test Board",
+					"owner": map[string]string{
+						"id":   "user123",
+						"name": "Test User",
+					},
+				},
+			},
 		})
 	}))
 	defer server.Close()

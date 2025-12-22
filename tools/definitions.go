@@ -265,7 +265,7 @@ USE WHEN: User asks "what's on the board", "show me all stickies", "list shapes"
 PARAMETERS:
 - board_id: Required
 - type: Filter by type (sticky_note, shape, text, connector, frame)
-- limit: Max items (default 50, max 100)
+- limit: Max items (default 50, max 50)
 
 RETURNS: Item IDs, types, content, and positions.`,
 	},
@@ -424,16 +424,16 @@ RETURNS: List of tags with IDs, titles, and colors.`,
 		Method:   "AttachTag",
 		Title:    "Attach Tag",
 		Category: "tags",
-		Description: `Attach a tag to a sticky note.
+		Description: `Attach a tag to a sticky note or card.
 
 USE WHEN: User says "tag this sticky as Urgent", "add Done label to item", "mark as reviewed"
 
 PARAMETERS:
 - board_id: Required
-- item_id: Sticky note ID (required)
+- item_id: Sticky note or card ID (required)
 - tag_id: Tag ID (required, get from list_tags or create_tag)
 
-NOTE: Tags can only be attached to sticky notes, not other item types.`,
+IMPORTANT: Tags can ONLY be attached to sticky_note or card items. Shapes, text, frames, images, and other item types CANNOT be tagged. If user asks to tag a shape/star/circle, explain this limitation.`,
 	},
 	{
 		Name:     "miro_detach_tag",

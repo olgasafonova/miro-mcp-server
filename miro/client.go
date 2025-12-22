@@ -82,6 +82,11 @@ type Config struct {
 	// Get one at https://miro.com/app/settings/user-profile/apps
 	AccessToken string
 
+	// TeamID is the Miro team ID for board operations.
+	// If set, ListBoards will filter by this team.
+	// Can be read from MIRO_TEAM_ID env or from OAuth tokens file.
+	TeamID string
+
 	// Timeout for HTTP requests (default 30s).
 	Timeout time.Duration
 
@@ -383,7 +388,9 @@ func (c *Client) setCache(key string, data interface{}) {
 // Token Validation
 // =============================================================================
 
-// ValidateToken verifies the access token by calling /v2/users/me.
+// ValidateToken verifies the access token by calling /v2/boards?limit=1.
+// Note: We use /boards instead of /users/me because Miro's /users/me endpoint
+// has a bug returning "Invalid parameter type: long is required" for OAuth tokens.
 // Call this on startup to fail fast with a clear error message.
 func (c *Client) ValidateToken(ctx context.Context) (*UserInfo, error) {
 	// Check cache first (valid for 5 minutes)
@@ -391,21 +398,46 @@ func (c *Client) ValidateToken(ctx context.Context) (*UserInfo, error) {
 		return cached.(*UserInfo), nil
 	}
 
-	respBody, err := c.request(ctx, http.MethodGet, "/users/me", nil)
+	// Use /boards?limit=1 to validate token since /users/me is broken for OAuth
+	respBody, err := c.request(ctx, http.MethodGet, "/boards?limit=1", nil)
 	if err != nil {
 		return nil, fmt.Errorf("token validation failed: %w", err)
 	}
 
-	var user UserInfo
-	if err := json.Unmarshal(respBody, &user); err != nil {
-		return nil, fmt.Errorf("failed to parse user info: %w", err)
+	// Parse response to extract team info if available
+	var boardsResp struct {
+		Data []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			Team struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"team"`
+			Owner struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"owner"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &boardsResp); err != nil {
+		return nil, fmt.Errorf("failed to parse boards response: %w", err)
+	}
+
+	// Create UserInfo from available data
+	user := &UserInfo{
+		ID:   "validated",
+		Name: "Token Valid",
+	}
+	if len(boardsResp.Data) > 0 && boardsResp.Data[0].Owner.ID != "" {
+		user.ID = boardsResp.Data[0].Owner.ID
+		user.Name = boardsResp.Data[0].Owner.Name
 	}
 
 	// Cache for 5 minutes
 	c.cache.Store("token:userinfo", &cacheEntry{
-		data:      &user,
+		data:      user,
 		expiresAt: time.Now().Add(5 * time.Minute),
 	})
 
-	return &user, nil
+	return user, nil
 }

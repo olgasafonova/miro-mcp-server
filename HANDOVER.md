@@ -1,34 +1,16 @@
 # Session Handover - Miro MCP Server
 
-> **Date**: 2025-12-21
+> **Date**: 2025-12-22
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.4.2 (released)
-> **Latest Session**: CRITICAL Sequence Diagram Layout Fix
-
----
-
-## ⚠️ FIRST THING TOMORROW
-
-**TEST ALL 50 TOOLS ON A LIVE BOARD!**
-
-We fixed a critical bug but may have created a monster. Need to verify:
-1. All diagram tools still work (flowcharts, sequence diagrams)
-2. All shape creation tools work
-3. All connector tools work
-4. Board operations work
-
-Test board: https://miro.com/app/board/uXjVOXQCe5c=/
+> **Version**: v1.4.2 (with post-release fixes)
+> **Latest Session**: Fixed team_id, tag color, and limit bugs
 
 ---
 
 ## Current State
 
-**50 MCP tools** for Miro whiteboard control. Phases 1-6 complete.
-
-- v1.4.2 released on GitHub with binaries
-- All unit tests passing
-- Sequence diagrams NOW rendering correctly (verified on live board)
+**50 MCP tools** for Miro whiteboard control. Build passes, tests pass.
 
 ```bash
 # Verify build
@@ -37,83 +19,131 @@ go build -o miro-mcp-server .
 go test ./...
 ```
 
+**MCP is configured in Claude Code** at user level with correct team_id.
+
 ---
 
-## What Was Fixed (v1.4.2)
+## What Was Fixed This Session (2025-12-22)
 
-### The Bug
-The `Layout()` function in `miro/diagrams.go` was being applied to ALL diagrams, including sequence diagrams. This Sugiyama flowchart algorithm was **destroying** the carefully-set positions from the sequence parser.
+### Fix 1: Wrong Team ID (ListBoards returning empty)
 
-### Symptoms (Before Fix)
-- Participants (Alice, Bob) scattered randomly instead of horizontal row
-- Multiple duplicate-looking boxes everywhere
-- Message connectors curved/chaotic instead of straight horizontal
-- Complete visual chaos
+**Problem**: `miro_list_boards` and `miro_find_board` returned empty results.
 
-### The Fix (One Line Change)
+**Root Cause**: The `~/.miro/tokens.json` had wrong team_id:
+- Wrong: `3458764653228607818`
+- Correct: `3458764516184293832` (where the boards actually live)
+
+**Solution**:
+1. Updated `~/.miro/tokens.json` with correct team_id
+2. Added `MIRO_TEAM_ID` env var to MCP config in `~/.claude.json`
+
+**Files Changed**:
+- `~/.miro/tokens.json` - corrected team_id
+- `~/.claude.json` - added MIRO_TEAM_ID to miro server env
+
+### Fix 2: CreateTag fails without color
+
+**Problem**: `miro_create_tag` without color parameter failed with:
+```
+Field [fillColor] of type [String] is required
+```
+
+**Solution**: Added default color "blue" when not specified.
+
+**File**: `miro/tags.go` lines 26-35
 ```go
-// miro/diagrams.go line 55-68
-if diagram.Type != diagrams.TypeSequence {
-    diagrams.Layout(diagram, config)
-} else {
-    // For sequence diagrams, apply startX/startY offset if provided
-    if config.StartX != 0 || config.StartY != 0 {
-        for _, node := range diagram.Nodes {
-            node.X += config.StartX
-            node.Y += config.StartY
-        }
-        for _, edge := range diagram.Edges {
-            edge.Y += config.StartY
-        }
-    }
+// Color is required by Miro API, default to "blue" if not specified
+color := args.Color
+if color == "" {
+    color = "blue"
+}
+
+reqBody := map[string]interface{}{
+    "title":     args.Title,
+    "fillColor": normalizeTagColor(color),
 }
 ```
 
-### Result (After Fix)
-- Participants horizontally aligned at top
-- Vertical lifelines below each participant
-- Straight horizontal message arrows
-- Proper sequence diagram layout!
+### Fix 3: ListItems limit says max 100 but Miro only allows 50
 
----
+**Problem**: Tool description said "max 100" but Miro API returns error for limit > 50.
 
-## Known Issues
+**Solution**:
+1. Fixed code to cap at 50: `miro/items.go` line 28
+2. Fixed tool description: `tools/definitions.go` line 268
 
-### OAuth Token Validation Failing
-The `/v2/users/me` endpoint returns a weird error:
+### Fix 4: AttachTag unclear about taggable item types
+
+**Problem**: Claude tried to tag a shape, got API error, then explained limitation.
+
+**Solution**: Made tool description more emphatic about sticky_note/card only.
+
+**File**: `tools/definitions.go` lines 427-436
 ```
-"user_id": "Invalid parameter type: long is required"
+IMPORTANT: Tags can ONLY be attached to sticky_note or card items.
+Shapes, text, frames, images, and other item types CANNOT be tagged.
 ```
 
-This blocks the MCP server from starting with OAuth. **Workaround**: The token itself works fine for board operations - just the validation endpoint is broken. May need to:
-1. Change validation to use `/v2/boards?limit=1` instead
-2. Or skip validation entirely
-3. Or investigate if Miro API changed
+---
 
-### Token Expires Immediately
-OAuth tokens show `expires_at` within seconds of being issued. This seems wrong - investigate if it's a parsing issue or actual Miro behavior.
+## MCP Server Configuration
+
+**User-level config** in `~/.claude.json`:
+```json
+{
+  "mcpServers": {
+    "miro": {
+      "type": "stdio",
+      "command": "/Users/olgasafonova/go/src/miro-mcp-server/miro-mcp-server",
+      "args": [],
+      "env": {
+        "MIRO_ACCESS_TOKEN": "eyJtaXJvLm9yaWdpbiI6ImV1MDEifQ_LUIBL31IVOjKuoLn6HoWVwjx-sg",
+        "MIRO_TEAM_ID": "3458764516184293832"
+      }
+    }
+  }
+}
+```
+
+**OAuth tokens** at `~/.miro/tokens.json`:
+- `team_id`: `3458764516184293832` (corrected!)
+- Access token auto-refreshes
 
 ---
 
-## Files Changed This Session
+## Test Board
 
-| File | Changes |
-|------|---------|
-| `miro/diagrams.go` | **CRITICAL FIX**: Skip Layout() for sequence diagrams, add startX/startY offset support |
-| `CHANGELOG.md` | Added v1.4.2 entry |
-| `HANDOVER.md` | This file |
+**URL**: https://miro.com/app/board/uXjVOXQCe5c=
+**Name**: "All tests"
+**Board ID**: `uXjVOXQCe5c=`
+
+Current contents (as of this session):
+- 5 yellow stars (shapes)
+- Several sticky notes with tags
+- Various test items from previous sessions
 
 ---
 
-## Test Checklist for Tomorrow
+## Testing Progress
 
-### Diagram Tools
-- [ ] `miro_generate_diagram` with flowchart
-- [ ] `miro_generate_diagram` with sequence diagram
-- [ ] Verify flowchart layout still works (wasn't broken by fix)
+### Verified Working
+- [x] `miro_list_boards` - Returns 3 boards after team_id fix
+- [x] `miro_find_board` - Finds "All tests" board
+- [x] `miro_get_board` - Gets board details
+- [x] `miro_list_items` - Lists items (with correct 50 limit)
+- [x] `miro_get_item` - Gets item details
+- [x] `miro_create_tag` - Creates tags (with default blue color)
+- [x] `miro_attach_tag` - Attaches tags to sticky notes
+- [x] `miro_create_sticky` - Creates sticky notes
+- [x] `miro_bulk_create` - Creates multiple items
 
-### Shape Creation Tools
-- [ ] `miro_create_sticky`
+### Still Need Testing
+- [ ] `miro_get_board_summary`
+- [ ] `miro_create_board`
+- [ ] `miro_copy_board`
+- [ ] `miro_delete_board`
+- [ ] `miro_generate_diagram` - flowchart
+- [ ] `miro_generate_diagram` - sequence diagram
 - [ ] `miro_create_shape`
 - [ ] `miro_create_text`
 - [ ] `miro_create_frame`
@@ -122,97 +152,42 @@ OAuth tokens show `expires_at` within seconds of being issued. This seems wrong 
 - [ ] `miro_create_document`
 - [ ] `miro_create_embed`
 - [ ] `miro_create_sticky_grid`
-
-### Connector Tools
 - [ ] `miro_create_connector`
-
-### Board Tools
-- [ ] `miro_list_boards`
-- [ ] `miro_get_board`
-- [ ] `miro_find_board`
-- [ ] `miro_get_board_summary`
-- [ ] `miro_create_board`
-- [ ] `miro_copy_board`
-- [ ] `miro_delete_board`
-
-### Item Tools
-- [ ] `miro_list_items`
 - [ ] `miro_list_all_items`
-- [ ] `miro_get_item`
-- [ ] `miro_search_items`
+- [ ] `miro_search_board`
 - [ ] `miro_update_item`
 - [ ] `miro_delete_item`
-- [ ] `miro_bulk_create_items`
-
-### Tag Tools
-- [ ] `miro_create_tag`
 - [ ] `miro_list_tags`
-- [ ] `miro_attach_tag`
 - [ ] `miro_detach_tag`
 - [ ] `miro_get_item_tags`
-
-### Group Tools
+- [ ] `miro_update_tag`
+- [ ] `miro_delete_tag`
 - [ ] `miro_create_group`
 - [ ] `miro_ungroup`
-
-### Member Tools
 - [ ] `miro_list_board_members`
 - [ ] `miro_share_board`
-
-### Mindmap Tools
 - [ ] `miro_create_mindmap_node`
-
-### Export Tools (Enterprise only)
 - [ ] `miro_get_board_picture`
-- [ ] `miro_create_export_job`
-- [ ] `miro_get_export_job_status`
-- [ ] `miro_get_export_job_results`
-
-### Audit Tools
+- [ ] `miro_create_export_job` (Enterprise only)
+- [ ] `miro_get_export_job_status` (Enterprise only)
+- [ ] `miro_get_export_job_results` (Enterprise only)
 - [ ] `miro_get_audit_log`
-
-### Webhook Tools
 - [ ] `miro_create_webhook`
 - [ ] `miro_list_webhooks`
 - [ ] `miro_get_webhook`
 - [ ] `miro_delete_webhook`
+- [ ] `miro_list_connectors`
+- [ ] `miro_get_connector`
+- [ ] `miro_update_connector`
+- [ ] `miro_delete_connector`
 
 ---
 
-## OAuth Setup
+## Permission Prompts
 
-Token stored at `~/.miro/tokens.json`. Credentials:
-- Client ID: `3458764653228771705`
-- Client Secret: `4NkQBjdTFmzYvRoUFolOZIOi0OyaxbSH`
-- Redirect URI: `http://localhost:8089/callback`
-
-To authenticate:
-```bash
-MIRO_CLIENT_ID=3458764653228771705 MIRO_CLIENT_SECRET=4NkQBjdTFmzYvRoUFolOZIOi0OyaxbSH ./miro-mcp-server auth login
-```
-
----
-
-## Architecture Summary
-
-```
-miro-mcp-server/
-├── main.go                 # Entry point + --verbose flag
-├── miro/
-│   ├── client.go           # HTTP client with retry/caching
-│   ├── diagrams.go         # Diagram generation + THE FIX IS HERE
-│   ├── diagrams/
-│   │   ├── types.go        # Diagram, Node, Edge (+ Y field)
-│   │   ├── mermaid.go      # Flowchart parser
-│   │   ├── sequence.go     # Sequence diagram parser (sets positions)
-│   │   ├── converter.go    # ConvertToMiro + ConvertSequenceToMiro
-│   │   └── layout.go       # Sugiyama-style algorithm (SKIP for sequence!)
-│   ├── oauth/              # OAuth 2.1 + PKCE
-│   └── webhooks/           # Webhook subscriptions + SSE
-└── tools/
-    ├── definitions.go      # Tool specs (50 tools)
-    └── handlers.go         # Handler registration
-```
+Claude Code asks for permission for each MCP tool. To reduce prompts:
+1. Select option 2 "Yes, and don't ask again..." when prompted
+2. Or use `/permissions` command to add rules like `mcp__miro__*`
 
 ---
 
@@ -225,67 +200,57 @@ go build -o miro-mcp-server .
 # Test all
 go test ./...
 
-# Test sequence specifically
-go test -v ./miro/diagrams/... -run Sequence
-
-# Run with static token (if you have one)
-MIRO_ACCESS_TOKEN=xxx ./miro-mcp-server
-
-# Build release binaries
-GOOS=darwin GOARCH=arm64 go build -o dist/miro-mcp-server-darwin-arm64 .
-GOOS=darwin GOARCH=amd64 go build -o dist/miro-mcp-server-darwin-amd64 .
-GOOS=linux GOARCH=amd64 go build -o dist/miro-mcp-server-linux-amd64 .
-GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
+# Run with token
+MIRO_ACCESS_TOKEN=xxx MIRO_TEAM_ID=3458764516184293832 ./miro-mcp-server
 ```
 
 ---
 
-## Recommended Next Steps
+## Architecture Summary
 
-### Priority 1: Test Everything
-Run through the checklist above on a live board to make sure nothing is broken.
-
-### Priority 2: Fix Token Validation
-The `/users/me` endpoint issue needs investigation. Options:
-- Use different endpoint for validation
-- Make validation optional with a flag
-- Debug the actual API response
-
-### Priority 3: Visual Polish (Future)
-- Dashed lines for async messages (`-->>`)
-- Activation boxes on lifelines
-- Better message label positioning
-
-### Priority 4: More Diagram Types (Future)
-- Class diagrams
-- State diagrams
-- ER diagrams
-
-### Priority 5: CI/CD Pipeline (Future)
-- GitHub Actions for automated testing
-- Automated release builds on tag push
+```
+miro-mcp-server/
+├── main.go                 # Entry point + --verbose flag
+├── miro/
+│   ├── client.go           # HTTP client, Config (with TeamID), token validation
+│   ├── config.go           # LoadConfigFromEnv, loadTeamIDFromTokensFile
+│   ├── boards.go           # ListBoards (uses TeamID), GetBoard, CreateBoard, etc.
+│   ├── items.go            # ListItems (max 50), GetItem, UpdateItem, DeleteItem
+│   ├── tags.go             # CreateTag (default blue), AttachTag, DetachTag
+│   ├── members.go          # ListBoardMembers, ShareBoard
+│   ├── diagrams.go         # Diagram generation (skip layout for sequence!)
+│   ├── diagrams/           # Mermaid parsers + Sugiyama layout
+│   ├── oauth/              # OAuth 2.1 + PKCE
+│   └── webhooks/           # Webhook subscriptions + SSE
+└── tools/
+    ├── definitions.go      # Tool specs (50 tools) - updated descriptions
+    └── handlers.go         # Handler registration
+```
 
 ---
 
-## Session Notes
+## All Fixes Summary
 
-- Miro API `/v2/users/me` returning weird error - may have changed
-- OAuth tokens expire very quickly (seconds?) - needs investigation
-- The sequence diagram fix was a one-liner but had massive impact
-- Test board has various test items from debugging - can be cleaned up
-- "We might have created a monster" - thorough testing needed!
-
----
-
-## Release History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| v1.4.2 | 2025-12-21 | **CRITICAL**: Fixed sequence diagram layout bug |
-| v1.4.1 | 2025-12-21 | Visual fixes (lifeline width, anchor colors) |
-| v1.4.0 | 2025-12-21 | Sequence diagram rendering |
-| v1.3.0 | 2025-12-21 | Verbose logging, benchmarks, error messages |
+| Version | Date | Issue | Fix |
+|---------|------|-------|-----|
+| v1.4.2+ | 2025-12-22 | ListBoards empty | Wrong team_id in tokens.json |
+| v1.4.2+ | 2025-12-22 | CreateTag fails without color | Default to "blue" |
+| v1.4.2+ | 2025-12-22 | ListItems limit 100 fails | Changed to max 50 |
+| v1.4.2+ | 2025-12-22 | AttachTag unclear | Emphatic description about sticky_note/card only |
+| v1.4.2 | 2025-12-21 | Token validation broken | Use /boards?limit=1 instead of /users/me |
+| v1.4.2 | 2025-12-21 | JSON unmarshal offset | Changed offset from string to int |
+| v1.4.1 | 2025-12-21 | Sequence diagram visuals | Fixed lifeline width, anchor colors |
+| v1.4.0 | 2025-12-21 | Sequence diagrams | Added rendering support |
 
 ---
 
-**Good luck tomorrow! Test everything!** 🧪
+## Next Session
+
+1. **Restart Claude Code** to pick up the rebuilt binary
+2. Test `miro_list_boards` - should return 3 boards now
+3. Continue testing remaining tools from the checklist above
+4. Focus on diagram generation (flowchart and sequence)
+
+---
+
+**Ready for testing!**

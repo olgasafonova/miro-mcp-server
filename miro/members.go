@@ -39,7 +39,7 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 	var resp struct {
 		Data   []BoardMember `json:"data"`
 		Total  int           `json:"total,omitempty"`
-		Offset string        `json:"offset,omitempty"`
+		Offset int           `json:"offset,omitempty"` // Miro API returns numeric offset
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return ListBoardMembersResult{}, fmt.Errorf("failed to parse response: %w", err)
@@ -53,7 +53,7 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 	return ListBoardMembersResult{
 		Members: resp.Data,
 		Count:   len(resp.Data),
-		HasMore: resp.Offset != "" && len(resp.Data) >= limit,
+		HasMore: resp.Offset > 0 && len(resp.Data) >= limit,
 		Message: message,
 	}, nil
 }

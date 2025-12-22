@@ -1,14 +1,16 @@
 package miro
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 // LoadConfigFromEnv creates a Config from environment variables.
 // Required: MIRO_ACCESS_TOKEN
-// Optional: MIRO_TIMEOUT, MIRO_USER_AGENT
+// Optional: MIRO_TIMEOUT, MIRO_USER_AGENT, MIRO_TEAM_ID
 func LoadConfigFromEnv() (*Config, error) {
 	token := os.Getenv("MIRO_ACCESS_TOKEN")
 	if token == "" {
@@ -27,11 +29,41 @@ func LoadConfigFromEnv() (*Config, error) {
 		userAgent = "miro-mcp-server/1.0"
 	}
 
+	// Try to get TeamID from env first, then from tokens file
+	teamID := os.Getenv("MIRO_TEAM_ID")
+	if teamID == "" {
+		teamID = loadTeamIDFromTokensFile()
+	}
+
 	return &Config{
 		AccessToken: token,
+		TeamID:      teamID,
 		Timeout:     timeout,
 		UserAgent:   userAgent,
 	}, nil
+}
+
+// loadTeamIDFromTokensFile attempts to read the team_id from the OAuth tokens file.
+func loadTeamIDFromTokensFile() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	tokensPath := filepath.Join(home, ".miro", "tokens.json")
+	data, err := os.ReadFile(tokensPath)
+	if err != nil {
+		return ""
+	}
+
+	var tokens struct {
+		TeamID string `json:"team_id"`
+	}
+	if err := json.Unmarshal(data, &tokens); err != nil {
+		return ""
+	}
+
+	return tokens.TeamID
 }
 
 // ValidateConfig checks if the configuration is valid.

@@ -18,9 +18,16 @@ import (
 func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoardsResult, error) {
 	// Build query parameters
 	params := url.Values{}
-	if args.TeamID != "" {
-		params.Set("team_id", args.TeamID)
+
+	// Use TeamID from args, or fall back to config's TeamID
+	teamID := args.TeamID
+	if teamID == "" && c.config != nil {
+		teamID = c.config.TeamID
 	}
+	if teamID != "" {
+		params.Set("team_id", teamID)
+	}
+
 	if args.Query != "" {
 		params.Set("query", args.Query)
 	}
@@ -47,7 +54,7 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 		Data   []Board `json:"data"`
 		Total  int     `json:"total,omitempty"`
 		Size   int     `json:"size,omitempty"`
-		Offset string  `json:"offset,omitempty"`
+		Offset int     `json:"offset,omitempty"` // Miro API returns numeric offset
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return ListBoardsResult{}, fmt.Errorf("failed to parse response: %w", err)
@@ -67,11 +74,17 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 		}
 	}
 
+	// Convert numeric offset to string for external API compatibility
+	offsetStr := ""
+	if resp.Offset > 0 {
+		offsetStr = fmt.Sprintf("%d", resp.Offset)
+	}
+
 	return ListBoardsResult{
 		Boards:  boards,
 		Count:   len(boards),
-		HasMore: resp.Offset != "" && len(resp.Data) >= limit,
-		Offset:  resp.Offset,
+		HasMore: resp.Offset > 0 && len(resp.Data) >= limit,
+		Offset:  offsetStr,
 	}, nil
 }
 

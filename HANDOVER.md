@@ -196,8 +196,13 @@ GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
 
 ## Next Session Suggestions
 
-1. **Add Comments API** (+3 tools → 68 total)
-2. **Verify distribution** - Test Homebrew and Docker installs
-3. **Add to Awesome MCP Servers** - Visibility
-4. **GitHub Actions** - CI/CD for releases
-5. **More test coverage** - Currently 39/65 tested
+1. **Add Comments API** (+3 tools → 68 total) - Close gap with k-jarzyna
+2. **Add to Awesome MCP Servers** - Increase visibility
+3. **GitHub Actions** - CI/CD for automated releases
+4. **More test coverage** - Currently 39/65 tools tested
+5. **Docker image verification** - Test ghcr.io image works
+
+**Already Verified This Session:**
+- Homebrew tap works (`brew install olgasafonova/tap/miro-mcp-server` → v1.7.0)
+- Build passes, all tests pass
+- Documentation consistent across all files

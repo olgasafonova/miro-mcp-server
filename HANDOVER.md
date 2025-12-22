@@ -1,68 +1,107 @@
 # Session Handover - Miro MCP Server
 
-> **Date**: 2025-12-22 (Session 4)
+> **Date**: 2025-12-22 (Session 5)
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.5.0
-> **Release**: https://github.com/olgasafonova/miro-mcp-server/releases/tag/v1.5.0
+> **Version**: v1.5.0 + performance improvements (not yet released)
+> **Repo**: https://github.com/olgasafonova/miro-mcp-server
 
 ---
 
 ## Current State
 
-**46 MCP tools** for Miro whiteboard control. Build passes, tests pass.
+**46 MCP tools** for Miro whiteboard control. Build passes, all 132 tests pass.
 
 ```bash
 # Verify build
 cd /Users/olgasafonova/go/src/miro-mcp-server
 go build -o miro-mcp-server .
 go test ./...
+
+# Run benchmarks
+go test ./miro/... -bench=. -benchmem
 ```
 
 **MCP is configured in Claude Code** at user level with correct team_id.
 
 ---
 
-## What Was Done This Session (Session 4)
+## What Was Done This Session (Session 5) - Performance Optimizations
 
-### 1. Completed Testing
+### 1. Item-Level Caching with Write Invalidation
 
-| Tool | Status | Notes |
-|------|--------|-------|
-| `miro_create_embed` | ✅ | YouTube embed works with width-only fix |
-| `miro_create_board` | ✅ | Creates new boards |
-| `miro_copy_board` | ✅ | Fixed endpoint, works for simple boards |
-| `miro_create_document` | ✅ | Creates documents from URLs |
-| `miro_share_board` | ✅ | Sends invitations by email |
-| `miro_delete_board` | ✅ | Deletes boards |
+**Files**: `miro/cache.go`, `miro/cache_test.go`
 
-### 2. Fixed copy_board API
+- Thread-safe cache with TTL (default 2 minutes)
+- Prefix-based invalidation for related items
+- Key functions: `CacheKeyItem()`, `CacheKeyItems()`, `InvalidateItem()`, `InvalidatePrefix()`
 
-**Problem**: `miro_copy_board` returned 404 error.
+**Performance**: Get: 65ns/op, Miss: 7ns/op, Set: 82ns/op (0-1 allocs)
 
-**Root Cause**: Wrong endpoint `POST /boards/{id}/copy` (doesn't exist).
+### 2. Circuit Breaker Pattern
 
-**Solution**: Changed to `PUT /boards?copy_from={board_id}` per Miro docs.
+**Files**: `miro/circuitbreaker.go`, `miro/circuitbreaker_test.go`
 
-**File**: `miro/boards.go` line 177
-```go
-path := "/boards?copy_from=" + url.QueryEscape(args.BoardID)
-respBody, err := c.request(ctx, http.MethodPut, path, reqBody)
+- Per-endpoint circuit breakers (closed → open → half-open states)
+- Configurable thresholds: 5 failures to open, 30s timeout, 2 successes to close
+- Registry pattern for endpoint grouping
+- Smart endpoint extraction with `knownPathSegments` whitelist
+
+**Performance**: Allow: 12ns/op, Registry Get: 6ns/op (0 allocs)
+
+### 3. Adaptive Rate Limiting
+
+**Files**: `miro/ratelimit.go`, `miro/ratelimit_test.go`
+
+- Reads `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers
+- Proactive slowdown at 20% remaining quota
+- Keeps 5 requests in reserve buffer
+- Configurable min/max delays (100ms - 2s)
+
+**Performance**: Wait: 37ns/op, UpdateFromResponse: 176ns/op
+
+### 4. Parallel Bulk Operations
+
+**File**: `miro/items.go` - `BulkCreate()` method
+
+- Items created in parallel using goroutines
+- Results collected via channels with proper ordering
+- Respects existing semaphore for concurrency control
+
+### 5. Comprehensive Benchmarks
+
+**File**: `miro/benchmark_test.go`
+
+Benchmarks for:
+- Cache operations (get, set, miss, parallel, invalidate)
+- Circuit breaker (allow, parallel, registry)
+- Rate limiter (wait, update, parallel)
+- Endpoint extraction
+- Typical read/write paths
+
+**Key Results (Apple M4 Pro)**:
+| Operation | Speed | Allocations |
+|-----------|-------|-------------|
+| Typical Read Path | 121 ns/op | 0 |
+| Typical Write Path | 304 ns/op | 2 |
+
+### 6. Integration into Client
+
+**File**: `miro/client.go`
+
+- Added `rateLimiter *AdaptiveRateLimiter` to Client struct
+- Rate limiter integrated into `request()` method
+- Added `RateLimiterStats()` and `ResetRateLimiter()` methods
+- Fixed `extractEndpoint()` to use whitelist instead of length heuristics
+
+---
+
+## Commit
+
 ```
-
-**Note**: Large/complex boards may still fail with 500 from Miro's side.
-
-### 3. Removed Webhook Tools
-
-**Reason**: Miro is [discontinuing experimental webhooks](https://community.miro.com/developer-platform-and-apis-57/miro-webhooks-4281) on December 5, 2025.
-
-**Removed tools**:
-- `miro_create_webhook`
-- `miro_list_webhooks`
-- `miro_get_webhook`
-- `miro_delete_webhook`
-
-**Tool count**: 50 → 46
+025f9bc perf: add caching, circuit breaker, rate limiting, and parallel bulk ops
+ 15 files changed, 2333 insertions(+), 65 deletions(-)
+```
 
 ---
 
@@ -128,55 +167,73 @@ respBody, err := c.request(ctx, http.MethodPut, path, reqBody)
 
 ---
 
-## All Fixes in v1.5.0
+## Next Session: Suggested Improvements
 
-| Issue | Fix |
-|-------|-----|
-| copy_board 404 | Changed to `PUT /boards?copy_from={id}` |
-| create_embed geometry | Only send width OR height |
-| create_group body | `{data:{items:[...]}}` format |
-| list_connectors limit | Minimum is 10 |
-| get_item_tags null | Return empty array |
-| update_tag partial | Preserve existing values |
-| Tag color "orange" | Not valid, updated docs |
+### 1. Release v1.6.0 with Performance Features
+
+```bash
+# Build all platforms
+GOOS=darwin GOARCH=arm64 go build -o dist/miro-mcp-server-darwin-arm64 .
+GOOS=darwin GOARCH=amd64 go build -o dist/miro-mcp-server-darwin-amd64 .
+GOOS=linux GOARCH=amd64 go build -o dist/miro-mcp-server-linux-amd64 .
+GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
+
+# Create release
+gh release create v1.6.0 dist/* --title "v1.6.0 - Performance" --notes "..."
+```
+
+### 2. Fix Known Tool Issues
+
+- **miro_create_mindmap_node**: Research current Miro Mindmap API
+- **miro_get_board_picture**: Test with different board configurations
+
+### 3. Additional Features to Consider
+
+| Feature | Description | Complexity |
+|---------|-------------|------------|
+| Streaming responses | SSE for long operations | Medium |
+| Batch tag operations | Apply tags to multiple items | Low |
+| Board templates | Create from predefined layouts | Medium |
+| Item positioning helpers | Grid snap, alignment | Low |
+| Undo/redo tracking | Track operations for rollback | High |
+
+### 4. Documentation Improvements
+
+- Add performance tuning guide to README
+- Document rate limit handling behavior
+- Add architecture diagram to CLAUDE.md
+
+### 5. Testing Improvements
+
+- Add integration tests with real API (tagged)
+- Add fuzz tests for parsers
+- Add load tests for concurrent operations
 
 ---
 
-## Next Session: Performance Improvements
+## Architecture Overview
 
-### Suggested Focus Areas
-
-1. **Caching optimization**
-   - Current: 2-minute TTL for boards
-   - Consider: Item-level caching, cache invalidation on writes
-
-2. **Batch operations**
-   - Current: Single-item creates
-   - Consider: Batch API calls where Miro supports them
-
-3. **Connection pooling**
-   - Review HTTP client configuration
-   - Consider keep-alive optimization
-
-4. **Rate limiting improvements**
-   - Current: Semaphore-based (5 concurrent)
-   - Consider: Adaptive rate limiting based on response headers
-
-5. **Retry strategy**
-   - Current: Exponential backoff
-   - Consider: Circuit breaker pattern for failed endpoints
-
-### Benchmarking Commands
-
-```bash
-# Run benchmarks (if added)
-go test -bench=. ./...
-
-# Profile CPU
-go test -cpuprofile=cpu.prof -bench=. ./miro
-
-# Profile memory
-go test -memprofile=mem.prof -bench=. ./miro
+```
+miro-mcp-server/
+├── main.go                    # Entry point
+├── miro/
+│   ├── client.go              # HTTP client + rate limiter + circuit breaker
+│   ├── cache.go               # Item-level caching
+│   ├── circuitbreaker.go      # Per-endpoint circuit breakers
+│   ├── ratelimit.go           # Adaptive rate limiting
+│   ├── benchmark_test.go      # Performance benchmarks
+│   │
+│   ├── boards.go, items.go, create.go, tags.go, ...  # Domain logic
+│   ├── types_*.go             # Type definitions
+│   │
+│   ├── audit/                 # Audit logging
+│   ├── oauth/                 # OAuth 2.1 PKCE
+│   └── diagrams/              # Mermaid parser + layout
+│
+└── tools/
+    ├── definitions.go         # 46 tool specs
+    ├── handlers.go            # Generic handler registration
+    └── handlers_test.go       # Unit tests with MockClient
 ```
 
 ---
@@ -190,29 +247,31 @@ go build -o miro-mcp-server .
 # Test
 go test ./...
 
-# Run with token
+# Benchmarks
+go test ./miro/... -bench=. -benchmem
+
+# Coverage
+go test -cover ./...
+
+# Run
 MIRO_ACCESS_TOKEN=xxx MIRO_TEAM_ID=3458764516184293832 ./miro-mcp-server
-
-# Create release
-gh release create v1.x.x dist/* --title "..." --notes "..."
 ```
 
 ---
 
-## Commits Since v1.4.2
+## Competitive Advantages
 
-```
-e93dbdd Remove webhook tools (Miro sunset Dec 5, 2025)
-08e2edb Fix copy_board to use correct Miro API endpoint
-9afa6a9 Fix embed geometry and tag color documentation
-964d4ea docs: add testing status documentation
-1a09e84 fix: GetItemTags null handling and connector cap documentation
-9880232 fix: CreateGroup request body and ListConnectors minimum limit
-e89238b fix: multiple API compatibility fixes
-fa66d2b fix(tags): preserve existing title/color on partial updates
-3a417ca docs: comprehensive handover notes for next session
-```
+1. **Only Go-based Miro MCP** - faster, smaller, single binary
+2. **Production-grade performance** - sub-microsecond hot paths
+3. **Adaptive rate limiting** - proactive slowdown from headers
+4. **Circuit breaker** - endpoint isolation on failures
+5. **Item-level caching** - intelligent invalidation
+6. **Parallel bulk ops** - concurrent item creation
+7. **46 comprehensive tools** - most complete Miro MCP
+8. **Voice-optimized descriptions** - works with voice assistants
+9. **OAuth 2.1 with PKCE** - secure authentication
+10. **Dual transport** - stdio + HTTP modes
 
 ---
 
-**v1.5.0 released with all fixes!**
+**Ready for v1.6.0 release with performance improvements!**

@@ -23,12 +23,15 @@ func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagRe
 		return CreateTagResult{}, fmt.Errorf("title is required")
 	}
 
-	reqBody := map[string]interface{}{
-		"title": args.Title,
+	// Color is required by Miro API, default to "blue" if not specified
+	color := args.Color
+	if color == "" {
+		color = "blue"
 	}
 
-	if args.Color != "" {
-		reqBody["fillColor"] = normalizeTagColor(args.Color)
+	reqBody := map[string]interface{}{
+		"title":     args.Title,
+		"fillColor": normalizeTagColor(color),
 	}
 
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/tags", reqBody)
@@ -188,7 +191,32 @@ func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItem
 	}, nil
 }
 
+// GetTag retrieves a single tag by ID.
+func (c *Client) GetTag(ctx context.Context, boardID, tagID string) (Tag, error) {
+	if boardID == "" {
+		return Tag{}, fmt.Errorf("board_id is required")
+	}
+	if tagID == "" {
+		return Tag{}, fmt.Errorf("tag_id is required")
+	}
+
+	path := fmt.Sprintf("/boards/%s/tags/%s", boardID, tagID)
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return Tag{}, err
+	}
+
+	var tag Tag
+	if err := json.Unmarshal(respBody, &tag); err != nil {
+		return Tag{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return tag, nil
+}
+
 // UpdateTag updates an existing tag on a board.
+// When only color is provided, preserves the existing title (and vice versa).
 func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagResult, error) {
 	if args.BoardID == "" {
 		return UpdateTagResult{}, fmt.Errorf("board_id is required")
@@ -200,12 +228,27 @@ func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagRe
 		return UpdateTagResult{}, fmt.Errorf("at least one of title or color is required")
 	}
 
-	reqBody := make(map[string]interface{})
-	if args.Title != "" {
-		reqBody["title"] = args.Title
+	// If doing a partial update, fetch existing tag to preserve unspecified fields
+	// Miro's API clears fields that aren't included in the PATCH request
+	title := args.Title
+	color := args.Color
+
+	if title == "" || color == "" {
+		existingTag, err := c.GetTag(ctx, args.BoardID, args.TagID)
+		if err != nil {
+			return UpdateTagResult{}, fmt.Errorf("failed to fetch existing tag: %w", err)
+		}
+		if title == "" {
+			title = existingTag.Title
+		}
+		if color == "" {
+			color = existingTag.FillColor
+		}
 	}
-	if args.Color != "" {
-		reqBody["fillColor"] = normalizeTagColor(args.Color)
+
+	reqBody := map[string]interface{}{
+		"title":     title,
+		"fillColor": normalizeTagColor(color),
 	}
 
 	path := fmt.Sprintf("/boards/%s/tags/%s", args.BoardID, args.TagID)

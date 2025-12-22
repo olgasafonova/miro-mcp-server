@@ -58,6 +58,7 @@ func TestToolCategories(t *testing.T) {
 		"connectors": true,
 		"groups":     true,
 		"members":    true,
+		"frames":     true,
 	}
 
 	for _, tool := range AllTools {
@@ -108,7 +109,9 @@ func TestToolCount(t *testing.T) {
 	// v1.6.0: +1 update_board, +4 group tools (list, get, get_items, delete),
 	//         +3 member tools (get, remove, update) = 54
 	//         +4 app card tools (create, get, update, delete) = 58
-	expectedCount := 58
+	// v1.7.0: +4 frame tools (get, update, delete, get_items) = 62
+	// v1.8.0: +3 mindmap tools (get, list, delete) = 65
+	expectedCount := 65
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

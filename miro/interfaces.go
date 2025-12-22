@@ -87,6 +87,17 @@ type MemberService interface {
 // MindmapService handles mindmap operations.
 type MindmapService interface {
 	CreateMindmapNode(ctx context.Context, args CreateMindmapNodeArgs) (CreateMindmapNodeResult, error)
+	GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (GetMindmapNodeResult, error)
+	ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs) (ListMindmapNodesResult, error)
+	DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error)
+}
+
+// FrameService handles frame-specific operations (beyond create).
+type FrameService interface {
+	GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error)
+	UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateFrameResult, error)
+	DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteFrameResult, error)
+	GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (GetFrameItemsResult, error)
 }
 
 // TokenService handles authentication validation.
@@ -137,6 +148,7 @@ type MiroClient interface {
 	GroupService
 	MemberService
 	MindmapService
+	FrameService
 	TokenService
 	ExportService
 	WebhookService

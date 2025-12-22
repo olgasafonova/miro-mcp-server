@@ -78,6 +78,15 @@ type MockClient struct {
 
 	// Mindmap operations
 	CreateMindmapNodeFn func(ctx context.Context, args miro.CreateMindmapNodeArgs) (miro.CreateMindmapNodeResult, error)
+	GetMindmapNodeFn    func(ctx context.Context, args miro.GetMindmapNodeArgs) (miro.GetMindmapNodeResult, error)
+	ListMindmapNodesFn  func(ctx context.Context, args miro.ListMindmapNodesArgs) (miro.ListMindmapNodesResult, error)
+	DeleteMindmapNodeFn func(ctx context.Context, args miro.DeleteMindmapNodeArgs) (miro.DeleteMindmapNodeResult, error)
+
+	// Frame operations (beyond create)
+	GetFrameFn      func(ctx context.Context, args miro.GetFrameArgs) (miro.GetFrameResult, error)
+	UpdateFrameFn   func(ctx context.Context, args miro.UpdateFrameArgs) (miro.UpdateFrameResult, error)
+	DeleteFrameFn   func(ctx context.Context, args miro.DeleteFrameArgs) (miro.DeleteFrameResult, error)
+	GetFrameItemsFn func(ctx context.Context, args miro.GetFrameItemsArgs) (miro.GetFrameItemsResult, error)
 
 	// Token operations
 	ValidateTokenFn func(ctx context.Context) (*miro.UserInfo, error)
@@ -818,6 +827,111 @@ func (m *MockClient) CreateMindmapNode(ctx context.Context, args miro.CreateMind
 		Content:  args.Content,
 		ParentID: args.ParentID,
 		Message:  fmt.Sprintf("Created mindmap node '%s'", truncateForTest(args.Content, 30)),
+	}, nil
+}
+
+func (m *MockClient) GetMindmapNode(ctx context.Context, args miro.GetMindmapNodeArgs) (miro.GetMindmapNodeResult, error) {
+	m.recordCall("GetMindmapNode", args)
+	if m.GetMindmapNodeFn != nil {
+		return m.GetMindmapNodeFn(ctx, args)
+	}
+	return miro.GetMindmapNodeResult{
+		ID:       args.NodeID,
+		Content:  "Test Node Content",
+		NodeView: "text",
+		IsRoot:   true,
+		X:        100,
+		Y:        100,
+		Message:  "Retrieved mindmap node 'Test Node Content'",
+	}, nil
+}
+
+func (m *MockClient) ListMindmapNodes(ctx context.Context, args miro.ListMindmapNodesArgs) (miro.ListMindmapNodesResult, error) {
+	m.recordCall("ListMindmapNodes", args)
+	if m.ListMindmapNodesFn != nil {
+		return m.ListMindmapNodesFn(ctx, args)
+	}
+	return miro.ListMindmapNodesResult{
+		Nodes: []miro.MindmapNodeSummary{
+			{ID: "node-1", Content: "Root", IsRoot: true},
+			{ID: "node-2", Content: "Child 1", ParentID: "node-1"},
+		},
+		Count:   2,
+		HasMore: false,
+		Message: "Found 2 mindmap nodes",
+	}, nil
+}
+
+func (m *MockClient) DeleteMindmapNode(ctx context.Context, args miro.DeleteMindmapNodeArgs) (miro.DeleteMindmapNodeResult, error) {
+	m.recordCall("DeleteMindmapNode", args)
+	if m.DeleteMindmapNodeFn != nil {
+		return m.DeleteMindmapNodeFn(ctx, args)
+	}
+	return miro.DeleteMindmapNodeResult{
+		Success: true,
+		ID:      args.NodeID,
+		Message: "Mindmap node deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// FrameService Implementation (beyond create)
+// =============================================================================
+
+func (m *MockClient) GetFrame(ctx context.Context, args miro.GetFrameArgs) (miro.GetFrameResult, error) {
+	m.recordCall("GetFrame", args)
+	if m.GetFrameFn != nil {
+		return m.GetFrameFn(ctx, args)
+	}
+	return miro.GetFrameResult{
+		ID:         args.FrameID,
+		Title:      "Test Frame",
+		X:          0,
+		Y:          0,
+		Width:      800,
+		Height:     600,
+		ChildCount: 5,
+		Message:    "Retrieved frame 'Test Frame'",
+	}, nil
+}
+
+func (m *MockClient) UpdateFrame(ctx context.Context, args miro.UpdateFrameArgs) (miro.UpdateFrameResult, error) {
+	m.recordCall("UpdateFrame", args)
+	if m.UpdateFrameFn != nil {
+		return m.UpdateFrameFn(ctx, args)
+	}
+	return miro.UpdateFrameResult{
+		Success: true,
+		ID:      args.FrameID,
+		Message: "Frame updated successfully",
+	}, nil
+}
+
+func (m *MockClient) DeleteFrame(ctx context.Context, args miro.DeleteFrameArgs) (miro.DeleteFrameResult, error) {
+	m.recordCall("DeleteFrame", args)
+	if m.DeleteFrameFn != nil {
+		return m.DeleteFrameFn(ctx, args)
+	}
+	return miro.DeleteFrameResult{
+		Success: true,
+		ID:      args.FrameID,
+		Message: "Frame deleted successfully",
+	}, nil
+}
+
+func (m *MockClient) GetFrameItems(ctx context.Context, args miro.GetFrameItemsArgs) (miro.GetFrameItemsResult, error) {
+	m.recordCall("GetFrameItems", args)
+	if m.GetFrameItemsFn != nil {
+		return m.GetFrameItemsFn(ctx, args)
+	}
+	return miro.GetFrameItemsResult{
+		Items: []miro.ItemSummary{
+			{ID: "item-1", Type: "sticky_note", Content: "Test sticky"},
+			{ID: "item-2", Type: "shape", Content: "Test shape"},
+		},
+		Count:   2,
+		HasMore: false,
+		Message: "Found 2 items in frame",
 	}, nil
 }
 

@@ -125,7 +125,16 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"UpdateBoardMember":  makeHandler(h, h.client.UpdateBoardMember),
 
 		// Mindmap tools
-		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
+		"CreateMindmapNode":  makeHandler(h, h.client.CreateMindmapNode),
+		"GetMindmapNode":     makeHandler(h, h.client.GetMindmapNode),
+		"ListMindmapNodes":   makeHandler(h, h.client.ListMindmapNodes),
+		"DeleteMindmapNode":  makeHandler(h, h.client.DeleteMindmapNode),
+
+		// Frame tools (beyond create)
+		"GetFrame":      makeHandler(h, h.client.GetFrame),
+		"UpdateFrame":   makeHandler(h, h.client.UpdateFrame),
+		"DeleteFrame":   makeHandler(h, h.client.DeleteFrame),
+		"GetFrameItems": makeHandler(h, h.client.GetFrameItems),
 
 		// Diagram generation tools
 		"GenerateDiagram": makeHandler(h, h.client.GenerateDiagram),

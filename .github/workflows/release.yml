@@ -1,0 +1,154 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o miro-mcp-server-${{ matrix.suffix }} .
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: miro-mcp-server-${{ matrix.suffix }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: olgasafonova/homebrew-tap
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix
+
+          # Download all binaries to get SHA256
+          wget -q "https://github.com/olgasafonova/miro-mcp-server/releases/download/${{ github.ref_name }}/miro-mcp-server-darwin-amd64"
+          wget -q "https://github.com/olgasafonova/miro-mcp-server/releases/download/${{ github.ref_name }}/miro-mcp-server-darwin-arm64"
+          wget -q "https://github.com/olgasafonova/miro-mcp-server/releases/download/${{ github.ref_name }}/miro-mcp-server-linux-amd64"
+
+          SHA_DARWIN_AMD64=$(sha256sum miro-mcp-server-darwin-amd64 | cut -d' ' -f1)
+          SHA_DARWIN_ARM64=$(sha256sum miro-mcp-server-darwin-arm64 | cut -d' ' -f1)
+          SHA_LINUX_AMD64=$(sha256sum miro-mcp-server-linux-amd64 | cut -d' ' -f1)
+
+          cat > homebrew-tap/Formula/miro-mcp-server.rb << EOF
+          # Homebrew Formula for Miro MCP Server
+          # Usage: brew tap olgasafonova/tap && brew install miro-mcp-server
+
+          class MiroMcpServer < Formula
+            desc "Model Context Protocol (MCP) server for Miro whiteboard integration"
+            homepage "https://github.com/olgasafonova/miro-mcp-server"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              on_intel do
+                url "https://github.com/olgasafonova/miro-mcp-server/releases/download/${{ github.ref_name }}/miro-mcp-server-darwin-amd64"
+                sha256 "${SHA_DARWIN_AMD64}"
+
+                def install
+                  bin.install "miro-mcp-server-darwin-amd64" => "miro-mcp-server"
+                end
+              end
+
+              on_arm do
+                url "https://github.com/olgasafonova/miro-mcp-server/releases/download/${{ github.ref_name }}/miro-mcp-server-darwin-arm64"
+                sha256 "${SHA_DARWIN_ARM64}"
+
+                def install
+                  bin.install "miro-mcp-server-darwin-arm64" => "miro-mcp-server"
+                end
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/olgasafonova/miro-mcp-server/releases/download/${{ github.ref_name }}/miro-mcp-server-linux-amd64"
+                sha256 "${SHA_LINUX_AMD64}"
+
+                def install
+                  bin.install "miro-mcp-server-linux-amd64" => "miro-mcp-server"
+                end
+              end
+            end
+
+            def caveats
+              <<~EOS
+                Miro MCP Server has been installed!
+
+                To use it, you need a Miro access token:
+
+                1. Get a token from: https://miro.com/app/settings/user-profile/apps
+
+                2. Configure Claude Code:
+                   claude mcp add miro-mcp-server -- miro-mcp-server
+
+                3. Set the token as environment variable:
+                   export MIRO_ACCESS_TOKEN="your_token_here"
+
+                For more information, see:
+                  https://github.com/olgasafonova/miro-mcp-server#readme
+              EOS
+            end
+
+            test do
+              assert_match "miro-mcp-server", shell_output("#{bin}/miro-mcp-server --version 2>&1", 1)
+            end
+          end
+          EOF
+
+      - name: Commit and push formula update
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/miro-mcp-server.rb
+          git commit -m "Update miro-mcp-server to ${{ github.ref_name }}" || exit 0
+          git push

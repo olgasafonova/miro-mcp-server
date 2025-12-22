@@ -243,6 +243,84 @@ PARAMETERS:
 - color: Background color
 - x, y: Position`,
 	},
+	{
+		Name:     "miro_get_frame",
+		Method:   "GetFrame",
+		Title:    "Get Frame Details",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get full details of a specific frame by ID.
+
+USE WHEN: User asks "show me this frame", "frame details", "what's in this frame"
+
+PARAMETERS:
+- board_id: Required
+- frame_id: Required
+
+RETURNS: Frame details including title, position, size, color, child count, and timestamps.
+
+VOICE-FRIENDLY: "Frame 'Sprint Planning' is 800x600 with 12 items inside"`,
+	},
+	{
+		Name:       "miro_update_frame",
+		Method:     "UpdateFrame",
+		Title:      "Update Frame",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update an existing frame's title, position, size, or color.
+
+USE WHEN: User says "rename the frame", "resize this frame", "move the frame", "change frame color"
+
+PARAMETERS:
+- board_id: Required
+- frame_id: Required
+- title: New frame title
+- x, y: New position
+- width, height: New size
+- color: New background color
+
+NOTE: At least one update field must be provided.
+
+VOICE-FRIENDLY: "Updated frame title to 'Q1 Goals'"`,
+	},
+	{
+		Name:        "miro_delete_frame",
+		Method:      "DeleteFrame",
+		Title:       "Delete Frame",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete a frame from a Miro board.
+
+USE WHEN: User says "remove this frame", "delete the frame"
+
+PARAMETERS:
+- board_id: Required
+- frame_id: Required
+
+WARNING: This action cannot be undone. Items inside the frame are NOT deleted - they become ungrouped.
+
+VOICE-FRIENDLY: "Frame deleted successfully"`,
+	},
+	{
+		Name:     "miro_get_frame_items",
+		Method:   "GetFrameItems",
+		Title:    "Get Frame Items",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get all items contained within a specific frame.
+
+USE WHEN: User asks "what's inside this frame", "list frame contents", "show items in frame"
+
+PARAMETERS:
+- board_id: Required
+- frame_id: Required
+- type: Filter by item type (sticky_note, shape, text, card, image)
+- limit: Max items to return (default 50, max 100)
+
+RETURNS: List of items with IDs, types, and content.
+
+VOICE-FRIENDLY: "Frame has 8 items: 5 stickies, 2 shapes, 1 text"`,
+	},
 
 	// ==========================================================================
 	// Bulk Operations
@@ -947,6 +1025,67 @@ WORKFLOW:
 3. Continue adding nested children as needed
 
 VOICE-FRIENDLY: "Created mindmap node 'Project Ideas' as root"`,
+	},
+	{
+		Name:     "miro_get_mindmap_node",
+		Method:   "GetMindmapNode",
+		Title:    "Get Mindmap Node",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of a specific mindmap node including content, hierarchy, and position.
+
+USE WHEN: User asks "show mindmap node details", "what's in this node", "get node info"
+
+PARAMETERS:
+- board_id: Required
+- node_id: Mindmap node ID (required)
+
+RETURNS: Node ID, content, node view style, whether it's root, parent ID, child IDs, position, timestamps.
+
+NOTE: Uses v2-experimental Miro API endpoint.
+
+VOICE-FRIENDLY: "Mindmap node 'Marketing Strategy' has 3 children"`,
+	},
+	{
+		Name:     "miro_list_mindmap_nodes",
+		Method:   "ListMindmapNodes",
+		Title:    "List Mindmap Nodes",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List all mindmap nodes on a board.
+
+USE WHEN: User asks "show all mindmap nodes", "list mindmap", "what's in the mindmap"
+
+PARAMETERS:
+- board_id: Required
+- limit: Max nodes to return (default 50, max 100)
+- cursor: Pagination cursor
+
+RETURNS: List of nodes with IDs, content, root status, and parent relationships.
+
+NOTE: Uses v2-experimental Miro API endpoint. Returns nodes flat - use parent_id to reconstruct hierarchy.
+
+VOICE-FRIENDLY: "Found 12 mindmap nodes - 1 root, 11 children"`,
+	},
+	{
+		Name:        "miro_delete_mindmap_node",
+		Method:      "DeleteMindmapNode",
+		Title:       "Delete Mindmap Node",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete a mindmap node from a board.
+
+USE WHEN: User says "remove this mindmap node", "delete node", "remove from mindmap"
+
+PARAMETERS:
+- board_id: Required
+- node_id: Mindmap node ID to delete (required)
+
+WARNING: This action cannot be undone. Deleting a parent node may affect child nodes.
+
+NOTE: Uses v2-experimental Miro API endpoint.
+
+VOICE-FRIENDLY: "Mindmap node deleted successfully"`,
 	},
 
 	// ==========================================================================

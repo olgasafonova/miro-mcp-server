@@ -618,7 +618,7 @@ USE WHEN: User asks "show me all connections", "list connectors", "what's connec
 
 PARAMETERS:
 - board_id: Required
-- limit: Max connectors to return (default 50, max 100)
+- limit: Max connectors to return (default 50, min 10, max 100)
 
 RETURNS: List of connectors with IDs, connected item IDs, style, and any labels.
 

@@ -210,6 +210,9 @@ func (c *Client) ListConnectors(ctx context.Context, args ListConnectorsArgs) (L
 	if limit <= 0 {
 		limit = 50
 	}
+	if limit < 10 {
+		limit = 10 // Miro API minimum for connectors
+	}
 	if limit > 100 {
 		limit = 100
 	}

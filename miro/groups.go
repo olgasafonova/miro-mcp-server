@@ -21,7 +21,9 @@ func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateG
 	}
 
 	reqBody := map[string]interface{}{
-		"items": args.ItemIDs,
+		"data": map[string]interface{}{
+			"items": args.ItemIDs,
+		},
 	}
 
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/groups", reqBody)

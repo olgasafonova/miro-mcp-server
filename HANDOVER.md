@@ -233,6 +233,8 @@ miro-mcp-server/
 
 | Version | Date | Issue | Fix |
 |---------|------|-------|-----|
+| v1.4.2+ | 2025-12-22 | CreateGroup fails | Request body needs `{data:{items:[...]}}` not `{items:[...]}` |
+| v1.4.2+ | 2025-12-22 | ListConnectors limit < 10 fails | Enforce minimum limit of 10 |
 | v1.4.2+ | 2025-12-22 | ListBoards empty | Wrong team_id in tokens.json |
 | v1.4.2+ | 2025-12-22 | CreateTag fails without color | Default to "blue" |
 | v1.4.2+ | 2025-12-22 | ListItems limit 100 fails | Changed to max 50 |
@@ -244,13 +246,46 @@ miro-mcp-server/
 
 ---
 
+## Session 2 Progress (2025-12-22 afternoon)
+
+### Verified Working This Session
+- [x] `miro_list_boards` - Returns 3 boards
+- [x] `miro_generate_diagram` - Flowchart (simple and complex)
+- [x] `miro_generate_diagram` - Sequence diagram
+- [x] `miro_create_shape` - Circle with color
+- [x] `miro_create_text` - Heading with font size
+- [x] `miro_create_frame` - Container with title
+- [x] `miro_create_card` - Card with due date
+- [x] `miro_create_connector` - Curved with caption
+- [x] `miro_list_connectors` - Works with limit >= 10
+- [x] `miro_get_connector` - Gets details
+- [x] `miro_update_connector` - Updates caption/color
+
+### Bugs Found & Fixed This Session
+1. **CreateGroup**: Wrong request body format - fixed in `miro/groups.go`
+2. **ListConnectors**: No minimum limit validation - fixed in `miro/create.go`
+
+### Still Need Testing (after restart)
+- [ ] `miro_create_group` - Fixed, needs retest
+- [ ] `miro_ungroup`
+- [ ] `miro_delete_connector`
+- [ ] `miro_search_board`
+- [ ] `miro_update_item`
+- [ ] `miro_delete_item`
+- [ ] `miro_list_board_members`
+- [ ] `miro_share_board`
+- [ ] `miro_create_mindmap_node`
+- [ ] `miro_get_board_picture`
+- [ ] Webhook tools
+- [ ] Audit log tool
+
 ## Next Session
 
 1. **Restart Claude Code** to pick up the rebuilt binary
-2. Test `miro_list_boards` - should return 3 boards now
-3. Continue testing remaining tools from the checklist above
-4. Focus on diagram generation (flowchart and sequence)
+2. Test `miro_create_group` - should work now with fixed request body
+3. Continue testing remaining tools from checklist
+4. Consider releasing v1.4.3 with all fixes
 
 ---
 
-**Ready for testing!**
+**Binary rebuilt with fixes - restart Claude Code to continue testing!**

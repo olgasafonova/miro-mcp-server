@@ -2318,7 +2318,8 @@ func TestCreateGroup_Success(t *testing.T) {
 		// Verify request body
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
-		items := body["items"].([]interface{})
+		data := body["data"].(map[string]interface{})
+		items := data["items"].([]interface{})
 		if len(items) != 3 {
 			t.Errorf("expected 3 items, got %d", len(items))
 		}

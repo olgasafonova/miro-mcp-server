@@ -2,22 +2,30 @@
 
 Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
-**58 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**65 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 ---
 
 ## Quick Start
 
-### 1. Download
+### 1. Install
 
-**macOS (Apple Silicon):**
+**Homebrew (macOS/Linux):**
 ```bash
-curl -L -o miro-mcp-server https://github.com/olgasafonova/miro-mcp-server/releases/latest/download/miro-mcp-server-darwin-arm64
-chmod +x miro-mcp-server
-sudo mv miro-mcp-server /usr/local/bin/
+brew tap olgasafonova/tap && brew install miro-mcp-server
 ```
 
-**Other platforms:** See [SETUP.md](SETUP.md)
+**One-liner (macOS/Linux):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/olgasafonova/miro-mcp-server/main/install.sh | sh
+```
+
+**Docker:**
+```bash
+docker pull ghcr.io/olgasafonova/miro-mcp-server:latest
+```
+
+**Manual download:** See [SETUP.md](SETUP.md) for all platforms
 
 ### 2. Get a Miro Token
 
@@ -60,7 +68,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 58 Tools
+## All 65 Tools
 
 <details>
 <summary><b>Board Management (8)</b></summary>
@@ -110,6 +118,30 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_create_group` | Group items together |
 | `miro_create_mindmap_node` | Create mindmap node |
 | `miro_bulk_create` | Create multiple items at once |
+
+</details>
+
+<details>
+<summary><b>Frames (4)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_get_frame` | Get frame details |
+| `miro_update_frame` | Update frame title/color/size |
+| `miro_delete_frame` | Delete a frame |
+| `miro_get_frame_items` | List items inside a frame |
+
+</details>
+
+<details>
+<summary><b>Mindmaps (4)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_create_mindmap_node` | Create mindmap node |
+| `miro_get_mindmap_node` | Get node details |
+| `miro_list_mindmap_nodes` | List all mindmap nodes |
+| `miro_delete_mindmap_node` | Delete a mindmap node |
 
 </details>
 
@@ -257,7 +289,9 @@ sequenceDiagram
 | macOS (Apple Silicon) | `miro-mcp-server-darwin-arm64` |
 | macOS (Intel) | `miro-mcp-server-darwin-amd64` |
 | Linux (x64) | `miro-mcp-server-linux-amd64` |
+| Linux (ARM64) | `miro-mcp-server-linux-arm64` |
 | Windows (x64) | `miro-mcp-server-windows-amd64.exe` |
+| Docker | `ghcr.io/olgasafonova/miro-mcp-server` |
 
 ---
 
@@ -281,9 +315,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 58 tools |
-| Team | Full access to all 58 tools |
-| Business | Full access to all 58 tools |
+| Free | Full access to all 65 tools |
+| Team | Full access to all 65 tools |
+| Business | Full access to all 65 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

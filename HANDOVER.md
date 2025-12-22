@@ -28,7 +28,7 @@ go test ./...
 
 ### v1.7.0 - Frame & Mindmap Tools + Distribution (Current)
 
-**New Tools (+7, total 65)**:
+**New Tools (+7, total 66)**:
 - `miro_get_frame` - Get frame details
 - `miro_update_frame` - Update frame title/color/size
 - `miro_delete_frame` - Delete a frame
@@ -145,7 +145,7 @@ miro-mcp-server/
 │   ├── oauth/                 # OAuth 2.1 PKCE
 │   └── diagrams/              # Mermaid parser + layout
 └── tools/
-    ├── definitions.go         # 65 tool specs
+    ├── definitions.go         # 66 tool specs
     └── handlers.go            # Generic handler registration
 ```
 

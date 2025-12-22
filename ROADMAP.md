@@ -35,7 +35,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (65 total)
+### Implemented Tools (66 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -90,8 +90,9 @@ miro-mcp-server/
 | | `miro_delete_tag` | DeleteTag |
 | | `miro_delete_frame` | DeleteFrame |
 | | `miro_delete_group` | DeleteGroup |
-| **Tags (5)** | `miro_create_tag` | CreateTag |
+| **Tags (6)** | `miro_create_tag` | CreateTag |
 | | `miro_list_tags` | ListTags |
+| | `miro_get_tag` | GetTagTool |
 | | `miro_attach_tag` | AttachTag |
 | | `miro_detach_tag` | DetachTag |
 | | `miro_get_item_tags` | GetItemTags |
@@ -138,7 +139,7 @@ miro-mcp-server/
 | **evalstate/mcp-miro** | TypeScript | 101 | ~8 | Nov 2024 | - |
 | **k-jarzyna/mcp-miro** | TypeScript | 59 | 81 | Active | Apache 2.0 |
 | **LuotoCompany/mcp-server-miro** | TypeScript | 14 | ~15 | Apr 2025 | MIT |
-| **Ours** | **Go** | - | **65** | Active | MIT |
+| **Ours** | **Go** | - | **66** | Active | MIT |
 
 ### Feature Comparison Matrix
 
@@ -906,7 +907,7 @@ go test -cover ./...
 
 ## Appendix: Full Tool List Target
 
-### Phase 1 Tools (26 implemented)
+### Phase 1 Tools (27 implemented)
 
 | Tool | Status |
 |------|--------|
@@ -933,6 +934,7 @@ go test -cover ./...
 | `miro_delete_item` | ✅ Done |
 | `miro_list_tags` | ✅ Done |
 | `miro_create_tag` | ✅ Done |
+| `miro_get_tag` | ✅ Done |
 | `miro_attach_tag` | ✅ Done |
 | `miro_detach_tag` | ✅ Done |
 | `miro_get_item_tags` | ✅ Done |
@@ -1044,7 +1046,7 @@ go test -cover ./...
 | Board Update | ✅ Done | Update board name/description |
 | Distribution | ✅ Done | Homebrew tap, Docker, install script |
 
-#### Phase 7 Tools (+12 new, 65 total)
+#### Phase 7 Tools (+12 new, 66 total including miro_get_tag)
 
 | Tool | Status | Notes |
 |------|--------|-------|

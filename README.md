@@ -68,7 +68,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 65 Tools
+## All 66 Tools
 
 <details>
 <summary><b>Board Management (8)</b></summary>
@@ -171,12 +171,13 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Tags (7)</b></summary>
+<summary><b>Tags (8)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_create_tag` | Create a tag |
 | `miro_list_tags` | List all tags on board |
+| `miro_get_tag` | Get tag details by ID |
 | `miro_attach_tag` | Attach tag to item |
 | `miro_detach_tag` | Remove tag from item |
 | `miro_get_item_tags` | Get tags on an item |

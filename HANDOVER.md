@@ -1,10 +1,11 @@
 # Session Handover - Miro MCP Server
 
-> **Date**: 2025-12-22 (v1.6.0 Release)
+> **Date**: 2025-12-22 (v1.6.0 Released)
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
 > **Version**: v1.6.0
 > **Repo**: https://github.com/olgasafonova/miro-mcp-server
+> **Release**: https://github.com/olgasafonova/miro-mcp-server/releases/tag/v1.6.0
 
 ---
 
@@ -23,166 +24,150 @@ go test ./...
 
 ---
 
-## What Was Done This Session (Session 6) - Documentation & Competitive Analysis
+## What Was Done This Session
 
-### 1. Comprehensive Competitive Analysis
+### 1. Added 12 New Tools (46 → 58)
 
-Analyzed all Miro MCP competitors:
+| Category | Tools Added | File |
+|----------|-------------|------|
+| **Board** | `miro_update_board` | `miro/boards.go` |
+| **Members** | `miro_get_board_member`, `miro_remove_board_member`, `miro_update_board_member` | `miro/members.go` |
+| **Groups** | `miro_list_groups`, `miro_get_group`, `miro_get_group_items`, `miro_delete_group` | `miro/groups.go` |
+| **App Cards** | `miro_create_app_card`, `miro_get_app_card`, `miro_update_app_card`, `miro_delete_app_card` | `miro/appcards.go` (new) |
 
-| Server | Tools | Stars | Language | Status |
-|--------|-------|-------|----------|--------|
-| **Miro Official** (mcp.miro.com) | ~5 | N/A | Cloud | Beta, limited |
-| **k-jarzyna/mcp-miro** | **119** | 59 | TypeScript | Most comprehensive |
-| **evalstate/mcp-miro** | 3 | 101 | TypeScript | Very limited |
-| **LuotoCompany/mcp-server-miro** | ~40 | 14 | TypeScript | Experimental |
-| **Ours** | **58** | 0 | Go | Fast, unique features, closing gap |
+### 2. Fixed Mindmap API (405 Error)
 
-### 2. Feature Gap Analysis (Updated v1.6.0)
+**Problem**: `miro_create_mindmap_node` was returning 405 Method Not Allowed.
 
-**Added in v1.6.0 (12 tools):**
+**Root Cause**: Miro's mindmap API uses:
+- `v2-experimental` base URL (not `v2`)
+- `mindmap_nodes` path (not `mind_map_nodes`)
 
-| Category | Tools Added |
-|----------|-------------|
-| **Board** | ✅ `update_board` |
-| **Members** | ✅ `get_board_member`, `remove_board_member`, `update_board_member` |
-| **Groups** | ✅ `list_groups`, `get_group`, `get_group_items`, `delete_group` |
-| **App Cards** | ✅ `create_app_card`, `get_app_card`, `update_app_card`, `delete_app_card` |
+**Fix**:
+1. Added `ExperimentalBaseURL` constant in `miro/client.go`
+2. Added `requestExperimental()` method that uses the experimental base URL
+3. Updated `miro/mindmaps.go` to use `requestExperimental()` with correct path
 
-**Still missing (4):**
+```go
+// miro/client.go
+const ExperimentalBaseURL = "https://api.miro.com/v2-experimental"
 
-| Category | Tools Missing |
-|----------|---------------|
-| **Mindmaps** | `get_mindmap_node`, `list_mindmap_nodes`, `delete_mindmap_node` (API experimental, requires testing) |
-| **Groups** | `update_group` (not in Miro API) |
+func (c *Client) requestExperimental(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+    if c.baseURL == BaseURL {
+        originalBaseURL := c.baseURL
+        c.baseURL = ExperimentalBaseURL
+        defer func() { c.baseURL = originalBaseURL }()
+    }
+    return c.request(ctx, method, path, body)
+}
 
-**Our unique advantages (they don't have):**
-- Single binary (no Node.js)
+// miro/mindmaps.go
+respBody, err := c.requestExperimental(ctx, http.MethodPost, "/boards/"+args.BoardID+"/mindmap_nodes", reqBody)
+```
+
+### 3. Created Documentation
+
+- **SETUP.md**: Comprehensive setup guide for all IDEs/platforms
+- Updated **HANDOVER.md**: This file
+- Updated **TESTING.md**: Added new tools and fixed issues
+
+### 4. Released v1.6.0
+
+```bash
+gh release create v1.6.0 dist/* --title "v1.6.0 - 12 New Tools & Mindmap Fix"
+```
+
+---
+
+## Files Changed This Session
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `miro/appcards.go` | App card CRUD operations |
+| `miro/types_appcards.go` | App card type definitions |
+| `SETUP.md` | Comprehensive IDE setup guide |
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `miro/client.go` | Added `ExperimentalBaseURL`, `requestExperimental()` |
+| `miro/boards.go` | Added `UpdateBoard()` |
+| `miro/members.go` | Added `GetBoardMember()`, `RemoveBoardMember()`, `UpdateBoardMember()` |
+| `miro/groups.go` | Added `ListGroups()`, `GetGroup()`, `GetGroupItems()`, `DeleteGroup()` |
+| `miro/mindmaps.go` | Fixed to use `requestExperimental()` with correct path |
+| `miro/interfaces.go` | Added `AppCardService` interface |
+| `miro/types_boards.go` | Added `UpdateBoardArgs`, `UpdateBoardResult` |
+| `miro/types_members.go` | Added get/remove/update member types |
+| `miro/types_groups.go` | Added list/get/delete group types |
+| `tools/definitions.go` | Added 12 new tool definitions |
+| `tools/handlers.go` | Added 12 new handlers |
+| `tools/definitions_test.go` | Updated expected count to 58, added categories |
+| `tools/mock_client_test.go` | Added mock methods for all new tools |
+| `miro/client_test.go` | Fixed mindmap test path assertion |
+
+---
+
+## Tool Categories (58 Total)
+
+| Category | Count | Tools |
+|----------|-------|-------|
+| **boards** | 6 | list, find, get, create, copy, delete, update |
+| **create** | 11 | sticky, shape, text, connector, frame, card, image, document, embed, bulk, sticky_grid, app_card, mindmap_node |
+| **read** | 6 | list_items, list_all_items, get_item, search, get_board_summary, get_app_card |
+| **update** | 5 | update_item, update_tag, update_connector, update_board_member, update_app_card |
+| **delete** | 5 | delete_item, delete_tag, delete_connector, delete_group, delete_app_card |
+| **tags** | 5 | create, list, attach, detach, get_item_tags |
+| **connectors** | 4 | create, list, get, update, delete |
+| **groups** | 6 | create, ungroup, list, get, get_items, delete |
+| **members** | 5 | list, share, get, remove, update |
+| **diagrams** | 1 | generate_diagram |
+| **export** | 4 | get_board_picture, create_export_job, get_export_job_status, get_export_job_results |
+| **audit** | 1 | get_audit_log |
+
+---
+
+## Competitive Analysis
+
+| Server | Tools | Language | Status |
+|--------|-------|----------|--------|
+| **k-jarzyna/mcp-miro** | **119** | TypeScript | Most comprehensive |
+| **Ours** | **58** | Go | Fast, unique features |
+| **LuotoCompany/mcp-server-miro** | ~40 | TypeScript | Experimental |
+| **Miro Official** | ~5 | Cloud | Beta, limited |
+| **evalstate/mcp-miro** | 3 | TypeScript | Very limited |
+
+**Our unique advantages:**
+- Single binary (no Node.js required)
 - Performance optimizations (caching, circuit breaker, rate limiting)
 - Mermaid diagram generation with auto-layout
-- `find_board` (search by name)
-- `search_board` (content search)
-- `create_sticky_grid`
-- `get_board_summary`
+- Voice-optimized tool descriptions
 - Local audit logging
-- Voice-optimized descriptions
-
-### 3. Documentation Created
-
-**SETUP.md** - Comprehensive setup guide with:
-- One-line downloads for all platforms
-- Token acquisition instructions
-- Copy-paste configs for: Claude Code, Claude Desktop (macOS/Windows/Linux), Cursor, VS Code + Copilot, Windsurf, Replit, n8n
-- Troubleshooting section
-
-**README.md** - Simplified and cleaned up:
-- Quick 3-step start
-- Collapsible tool categories
-- Points to SETUP.md for detailed guides
 
 ---
 
-## Competitive Intelligence (Internal - DO NOT publish)
+## What's Still Missing (vs k-jarzyna)
 
-### Miro Official MCP (https://mcp.miro.com/)
-- Cloud-hosted, OAuth 2.1 with dynamic registration
-- Beta status, limited tools (~5 main operations)
-- Focused on diagram generation and code generation
-- Enterprise admin controls
-- Supported clients: Cursor, Claude Code, VS Code, Replit, Windsurf, etc.
-
-### k-jarzyna/mcp-miro (Main Competitor)
-- **119 tools** - most comprehensive
-- Full enterprise features (legal holds, cases, org management)
-- Per-item-type CRUD (separate update/delete for each type)
-- Requires Node.js
-- No performance optimizations
-- No unique composite tools
-
-### evalstate/mcp-miro
-- Only 3 tools but 101 stars
-- Easy Smithery install
-- Good for photo-to-Miro workflow
-
----
-
-## Next Session Priority: Add Missing Tools
-
-### Phase 1: Board & Member Tools (4 tools)
-
-```go
-// In miro/boards.go
-func (c *Client) UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateBoardResult, error)
-
-// In miro/members.go
-func (c *Client) GetBoardMember(ctx context.Context, args GetBoardMemberArgs) (GetBoardMemberResult, error)
-func (c *Client) RemoveBoardMember(ctx context.Context, args RemoveBoardMemberArgs) (RemoveBoardMemberResult, error)
-func (c *Client) UpdateBoardMember(ctx context.Context, args UpdateBoardMemberArgs) (UpdateBoardMemberResult, error)
-```
-
-### Phase 2: Group Tools (5 tools)
-
-```go
-// In miro/groups.go
-func (c *Client) ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroupsResult, error)
-func (c *Client) GetGroup(ctx context.Context, args GetGroupArgs) (GetGroupResult, error)
-func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (GetGroupItemsResult, error)
-func (c *Client) UpdateGroup(ctx context.Context, args UpdateGroupArgs) (UpdateGroupResult, error)
-func (c *Client) DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteGroupResult, error)
-```
-
-### Phase 3: Mindmap Tools (3 tools)
-
-```go
-// In miro/mindmaps.go - NOTE: Check API status first, may return 405
-func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (GetMindmapNodeResult, error)
-func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs) (ListMindmapNodesResult, error)
-func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error)
-```
-
-### Phase 4: App Card Tools (4 tools)
-
-```go
-// In miro/create.go or new miro/appcards.go
-func (c *Client) CreateAppCard(ctx context.Context, args CreateAppCardArgs) (CreateAppCardResult, error)
-func (c *Client) GetAppCard(ctx context.Context, args GetAppCardArgs) (GetAppCardResult, error)
-func (c *Client) UpdateAppCard(ctx context.Context, args UpdateAppCardArgs) (UpdateAppCardResult, error)
-func (c *Client) DeleteAppCard(ctx context.Context, args DeleteAppCardArgs) (DeleteAppCardResult, error)
-```
-
----
-
-## Miro API Endpoints for New Tools
-
-| Tool | Endpoint | Method |
-|------|----------|--------|
-| UpdateBoard | `/v2/boards/{id}` | PATCH |
-| GetBoardMember | `/v2/boards/{id}/members/{member_id}` | GET |
-| RemoveBoardMember | `/v2/boards/{id}/members/{member_id}` | DELETE |
-| UpdateBoardMember | `/v2/boards/{id}/members/{member_id}` | PATCH |
-| ListGroups | `/v2/boards/{id}/groups` | GET |
-| GetGroup | `/v2/boards/{id}/groups/{group_id}` | GET |
-| GetGroupItems | `/v2/boards/{id}/groups/{group_id}/items` | GET |
-| UpdateGroup | `/v2/boards/{id}/groups/{group_id}` | PATCH |
-| DeleteGroup | `/v2/boards/{id}/groups/{group_id}` | DELETE |
-| GetMindmapNode | `/v2/boards/{id}/mindmap_nodes/{node_id}` | GET |
-| ListMindmapNodes | `/v2/boards/{id}/mindmap_nodes` | GET |
-| DeleteMindmapNode | `/v2/boards/{id}/mindmap_nodes/{node_id}` | DELETE |
-| CreateAppCard | `/v2/boards/{id}/app_cards` | POST |
-| GetAppCard | `/v2/boards/{id}/app_cards/{item_id}` | GET |
-| UpdateAppCard | `/v2/boards/{id}/app_cards/{item_id}` | PATCH |
-| DeleteAppCard | `/v2/boards/{id}/app_cards/{item_id}` | DELETE |
+| Category | Tools | Priority | Notes |
+|----------|-------|----------|-------|
+| **Mindmaps** | get, list, delete | Medium | API is experimental |
+| **Frames** | get, update, delete, get_items | Medium | Basic frame support exists |
+| **Images** | get, update, delete | Low | Basic create exists |
+| **Shapes** | get, update, delete | Low | Basic create exists |
+| **Stickies** | get, update, delete | Low | Generic item ops work |
+| **Organization** | org management | Low | Enterprise only |
 
 ---
 
 ## Test Board
 
-**URL**: https://miro.com/app/board/uXjVOXQCe5c=
-**Name**: "All tests"
-**Board ID**: `uXjVOXQCe5c=`
+- **URL**: https://miro.com/app/board/uXjVOXQCe5c=
+- **Name**: "All tests"
+- **Board ID**: `uXjVOXQCe5c=`
 
 ---
 
-## MCP Server Configuration
+## MCP Configuration
 
 **User-level config** in `~/.claude.json`:
 ```json
@@ -203,26 +188,6 @@ func (c *Client) DeleteAppCard(ctx context.Context, args DeleteAppCardArgs) (Del
 
 ---
 
-## Testing Status: 45/58 Tools Verified
-
-v1.6.0 adds 12 new tools (58 total).
-
-### Known Issues
-
-| Tool | Issue | Cause |
-|------|-------|-------|
-| `miro_get_board_picture` | Returns empty | May need specific conditions |
-| `miro_copy_board` | 500 on complex boards | Miro API limitation |
-| Export tools | Not tested | Require Enterprise plan |
-
-### Fixed in v1.6.0
-
-| Tool | Issue | Fix |
-|------|-------|-----|
-| `miro_create_mindmap_node` | 405 error | Changed to v2-experimental endpoint with `mindmap_nodes` path |
-
----
-
 ## Quick Commands
 
 ```bash
@@ -231,9 +196,6 @@ go build -o miro-mcp-server .
 
 # Test
 go test ./...
-
-# Benchmarks
-go test ./miro/... -bench=. -benchmem
 
 # Coverage
 go test -cover ./...
@@ -248,7 +210,7 @@ GOOS=linux GOARCH=amd64 go build -o dist/miro-mcp-server-linux-amd64 .
 GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
 
 # Create release
-gh release create v1.6.0 dist/* --title "v1.6.0 - Documentation & Tools" --notes "..."
+gh release create v1.7.0 dist/* --title "v1.7.0" --notes "..."
 ```
 
 ---
@@ -257,49 +219,91 @@ gh release create v1.6.0 dist/* --title "v1.6.0 - Documentation & Tools" --notes
 
 ```
 miro-mcp-server/
-├── main.go                    # Entry point
-├── README.md                  # Quick start (simplified)
-├── SETUP.md                   # Detailed setup for all IDEs
-├── HANDOVER.md                # This file - session continuity
+├── main.go                    # Entry point, transport setup
+├── README.md                  # Quick start
+├── SETUP.md                   # Detailed IDE setup guides
+├── HANDOVER.md                # This file
+├── TESTING.md                 # Test status and results
+│
 ├── miro/
 │   ├── client.go              # HTTP client + rate limiter + circuit breaker
-│   ├── cache.go               # Item-level caching
-│   ├── circuitbreaker.go      # Per-endpoint circuit breakers
-│   ├── ratelimit.go           # Adaptive rate limiting
+│   ├── interfaces.go          # MiroClient interface + all service interfaces
 │   │
-│   ├── boards.go, items.go, create.go, tags.go, ...  # Domain logic
-│   ├── types_*.go             # Type definitions
+│   ├── boards.go              # Board operations
+│   ├── items.go               # Item CRUD
+│   ├── create.go              # Create operations (sticky, shape, etc.)
+│   ├── tags.go                # Tag operations
+│   ├── groups.go              # Group operations
+│   ├── members.go             # Member operations
+│   ├── mindmaps.go            # Mindmap operations (v2-experimental)
+│   ├── appcards.go            # App card operations (NEW)
+│   ├── export.go              # Export operations
+│   │
+│   ├── types_*.go             # Type definitions per domain
 │   │
 │   ├── audit/                 # Audit logging
 │   ├── oauth/                 # OAuth 2.1 PKCE
 │   └── diagrams/              # Mermaid parser + layout
 │
 └── tools/
-    ├── definitions.go         # 46 tool specs
+    ├── definitions.go         # 58 tool specs
+    ├── definitions_test.go    # Tool validation tests
     ├── handlers.go            # Generic handler registration
-    └── handlers_test.go       # Unit tests with MockClient
+    ├── handlers_test.go       # Handler unit tests
+    └── mock_client_test.go    # MockClient for testing
 ```
 
 ---
 
-## v1.6.0 Release Checklist
+## Known Issues
 
-- [x] Performance optimizations (caching, circuit breaker, rate limiting)
-- [x] Documentation (SETUP.md, README.md simplified)
-- [ ] Add missing tools (~15)
-- [ ] Fix mindmap API issue
-- [ ] Test all platforms
-- [ ] Create GitHub release
-
----
-
-## Session 7 Priority
-
-1. **Add missing tools** - Start with UpdateBoard, then member tools, then groups
-2. **Test mindmap API** - May need to check Miro docs for endpoint changes
-3. **Build and test all platforms** - Ensure Windows works
-4. **Release v1.6.0**
+| Tool | Issue | Status |
+|------|-------|--------|
+| `miro_get_board_picture` | Returns empty | May need board activity |
+| `miro_copy_board` | 500 on complex boards | Miro API limitation |
+| Export tools | Not tested | Require Enterprise plan |
 
 ---
 
-**Ready for tool implementation!**
+## Next Session Suggestions
+
+### Option 1: Add More Mindmap Tools
+```go
+// Use v2-experimental endpoint
+func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (GetMindmapNodeResult, error)
+func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs) (ListMindmapNodesResult, error)
+func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error)
+```
+
+### Option 2: Add Frame Tools
+```go
+func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error)
+func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateFrameResult, error)
+func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteFrameResult, error)
+func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (GetFrameItemsResult, error)
+```
+
+### Option 3: Test All New Tools
+Run through all 12 new tools with real API calls on test board.
+
+### Option 4: Improve Documentation
+- Add API reference docs
+- Add more examples to README
+- Create demo video
+
+---
+
+## Session Summary
+
+✅ Added 12 new tools (boards, members, groups, app cards)
+✅ Fixed mindmap API 405 error (v2-experimental + correct path)
+✅ Created SETUP.md documentation
+✅ Updated all documentation files
+✅ All tests pass (build + unit tests)
+✅ Released v1.6.0 on GitHub
+
+**Total tools: 58** (up from 46)
+
+---
+
+**Ready for next session!**

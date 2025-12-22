@@ -1,6 +1,6 @@
 # Miro MCP Server - Testing Status
 
-Last updated: 2025-12-22 (v1.6.0 Release)
+Last updated: 2025-12-22 (v1.6.1 Release)
 
 ## Test Board
 
@@ -50,6 +50,8 @@ Last updated: 2025-12-22 (v1.6.0 Release)
 | `miro_get_audit_log` | ✅ | Shows 25+ events |
 | `miro_generate_diagram` (flowchart) | ✅ | Created 4 nodes, 4 connectors |
 | `miro_generate_diagram` (sequence) | ✅ | Created 14 nodes, 4 connectors |
+| `miro_create_mindmap_node` (root) | ✅ | v1.6.1 - Creates root node with content |
+| `miro_create_mindmap_node` (child) | ✅ | v1.6.1 - Creates child node attached to parent |
 
 ### Known Issues
 
@@ -59,6 +61,12 @@ Last updated: 2025-12-22 (v1.6.0 Release)
 | `miro_get_board_picture` | ⚠️ | Returns empty - may need board activity to generate |
 | `miro_create_webhook` | ❌ | API error - webhooks sunset Dec 2025, tools removed |
 | `miro_list_webhooks` | ❌ | API error - webhooks sunset Dec 2025, tools removed |
+
+### Fixed Issues (v1.6.1 - 2025-12-22)
+
+| Issue | Fix | File |
+|-------|-----|------|
+| `miro_create_mindmap_node` 400 error (wrong body format) | Fixed request body structure: content goes in `data.nodeView.data.content` not `data.content` | `miro/mindmaps.go` |
 
 ### Fixed Issues (v1.6.0 - 2025-12-22)
 
@@ -90,7 +98,6 @@ The Miro API accepts these tag colors (NOT orange):
 | `miro_delete_board` | boards | Destructive |
 | `miro_update_board` | boards | v1.6.0 - Update name/description |
 | `miro_create_document` | create | Needs public PDF URL |
-| `miro_create_mindmap_node` | create | v1.6.0 - Fixed to use v2-experimental |
 | `miro_share_board` | members | Needs email |
 | `miro_get_board_member` | members | v1.6.0 - Get member by ID |
 | `miro_remove_board_member` | members | v1.6.0 - Remove member |

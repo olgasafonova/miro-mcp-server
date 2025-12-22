@@ -1,11 +1,11 @@
 # Session Handover - Miro MCP Server
 
-> **Date**: 2025-12-22 (v1.6.0 Released)
+> **Date**: 2025-12-22 (v1.6.1 Released)
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.6.0
+> **Version**: v1.6.1
 > **Repo**: https://github.com/olgasafonova/miro-mcp-server
-> **Release**: https://github.com/olgasafonova/miro-mcp-server/releases/tag/v1.6.0
+> **Release**: https://github.com/olgasafonova/miro-mcp-server/releases/tag/v1.6.1
 
 ---
 
@@ -26,7 +26,42 @@ go test ./...
 
 ## What Was Done This Session
 
-### 1. Added 12 New Tools (46 → 58)
+### v1.6.1 - Mindmap Request Body Fix
+
+**Problem**: `miro_create_mindmap_node` was returning 400 Invalid Parameters even after v1.6.0 endpoint fix.
+
+**Root Cause**: Miro's v2-experimental mindmap API uses a nested structure for content:
+- Wrong: `data.content`
+- Correct: `data.nodeView.data.content`
+
+**Fix** in `miro/mindmaps.go`:
+```go
+// Before (wrong):
+reqBody := map[string]interface{}{
+    "data": map[string]interface{}{
+        "content": args.Content,
+    },
+}
+
+// After (correct):
+nodeViewData := map[string]interface{}{
+    "content": args.Content,
+}
+nodeView := map[string]interface{}{
+    "data": nodeViewData,
+}
+reqBody := map[string]interface{}{
+    "data": map[string]interface{}{
+        "nodeView": nodeView,
+    },
+}
+```
+
+**Verified**: Created 6 mindmap nodes on test board, including root and child nodes.
+
+---
+
+### v1.6.0 - Added 12 New Tools (46 → 58)
 
 | Category | Tools Added | File |
 |----------|-------------|------|
@@ -81,7 +116,15 @@ gh release create v1.6.0 dist/* --title "v1.6.0 - 12 New Tools & Mindmap Fix"
 
 ## Files Changed This Session
 
-### New Files
+### v1.6.1 Changes
+| File | Changes |
+|------|---------|
+| `main.go` | Updated ServerVersion to 1.6.1 |
+| `miro/mindmaps.go` | Fixed request body structure + response parsing |
+| `TESTING.md` | Added v1.6.1 fix, moved mindmap to tested |
+| `HANDOVER.md` | Added v1.6.1 section |
+
+### New Files (v1.6.0)
 | File | Purpose |
 |------|---------|
 | `miro/appcards.go` | App card CRUD operations |

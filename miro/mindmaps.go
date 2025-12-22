@@ -23,17 +23,25 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 		return CreateMindmapNodeResult{}, err
 	}
 
-	// Build request body
-	reqBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"content": args.Content,
-		},
+	// Build request body with correct nested structure
+	// Miro v2-experimental mindmap API uses: data.nodeView.data.content
+	nodeViewData := map[string]interface{}{
+		"content": args.Content,
 	}
 
-	// Set node view style
+	nodeView := map[string]interface{}{
+		"data": nodeViewData,
+	}
+
+	// Set node view type (text or bubble)
 	if args.NodeView != "" {
-		data := reqBody["data"].(map[string]interface{})
-		data["nodeView"] = args.NodeView
+		nodeView["type"] = args.NodeView
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"nodeView": nodeView,
+		},
 	}
 
 	// If parent is specified, this is a child node
@@ -58,7 +66,13 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 	var node struct {
 		ID   string `json:"id"`
 		Data struct {
-			Content string `json:"content"`
+			IsRoot   bool `json:"isRoot"`
+			NodeView struct {
+				Type string `json:"type"`
+				Data struct {
+					Content string `json:"content"`
+				} `json:"data"`
+			} `json:"nodeView"`
 		} `json:"data"`
 		Parent *struct {
 			ID string `json:"id"`
@@ -68,9 +82,15 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 		return CreateMindmapNodeResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Extract content from response (may have HTML tags added by API)
+	content := node.Data.NodeView.Data.Content
+	if content == "" {
+		content = args.Content // fallback to input if response content is empty
+	}
+
 	result := CreateMindmapNodeResult{
 		ID:      node.ID,
-		Content: node.Data.Content,
+		Content: content,
 		Message: fmt.Sprintf("Created mindmap node '%s'", truncateMindmap(args.Content, 30)),
 	}
 	if node.Parent != nil {

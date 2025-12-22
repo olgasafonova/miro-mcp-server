@@ -400,7 +400,7 @@ USE WHEN: User says "create a tag", "add label called X", "make an Urgent tag"
 PARAMETERS:
 - board_id: Required
 - title: Tag text (required, e.g., "Urgent", "Done", "Review")
-- color: red, magenta, violet, blue, cyan, green, yellow, orange, gray
+- color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black
 
 VOICE-FRIENDLY: "Created red tag 'Urgent'"`,
 	},
@@ -479,7 +479,7 @@ PARAMETERS:
 - board_id: Required
 - tag_id: Tag ID to update (required)
 - title: New tag text
-- color: New color (red, magenta, violet, blue, cyan, green, yellow, orange, gray)
+- color: New color (red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black)
 
 NOTE: At least one of title or color must be provided.
 

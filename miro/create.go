@@ -705,16 +705,6 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 		return CreateEmbedResult{}, fmt.Errorf("url is required")
 	}
 
-	// Default dimensions
-	width := args.Width
-	if width == 0 {
-		width = 400
-	}
-	height := args.Height
-	if height == 0 {
-		height = 300
-	}
-
 	mode := args.Mode
 	if mode == "" {
 		mode = "inline"
@@ -730,11 +720,20 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 			"y":      args.Y,
 			"origin": "center",
 		},
-		"geometry": map[string]interface{}{
-			"width":  width,
-			"height": height,
-		},
 	}
+
+	// For embeds with fixed aspect ratio (like YouTube), only send width
+	// Miro will calculate height automatically. Sending both causes an error.
+	if args.Width > 0 {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": args.Width,
+		}
+	} else if args.Height > 0 {
+		reqBody["geometry"] = map[string]interface{}{
+			"height": args.Height,
+		}
+	}
+	// If neither specified, let Miro use defaults
 
 	if args.ParentID != "" {
 		reqBody["parent"] = map[string]interface{}{

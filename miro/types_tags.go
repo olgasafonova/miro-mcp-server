@@ -19,7 +19,7 @@ type Tag struct {
 type CreateTagArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	Title   string `json:"title" jsonschema:"required" jsonschema_description:"Tag text (e.g., 'Urgent', 'Done', 'Review')"`
-	Color   string `json:"color,omitempty" jsonschema_description:"Tag color: red, magenta, violet, blue, cyan, green, yellow, orange, gray"`
+	Color   string `json:"color,omitempty" jsonschema_description:"Tag color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black"`
 }
 
 // CreateTagResult contains the created tag.
@@ -112,7 +112,7 @@ type UpdateTagArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to update"`
 	Title   string `json:"title,omitempty" jsonschema_description:"New tag text"`
-	Color   string `json:"color,omitempty" jsonschema_description:"New tag color: red, magenta, violet, blue, cyan, green, yellow, orange, gray"`
+	Color   string `json:"color,omitempty" jsonschema_description:"New tag color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black"`
 }
 
 // UpdateTagResult confirms tag update.

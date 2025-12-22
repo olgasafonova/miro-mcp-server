@@ -178,14 +178,20 @@ func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItem
 		return GetItemTagsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	message := fmt.Sprintf("Item has %d tags", len(resp.Data))
-	if len(resp.Data) == 0 {
+	// Ensure tags is never nil (MCP schema validation requires array, not null)
+	tags := resp.Data
+	if tags == nil {
+		tags = []Tag{}
+	}
+
+	message := fmt.Sprintf("Item has %d tags", len(tags))
+	if len(tags) == 0 {
 		message = "No tags on this item"
 	}
 
 	return GetItemTagsResult{
-		Tags:    resp.Data,
-		Count:   len(resp.Data),
+		Tags:    tags,
+		Count:   len(tags),
 		ItemID:  args.ItemID,
 		Message: message,
 	}, nil

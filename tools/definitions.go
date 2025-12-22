@@ -204,8 +204,8 @@ PARAMETERS:
 - start_item_id: ID of source item (required)
 - end_item_id: ID of target item (required)
 - style: straight, elbowed (default), curved
-- start_cap: Arrow style at start (none, arrow, filled_arrow, diamond)
-- end_cap: Arrow style at end (default: arrow)
+- start_cap: Arrow style at start (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle)
+- end_cap: Arrow style at end (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle). Default: arrow
 - caption: Label on the connector`,
 	},
 	{
@@ -579,8 +579,8 @@ PARAMETERS:
 - board_id: Required
 - connector_id: Connector ID to update (required)
 - style: Line style (straight, elbowed, curved)
-- start_cap: Arrow at start (none, arrow, filled_arrow, diamond)
-- end_cap: Arrow at end (none, arrow, filled_arrow, diamond)
+- start_cap: Arrow at start (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle)
+- end_cap: Arrow at end (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle)
 - caption: Text label on the connector
 - color: Line color (hex code)
 

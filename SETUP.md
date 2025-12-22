@@ -235,6 +235,104 @@ chmod +x miro-mcp-server
 
 ---
 
+## Gemini CLI
+
+Edit `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "miro": {
+      "command": "/usr/local/bin/miro-mcp-server",
+      "env": {
+        "MIRO_ACCESS_TOKEN": "your-token-here"
+      }
+    }
+  }
+}
+```
+
+**Windows path:** `C:\\Users\\YOUR_USERNAME\\AppData\\Local\\miro-mcp-server.exe`
+
+---
+
+## Amazon Q IDE Extension
+
+Edit `~/.aws/amazonq/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "miro": {
+      "command": "/usr/local/bin/miro-mcp-server",
+      "env": {
+        "MIRO_ACCESS_TOKEN": "your-token-here"
+      }
+    }
+  }
+}
+```
+
+**Windows:** Edit `%USERPROFILE%\.aws\amazonq\mcp.json`
+
+---
+
+## Kiro IDE / Kiro CLI
+
+Create or edit `.kiro/mcp.json` in your project directory:
+
+```json
+{
+  "mcpServers": {
+    "miro": {
+      "command": "/usr/local/bin/miro-mcp-server",
+      "env": {
+        "MIRO_ACCESS_TOKEN": "your-token-here"
+      }
+    }
+  }
+}
+```
+
+Or globally at `~/.kiro/mcp.json`.
+
+**Windows path:** `C:\\Users\\YOUR_USERNAME\\AppData\\Local\\miro-mcp-server.exe`
+
+---
+
+## OpenAI Codex CLI
+
+Edit `~/.codex/config.toml`:
+
+```toml
+[mcp.servers.miro]
+command = "/usr/local/bin/miro-mcp-server"
+[mcp.servers.miro.env]
+MIRO_ACCESS_TOKEN = "your-token-here"
+```
+
+**Windows:**
+```toml
+[mcp.servers.miro]
+command = "C:\\Users\\YOUR_USERNAME\\AppData\\Local\\miro-mcp-server.exe"
+[mcp.servers.miro.env]
+MIRO_ACCESS_TOKEN = "your-token-here"
+```
+
+---
+
+## Tools Without Local MCP Support
+
+The following tools don't currently support local stdio-based MCP servers:
+
+| Tool | Status | Alternative |
+|------|--------|-------------|
+| **Lovable** | URL-based MCP only | Use the HTTP mode: `miro-mcp-server -http :8080` and expose via tunnel |
+| **Devin** | Remote MCP servers only | Devin uses hosted MCP at mcp.devin.ai |
+| **Glean** | Enterprise search platform | Not an AI coding assistant; different use case |
+
+---
+
 ## n8n
 
 **Note:** n8n has a [built-in Miro integration](https://n8n.io/integrations/miro/) via HTTP Request node. For most n8n workflows, the native Miro node is the better choice.

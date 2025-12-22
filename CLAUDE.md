@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 50 tools implemented. Phases 1-6 complete.
+**Current Status**: 46 tools implemented. Phases 1-6 complete. (Webhooks removed - Miro sunset Dec 2025)
 
 ## Quick Start
 
@@ -218,9 +218,9 @@ See `ROADMAP.md` for full details.
 - **Export**: `miro_get_board_picture`, `miro_create_export_job`, `miro_get_export_job_status`, `miro_get_export_job_results`
 - **Note**: Export jobs require Enterprise plan; board picture works for all plans
 
-### Phase 5: Complete ✅ (+5 tools)
+### Phase 5: Complete ✅ (+1 tool)
 - **Audit**: `miro_get_audit_log` (file/memory loggers)
-- **Webhooks**: `miro_create_webhook`, `miro_list_webhooks`, `miro_get_webhook`, `miro_delete_webhook`
+- **Webhooks**: ~~REMOVED~~ - Miro sunset experimental webhooks Dec 5, 2025
 - **OAuth 2.1**: PKCE flow with auto-refresh
 
 ### Phase 6: Complete ✅ (+1 tool)

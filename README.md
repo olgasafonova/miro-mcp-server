@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 
 ## Features
 
-- **50 tools** for complete Miro control
+- **46 tools** for complete Miro control
 - **AI Diagram Generation**: Create flowcharts from Mermaid syntax with auto-layout
 - **Board management**: Create, copy, delete, find by name, share with users
 - **Create items**: Sticky notes, shapes, text, connectors, frames, cards, images, documents, embeds, mindmap nodes
@@ -12,7 +12,6 @@ A Model Context Protocol (MCP) server for controlling Miro whiteboards with AI a
 - **Groups**: Group and ungroup items
 - **Tags**: Create, attach, and manage tags
 - **Export**: Board pictures (all plans) and PDF/SVG/HTML export (Enterprise)
-- **Webhooks**: Subscribe to board events
 - **Audit logging**: Track all tool executions
 - **OAuth 2.1**: PKCE flow with auto-refresh
 - **Token validation**: Fails fast with clear error if token is invalid
@@ -169,13 +168,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 |------|-------------|
 | `miro_generate_diagram` | Create flowcharts from Mermaid syntax with auto-layout |
 
-### Webhook Tools
-| Tool | Description |
-|------|-------------|
-| `miro_create_webhook` | Subscribe to board events |
-| `miro_list_webhooks` | List active webhook subscriptions |
-| `miro_get_webhook` | Get webhook details |
-| `miro_delete_webhook` | Remove a webhook subscription |
+### Webhook Tools (Removed)
+
+> ⚠️ **Webhook tools have been removed.** Miro is [discontinuing experimental webhooks](https://community.miro.com/developer-platform-and-apis-57/miro-webhooks-4281) on December 5, 2025. The `/v2-experimental/webhooks/board_subscriptions` endpoints no longer function reliably.
 
 ### Audit Tools
 | Tool | Description |

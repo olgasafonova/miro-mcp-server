@@ -919,84 +919,11 @@ VOICE-FRIENDLY: "Found 15 operations in the last hour - 12 creates, 3 reads"`,
 	},
 
 	// ==========================================================================
-	// Webhook Tools (Real-time Events)
+	// Webhook Tools - REMOVED (Miro sunset Dec 5, 2025)
 	// ==========================================================================
-	{
-		Name:     "miro_create_webhook",
-		Method:   "CreateWebhook",
-		Title:    "Create Webhook",
-		Category: "webhooks",
-		Description: `Create a webhook subscription to receive real-time notifications when board items change.
-
-USE WHEN: User says "notify me when board changes", "subscribe to board events", "watch this board"
-
-PARAMETERS:
-- board_id: ID of the board to monitor (required)
-- callback_url: URL to receive events (optional, uses server's configured URL if not specified)
-
-EVENTS: Webhooks trigger for:
-- board.item.create - New item added
-- board.item.update - Item modified (except position changes)
-- board.item.delete - Item removed
-
-LIMITATIONS:
-- Tags, connectors, and comments don't trigger events
-- Position changes don't trigger events
-- Uses Miro's experimental webhooks API
-
-VOICE-FRIENDLY: "Webhook created - you'll be notified when items change on this board"`,
-	},
-	{
-		Name:     "miro_list_webhooks",
-		Method:   "ListWebhooks",
-		Title:    "List Webhooks",
-		Category: "webhooks",
-		ReadOnly: true,
-		Description: `List active webhook subscriptions, optionally filtered by board.
-
-USE WHEN: User asks "what webhooks are active", "show my subscriptions", "which boards am I watching"
-
-PARAMETERS:
-- board_id: Filter by board ID (optional)
-
-RETURNS: List of webhook subscriptions with IDs, board IDs, callback URLs, and status.
-
-VOICE-FRIENDLY: "Found 3 active webhooks watching boards X, Y, and Z"`,
-	},
-	{
-		Name:        "miro_delete_webhook",
-		Method:      "DeleteWebhook",
-		Title:       "Delete Webhook",
-		Category:    "webhooks",
-		Destructive: true,
-		Description: `Remove a webhook subscription to stop receiving notifications.
-
-USE WHEN: User says "stop watching this board", "remove webhook", "unsubscribe from board events"
-
-PARAMETERS:
-- webhook_id: ID of the webhook subscription to delete (required)
-
-WARNING: This will immediately stop event notifications. You can recreate the subscription if needed.
-
-VOICE-FRIENDLY: "Webhook deleted - no longer watching this board"`,
-	},
-	{
-		Name:     "miro_get_webhook",
-		Method:   "GetWebhook",
-		Title:    "Get Webhook Details",
-		Category: "webhooks",
-		ReadOnly: true,
-		Description: `Get details of a specific webhook subscription.
-
-USE WHEN: User asks "show webhook info", "webhook status", "is this webhook active"
-
-PARAMETERS:
-- webhook_id: ID of the webhook subscription (required)
-
-RETURNS: Webhook details including board ID, callback URL, status, and timestamps.
-
-VOICE-FRIENDLY: "Webhook is active - watching board X since yesterday"`,
-	},
+	// Miro is discontinuing experimental webhooks on December 5, 2025.
+	// The /v2-experimental/webhooks/board_subscriptions endpoints no longer work.
+	// See: https://community.miro.com/developer-platform-and-apis-57/miro-webhooks-4281
 
 	// ==========================================================================
 	// Diagram Generation Tools (AI-Powered)

@@ -2,7 +2,7 @@
 
 Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
-**46 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**58 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 ---
 
@@ -40,14 +40,15 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 | Category | Examples |
 |----------|----------|
-| **Boards** | Create, copy, delete, share, list members |
-| **Items** | Sticky notes, shapes, text, cards, frames |
-| **Diagrams** | Generate flowcharts from Mermaid syntax |
+| **Boards** | Create, copy, delete, update, share, list members |
+| **Items** | Sticky notes, shapes, text, cards, app cards, frames |
+| **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid |
+| **Mindmaps** | Create mindmap nodes with parent-child relationships |
 | **Bulk Ops** | Create multiple items at once, sticky grids |
-| **Tags** | Create, attach, and organize with tags |
-| **Groups** | Group and ungroup items |
-| **Connectors** | Connect items with arrows |
-| **Export** | Board thumbnails, PDF/SVG (Enterprise) |
+| **Tags** | Create, attach, update, and organize with tags |
+| **Groups** | Group, ungroup, list, and manage item groups |
+| **Connectors** | Connect items with styled arrows |
+| **Export** | Board thumbnails, PDF/SVG export (Enterprise) |
 
 ### Voice Examples
 
@@ -55,68 +56,95 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 - *"Create a flowchart: Start → Decision → End"*
 - *"What boards do I have?"*
 - *"Share the Design board with jane@example.com"*
+- *"Create a mindmap with 'Project Ideas' as root"*
 
 ---
 
-## All 46 Tools
+## All 58 Tools
 
 <details>
-<summary><b>Board Tools (9)</b></summary>
+<summary><b>Board Management (8)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_list_boards` | List accessible boards |
+| `miro_find_board` | Find board by name |
 | `miro_get_board` | Get board details |
+| `miro_get_board_summary` | Get board stats and item counts |
 | `miro_create_board` | Create a new board |
 | `miro_copy_board` | Copy an existing board |
+| `miro_update_board` | Update board name/description |
 | `miro_delete_board` | Delete a board |
-| `miro_find_board` | Find board by name |
-| `miro_get_board_summary` | Get board stats and item counts |
-| `miro_share_board` | Share board via email |
-| `miro_list_board_members` | List users with access |
 
 </details>
 
 <details>
-<summary><b>Create Tools (13)</b></summary>
+<summary><b>Board Members (5)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_list_board_members` | List users with access |
+| `miro_get_board_member` | Get member details |
+| `miro_share_board` | Share board via email |
+| `miro_update_board_member` | Update member role |
+| `miro_remove_board_member` | Remove member from board |
+
+</details>
+
+<details>
+<summary><b>Create Items (14)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_create_sticky` | Create a sticky note |
-| `miro_create_sticky_grid` | Create stickies in a grid |
-| `miro_create_shape` | Create a shape |
-| `miro_create_text` | Create text |
-| `miro_create_connector` | Connect two items |
+| `miro_create_sticky_grid` | Create stickies in a grid layout |
+| `miro_create_shape` | Create a shape (rectangle, circle, etc.) |
+| `miro_create_text` | Create text element |
 | `miro_create_frame` | Create a frame container |
 | `miro_create_card` | Create a card with due date |
+| `miro_create_app_card` | Create app card with custom fields |
 | `miro_create_image` | Add image from URL |
 | `miro_create_document` | Add document from URL |
 | `miro_create_embed` | Embed YouTube, Figma, etc. |
-| `miro_bulk_create` | Create multiple items |
+| `miro_create_connector` | Connect two items with arrow |
 | `miro_create_group` | Group items together |
 | `miro_create_mindmap_node` | Create mindmap node |
+| `miro_bulk_create` | Create multiple items at once |
 
 </details>
 
 <details>
-<summary><b>Read Tools (4)</b></summary>
+<summary><b>Read Items (5)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_list_items` | List items on a board |
-| `miro_list_all_items` | Get ALL items (auto-pagination) |
+| `miro_list_all_items` | Get ALL items with auto-pagination |
 | `miro_get_item` | Get item details |
+| `miro_get_app_card` | Get app card details |
 | `miro_search_board` | Search items by content |
 
 </details>
 
 <details>
-<summary><b>Tag Tools (7)</b></summary>
+<summary><b>Update & Delete Items (4)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_update_item` | Update item content/position/color |
+| `miro_update_app_card` | Update app card fields |
+| `miro_delete_item` | Delete an item |
+| `miro_delete_app_card` | Delete an app card |
+
+</details>
+
+<details>
+<summary><b>Tags (7)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_create_tag` | Create a tag |
-| `miro_list_tags` | List all tags |
+| `miro_list_tags` | List all tags on board |
 | `miro_attach_tag` | Attach tag to item |
 | `miro_detach_tag` | Remove tag from item |
 | `miro_get_item_tags` | Get tags on an item |
@@ -126,30 +154,32 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Connector Tools (4)</b></summary>
+<summary><b>Connectors (4)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_list_connectors` | List all connectors |
 | `miro_get_connector` | Get connector details |
-| `miro_update_connector` | Update connector style |
+| `miro_update_connector` | Update connector style/caption |
 | `miro_delete_connector` | Delete a connector |
 
 </details>
 
 <details>
-<summary><b>Modify Tools (3)</b></summary>
+<summary><b>Groups (5)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `miro_update_item` | Update item content/position |
-| `miro_delete_item` | Delete an item |
+| `miro_list_groups` | List all groups on board |
+| `miro_get_group` | Get group details |
+| `miro_get_group_items` | List items in a group |
 | `miro_ungroup` | Ungroup items |
+| `miro_delete_group` | Delete a group |
 
 </details>
 
 <details>
-<summary><b>Export Tools (4)</b></summary>
+<summary><b>Export (4)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -161,11 +191,11 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Diagram & Audit Tools (2)</b></summary>
+<summary><b>Diagrams & Audit (2)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `miro_generate_diagram` | Create flowchart from Mermaid |
+| `miro_generate_diagram` | Create diagram from Mermaid syntax |
 | `miro_get_audit_log` | Query local execution log |
 
 </details>
@@ -174,8 +204,9 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ## Diagram Generation
 
-Create flowcharts from Mermaid syntax:
+Create flowcharts and sequence diagrams from Mermaid syntax:
 
+**Flowchart:**
 ```
 flowchart TB
     A[Start] --> B{Decision}
@@ -184,7 +215,28 @@ flowchart TB
     D --> B
 ```
 
-**Supported:** `flowchart`/`graph`, directions (TB/LR/BT/RL), shapes (`[]` rectangle, `{}` diamond, `(())` circle), labeled edges.
+**Sequence Diagram:**
+```
+sequenceDiagram
+    Alice->>Bob: Hello Bob!
+    Bob-->>Alice: Hi Alice!
+```
+
+**Supported:** `flowchart`/`graph`, `sequenceDiagram`, directions (TB/LR/BT/RL), shapes (`[]` rectangle, `{}` diamond, `(())` circle), labeled edges.
+
+---
+
+## Why This Server?
+
+| Feature | This Server | TypeScript alternatives |
+|---------|-------------|------------------------|
+| **Runtime** | Single binary | Requires Node.js |
+| **Size** | ~14MB | 100MB+ with node_modules |
+| **Startup** | Instant | Slower |
+| **Diagram generation** | Built-in Mermaid parser | Not available |
+| **Rate limiting** | Automatic with backoff | Manual |
+| **Caching** | 2-minute TTL | None |
+| **Circuit breaker** | Yes | No |
 
 ---
 
@@ -194,6 +246,7 @@ flowchart TB
 - **Rate limiting:** Adapts to Miro's rate limit headers
 - **Circuit breaker:** Isolates failing endpoints
 - **Parallel bulk ops:** Creates items concurrently
+- **Token validation:** Fails fast on startup with clear error
 
 ---
 
@@ -210,15 +263,28 @@ flowchart TB
 
 ## Supported AI Tools
 
-- Claude Code
-- Claude Desktop
-- Cursor
-- VS Code + GitHub Copilot
-- Windsurf
-- Replit
-- Any MCP-compatible client
+| Tool | Status |
+|------|--------|
+| Claude Code | Tested |
+| Claude Desktop | Tested |
+| Cursor | Tested |
+| VS Code + GitHub Copilot | Supported |
+| Windsurf | Supported |
+| Replit | Supported |
+| Any MCP-compatible client | Supported |
 
 See [SETUP.md](SETUP.md) for configuration guides.
+
+---
+
+## Account Compatibility
+
+| Account Type | Support |
+|--------------|---------|
+| Free | Full access to all 58 tools |
+| Team | Full access to all 58 tools |
+| Business | Full access to all 58 tools |
+| Enterprise | Full access + export to PDF/SVG |
 
 ---
 

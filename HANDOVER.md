@@ -1,6 +1,6 @@
 # Session Handover - Miro MCP Server
 
-> **Date**: 2025-12-22 (v1.6.1 Released)
+> **Date**: 2025-12-22 (Documentation Update Session)
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
 > **Version**: v1.6.1
@@ -25,6 +25,46 @@ go test ./...
 ---
 
 ## What Was Done This Session
+
+### Documentation Update - Competitive Analysis & README Fix
+
+**Problem**: README was outdated - showed "46 tools" when we have 58. Tool lists were incomplete.
+
+**Actions Taken**:
+
+1. **Competitive Analysis** against:
+   - k-jarzyna/mcp-miro (80 tools, TypeScript, 59 stars)
+   - Miro Official MCP Server (Public Beta, ~5 tools, cloud-hosted)
+   - LuotoCompany/mcp-server-miro (experimental)
+
+2. **Fixed README.md**:
+   - Updated tool count from 46 → 58
+   - Reorganized tool categories (8 sections)
+   - Added all v1.6.0 tools (groups, members, app cards)
+   - Added "Why This Server?" comparison table
+   - Added Account Compatibility section
+   - Added sequence diagram example
+   - Added AI tool status table
+
+3. **Fixed SETUP.md**:
+   - Corrected n8n section - was misleading about MCP support
+   - Added link to n8n's native Miro integration
+   - Clarified that n8n doesn't support MCP natively
+
+4. **Updated CLAUDE.md**: 46 → 58 tools
+
+**Competitive Position**:
+| Server | Tools | Our Advantage |
+|--------|-------|---------------|
+| k-jarzyna | 80 | We have: single binary, Mermaid diagrams, no Node.js |
+| Miro Official | ~5 | We have: 58 tools, self-hosted, works offline |
+
+**Gap Analysis** (for future sessions):
+- Missing: Frame CRUD (+4), Mindmap get/list/delete (+3), Data Tables API (+5)
+- Missing: Docker image, Homebrew tap
+- Need: Complete test coverage (39/58 tested)
+
+---
 
 ### v1.6.1 - Mindmap Request Body Fix
 
@@ -310,15 +350,9 @@ miro-mcp-server/
 
 ## Next Session Suggestions
 
-### Option 1: Add More Mindmap Tools
-```go
-// Use v2-experimental endpoint
-func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (GetMindmapNodeResult, error)
-func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs) (ListMindmapNodesResult, error)
-func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error)
-```
+### Priority 1: Complete Core CRUD (Close Gap with k-jarzyna)
 
-### Option 2: Add Frame Tools
+**Frame Tools (+4 tools → 62 total)**:
 ```go
 func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error)
 func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateFrameResult, error)
@@ -326,26 +360,72 @@ func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteF
 func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (GetFrameItemsResult, error)
 ```
 
-### Option 3: Test All New Tools
-Run through all 12 new tools with real API calls on test board.
+**Mindmap Tools (+3 tools → 65 total)**:
+```go
+// Use v2-experimental endpoint
+func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (GetMindmapNodeResult, error)
+func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs) (ListMindmapNodesResult, error)
+func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error)
+```
 
-### Option 4: Improve Documentation
-- Add API reference docs
-- Add more examples to README
-- Create demo video
+### Priority 2: New Miro APIs (Differentiation)
+
+**Data Tables API (+5 tools → 70 total)** - New Miro feature (5 months old):
+- `miro_create_table`
+- `miro_get_table`
+- `miro_update_table`
+- `miro_delete_table`
+- `miro_list_tables`
+
+### Priority 3: Improve Distribution
+
+- **Homebrew tap**: `brew install miro-mcp-server`
+- **Docker image**: For containerized deployment
+- **Windows installer**: Or better PowerShell script
+
+### Priority 4: Complete Testing
+
+Run through remaining untested tools:
+- `miro_create_board`, `miro_copy_board`, `miro_delete_board`
+- All v1.6.0 tools (groups, members, app cards)
+- Export tools (need Enterprise account)
+
+### Competitive Target
+
+| Current | With Frames+Mindmaps | With Data Tables |
+|---------|---------------------|------------------|
+| 58 tools | 65 tools | 70 tools |
+
+k-jarzyna has 80 tools, but many are Enterprise-only. At 70 tools we'd be competitive for most users.
 
 ---
 
 ## Session Summary
 
+### This Session (Documentation Update)
+✅ Completed competitive analysis (vs k-jarzyna, Miro Official, others)
+✅ Fixed README.md - updated from 46 to 58 tools, reorganized categories
+✅ Fixed SETUP.md - corrected misleading n8n section
+✅ Updated CLAUDE.md - correct tool count
+✅ Created prioritized roadmap to reach 70 tools
+✅ Documented gap analysis and competitive position
+
+### Previous Session (v1.6.1)
+✅ Fixed mindmap request body structure (400 error)
+✅ Released v1.6.1
+
+### Session Before (v1.6.0)
 ✅ Added 12 new tools (boards, members, groups, app cards)
 ✅ Fixed mindmap API 405 error (v2-experimental + correct path)
 ✅ Created SETUP.md documentation
-✅ Updated all documentation files
-✅ All tests pass (build + unit tests)
-✅ Released v1.6.0 on GitHub
+✅ Released v1.6.0
 
-**Total tools: 58** (up from 46)
+**Total tools: 58**
+
+**Competitive Status**:
+- k-jarzyna: 80 tools (TypeScript, 59 stars)
+- **Us: 58 tools** (Go, single binary, Mermaid diagrams)
+- Miro Official: ~5 tools (cloud-only, beta)
 
 ---
 

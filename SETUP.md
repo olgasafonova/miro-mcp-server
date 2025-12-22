@@ -237,30 +237,19 @@ chmod +x miro-mcp-server
 
 ## n8n
 
-n8n has a built-in Miro integration via HTTP Request node. However, you can also use this MCP server:
+**Note:** n8n has a [built-in Miro integration](https://n8n.io/integrations/miro/) via HTTP Request node. For most n8n workflows, the native Miro node is the better choice.
 
-### Option 1: HTTP Mode
+This MCP server is designed for AI assistants (Claude, Cursor, etc.) that support the Model Context Protocol. n8n does not currently support MCP natively.
 
-Run the server in HTTP mode:
+### If You Still Want to Use This Server with n8n
+
+You can run the server in HTTP mode and call it via n8n's HTTP Request node:
 
 ```bash
 MIRO_ACCESS_TOKEN=your-token-here miro-mcp-server -http :8080
 ```
 
-Then connect n8n via HTTP Request node to `http://localhost:8080`.
-
-### Option 2: MCP Node (if available)
-
-If n8n supports MCP nodes, configure:
-
-```json
-{
-  "command": "/usr/local/bin/miro-mcp-server",
-  "env": {
-    "MIRO_ACCESS_TOKEN": "your-token-here"
-  }
-}
-```
+The server exposes MCP-over-HTTP at `http://localhost:8080`. However, you'll need to format requests according to the MCP protocol, which is more complex than using n8n's native Miro integration.
 
 ---
 

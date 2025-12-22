@@ -242,9 +242,6 @@ func (p *MermaidParser) extractNode(text string) (id, label string, shape NodeSh
 		return "", "", ShapeRectangle
 	}
 
-	// Default shape
-	shape = ShapeRectangle
-
 	// Check for shape brackets
 	// [text] = rectangle
 	// (text) = rounded rectangle

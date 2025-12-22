@@ -166,9 +166,10 @@ func (p *SequenceParser) Parse(input string) (*Diagram, error) {
 			}
 
 			// Handle activation modifiers
-			if modifier == "+" {
+			switch modifier {
+			case "+":
 				msg.Activate = true
-			} else if modifier == "-" {
+			case "-":
 				msg.Deactivate = true
 			}
 

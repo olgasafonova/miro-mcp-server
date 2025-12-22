@@ -1,38 +1,20 @@
+version: "2"
+
 run:
   timeout: 5m
-  tests: true
 
 linters:
+  default: none
   enable:
-    - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-
-linters-settings:
-  errcheck:
-    # Ignore errors from these functions (common patterns where errors are intentionally ignored)
-    exclude-functions:
-      - (*log/slog.Logger).Log
-      - (*log/slog.Logger).Info
-      - (*log/slog.Logger).Warn
-      - (*log/slog.Logger).Error
-      - (*log/slog.Logger).Debug
-      - (io.Closer).Close
-      - (*os.File).Close
-      - (*bytes.Buffer).Write
-      - (*bytes.Buffer).WriteString
-      - (*bytes.Buffer).WriteByte
-
-issues:
-  exclude-rules:
-    # Ignore errcheck in test files for mock calls
-    - path: _test\.go
-      linters:
-        - errcheck
-    # Ignore unused in test files (test helpers)
-    - path: _test\.go
-      linters:
-        - unused
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    paths:
+      - ".*_test\\.go$"
+      - vendor

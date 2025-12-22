@@ -2,8 +2,8 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
-> **Status**: 50 tools implemented. Phases 1-6 complete.
-> **Last Updated**: 2025-12-21
+> **Status**: 65 tools implemented. Phases 1-7 complete.
+> **Last Updated**: 2025-12-22
 
 ---
 
@@ -35,60 +35,81 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (50 total)
+### Implemented Tools (65 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
-| **Boards** | `miro_list_boards` | ListBoards |
-| **Boards** | `miro_get_board` | GetBoard |
-| **Boards** | `miro_create_board` | CreateBoard |
-| **Boards** | `miro_copy_board` | CopyBoard |
-| **Boards** | `miro_delete_board` | DeleteBoard |
-| **Boards** | `miro_find_board` | FindBoardByNameTool |
-| **Boards** | `miro_get_board_summary` | GetBoardSummary |
-| **Boards** | `miro_share_board` | ShareBoard |
-| **Boards** | `miro_list_board_members` | ListBoardMembers |
-| **Create** | `miro_create_sticky` | CreateSticky |
-| **Create** | `miro_create_shape` | CreateShape |
-| **Create** | `miro_create_text` | CreateText |
-| **Create** | `miro_create_connector` | CreateConnector |
-| **Create** | `miro_create_frame` | CreateFrame |
-| **Create** | `miro_create_card` | CreateCard |
-| **Create** | `miro_create_image` | CreateImage |
-| **Create** | `miro_create_document` | CreateDocument |
-| **Create** | `miro_create_embed` | CreateEmbed |
-| **Create** | `miro_bulk_create` | BulkCreate |
-| **Create** | `miro_create_sticky_grid` | CreateStickyGrid |
-| **Create** | `miro_create_group` | CreateGroup |
-| **Create** | `miro_create_mindmap_node` | CreateMindmapNode |
-| **Read** | `miro_list_items` | ListItems |
-| **Read** | `miro_list_all_items` | ListAllItems |
-| **Read** | `miro_get_item` | GetItem |
-| **Read** | `miro_search_board` | SearchBoard |
-| **Tags** | `miro_create_tag` | CreateTag |
-| **Tags** | `miro_list_tags` | ListTags |
-| **Tags** | `miro_attach_tag` | AttachTag |
-| **Tags** | `miro_detach_tag` | DetachTag |
-| **Tags** | `miro_get_item_tags` | GetItemTags |
-| **Tags** | `miro_update_tag` | UpdateTag |
-| **Tags** | `miro_delete_tag` | DeleteTag |
-| **Connectors** | `miro_list_connectors` | ListConnectors |
-| **Connectors** | `miro_get_connector` | GetConnector |
-| **Connectors** | `miro_update_connector` | UpdateConnector |
-| **Connectors** | `miro_delete_connector` | DeleteConnector |
-| **Update** | `miro_update_item` | UpdateItem |
-| **Update** | `miro_ungroup` | Ungroup |
-| **Delete** | `miro_delete_item` | DeleteItem |
-| **Export** | `miro_get_board_picture` | GetBoardPicture |
-| **Export** | `miro_create_export_job` | CreateExportJob |
-| **Export** | `miro_get_export_job_status` | GetExportJobStatus |
-| **Export** | `miro_get_export_job_results` | GetExportJobResults |
-| **Audit** | `miro_get_audit_log` | GetAuditLog |
-| **Webhooks** | `miro_create_webhook` | CreateWebhook |
-| **Webhooks** | `miro_list_webhooks` | ListWebhooks |
-| **Webhooks** | `miro_delete_webhook` | DeleteWebhook |
-| **Webhooks** | `miro_get_webhook` | GetWebhook |
-| **Diagrams** | `miro_generate_diagram` | GenerateDiagram |
+| **Boards (8)** | `miro_list_boards` | ListBoards |
+| | `miro_get_board` | GetBoard |
+| | `miro_create_board` | CreateBoard |
+| | `miro_copy_board` | CopyBoard |
+| | `miro_update_board` | UpdateBoard |
+| | `miro_delete_board` | DeleteBoard |
+| | `miro_find_board` | FindBoardByNameTool |
+| | `miro_get_board_summary` | GetBoardSummary |
+| **Members (5)** | `miro_list_board_members` | ListBoardMembers |
+| | `miro_get_board_member` | GetBoardMember |
+| | `miro_share_board` | ShareBoard |
+| | `miro_update_board_member` | UpdateBoardMember |
+| | `miro_remove_board_member` | RemoveBoardMember |
+| **Create (14)** | `miro_create_sticky` | CreateSticky |
+| | `miro_create_sticky_grid` | CreateStickyGrid |
+| | `miro_create_shape` | CreateShape |
+| | `miro_create_text` | CreateText |
+| | `miro_create_frame` | CreateFrame |
+| | `miro_create_card` | CreateCard |
+| | `miro_create_app_card` | CreateAppCard |
+| | `miro_create_image` | CreateImage |
+| | `miro_create_document` | CreateDocument |
+| | `miro_create_embed` | CreateEmbed |
+| | `miro_create_connector` | CreateConnector |
+| | `miro_create_group` | CreateGroup |
+| | `miro_create_mindmap_node` | CreateMindmapNode |
+| | `miro_bulk_create` | BulkCreate |
+| **Frames (4)** | `miro_get_frame` | GetFrame |
+| | `miro_update_frame` | UpdateFrame |
+| | `miro_delete_frame` | DeleteFrame |
+| | `miro_get_frame_items` | GetFrameItems |
+| **Mindmaps (4)** | `miro_create_mindmap_node` | CreateMindmapNode |
+| | `miro_get_mindmap_node` | GetMindmapNode |
+| | `miro_list_mindmap_nodes` | ListMindmapNodes |
+| | `miro_delete_mindmap_node` | DeleteMindmapNode |
+| **Read (5)** | `miro_list_items` | ListItems |
+| | `miro_list_all_items` | ListAllItems |
+| | `miro_get_item` | GetItem |
+| | `miro_get_app_card` | GetAppCard |
+| | `miro_search_board` | SearchBoard |
+| **Update (5)** | `miro_update_item` | UpdateItem |
+| | `miro_update_app_card` | UpdateAppCard |
+| | `miro_update_connector` | UpdateConnector |
+| | `miro_update_tag` | UpdateTag |
+| | `miro_update_frame` | UpdateFrame |
+| **Delete (6)** | `miro_delete_item` | DeleteItem |
+| | `miro_delete_app_card` | DeleteAppCard |
+| | `miro_delete_connector` | DeleteConnector |
+| | `miro_delete_tag` | DeleteTag |
+| | `miro_delete_frame` | DeleteFrame |
+| | `miro_delete_group` | DeleteGroup |
+| **Tags (5)** | `miro_create_tag` | CreateTag |
+| | `miro_list_tags` | ListTags |
+| | `miro_attach_tag` | AttachTag |
+| | `miro_detach_tag` | DetachTag |
+| | `miro_get_item_tags` | GetItemTags |
+| **Connectors (4)** | `miro_create_connector` | CreateConnector |
+| | `miro_list_connectors` | ListConnectors |
+| | `miro_get_connector` | GetConnector |
+| | `miro_delete_connector` | DeleteConnector |
+| **Groups (5)** | `miro_create_group` | CreateGroup |
+| | `miro_ungroup` | Ungroup |
+| | `miro_list_groups` | ListGroups |
+| | `miro_get_group` | GetGroup |
+| | `miro_get_group_items` | GetGroupItems |
+| **Export (4)** | `miro_get_board_picture` | GetBoardPicture |
+| | `miro_create_export_job` | CreateExportJob |
+| | `miro_get_export_job_status` | GetExportJobStatus |
+| | `miro_get_export_job_results` | GetExportJobResults |
+| **Diagrams (1)** | `miro_generate_diagram` | GenerateDiagram |
+| **Audit (1)** | `miro_get_audit_log` | GetAuditLog |
 
 ### Existing Strengths
 
@@ -115,9 +136,9 @@ miro-mcp-server/
 |--------|----------|-------|-------|-------------|---------|
 | **Official Miro MCP** | Hosted | N/A | ~10 | Active | Proprietary |
 | **evalstate/mcp-miro** | TypeScript | 101 | ~8 | Nov 2024 | - |
-| **k-jarzyna/mcp-miro** | TypeScript | 59 | 80+ | Active | Apache 2.0 |
+| **k-jarzyna/mcp-miro** | TypeScript | 59 | 81 | Active | Apache 2.0 |
 | **LuotoCompany/mcp-server-miro** | TypeScript | 14 | ~15 | Apr 2025 | MIT |
-| **Ours** | **Go** | - | 38 | Active | MIT |
+| **Ours** | **Go** | - | **65** | Active | MIT |
 
 ### Feature Comparison Matrix
 
@@ -145,7 +166,7 @@ miro-mcp-server/
 | **Caching** | ✅ | ? | ❌ | ❌ | ❌ |
 | **Dual transport** | ✅ | ❌ | ❌ | ❌ | ✅ (SSE) |
 | **Voice-optimized** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Diagram generation** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **Diagram generation** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Code generation** | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 ### Our Unique Advantages
@@ -958,17 +979,13 @@ go test -cover ./...
 |---------|--------|-------|
 | Audit Logging (Local) | ✅ Done | File/memory logger, middleware integration, query tool |
 | OAuth 2.1 Flow | ✅ Done | Full OAuth with PKCE, auto-refresh, CLI commands |
-| Webhooks Support | ✅ Done | Real-time board event notifications via SSE |
+| Webhooks Support | ❌ Removed | Miro sunset experimental webhooks Dec 2025 |
 
 #### Phase 5 Tools
 
 | Tool | Status | Notes |
 |------|--------|-------|
 | `miro_get_audit_log` | ✅ Done | Query local audit log for MCP tool executions |
-| `miro_create_webhook` | ✅ Done | Subscribe to board events |
-| `miro_list_webhooks` | ✅ Done | List webhook subscriptions for a board |
-| `miro_delete_webhook` | ✅ Done | Remove a webhook subscription |
-| `miro_get_webhook` | ✅ Done | Get details of a webhook subscription |
 
 #### Phase 5 Enhancements
 
@@ -983,11 +1000,6 @@ go test -cover ./...
 | OAuth token auto-refresh | ✅ Done |
 | OAuth CLI commands (login/status/logout) | ✅ Done |
 | Secure token storage (~/.miro/tokens.json) | ✅ Done |
-| Webhook handler with HMAC verification | ✅ Done |
-| Event bus with pub/sub pattern | ✅ Done |
-| Ring buffer for recent events | ✅ Done |
-| SSE endpoint for real-time streaming | ✅ Done |
-| Webhook challenge validation | ✅ Done |
 
 ### Phase 6: Extended Features (Complete ✅)
 
@@ -1019,6 +1031,52 @@ go test -cover ./...
 | Auto-layout for diagrams | ✅ Done |
 | Support for 7 node shapes | ✅ Done |
 | Support for 4 edge styles | ✅ Done |
+
+### Phase 7: Frame & Mindmap Tools + Distribution (Complete ✅)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Frame CRUD | ✅ Done | Get, update, delete, list items in frame |
+| Mindmap CRUD | ✅ Done | Get, list, delete mindmap nodes |
+| App Card CRUD | ✅ Done | Create, get, update, delete app cards |
+| Member Management | ✅ Done | Get, update, remove board members |
+| Group Management | ✅ Done | List, get, get items, delete groups |
+| Board Update | ✅ Done | Update board name/description |
+| Distribution | ✅ Done | Homebrew tap, Docker, install script |
+
+#### Phase 7 Tools (+12 new, 65 total)
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `miro_get_frame` | ✅ Done | Get frame details |
+| `miro_update_frame` | ✅ Done | Update frame title/color/size |
+| `miro_delete_frame` | ✅ Done | Delete a frame |
+| `miro_get_frame_items` | ✅ Done | List items inside a frame |
+| `miro_get_mindmap_node` | ✅ Done | Get node details (v2-experimental API) |
+| `miro_list_mindmap_nodes` | ✅ Done | List all mindmap nodes |
+| `miro_delete_mindmap_node` | ✅ Done | Delete a mindmap node |
+| `miro_create_app_card` | ✅ Done | Create app card with custom fields |
+| `miro_get_app_card` | ✅ Done | Get app card details |
+| `miro_update_app_card` | ✅ Done | Update app card fields |
+| `miro_delete_app_card` | ✅ Done | Delete an app card |
+| `miro_update_board` | ✅ Done | Update board name/description |
+| `miro_get_board_member` | ✅ Done | Get member details |
+| `miro_update_board_member` | ✅ Done | Update member role |
+| `miro_remove_board_member` | ✅ Done | Remove member from board |
+| `miro_list_groups` | ✅ Done | List all groups on board |
+| `miro_get_group` | ✅ Done | Get group details |
+| `miro_get_group_items` | ✅ Done | List items in a group |
+| `miro_delete_group` | ✅ Done | Delete a group |
+
+#### Phase 7 Distribution
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Homebrew tap | ✅ Done | `brew tap olgasafonova/tap && brew install miro-mcp-server` |
+| Docker image | ✅ Done | `ghcr.io/olgasafonova/miro-mcp-server:latest` |
+| Install script | ✅ Done | `curl -fsSL https://...install.sh | sh` |
+| Linux ARM64 | ✅ Done | New binary for ARM64 Linux |
+| GitHub Release | ✅ Done | v1.7.0 with all binaries |
 
 ---
 

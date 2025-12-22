@@ -23,7 +23,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.6.1"
+	ServerVersion = "1.7.0"
 )
 
 func main() {

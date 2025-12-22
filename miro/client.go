@@ -115,9 +115,19 @@ type Client struct {
 	// semaphore limits concurrent API requests.
 	semaphore chan struct{}
 
-	// cache stores API responses with TTL.
+	// rateLimiter provides adaptive rate limiting based on API response headers.
+	rateLimiter *AdaptiveRateLimiter
+
+	// cache stores API responses with TTL (deprecated, use itemCache).
 	cache    sync.Map
 	cacheTTL time.Duration
+
+	// itemCache is the enhanced cache with TTL and invalidation.
+	itemCache   *Cache
+	cacheConfig CacheConfig
+
+	// circuitBreakers manages circuit breakers for API endpoints.
+	circuitBreakers *CircuitBreakerRegistry
 
 	// tokenRefresher provides automatic OAuth token refresh.
 	// If nil, uses config.AccessToken (static token mode).
@@ -148,6 +158,9 @@ type UserInfo struct {
 // NewClient creates a new Miro API client with the given configuration.
 // The client is safe for concurrent use by multiple goroutines.
 func NewClient(config *Config, logger *slog.Logger) *Client {
+	cacheConfig := DefaultCacheConfig()
+	cbConfig := DefaultCircuitBreakerConfig()
+	rlConfig := DefaultRateLimiterConfig()
 	return &Client{
 		config:  config,
 		baseURL: BaseURL,
@@ -161,9 +174,43 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 		},
 		logger:             logger,
 		semaphore:          make(chan struct{}, MaxConcurrentRequests),
+		rateLimiter:        NewAdaptiveRateLimiter(rlConfig),
 		cacheTTL:           DefaultCacheTTL,
+		itemCache:          NewCache(cacheConfig),
+		cacheConfig:        cacheConfig,
+		circuitBreakers:    NewCircuitBreakerRegistry(cbConfig),
 		webhookCallbackURL: os.Getenv("MIRO_WEBHOOKS_CALLBACK_URL"),
 	}
+}
+
+// CacheStats returns cache performance statistics.
+func (c *Client) CacheStats() CacheStats {
+	return c.itemCache.Stats()
+}
+
+// InvalidateCache clears all cached data.
+func (c *Client) InvalidateCache() {
+	c.itemCache.Clear()
+}
+
+// CircuitBreakerStats returns statistics for all circuit breakers.
+func (c *Client) CircuitBreakerStats() map[string]CircuitBreakerStats {
+	return c.circuitBreakers.AllStats()
+}
+
+// ResetCircuitBreakers resets all circuit breakers to closed state.
+func (c *Client) ResetCircuitBreakers() {
+	c.circuitBreakers.Reset()
+}
+
+// RateLimiterStats returns rate limiter statistics.
+func (c *Client) RateLimiterStats() RateLimiterStats {
+	return c.rateLimiter.Stats()
+}
+
+// ResetRateLimiter resets the rate limiter to its initial state.
+func (c *Client) ResetRateLimiter() {
+	c.rateLimiter.Reset()
 }
 
 // WithTokenRefresher sets an OAuth token refresher for automatic token management.
@@ -243,9 +290,101 @@ func ValidateContent(content string) error {
 // HTTP Request Handling
 // =============================================================================
 
+// knownPathSegments are API path segments that should NOT be treated as IDs.
+var knownPathSegments = map[string]bool{
+	"boards": true, "items": true, "sticky_notes": true, "shapes": true,
+	"text": true, "connectors": true, "frames": true, "cards": true,
+	"images": true, "documents": true, "embeds": true, "tags": true,
+	"groups": true, "members": true, "mindmaps": true, "nodes": true,
+	"export": true, "jobs": true, "picture": true, "copy": true,
+	"orgs": true, "users": true, "me": true, "teams": true,
+}
+
+// extractEndpoint extracts a normalized endpoint from a path for circuit breaker.
+// For example: /boards/abc123/items/xyz -> /boards/{id}/items/{id}
+func extractEndpoint(path string) string {
+	parts := make([]string, 0)
+	for _, part := range splitPath(path) {
+		// Skip query strings
+		if idx := indexOf(part, "?"); idx != -1 {
+			part = part[:idx]
+		}
+		if part == "" {
+			continue
+		}
+		// Check if this is a known path segment
+		if knownPathSegments[part] {
+			parts = append(parts, part)
+		} else {
+			// This is likely an ID - replace with placeholder
+			// Avoid consecutive {id} entries
+			if len(parts) == 0 || parts[len(parts)-1] != "{id}" {
+				parts = append(parts, "{id}")
+			}
+		}
+	}
+	return "/" + joinPath(parts)
+}
+
+func splitPath(path string) []string {
+	if path == "" {
+		return nil
+	}
+	if path[0] == '/' {
+		path = path[1:]
+	}
+	result := make([]string, 0)
+	current := ""
+	for _, c := range path {
+		if c == '/' {
+			if current != "" {
+				result = append(result, current)
+				current = ""
+			}
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
+}
+
+func indexOf(s string, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+
+func joinPath(parts []string) string {
+	result := ""
+	for i, part := range parts {
+		if i > 0 {
+			result += "/"
+		}
+		result += part
+	}
+	return result
+}
+
 // request makes an authenticated request to the Miro API.
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	// Acquire semaphore slot (rate limiting)
+	// Check circuit breaker
+	endpoint := extractEndpoint(path)
+	cb := c.circuitBreakers.Get(endpoint)
+	if err := cb.Allow(); err != nil {
+		c.logger.Warn("Circuit breaker blocked request",
+			"endpoint", endpoint,
+			"state", cb.State().String(),
+		)
+		return nil, fmt.Errorf("circuit breaker open for %s: %w", endpoint, err)
+	}
+
+	// Acquire semaphore slot (concurrency limiting)
 	select {
 	case c.semaphore <- struct{}{}:
 		defer func() { <-c.semaphore }()
@@ -253,9 +392,20 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 		return nil, fmt.Errorf("context cancelled while waiting for rate limiter: %w", ctx.Err())
 	}
 
+	// Apply adaptive rate limiting based on previous response headers
+	if delay, err := c.rateLimiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("context cancelled during rate limit wait: %w", err)
+	} else if delay > 0 {
+		c.logger.Debug("Adaptive rate limiter applied delay",
+			"delay", delay,
+			"state", c.rateLimiter.State(),
+		)
+	}
+
 	// Get access token (may refresh if using OAuth)
 	token, err := c.getAccessToken(ctx)
 	if err != nil {
+		cb.RecordFailure()
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
@@ -289,6 +439,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	// Execute request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		cb.RecordFailure()
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -296,14 +447,25 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		cb.RecordFailure()
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+
+	// Update rate limiter from response headers (do this for ALL responses)
+	c.rateLimiter.UpdateFromResponse(resp)
 
 	// Check for errors
 	if resp.StatusCode >= 400 {
 		apiErr := ParseAPIError(resp, respBody)
+		// Record failure for server errors (5xx) - don't trip circuit for client errors
+		if resp.StatusCode >= 500 {
+			cb.RecordFailure()
+		}
 		return nil, apiErr
 	}
+
+	// Record success
+	cb.RecordSuccess()
 
 	c.logger.Debug("API request completed",
 		"method", method,

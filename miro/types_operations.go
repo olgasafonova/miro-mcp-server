@@ -29,15 +29,16 @@ type CreateStickyResult struct {
 
 // CreateShapeArgs contains parameters for creating a shape.
 type CreateShapeArgs struct {
-	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Shape    string  `json:"shape" jsonschema:"required" jsonschema_description:"Shape type: rectangle, circle, triangle, rhombus, round_rectangle, etc."`
-	Content  string  `json:"content,omitempty" jsonschema_description:"Text inside the shape"`
-	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
-	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
-	Width    float64 `json:"width,omitempty" jsonschema_description:"Width in pixels (default 200)"`
-	Height   float64 `json:"height,omitempty" jsonschema_description:"Height in pixels (default 200)"`
-	Color    string  `json:"color,omitempty" jsonschema_description:"Fill color (hex or named)"`
-	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID"`
+	BoardID   string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Shape     string  `json:"shape" jsonschema:"required" jsonschema_description:"Shape type: rectangle, circle, triangle, rhombus, round_rectangle, etc."`
+	Content   string  `json:"content,omitempty" jsonschema_description:"Text inside the shape"`
+	X         float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y         float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	Width     float64 `json:"width,omitempty" jsonschema_description:"Width in pixels (default 200)"`
+	Height    float64 `json:"height,omitempty" jsonschema_description:"Height in pixels (default 200)"`
+	Color     string  `json:"color,omitempty" jsonschema_description:"Fill/background color (hex like #006400)"`
+	TextColor string  `json:"text_color,omitempty" jsonschema_description:"Text color (hex like #ffffff for white)"`
+	ParentID  string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID"`
 }
 
 // CreateShapeResult contains the created shape.

@@ -67,6 +67,9 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 		return CreateStickyResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Invalidate items list cache since we added a new item
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+
 	return CreateStickyResult{
 		ID:      sticky.ID,
 		Content: sticky.Data.Content,
@@ -110,10 +113,16 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 		},
 	}
 
+	// Build style object with fill color and/or text color
+	style := make(map[string]interface{})
 	if args.Color != "" {
-		reqBody["style"] = map[string]interface{}{
-			"fillColor": args.Color,
-		}
+		style["fillColor"] = args.Color
+	}
+	if args.TextColor != "" {
+		style["color"] = args.TextColor
+	}
+	if len(style) > 0 {
+		reqBody["style"] = style
 	}
 
 	if args.ParentID != "" {
@@ -131,6 +140,9 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 	if err := json.Unmarshal(respBody, &shape); err != nil {
 		return CreateShapeResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateShapeResult{
 		ID:      shape.ID,
@@ -192,6 +204,9 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 	if err := json.Unmarshal(respBody, &text); err != nil {
 		return CreateTextResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateTextResult{
 		ID:      text.ID,
@@ -370,6 +385,9 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 		return CreateConnectorResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Invalidate connectors cache
+	c.itemCache.InvalidatePrefix("connectors:" + args.BoardID)
+
 	return CreateConnectorResult{
 		ID:      connector.ID,
 		Message: "Created connector between items",
@@ -426,6 +444,9 @@ func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) 
 		return UpdateConnectorResult{}, err
 	}
 
+	// Invalidate connectors cache
+	c.itemCache.InvalidatePrefix("connectors:" + args.BoardID)
+
 	return UpdateConnectorResult{
 		Success: true,
 		ID:      args.ConnectorID,
@@ -452,6 +473,9 @@ func (c *Client) DeleteConnector(ctx context.Context, args DeleteConnectorArgs) 
 			Message: fmt.Sprintf("Failed to delete connector: %v", err),
 		}, err
 	}
+
+	// Invalidate connectors cache
+	c.itemCache.InvalidatePrefix("connectors:" + args.BoardID)
 
 	return DeleteConnectorResult{
 		Success: true,
@@ -507,6 +531,9 @@ func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateF
 	if err := json.Unmarshal(respBody, &frame); err != nil {
 		return CreateFrameResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateFrameResult{
 		ID:      frame.ID,
@@ -570,6 +597,9 @@ func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCar
 		return CreateCardResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+
 	return CreateCardResult{
 		ID:      card.ID,
 		Title:   card.Data.Title,
@@ -628,6 +658,9 @@ func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateI
 	if title == "" {
 		title = "image"
 	}
+
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateImageResult{
 		ID:      image.ID,
@@ -688,6 +721,9 @@ func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (C
 	if title == "" {
 		title = "document"
 	}
+
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateDocumentResult{
 		ID:      doc.ID,
@@ -750,6 +786,9 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 	if err := json.Unmarshal(respBody, &embed); err != nil {
 		return CreateEmbedResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
+
+	// Invalidate items list cache
+	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateEmbedResult{
 		ID:       embed.ID,

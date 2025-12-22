@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // =============================================================================
@@ -101,6 +102,12 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 		return GetItemResult{}, fmt.Errorf("item_id is required")
 	}
 
+	// Check cache first
+	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)
+	if cached, ok := c.itemCache.Get(cacheKey); ok {
+		return cached.(GetItemResult), nil
+	}
+
 	respBody, err := c.request(ctx, http.MethodGet, "/boards/"+args.BoardID+"/items/"+args.ItemID, nil)
 	if err != nil {
 		return GetItemResult{}, err
@@ -167,6 +174,9 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 	if item.ModifiedBy != nil {
 		result.ModifiedBy = item.ModifiedBy.Name
 	}
+
+	// Cache the result
+	c.itemCache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
 
 	return result, nil
 }
@@ -244,6 +254,9 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 		}, err
 	}
 
+	// Invalidate cache for this item
+	c.itemCache.InvalidateItem(args.BoardID, args.ItemID)
+
 	return UpdateItemResult{
 		Success: true,
 		ItemID:  args.ItemID,
@@ -271,6 +284,9 @@ func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteIte
 		}, err
 	}
 
+	// Invalidate cache for this item and items list
+	c.itemCache.InvalidateItem(args.BoardID, args.ItemID)
+
 	return DeleteItemResult{
 		Success: true,
 		ItemID:  args.ItemID,
@@ -278,7 +294,16 @@ func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteIte
 	}, nil
 }
 
+// bulkResult holds the result of a single item creation in bulk operations.
+type bulkResult struct {
+	index int
+	id    string
+	err   error
+}
+
 // BulkCreate creates multiple items in one operation.
+// Items are created in parallel using goroutines, with concurrency
+// controlled by the client's semaphore (MaxConcurrentRequests).
 func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error) {
 	if args.BoardID == "" {
 		return BulkCreateResult{}, fmt.Errorf("board_id is required")
@@ -290,60 +315,84 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 		return BulkCreateResult{}, fmt.Errorf("maximum 20 items per bulk operation")
 	}
 
-	// Create items sequentially (Miro doesn't have a true bulk API)
-	var itemIDs []string
-	var errors []string
+	// Create items in parallel - semaphore in request() limits actual concurrency
+	results := make(chan bulkResult, len(args.Items))
+	var wg sync.WaitGroup
 
 	for i, item := range args.Items {
-		var id string
-		var err error
+		wg.Add(1)
+		go func(idx int, it BulkCreateItem) {
+			defer wg.Done()
 
-		switch item.Type {
-		case "sticky_note":
-			result, e := c.CreateSticky(ctx, CreateStickyArgs{
-				BoardID:  args.BoardID,
-				Content:  item.Content,
-				X:        item.X,
-				Y:        item.Y,
-				Color:    item.Color,
-				Width:    item.Width,
-				ParentID: item.ParentID,
-			})
-			id, err = result.ID, e
+			var id string
+			var err error
 
-		case "shape":
-			result, e := c.CreateShape(ctx, CreateShapeArgs{
-				BoardID:  args.BoardID,
-				Shape:    item.Shape,
-				Content:  item.Content,
-				X:        item.X,
-				Y:        item.Y,
-				Width:    item.Width,
-				Height:   item.Height,
-				Color:    item.Color,
-				ParentID: item.ParentID,
-			})
-			id, err = result.ID, e
+			switch it.Type {
+			case "sticky_note":
+				result, e := c.CreateSticky(ctx, CreateStickyArgs{
+					BoardID:  args.BoardID,
+					Content:  it.Content,
+					X:        it.X,
+					Y:        it.Y,
+					Color:    it.Color,
+					Width:    it.Width,
+					ParentID: it.ParentID,
+				})
+				id, err = result.ID, e
 
-		case "text":
-			result, e := c.CreateText(ctx, CreateTextArgs{
-				BoardID:  args.BoardID,
-				Content:  item.Content,
-				X:        item.X,
-				Y:        item.Y,
-				Width:    item.Width,
-				ParentID: item.ParentID,
-			})
-			id, err = result.ID, e
+			case "shape":
+				result, e := c.CreateShape(ctx, CreateShapeArgs{
+					BoardID:  args.BoardID,
+					Shape:    it.Shape,
+					Content:  it.Content,
+					X:        it.X,
+					Y:        it.Y,
+					Width:    it.Width,
+					Height:   it.Height,
+					Color:    it.Color,
+					ParentID: it.ParentID,
+				})
+				id, err = result.ID, e
 
-		default:
-			err = fmt.Errorf("unsupported item type: %s", item.Type)
-		}
+			case "text":
+				result, e := c.CreateText(ctx, CreateTextArgs{
+					BoardID:  args.BoardID,
+					Content:  it.Content,
+					X:        it.X,
+					Y:        it.Y,
+					Width:    it.Width,
+					ParentID: it.ParentID,
+				})
+				id, err = result.ID, e
 
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("item %d: %v", i+1, err))
-		} else if id != "" {
-			itemIDs = append(itemIDs, id)
+			default:
+				err = fmt.Errorf("unsupported item type: %s", it.Type)
+			}
+
+			results <- bulkResult{index: idx, id: id, err: err}
+		}(i, item)
+	}
+
+	// Close results channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results maintaining order
+	resultSlice := make([]bulkResult, len(args.Items))
+	for r := range results {
+		resultSlice[r.index] = r
+	}
+
+	// Extract IDs and errors
+	var itemIDs []string
+	var errors []string
+	for _, r := range resultSlice {
+		if r.err != nil {
+			errors = append(errors, fmt.Sprintf("item %d: %v", r.index+1, r.err))
+		} else if r.id != "" {
+			itemIDs = append(itemIDs, r.id)
 		}
 	}
 

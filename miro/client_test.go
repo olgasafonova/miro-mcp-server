@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -3220,12 +3221,12 @@ func TestBulkCreate_ValidationErrors(t *testing.T) {
 // =============================================================================
 
 func TestCreateStickyGrid_Success(t *testing.T) {
-	callCount := 0
+	var callCount int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		count := atomic.AddInt64(&callCount, 1)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": fmt.Sprintf("sticky%d", callCount),
+			"id": fmt.Sprintf("sticky%d", count),
 			"data": map[string]interface{}{
 				"content": "Test",
 			},

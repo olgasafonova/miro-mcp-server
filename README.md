@@ -4,6 +4,24 @@ Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
 **66 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
+[![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [QUICKSTART.md](QUICKSTART.md) | Get running in 2 minutes |
+| [SETUP.md](SETUP.md) | Full setup for all AI tools |
+| [CONFIG.md](CONFIG.md) | Configuration reference |
+| [COMPARISON.md](COMPARISON.md) | Competitive analysis |
+| [PERFORMANCE.md](PERFORMANCE.md) | Optimization guide |
+| [ROADMAP.md](ROADMAP.md) | Development roadmap |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+
 ---
 
 ## Quick Start
@@ -265,11 +283,14 @@ sequenceDiagram
 |---------|-------------|------------------------|
 | **Runtime** | Single binary | Requires Node.js |
 | **Size** | ~14MB | 100MB+ with node_modules |
-| **Startup** | Instant | Slower |
+| **Startup** | ~50ms | 500ms-2s |
+| **Memory** | ~10MB idle | ~50MB idle |
 | **Diagram generation** | Built-in Mermaid parser | Not available |
 | **Rate limiting** | Automatic with backoff | Manual |
 | **Caching** | 2-minute TTL | None |
 | **Circuit breaker** | Yes | No |
+
+See [COMPARISON.md](COMPARISON.md) for detailed competitive analysis.
 
 ---
 
@@ -280,6 +301,8 @@ sequenceDiagram
 - **Circuit breaker:** Isolates failing endpoints
 - **Parallel bulk ops:** Creates items concurrently
 - **Token validation:** Fails fast on startup with clear error
+
+See [PERFORMANCE.md](PERFORMANCE.md) for optimization tips and benchmarks.
 
 ---
 

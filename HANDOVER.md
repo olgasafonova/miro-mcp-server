@@ -194,20 +194,66 @@ GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
 
 ---
 
-## This Session Summary (Dec 22, 2025 - continued)
+## Session Summary (Dec 22-23, 2025)
 
-**New Tool (+1, total 66):**
-- `miro_get_tag` - Get tag details by ID (was implemented internally, now exposed)
+### Previous Work
+- Added `miro_get_tag` tool (66 total)
+- Added GitHub Actions CI workflow
+- Created QUICKSTART.md
 
-**New Files:**
-- `.github/workflows/ci.yml` - CI workflow (tests, lint, build on PRs)
-- `QUICKSTART.md` - 60-second setup guide
+### Session 2 - Documentation & Competitive Analysis
 
-**All docs updated to 66 tools.**
+**New Documentation Files:**
+| File | Description |
+|------|-------------|
+| `CONFIG.md` | Comprehensive configuration reference (env vars, auth, rate limiting, all AI tools) |
+| `COMPARISON.md` | Detailed competitive analysis vs k-jarzyna, LuotoCompany, evalstate, Official |
+| `PERFORMANCE.md` | Benchmarks, optimization tips, memory management |
+
+**README.md Updates:**
+- Added CI badges (build status, Go Report Card, license)
+- Added documentation table linking to all guides
+- Added performance comparison with TypeScript servers
+- Cross-linked to new documentation
+
+**Verified Installation Methods:**
+- Homebrew tap: ✅ Working (`brew install olgasafonova/tap/miro-mcp-server`)
+- Install script: ✅ Accessible (HTTP 200)
+- GitHub releases: ✅ v1.7.0 with all 5 binaries
+- Build: ✅ All tests pass
+
+---
+
+### Session 1 - CI Fixes & Integration Guides
+
+**1. Added IDE/Tool Integration Guides to SETUP.md:**
+- Gemini CLI (`~/.gemini/settings.json`)
+- Amazon Q IDE Extension (`~/.aws/amazonq/mcp.json`)
+- Kiro IDE / Kiro CLI (`.kiro/mcp.json`)
+- OpenAI Codex CLI (`~/.codex/config.toml`)
+- Table documenting tools without local MCP support (Lovable, Devin, Glean)
+
+**2. Fixed CI/CD Lint Failures:**
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `.golangci.yml` | v1 config with v2 linter | Created v2 format config with `version: "2"` |
+| `.golangci.yml` | Unknown linter 'gosimple' | Removed (merged into staticcheck in v2) |
+| `miro/diagrams/mermaid.go:246` | Ineffectual assignment | Removed `shape = ShapeRectangle` |
+| `miro/diagrams/sequence.go:169` | QF1003 if-else to switch | Converted to switch statement |
+| `.github/workflows/ci.yml` | Using golangci-lint v1.x | Updated to `golangci-lint-action@v8` with `version: v2.1.0` |
+| `miro/client_test.go:3225` | Data race in test | Used `atomic.AddInt64` for `callCount` |
+
+**3. CI Status:** All green ✅
+- Lint ✓
+- Test ✓ (with race detector)
+- Build ✓ (darwin/arm64, darwin/amd64, linux/amd64, linux/arm64, windows/amd64)
 
 ---
 
 ## Awesome MCP Servers PR
+
+**NOT YET SUBMITTED** - User requested to wait.
 
 To add to [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers), submit PR with:
 
@@ -221,13 +267,42 @@ Add under "Whiteboard & Design" or similar category, after existing Miro entries
 
 ## Next Session Suggestions
 
-1. **Submit to Awesome MCP Servers** - Use PR format above
+1. **Submit to Awesome MCP Servers** - Use PR format above (when ready)
 2. **Add Comments API** - Research if Miro v2 has endpoints
-3. **More test coverage** - Currently 40/66 tools tested
+3. **More test coverage** - Currently ~40/66 tools tested
 4. **Docker image verification** - Test ghcr.io image works
-5. **Tag v1.7.1 release** - Include new get_tag tool
+5. **Tag v1.7.1 release** - Include fixes and improvements
 
-**Completed This Session:**
-- Added miro_get_tag tool (66 total)
-- Added GitHub Actions CI workflow
-- Created QUICKSTART.md
+---
+
+## Files Modified This Session
+
+### Session 2
+| File | Change |
+|------|--------|
+| `CONFIG.md` | **NEW** - Configuration reference |
+| `COMPARISON.md` | **NEW** - Competitive analysis |
+| `PERFORMANCE.md` | **NEW** - Performance guide |
+| `README.md` | Added badges, documentation table, cross-links |
+| `HANDOVER.md` | Updated with session 2 work |
+
+### Session 1
+| File | Change |
+|------|--------|
+| `SETUP.md` | Added 4 new AI tool integration guides + unsupported tools table |
+| `.golangci.yml` | Created v2 format config |
+| `.github/workflows/ci.yml` | Updated to golangci-lint v2.1.0 |
+| `miro/diagrams/mermaid.go` | Removed ineffectual assignment |
+| `miro/diagrams/sequence.go` | Converted if-else to switch |
+| `miro/client_test.go` | Fixed data race with atomic operations |
+
+---
+
+## Commits This Session
+
+```
+da03104 fix: Resolve data race in TestCreateStickyGrid_Success
+1705c6c ci: Update to golangci-lint v2 in GitHub Actions
+579de37 Fix golangci-lint v2 configuration and code issues
+a3babb1 Add integration guides for Gemini CLI, Amazon Q, Kiro, and OpenAI Codex
+```

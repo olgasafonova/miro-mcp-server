@@ -155,6 +155,7 @@ func (c *Client) CreateBoard(ctx context.Context, args CreateBoardArgs) (CreateB
 }
 
 // CopyBoard copies an existing board.
+// Uses PUT /boards?copy_from={board_id} as per Miro API docs.
 func (c *Client) CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardResult, error) {
 	if args.BoardID == "" {
 		return CopyBoardResult{}, fmt.Errorf("board_id is required")
@@ -172,7 +173,9 @@ func (c *Client) CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardRe
 		reqBody["teamId"] = args.TeamID
 	}
 
-	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/copy", reqBody)
+	// Miro API uses PUT /boards?copy_from={board_id} to copy boards
+	path := "/boards?copy_from=" + url.QueryEscape(args.BoardID)
+	respBody, err := c.request(ctx, http.MethodPut, path, reqBody)
 	if err != nil {
 		return CopyBoardResult{}, err
 	}

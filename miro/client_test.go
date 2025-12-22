@@ -2158,11 +2158,14 @@ func TestGetConnector_Success(t *testing.T) {
 
 func TestCopyBoard_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
 		}
-		if r.URL.Path != "/boards/board123/copy" {
+		if r.URL.Path != "/boards" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("copy_from") != "board123" {
+			t.Errorf("expected copy_from=board123, got %s", r.URL.Query().Get("copy_from"))
 		}
 
 		w.Header().Set("Content-Type", "application/json")

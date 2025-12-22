@@ -21,7 +21,7 @@ func (c *Client) GetBoardPicture(ctx context.Context, args GetBoardPictureArgs) 
 	}
 
 	// Get board details (which includes the picture)
-	board, err := c.GetBoard(ctx, GetBoardArgs{BoardID: args.BoardID})
+	board, err := c.GetBoard(ctx, GetBoardArgs(args))
 	if err != nil {
 		return GetBoardPictureResult{}, fmt.Errorf("failed to get board: %w", err)
 	}

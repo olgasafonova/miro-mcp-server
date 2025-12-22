@@ -327,7 +327,7 @@ func (c *Client) GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) 
 	}
 
 	// Get board details
-	board, err := c.GetBoard(ctx, GetBoardArgs{BoardID: args.BoardID})
+	board, err := c.GetBoard(ctx, GetBoardArgs(args))
 	if err != nil {
 		return GetBoardSummaryResult{}, fmt.Errorf("failed to get board: %w", err)
 	}

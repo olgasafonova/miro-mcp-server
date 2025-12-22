@@ -146,10 +146,9 @@ func (p *MermaidParser) parseEdgeLine(diagram *Diagram, line string, subgraph st
 		}
 
 		// Extract edge info if present
-		edgeStyle := EdgeSolid
 		edgeLabel := ""
-		endCap := ArrowNormal
-		startCap := ArrowNone
+		var edgeStyle EdgeStyle
+		var startCap, endCap ArrowType
 
 		// Check for edge modifiers in part
 		if strings.Contains(part, "|") {

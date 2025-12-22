@@ -492,51 +492,6 @@ func (c *Client) requestExperimental(ctx context.Context, method, path string, b
 	return c.request(ctx, method, path, body)
 }
 
-// requestWithRetry wraps request with exponential backoff for rate limit errors (HTTP 429).
-// It will retry up to MaxRetries times with exponentially increasing delays.
-// If the server provides a Retry-After header, that value is used instead of exponential backoff.
-func (c *Client) requestWithRetry(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	var lastErr error
-	for attempt := 0; attempt <= MaxRetries; attempt++ {
-		respBody, err := c.request(ctx, method, path, body)
-		if err == nil {
-			return respBody, nil
-		}
-
-		// Check if rate limited using structured error type
-		if !IsRateLimitError(err) {
-			lastErr = err
-			break // Don't retry non-rate-limit errors
-		}
-
-		// Calculate delay: prefer Retry-After header, fallback to exponential backoff
-		delay := GetRetryAfter(err)
-		if delay == 0 {
-			delay = BaseRetryDelay * time.Duration(1<<uint(attempt)) // Exponential: 1s, 2s, 4s, 8s
-		}
-
-		// Cap delay at 60 seconds
-		if delay > 60*time.Second {
-			delay = 60 * time.Second
-		}
-
-		c.logger.Warn("Rate limited, retrying",
-			"attempt", attempt+1,
-			"max_retries", MaxRetries,
-			"delay", delay,
-			"path", path,
-		)
-
-		select {
-		case <-time.After(delay):
-			continue
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-	}
-
-	return nil, lastErr
-}
 
 // =============================================================================
 // Caching

@@ -16,8 +16,7 @@ type SequenceParser struct {
 	activatePattern    *regexp.Regexp
 	loopStartPattern   *regexp.Regexp
 	loopEndPattern     *regexp.Regexp
-	altStartPattern    *regexp.Regexp
-	elsePattern        *regexp.Regexp
+	elsePattern *regexp.Regexp
 }
 
 // Participant represents a sequence diagram participant.

@@ -194,15 +194,40 @@ GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
 
 ---
 
+## This Session Summary (Dec 22, 2025 - continued)
+
+**New Tool (+1, total 66):**
+- `miro_get_tag` - Get tag details by ID (was implemented internally, now exposed)
+
+**New Files:**
+- `.github/workflows/ci.yml` - CI workflow (tests, lint, build on PRs)
+- `QUICKSTART.md` - 60-second setup guide
+
+**All docs updated to 66 tools.**
+
+---
+
+## Awesome MCP Servers PR
+
+To add to [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers), submit PR with:
+
+```markdown
+- [olgasafonova/miro-mcp-server](https://github.com/olgasafonova/miro-mcp-server) 🏎️ ☁️ - Miro whiteboard control (66 tools). Single Go binary, Mermaid diagram generation, rate limiting, caching.
+```
+
+Add under "Whiteboard & Design" or similar category, after existing Miro entries.
+
+---
+
 ## Next Session Suggestions
 
-1. **Add Comments API** (+3 tools → 68 total) - Close gap with k-jarzyna
-2. **Add to Awesome MCP Servers** - Increase visibility
-3. **GitHub Actions** - CI/CD for automated releases
-4. **More test coverage** - Currently 40/66 tools tested
-5. **Docker image verification** - Test ghcr.io image works
+1. **Submit to Awesome MCP Servers** - Use PR format above
+2. **Add Comments API** - Research if Miro v2 has endpoints
+3. **More test coverage** - Currently 40/66 tools tested
+4. **Docker image verification** - Test ghcr.io image works
+5. **Tag v1.7.1 release** - Include new get_tag tool
 
-**Already Verified This Session:**
-- Homebrew tap works (`brew install olgasafonova/tap/miro-mcp-server` → v1.7.0)
-- Build passes, all tests pass
-- Documentation consistent across all files
+**Completed This Session:**
+- Added miro_get_tag tool (66 total)
+- Added GitHub Actions CI workflow
+- Created QUICKSTART.md

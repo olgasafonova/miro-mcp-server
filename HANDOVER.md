@@ -1,16 +1,16 @@
 # Session Handover - Miro MCP Server
 
-> **Date**: 2025-12-22 (Session 3)
+> **Date**: 2025-12-22 (Session 4)
 > **Project**: miro-mcp-server
 > **Location**: `/Users/olgasafonova/go/src/miro-mcp-server`
-> **Version**: v1.4.2 (with post-release fixes)
-> **Latest Session**: Fixed embed geometry bug, tag colors documentation
+> **Version**: v1.5.0
+> **Release**: https://github.com/olgasafonova/miro-mcp-server/releases/tag/v1.5.0
 
 ---
 
 ## Current State
 
-**50 MCP tools** for Miro whiteboard control. Build passes, tests pass.
+**46 MCP tools** for Miro whiteboard control. Build passes, tests pass.
 
 ```bash
 # Verify build
@@ -23,46 +23,46 @@ go test ./...
 
 ---
 
-## What Was Fixed This Session (Session 3)
+## What Was Done This Session (Session 4)
 
-### Fix 1: CreateEmbed sends both width and height
+### 1. Completed Testing
 
-**Problem**: `miro_create_embed` failed for YouTube videos with:
-```
-Only height or width should be passed for widgets with fixed aspect ratio
-```
+| Tool | Status | Notes |
+|------|--------|-------|
+| `miro_create_embed` | ✅ | YouTube embed works with width-only fix |
+| `miro_create_board` | ✅ | Creates new boards |
+| `miro_copy_board` | ✅ | Fixed endpoint, works for simple boards |
+| `miro_create_document` | ✅ | Creates documents from URLs |
+| `miro_share_board` | ✅ | Sends invitations by email |
+| `miro_delete_board` | ✅ | Deletes boards |
 
-**Root Cause**: Code always sent both `width` and `height` in geometry.
+### 2. Fixed copy_board API
 
-**Solution**: Only send width OR height, not both. Let Miro calculate the other dimension for fixed aspect ratio embeds.
+**Problem**: `miro_copy_board` returned 404 error.
 
-**File**: `miro/create.go` lines 735-746
+**Root Cause**: Wrong endpoint `POST /boards/{id}/copy` (doesn't exist).
+
+**Solution**: Changed to `PUT /boards?copy_from={board_id}` per Miro docs.
+
+**File**: `miro/boards.go` line 177
 ```go
-// For embeds with fixed aspect ratio (like YouTube), only send width
-// Miro will calculate height automatically. Sending both causes an error.
-if args.Width > 0 {
-    reqBody["geometry"] = map[string]interface{}{
-        "width": args.Width,
-    }
-} else if args.Height > 0 {
-    reqBody["geometry"] = map[string]interface{}{
-        "height": args.Height,
-    }
-}
+path := "/boards?copy_from=" + url.QueryEscape(args.BoardID)
+respBody, err := c.request(ctx, http.MethodPut, path, reqBody)
 ```
 
-### Fix 2: Tag color "orange" documented but API rejects
+**Note**: Large/complex boards may still fail with 500 from Miro's side.
 
-**Problem**: Tool description said "orange" is valid tag color, but API returns:
-```
-Unexpected value [orange], expected one of: [red, light_green, cyan, yellow, magenta, green, blue, gray, violet, dark_gray, dark_green, dark_blue, black]
-```
+### 3. Removed Webhook Tools
 
-**Solution**: Updated valid colors in documentation.
+**Reason**: Miro is [discontinuing experimental webhooks](https://community.miro.com/developer-platform-and-apis-57/miro-webhooks-4281) on December 5, 2025.
 
-**Files Changed**:
-- `tools/definitions.go` lines 403, 482
-- `miro/types_tags.go` lines 22, 115
+**Removed tools**:
+- `miro_create_webhook`
+- `miro_list_webhooks`
+- `miro_get_webhook`
+- `miro_delete_webhook`
+
+**Tool count**: 50 → 46
 
 ---
 
@@ -85,10 +85,6 @@ Unexpected value [orange], expected one of: [red, light_green, cyan, yellow, mag
 }
 ```
 
-**OAuth tokens** at `~/.miro/tokens.json`:
-- `team_id`: `3458764516184293832` (corrected!)
-- Access token auto-refreshes
-
 ---
 
 ## Test Board
@@ -99,53 +95,89 @@ Unexpected value [orange], expected one of: [red, light_green, cyan, yellow, mag
 
 ---
 
-## Testing Progress
+## Testing Status: 45/46 Tools Verified
 
-### Verified Working (39/50 tools)
+### Working Tools (45)
 
-**Boards**: list_boards, find_board, get_board, get_board_summary
+**Boards**: list_boards, find_board, get_board, get_board_summary, create_board, copy_board, delete_board, share_board
+
 **Items**: list_items, list_all_items, get_item, search_board, update_item, delete_item
-**Create**: create_sticky, create_sticky_grid, create_shape, create_text, create_frame, create_card, create_connector, create_image, bulk_create
+
+**Create**: create_sticky, create_sticky_grid, create_shape, create_text, create_frame, create_card, create_connector, create_image, create_document, create_embed, bulk_create
+
 **Tags**: create_tag, list_tags, attach_tag, detach_tag, get_item_tags, update_tag, delete_tag
+
 **Groups**: create_group, ungroup
+
 **Connectors**: list_connectors, get_connector, update_connector, delete_connector
+
 **Members**: list_board_members
-**Diagrams**: generate_diagram (flowchart), generate_diagram (sequence)
+
+**Diagrams**: generate_diagram (flowchart + sequence)
+
 **Audit**: get_audit_log
 
 ### Known Issues
 
-| Tool | Issue |
-|------|-------|
-| `miro_create_mindmap_node` | API returns 405 - endpoint may have changed |
-| `miro_get_board_picture` | Returns empty - may need board activity |
-| `miro_create_webhook` | "subscription or endpoint does not exist" |
-| `miro_list_webhooks` | Same error - may need app setup |
-
-### Still Need Testing
-
-- [ ] `miro_create_board`
-- [ ] `miro_copy_board`
-- [ ] `miro_delete_board` (destructive)
-- [ ] `miro_create_document`
-- [ ] `miro_create_embed` (after restart - bug fixed)
-- [ ] `miro_share_board` (needs email)
-- [ ] Export tools (Enterprise only)
+| Tool | Issue | Cause |
+|------|-------|-------|
+| `miro_create_mindmap_node` | 405 error | Miro API endpoint changed |
+| `miro_get_board_picture` | Returns empty | May need specific conditions |
+| `miro_copy_board` | 500 on complex boards | Miro API limitation |
+| Export tools | Not tested | Require Enterprise plan |
 
 ---
 
-## All Fixes Summary
+## All Fixes in v1.5.0
 
-| Version | Date | Issue | Fix |
-|---------|------|-------|-----|
-| v1.4.2+ | 2025-12-22 | CreateEmbed geometry error | Only send width OR height |
-| v1.4.2+ | 2025-12-22 | Tag color "orange" invalid | Updated valid colors list |
-| v1.4.2+ | 2025-12-22 | CreateGroup fails | Request body needs `{data:{items:[...]}}` |
-| v1.4.2+ | 2025-12-22 | ListConnectors limit < 10 fails | Enforce minimum limit of 10 |
-| v1.4.2+ | 2025-12-22 | ListBoards empty | Wrong team_id in tokens.json |
-| v1.4.2+ | 2025-12-22 | CreateTag fails without color | Default to "blue" |
-| v1.4.2+ | 2025-12-22 | ListItems limit 100 fails | Changed to max 50 |
-| v1.4.2+ | 2025-12-22 | GetItemTags returns null | Return empty array `[]` |
+| Issue | Fix |
+|-------|-----|
+| copy_board 404 | Changed to `PUT /boards?copy_from={id}` |
+| create_embed geometry | Only send width OR height |
+| create_group body | `{data:{items:[...]}}` format |
+| list_connectors limit | Minimum is 10 |
+| get_item_tags null | Return empty array |
+| update_tag partial | Preserve existing values |
+| Tag color "orange" | Not valid, updated docs |
+
+---
+
+## Next Session: Performance Improvements
+
+### Suggested Focus Areas
+
+1. **Caching optimization**
+   - Current: 2-minute TTL for boards
+   - Consider: Item-level caching, cache invalidation on writes
+
+2. **Batch operations**
+   - Current: Single-item creates
+   - Consider: Batch API calls where Miro supports them
+
+3. **Connection pooling**
+   - Review HTTP client configuration
+   - Consider keep-alive optimization
+
+4. **Rate limiting improvements**
+   - Current: Semaphore-based (5 concurrent)
+   - Consider: Adaptive rate limiting based on response headers
+
+5. **Retry strategy**
+   - Current: Exponential backoff
+   - Consider: Circuit breaker pattern for failed endpoints
+
+### Benchmarking Commands
+
+```bash
+# Run benchmarks (if added)
+go test -bench=. ./...
+
+# Profile CPU
+go test -cpuprofile=cpu.prof -bench=. ./miro
+
+# Profile memory
+go test -memprofile=mem.prof -bench=. ./miro
+```
 
 ---
 
@@ -155,23 +187,32 @@ Unexpected value [orange], expected one of: [red, light_green, cyan, yellow, mag
 # Build
 go build -o miro-mcp-server .
 
-# Test all
+# Test
 go test ./...
 
 # Run with token
 MIRO_ACCESS_TOKEN=xxx MIRO_TEAM_ID=3458764516184293832 ./miro-mcp-server
+
+# Create release
+gh release create v1.x.x dist/* --title "..." --notes "..."
 ```
 
 ---
 
-## Next Session
+## Commits Since v1.4.2
 
-1. **Restart Claude Code** to pick up rebuilt binary
-2. Test `miro_create_embed` - should work now with geometry fix
-3. Test remaining tools: create_board, copy_board, create_document
-4. Investigate webhook API issues
-5. Consider releasing v1.4.3 with all fixes
+```
+e93dbdd Remove webhook tools (Miro sunset Dec 5, 2025)
+08e2edb Fix copy_board to use correct Miro API endpoint
+9afa6a9 Fix embed geometry and tag color documentation
+964d4ea docs: add testing status documentation
+1a09e84 fix: GetItemTags null handling and connector cap documentation
+9880232 fix: CreateGroup request body and ListConnectors minimum limit
+e89238b fix: multiple API compatibility fixes
+fa66d2b fix(tags): preserve existing title/color on partial updates
+3a417ca docs: comprehensive handover notes for next session
+```
 
 ---
 
-**Binary rebuilt with fixes - restart Claude Code to continue testing!**
+**v1.5.0 released with all fixes!**

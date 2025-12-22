@@ -99,7 +99,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-## Available Tools (44 total)
+## Available Tools (46 total)
 
 ### Board Tools
 | Tool | Description |

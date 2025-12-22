@@ -49,6 +49,7 @@ type CreateService interface {
 type TagService interface {
 	CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagResult, error)
 	ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResult, error)
+	GetTagTool(ctx context.Context, args GetTagArgs) (GetTagResult, error)
 	AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error)
 	DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error)
 	GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error)

@@ -110,8 +110,9 @@ func TestToolCount(t *testing.T) {
 	//         +3 member tools (get, remove, update) = 54
 	//         +4 app card tools (create, get, update, delete) = 58
 	// v1.7.0: +4 frame tools (get, update, delete, get_items) = 62
-	// v1.8.0: +3 mindmap tools (get, list, delete) = 65
-	expectedCount := 65
+	//         +3 mindmap tools (get, list, delete) = 65
+	// v1.7.1: +1 tag tool (get_tag) = 66
+	expectedCount := 66
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

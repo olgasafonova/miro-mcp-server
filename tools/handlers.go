@@ -91,6 +91,7 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"AttachTag":   makeHandler(h, h.client.AttachTag),
 		"DetachTag":   makeHandler(h, h.client.DetachTag),
 		"GetItemTags": makeHandler(h, h.client.GetItemTags),
+		"GetTagTool":  makeHandler(h, h.client.GetTagTool),
 		"UpdateTag":   makeHandler(h, h.client.UpdateTag),
 		"DeleteTag":   makeHandler(h, h.client.DeleteTag),
 

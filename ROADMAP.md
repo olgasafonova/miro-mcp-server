@@ -2,7 +2,7 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
-> **Status**: 65 tools implemented. Phases 1-7 complete.
+> **Status**: 66 tools implemented. Phases 1-7 complete.
 > **Last Updated**: 2025-12-22
 
 ---

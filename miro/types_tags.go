@@ -104,6 +104,24 @@ type GetItemTagsResult struct {
 }
 
 // =============================================================================
+// Get Tag
+// =============================================================================
+
+// GetTagArgs contains parameters for getting a single tag.
+type GetTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to retrieve"`
+}
+
+// GetTagResult contains the tag details.
+type GetTagResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Color   string `json:"color"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
 // Update Tag
 // =============================================================================
 

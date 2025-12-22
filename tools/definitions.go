@@ -563,6 +563,24 @@ PARAMETERS:
 RETURNS: List of tags attached to the item.`,
 	},
 	{
+		Name:     "miro_get_tag",
+		Method:   "GetTagTool",
+		Title:    "Get Tag",
+		Category: "tags",
+		ReadOnly: true,
+		Description: `Get details of a specific tag by ID.
+
+USE WHEN: User asks "show tag details", "what's this tag", "get tag info"
+
+PARAMETERS:
+- board_id: Required
+- tag_id: Tag ID (required)
+
+RETURNS: Tag ID, title, and color.
+
+VOICE-FRIENDLY: "Tag 'Urgent' is red"`,
+	},
+	{
 		Name:       "miro_update_tag",
 		Method:     "UpdateTag",
 		Title:      "Update Tag",

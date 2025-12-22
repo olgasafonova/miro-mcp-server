@@ -11,7 +11,7 @@
 
 ## Current State
 
-**65 MCP tools** for Miro whiteboard control. Build passes, all tests pass.
+**66 MCP tools** for Miro whiteboard control. Build passes, all tests pass.
 
 ```bash
 # Verify build
@@ -55,7 +55,7 @@ Fixed mindmap API 405 error (v2-experimental endpoint).
 
 ---
 
-## Tool Categories (65 Total)
+## Tool Categories (66 Total)
 
 | Category | Count | Tools |
 |----------|-------|-------|
@@ -67,7 +67,7 @@ Fixed mindmap API 405 error (v2-experimental endpoint).
 | **Read** | 5 | list_items, list_all_items, get_item, get_app_card, search |
 | **Update** | 5 | update_item, update_app_card, update_connector, update_tag, update_frame |
 | **Delete** | 6 | delete_item, delete_app_card, delete_connector, delete_tag, delete_frame, delete_group |
-| **Tags** | 5 | create, list, attach, detach, get_item_tags |
+| **Tags** | 6 | create, list, get, attach, detach, get_item_tags |
 | **Connectors** | 4 | create, list, get, update, delete |
 | **Groups** | 5 | create, ungroup, list, get, get_items |
 | **Export** | 4 | get_board_picture, create_export_job, get_export_job_status, get_export_job_results |
@@ -81,7 +81,7 @@ Fixed mindmap API 405 error (v2-experimental endpoint).
 | Server | Tools | Language | Our Advantage |
 |--------|-------|----------|---------------|
 | **k-jarzyna/mcp-miro** | 81 | TypeScript | Single binary, Mermaid diagrams, no Node.js, rate limiting, caching |
-| **Miro Official** | ~10 | Cloud | Self-hosted, 65 tools, works offline, full control |
+| **Miro Official** | ~10 | Cloud | Self-hosted, 66 tools, works offline, full control |
 | **LuotoCompany** | ~15 | TypeScript | More comprehensive, production-ready |
 
 **Our Unique Features**:
@@ -199,7 +199,7 @@ GOOS=windows GOARCH=amd64 go build -o dist/miro-mcp-server-windows-amd64.exe .
 1. **Add Comments API** (+3 tools → 68 total) - Close gap with k-jarzyna
 2. **Add to Awesome MCP Servers** - Increase visibility
 3. **GitHub Actions** - CI/CD for automated releases
-4. **More test coverage** - Currently 39/65 tools tested
+4. **More test coverage** - Currently 40/66 tools tested
 5. **Docker image verification** - Test ghcr.io image works
 
 **Already Verified This Session:**

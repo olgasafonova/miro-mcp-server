@@ -197,7 +197,7 @@ func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItem
 	}, nil
 }
 
-// GetTag retrieves a single tag by ID.
+// GetTag retrieves a single tag by ID (internal helper).
 func (c *Client) GetTag(ctx context.Context, boardID, tagID string) (Tag, error) {
 	if boardID == "" {
 		return Tag{}, fmt.Errorf("board_id is required")
@@ -219,6 +219,21 @@ func (c *Client) GetTag(ctx context.Context, boardID, tagID string) (Tag, error)
 	}
 
 	return tag, nil
+}
+
+// GetTagTool retrieves a single tag by ID (tool wrapper).
+func (c *Client) GetTagTool(ctx context.Context, args GetTagArgs) (GetTagResult, error) {
+	tag, err := c.GetTag(ctx, args.BoardID, args.TagID)
+	if err != nil {
+		return GetTagResult{}, err
+	}
+
+	return GetTagResult{
+		ID:      tag.ID,
+		Title:   tag.Title,
+		Color:   tag.FillColor,
+		Message: fmt.Sprintf("Tag '%s'", tag.Title),
+	}, nil
 }
 
 // UpdateTag updates an existing tag on a board.

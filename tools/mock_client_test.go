@@ -52,6 +52,7 @@ type MockClient struct {
 	AttachTagFn   func(ctx context.Context, args miro.AttachTagArgs) (miro.AttachTagResult, error)
 	DetachTagFn   func(ctx context.Context, args miro.DetachTagArgs) (miro.DetachTagResult, error)
 	GetItemTagsFn func(ctx context.Context, args miro.GetItemTagsArgs) (miro.GetItemTagsResult, error)
+	GetTagToolFn  func(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error)
 	UpdateTagFn   func(ctx context.Context, args miro.UpdateTagArgs) (miro.UpdateTagResult, error)
 	DeleteTagFn   func(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error)
 
@@ -563,6 +564,19 @@ func (m *MockClient) GetItemTags(ctx context.Context, args miro.GetItemTagsArgs)
 		},
 		Count:  1,
 		ItemID: args.ItemID,
+	}, nil
+}
+
+func (m *MockClient) GetTagTool(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error) {
+	m.recordCall("GetTagTool", args)
+	if m.GetTagToolFn != nil {
+		return m.GetTagToolFn(ctx, args)
+	}
+	return miro.GetTagResult{
+		ID:      args.TagID,
+		Title:   "Urgent",
+		Color:   "red",
+		Message: "Tag 'Urgent'",
 	}, nil
 }
 

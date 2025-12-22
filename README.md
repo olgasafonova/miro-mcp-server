@@ -2,7 +2,7 @@
 
 Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
-**65 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**66 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 ---
 
@@ -315,9 +315,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 65 tools |
-| Team | Full access to all 65 tools |
-| Business | Full access to all 65 tools |
+| Free | Full access to all 66 tools |
+| Team | Full access to all 66 tools |
+| Business | Full access to all 66 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

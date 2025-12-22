@@ -15,6 +15,7 @@ type BoardService interface {
 	CreateBoard(ctx context.Context, args CreateBoardArgs) (CreateBoardResult, error)
 	CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardResult, error)
 	DeleteBoard(ctx context.Context, args DeleteBoardArgs) (DeleteBoardResult, error)
+	UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateBoardResult, error)
 	FindBoardByName(ctx context.Context, name string) (*BoardSummary, error)
 	FindBoardByNameTool(ctx context.Context, args FindBoardByNameArgs) (FindBoardByNameResult, error)
 	GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) (GetBoardSummaryResult, error)
@@ -68,12 +69,19 @@ type ConnectorService interface {
 type GroupService interface {
 	CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateGroupResult, error)
 	Ungroup(ctx context.Context, args UngroupArgs) (UngroupResult, error)
+	ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroupsResult, error)
+	GetGroup(ctx context.Context, args GetGroupArgs) (GetGroupResult, error)
+	GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (GetGroupItemsResult, error)
+	DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteGroupResult, error)
 }
 
 // MemberService handles board member operations.
 type MemberService interface {
 	ListBoardMembers(ctx context.Context, args ListBoardMembersArgs) (ListBoardMembersResult, error)
 	ShareBoard(ctx context.Context, args ShareBoardArgs) (ShareBoardResult, error)
+	GetBoardMember(ctx context.Context, args GetBoardMemberArgs) (GetBoardMemberResult, error)
+	RemoveBoardMember(ctx context.Context, args RemoveBoardMemberArgs) (RemoveBoardMemberResult, error)
+	UpdateBoardMember(ctx context.Context, args UpdateBoardMemberArgs) (UpdateBoardMemberResult, error)
 }
 
 // MindmapService handles mindmap operations.
@@ -107,6 +115,14 @@ type DiagramService interface {
 	GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) (GenerateDiagramResult, error)
 }
 
+// AppCardService handles app card operations.
+type AppCardService interface {
+	CreateAppCard(ctx context.Context, args CreateAppCardArgs) (CreateAppCardResult, error)
+	GetAppCard(ctx context.Context, args GetAppCardArgs) (GetAppCardResult, error)
+	UpdateAppCard(ctx context.Context, args UpdateAppCardArgs) (UpdateAppCardResult, error)
+	DeleteAppCard(ctx context.Context, args DeleteAppCardArgs) (DeleteAppCardResult, error)
+}
+
 // =============================================================================
 // Composite Interface
 // =============================================================================
@@ -126,6 +142,7 @@ type MiroClient interface {
 	WebhookService
 	DiagramService
 	ConnectorService
+	AppCardService
 }
 
 // Verify that Client implements MiroClient at compile time.

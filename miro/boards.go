@@ -281,6 +281,45 @@ func (c *Client) FindBoardByNameTool(ctx context.Context, args FindBoardByNameAr
 	}, nil
 }
 
+// UpdateBoard updates a board's name and/or description.
+func (c *Client) UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateBoardResult, error) {
+	if args.BoardID == "" {
+		return UpdateBoardResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.Name == "" && args.Description == "" {
+		return UpdateBoardResult{}, fmt.Errorf("at least one of name or description is required")
+	}
+
+	reqBody := make(map[string]interface{})
+	if args.Name != "" {
+		reqBody["name"] = args.Name
+	}
+	if args.Description != "" {
+		reqBody["description"] = args.Description
+	}
+
+	respBody, err := c.request(ctx, http.MethodPatch, "/boards/"+args.BoardID, reqBody)
+	if err != nil {
+		return UpdateBoardResult{}, err
+	}
+
+	var board Board
+	if err := json.Unmarshal(respBody, &board); err != nil {
+		return UpdateBoardResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Invalidate cache
+	c.cache.Delete("board:" + args.BoardID)
+
+	return UpdateBoardResult{
+		ID:          board.ID,
+		Name:        board.Name,
+		Description: board.Description,
+		ViewLink:    board.ViewLink,
+		Message:     fmt.Sprintf("Updated board '%s'", board.Name),
+	}, nil
+}
+
 // GetBoardSummary retrieves a board with item counts and statistics.
 func (c *Client) GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) (GetBoardSummaryResult, error) {
 	if args.BoardID == "" {

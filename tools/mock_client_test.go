@@ -20,6 +20,7 @@ type MockClient struct {
 	CreateBoardFn          func(ctx context.Context, args miro.CreateBoardArgs) (miro.CreateBoardResult, error)
 	CopyBoardFn            func(ctx context.Context, args miro.CopyBoardArgs) (miro.CopyBoardResult, error)
 	DeleteBoardFn          func(ctx context.Context, args miro.DeleteBoardArgs) (miro.DeleteBoardResult, error)
+	UpdateBoardFn          func(ctx context.Context, args miro.UpdateBoardArgs) (miro.UpdateBoardResult, error)
 	FindBoardByNameFn      func(ctx context.Context, name string) (*miro.BoardSummary, error)
 	FindBoardByNameToolFn  func(ctx context.Context, args miro.FindBoardByNameArgs) (miro.FindBoardByNameResult, error)
 	GetBoardSummaryFn      func(ctx context.Context, args miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error)
@@ -61,12 +62,19 @@ type MockClient struct {
 	DeleteConnectorFn func(ctx context.Context, args miro.DeleteConnectorArgs) (miro.DeleteConnectorResult, error)
 
 	// Group operations
-	CreateGroupFn func(ctx context.Context, args miro.CreateGroupArgs) (miro.CreateGroupResult, error)
-	UngroupFn     func(ctx context.Context, args miro.UngroupArgs) (miro.UngroupResult, error)
+	CreateGroupFn   func(ctx context.Context, args miro.CreateGroupArgs) (miro.CreateGroupResult, error)
+	UngroupFn       func(ctx context.Context, args miro.UngroupArgs) (miro.UngroupResult, error)
+	ListGroupsFn    func(ctx context.Context, args miro.ListGroupsArgs) (miro.ListGroupsResult, error)
+	GetGroupFn      func(ctx context.Context, args miro.GetGroupArgs) (miro.GetGroupResult, error)
+	GetGroupItemsFn func(ctx context.Context, args miro.GetGroupItemsArgs) (miro.GetGroupItemsResult, error)
+	DeleteGroupFn   func(ctx context.Context, args miro.DeleteGroupArgs) (miro.DeleteGroupResult, error)
 
 	// Member operations
-	ListBoardMembersFn func(ctx context.Context, args miro.ListBoardMembersArgs) (miro.ListBoardMembersResult, error)
-	ShareBoardFn       func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error)
+	ListBoardMembersFn   func(ctx context.Context, args miro.ListBoardMembersArgs) (miro.ListBoardMembersResult, error)
+	ShareBoardFn         func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error)
+	GetBoardMemberFn     func(ctx context.Context, args miro.GetBoardMemberArgs) (miro.GetBoardMemberResult, error)
+	RemoveBoardMemberFn  func(ctx context.Context, args miro.RemoveBoardMemberArgs) (miro.RemoveBoardMemberResult, error)
+	UpdateBoardMemberFn  func(ctx context.Context, args miro.UpdateBoardMemberArgs) (miro.UpdateBoardMemberResult, error)
 
 	// Mindmap operations
 	CreateMindmapNodeFn func(ctx context.Context, args miro.CreateMindmapNodeArgs) (miro.CreateMindmapNodeResult, error)
@@ -88,6 +96,12 @@ type MockClient struct {
 
 	// Diagram operations
 	GenerateDiagramFn func(ctx context.Context, args miro.GenerateDiagramArgs) (miro.GenerateDiagramResult, error)
+
+	// App card operations
+	CreateAppCardFn func(ctx context.Context, args miro.CreateAppCardArgs) (miro.CreateAppCardResult, error)
+	GetAppCardFn    func(ctx context.Context, args miro.GetAppCardArgs) (miro.GetAppCardResult, error)
+	UpdateAppCardFn func(ctx context.Context, args miro.UpdateAppCardArgs) (miro.UpdateAppCardResult, error)
+	DeleteAppCardFn func(ctx context.Context, args miro.DeleteAppCardArgs) (miro.DeleteAppCardResult, error)
 
 	// Call tracking
 	Calls []MockCall
@@ -176,6 +190,20 @@ func (m *MockClient) DeleteBoard(ctx context.Context, args miro.DeleteBoardArgs)
 		Success: true,
 		BoardID: args.BoardID,
 		Message: "Board deleted successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateBoard(ctx context.Context, args miro.UpdateBoardArgs) (miro.UpdateBoardResult, error) {
+	m.recordCall("UpdateBoard", args)
+	if m.UpdateBoardFn != nil {
+		return m.UpdateBoardFn(ctx, args)
+	}
+	return miro.UpdateBoardResult{
+		ID:          args.BoardID,
+		Name:        args.Name,
+		Description: args.Description,
+		ViewLink:    "https://miro.com/" + args.BoardID,
+		Message:     "Board updated successfully",
 	}, nil
 }
 
@@ -650,6 +678,62 @@ func (m *MockClient) Ungroup(ctx context.Context, args miro.UngroupArgs) (miro.U
 	}, nil
 }
 
+func (m *MockClient) ListGroups(ctx context.Context, args miro.ListGroupsArgs) (miro.ListGroupsResult, error) {
+	m.recordCall("ListGroups", args)
+	if m.ListGroupsFn != nil {
+		return m.ListGroupsFn(ctx, args)
+	}
+	return miro.ListGroupsResult{
+		Groups:  []miro.Group{{ID: "group-1", Items: []string{"item-1", "item-2"}}},
+		Count:   1,
+		HasMore: false,
+		Message: "Found 1 groups",
+	}, nil
+}
+
+func (m *MockClient) GetGroup(ctx context.Context, args miro.GetGroupArgs) (miro.GetGroupResult, error) {
+	m.recordCall("GetGroup", args)
+	if m.GetGroupFn != nil {
+		return m.GetGroupFn(ctx, args)
+	}
+	return miro.GetGroupResult{
+		ID:      args.GroupID,
+		Items:   []string{"item-1", "item-2"},
+		Message: "Group contains 2 items",
+	}, nil
+}
+
+func (m *MockClient) GetGroupItems(ctx context.Context, args miro.GetGroupItemsArgs) (miro.GetGroupItemsResult, error) {
+	m.recordCall("GetGroupItems", args)
+	if m.GetGroupItemsFn != nil {
+		return m.GetGroupItemsFn(ctx, args)
+	}
+	return miro.GetGroupItemsResult{
+		Items: []miro.ItemSummary{
+			{ID: "item-1", Type: "sticky_note", Content: "Test sticky"},
+		},
+		Count:   1,
+		HasMore: false,
+		Message: "Found 1 items in group",
+	}, nil
+}
+
+func (m *MockClient) DeleteGroup(ctx context.Context, args miro.DeleteGroupArgs) (miro.DeleteGroupResult, error) {
+	m.recordCall("DeleteGroup", args)
+	if m.DeleteGroupFn != nil {
+		return m.DeleteGroupFn(ctx, args)
+	}
+	msg := "Group deleted, items ungrouped"
+	if args.DeleteItems {
+		msg = "Group and its items deleted"
+	}
+	return miro.DeleteGroupResult{
+		Success: true,
+		GroupID: args.GroupID,
+		Message: msg,
+	}, nil
+}
+
 // =============================================================================
 // MemberService Implementation
 // =============================================================================
@@ -677,6 +761,46 @@ func (m *MockClient) ShareBoard(ctx context.Context, args miro.ShareBoardArgs) (
 		Email:   args.Email,
 		Role:    args.Role,
 		Message: fmt.Sprintf("Shared board with %s as %s", args.Email, args.Role),
+	}, nil
+}
+
+func (m *MockClient) GetBoardMember(ctx context.Context, args miro.GetBoardMemberArgs) (miro.GetBoardMemberResult, error) {
+	m.recordCall("GetBoardMember", args)
+	if m.GetBoardMemberFn != nil {
+		return m.GetBoardMemberFn(ctx, args)
+	}
+	return miro.GetBoardMemberResult{
+		ID:      args.MemberID,
+		Name:    "Test User",
+		Email:   "test@example.com",
+		Role:    "editor",
+		Message: "Member 'Test User' has role 'editor'",
+	}, nil
+}
+
+func (m *MockClient) RemoveBoardMember(ctx context.Context, args miro.RemoveBoardMemberArgs) (miro.RemoveBoardMemberResult, error) {
+	m.recordCall("RemoveBoardMember", args)
+	if m.RemoveBoardMemberFn != nil {
+		return m.RemoveBoardMemberFn(ctx, args)
+	}
+	return miro.RemoveBoardMemberResult{
+		Success:  true,
+		MemberID: args.MemberID,
+		Message:  "Member removed from board",
+	}, nil
+}
+
+func (m *MockClient) UpdateBoardMember(ctx context.Context, args miro.UpdateBoardMemberArgs) (miro.UpdateBoardMemberResult, error) {
+	m.recordCall("UpdateBoardMember", args)
+	if m.UpdateBoardMemberFn != nil {
+		return m.UpdateBoardMemberFn(ctx, args)
+	}
+	return miro.UpdateBoardMemberResult{
+		ID:      args.MemberID,
+		Name:    "Test User",
+		Email:   "test@example.com",
+		Role:    args.Role,
+		Message: fmt.Sprintf("Updated 'Test User' to role '%s'", args.Role),
 	}, nil
 }
 
@@ -860,6 +984,67 @@ func (m *MockClient) GenerateDiagram(ctx context.Context, args miro.GenerateDiag
 		DiagramWidth:      400,
 		DiagramHeight:     300,
 		Message:           "Created diagram with 3 nodes and 2 connectors",
+	}, nil
+}
+
+// =============================================================================
+// AppCardService Implementation
+// =============================================================================
+
+func (m *MockClient) CreateAppCard(ctx context.Context, args miro.CreateAppCardArgs) (miro.CreateAppCardResult, error) {
+	m.recordCall("CreateAppCard", args)
+	if m.CreateAppCardFn != nil {
+		return m.CreateAppCardFn(ctx, args)
+	}
+	return miro.CreateAppCardResult{
+		ID:          "appcard-123",
+		Title:       args.Title,
+		Description: args.Description,
+		Status:      args.Status,
+		Message:     fmt.Sprintf("Created app card '%s'", truncateForTest(args.Title, 30)),
+	}, nil
+}
+
+func (m *MockClient) GetAppCard(ctx context.Context, args miro.GetAppCardArgs) (miro.GetAppCardResult, error) {
+	m.recordCall("GetAppCard", args)
+	if m.GetAppCardFn != nil {
+		return m.GetAppCardFn(ctx, args)
+	}
+	return miro.GetAppCardResult{
+		ID:          args.ItemID,
+		Title:       "Test App Card",
+		Description: "Test description",
+		Status:      "connected",
+		Message:     "App card 'Test App Card'",
+	}, nil
+}
+
+func (m *MockClient) UpdateAppCard(ctx context.Context, args miro.UpdateAppCardArgs) (miro.UpdateAppCardResult, error) {
+	m.recordCall("UpdateAppCard", args)
+	if m.UpdateAppCardFn != nil {
+		return m.UpdateAppCardFn(ctx, args)
+	}
+	title := args.Title
+	if title == "" {
+		title = "Updated App Card"
+	}
+	return miro.UpdateAppCardResult{
+		ID:      args.ItemID,
+		Title:   title,
+		Status:  args.Status,
+		Message: "App card updated successfully",
+	}, nil
+}
+
+func (m *MockClient) DeleteAppCard(ctx context.Context, args miro.DeleteAppCardArgs) (miro.DeleteAppCardResult, error) {
+	m.recordCall("DeleteAppCard", args)
+	if m.DeleteAppCardFn != nil {
+		return m.DeleteAppCardFn(ctx, args)
+	}
+	return miro.DeleteAppCardResult{
+		Success: true,
+		ItemID:  args.ItemID,
+		Message: "App card deleted successfully",
 	}, nil
 }
 

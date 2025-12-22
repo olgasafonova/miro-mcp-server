@@ -56,6 +56,9 @@ const (
 	// BaseURL is the Miro REST API v2 base URL.
 	BaseURL = "https://api.miro.com/v2"
 
+	// ExperimentalBaseURL is the Miro REST API v2-experimental base URL.
+	ExperimentalBaseURL = "https://api.miro.com/v2-experimental"
+
 	// DefaultTimeout is the default HTTP request timeout.
 	DefaultTimeout = 30 * time.Second
 
@@ -474,6 +477,19 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	)
 
 	return respBody, nil
+}
+
+// requestExperimental makes a request to the v2-experimental API endpoints.
+// Used for features that are not yet in the stable v2 API (e.g., mindmaps).
+func (c *Client) requestExperimental(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	// Only swap to experimental if using production URL (preserve test server URLs)
+	if c.baseURL == BaseURL {
+		originalBaseURL := c.baseURL
+		c.baseURL = ExperimentalBaseURL
+		defer func() { c.baseURL = originalBaseURL }()
+	}
+
+	return c.request(ctx, method, path, body)
 }
 
 // requestWithRetry wraps request with exponential backoff for rate limit errors (HTTP 429).

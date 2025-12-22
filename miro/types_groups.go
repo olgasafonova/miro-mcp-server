@@ -43,3 +43,78 @@ type UngroupResult struct {
 	GroupID string `json:"group_id"`
 	Message string `json:"message"`
 }
+
+// =============================================================================
+// List Groups
+// =============================================================================
+
+// ListGroupsArgs contains parameters for listing groups on a board.
+type ListGroupsArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max groups to return (default 50)"`
+	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+}
+
+// ListGroupsResult contains the list of groups.
+type ListGroupsResult struct {
+	Groups  []Group `json:"groups"`
+	Count   int     `json:"count"`
+	HasMore bool    `json:"has_more"`
+	Cursor  string  `json:"cursor,omitempty"`
+	Message string  `json:"message"`
+}
+
+// =============================================================================
+// Get Group
+// =============================================================================
+
+// GetGroupArgs contains parameters for getting a specific group.
+type GetGroupArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	GroupID string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to retrieve"`
+}
+
+// GetGroupResult contains the group details.
+type GetGroupResult struct {
+	ID      string   `json:"id"`
+	Items   []string `json:"items"`
+	Message string   `json:"message"`
+}
+
+// =============================================================================
+// Get Group Items
+// =============================================================================
+
+// GetGroupItemsArgs contains parameters for getting items in a group.
+type GetGroupItemsArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	GroupID string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50)"`
+	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+}
+
+// GetGroupItemsResult contains the items in a group.
+type GetGroupItemsResult struct {
+	Items   []ItemSummary `json:"items"`
+	Count   int           `json:"count"`
+	HasMore bool          `json:"has_more"`
+	Message string        `json:"message"`
+}
+
+// =============================================================================
+// Delete Group
+// =============================================================================
+
+// DeleteGroupArgs contains parameters for deleting a group.
+type DeleteGroupArgs struct {
+	BoardID      string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	GroupID      string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to delete"`
+	DeleteItems  bool   `json:"delete_items,omitempty" jsonschema_description:"Also delete the items in the group (default: false, items are ungrouped)"`
+}
+
+// DeleteGroupResult confirms group deletion.
+type DeleteGroupResult struct {
+	Success bool   `json:"success"`
+	GroupID string `json:"group_id"`
+	Message string `json:"message"`
+}

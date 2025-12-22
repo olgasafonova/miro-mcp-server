@@ -56,6 +56,8 @@ func TestToolCategories(t *testing.T) {
 		"webhooks":   true,
 		"diagrams":   true,
 		"connectors": true,
+		"groups":     true,
+		"members":    true,
 	}
 
 	for _, tool := range AllTools {
@@ -103,7 +105,10 @@ func TestToolCount(t *testing.T) {
 	// Phase 1-4: 38 tools, Phase 5: +1 audit (webhooks removed - Miro sunset Dec 2025), Phase 6: +1 diagram = 40
 	// Quick wins: +2 tag tools (update, delete) + 2 connector tools (update, delete) = 44
 	// New: +2 connector tools (list, get) = 46
-	expectedCount := 46
+	// v1.6.0: +1 update_board, +4 group tools (list, get, get_items, delete),
+	//         +3 member tools (get, remove, update) = 54
+	//         +4 app card tools (create, get, update, delete) = 58
+	expectedCount := 58
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

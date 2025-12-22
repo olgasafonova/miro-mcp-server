@@ -131,6 +131,25 @@ PARAMETERS:
 
 WARNING: This action cannot be undone. The board and all its contents will be permanently deleted.`,
 	},
+	{
+		Name:       "miro_update_board",
+		Method:     "UpdateBoard",
+		Title:      "Update Board",
+		Category:   "boards",
+		Idempotent: true,
+		Description: `Update a Miro board's name or description.
+
+USE WHEN: User says "rename the board", "change board name to X", "update board description"
+
+PARAMETERS:
+- board_id: Required
+- name: New board name
+- description: New board description
+
+NOTE: At least one of name or description must be provided.
+
+VOICE-FRIENDLY: "Updated board name to 'Sprint Planning Q1'"`,
+	},
 
 	// ==========================================================================
 	// Create Tools - Sticky Notes, Shapes, Text
@@ -736,6 +755,80 @@ PARAMETERS:
 
 VOICE-FRIENDLY: "Items ungrouped successfully"`,
 	},
+	{
+		Name:     "miro_list_groups",
+		Method:   "ListGroups",
+		Title:    "List Groups",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List all groups on a Miro board.
+
+USE WHEN: User asks "what groups exist", "show me all groups", "list groups on the board"
+
+PARAMETERS:
+- board_id: Required
+- limit: Max groups to return (default 50, max 100)
+
+RETURNS: List of groups with IDs and member item IDs.
+
+VOICE-FRIENDLY: "Found 3 groups on the board"`,
+	},
+	{
+		Name:     "miro_get_group",
+		Method:   "GetGroup",
+		Title:    "Get Group Details",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of a specific group by ID.
+
+USE WHEN: User asks "show me this group", "what's in this group", "group details"
+
+PARAMETERS:
+- board_id: Required
+- group_id: Required
+
+RETURNS: Group ID and list of item IDs in the group.
+
+VOICE-FRIENDLY: "This group contains 4 items"`,
+	},
+	{
+		Name:     "miro_get_group_items",
+		Method:   "GetGroupItems",
+		Title:    "Get Group Items",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get the items in a group with their details.
+
+USE WHEN: User asks "what items are in this group", "show group contents", "list items in group"
+
+PARAMETERS:
+- board_id: Required
+- group_id: Required
+- limit: Max items to return (default 50, max 100)
+
+RETURNS: List of items with IDs, types, and content.
+
+VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
+	},
+	{
+		Name:        "miro_delete_group",
+		Method:      "DeleteGroup",
+		Title:       "Delete Group",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete a group from a board. Optionally delete the items in the group too.
+
+USE WHEN: User says "delete this group", "remove the group"
+
+PARAMETERS:
+- board_id: Required
+- group_id: Required
+- delete_items: If true, also delete the items (default: false, items are ungrouped)
+
+WARNING: Deleting items cannot be undone.
+
+VOICE-FRIENDLY: "Group deleted, items ungrouped"`,
+	},
 
 	// ==========================================================================
 	// Board Member Tools
@@ -774,6 +867,59 @@ PARAMETERS:
 - message: Optional invitation message
 
 VOICE-FRIENDLY: "Shared board with jane@example.com as editor"`,
+	},
+	{
+		Name:     "miro_get_board_member",
+		Method:   "GetBoardMember",
+		Title:    "Get Board Member",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of a specific board member.
+
+USE WHEN: User asks "who is this member", "show member details", "what role does X have"
+
+PARAMETERS:
+- board_id: Required
+- member_id: Required
+
+RETURNS: Member name, email, and role.
+
+VOICE-FRIENDLY: "John Smith has editor access"`,
+	},
+	{
+		Name:        "miro_remove_board_member",
+		Method:      "RemoveBoardMember",
+		Title:       "Remove Board Member",
+		Category:    "members",
+		Destructive: true,
+		Description: `Remove a member from a board. They will lose access.
+
+USE WHEN: User says "remove John from the board", "revoke access for X", "kick from board"
+
+PARAMETERS:
+- board_id: Required
+- member_id: Required
+
+WARNING: This revokes the member's access to the board.
+
+VOICE-FRIENDLY: "Removed member from board"`,
+	},
+	{
+		Name:       "miro_update_board_member",
+		Method:     "UpdateBoardMember",
+		Title:      "Update Board Member",
+		Category:   "members",
+		Idempotent: true,
+		Description: `Update a board member's role.
+
+USE WHEN: User says "change John's role to editor", "make X a viewer", "promote to editor"
+
+PARAMETERS:
+- board_id: Required
+- member_id: Required
+- role: New role (viewer, commenter, or editor)
+
+VOICE-FRIENDLY: "Updated John's role to editor"`,
 	},
 
 	// ==========================================================================
@@ -984,6 +1130,90 @@ PARAMETERS:
 RETURNS: Count of created nodes, connectors, and their IDs.
 
 VOICE-FRIENDLY: "Created sequence diagram with 3 participants and 5 messages"`,
+	},
+
+	// ==========================================================================
+	// App Card Tools
+	// ==========================================================================
+	{
+		Name:     "miro_create_app_card",
+		Method:   "CreateAppCard",
+		Title:    "Create App Card",
+		Category: "create",
+		Description: `Create an app card on a Miro board. App cards are special cards with custom fields and status indicators.
+
+USE WHEN: User says "create an app card", "add a card with fields", "create a custom card"
+
+PARAMETERS:
+- board_id: Required
+- title: Card title (required)
+- description: Card body text
+- status: Status indicator (connected, disconnected, disabled)
+- fields: Array of custom fields (max 5), each with value, fillColor, textColor
+- x, y: Position
+- width: Card width (default 320)
+- parent_id: Frame ID to place card in
+
+VOICE-FRIENDLY: "Created app card 'Integration Status'"`,
+	},
+	{
+		Name:     "miro_get_app_card",
+		Method:   "GetAppCard",
+		Title:    "Get App Card",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of a specific app card by ID.
+
+USE WHEN: User asks "show app card details", "what's in this app card"
+
+PARAMETERS:
+- board_id: Required
+- item_id: App card ID (required)
+
+RETURNS: App card details including title, description, status, custom fields, position.
+
+VOICE-FRIENDLY: "App card 'API Status' shows 3 custom fields"`,
+	},
+	{
+		Name:     "miro_update_app_card",
+		Method:   "UpdateAppCard",
+		Title:    "Update App Card",
+		Category: "update",
+		Description: `Update an existing app card's content, status, or fields.
+
+USE WHEN: User says "update the app card", "change card status", "modify card fields"
+
+PARAMETERS:
+- board_id: Required
+- item_id: App card ID (required)
+- title: New title
+- description: New description
+- status: New status (connected, disconnected, disabled)
+- fields: Updated custom fields array
+- x, y: New position
+- width: New width
+
+NOTE: Only provide fields you want to change.
+
+VOICE-FRIENDLY: "Updated app card status to 'connected'"`,
+	},
+	{
+		Name:        "miro_delete_app_card",
+		Method:      "DeleteAppCard",
+		Title:       "Delete App Card",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete an app card from a Miro board.
+
+USE WHEN: User says "remove the app card", "delete that app card"
+
+PARAMETERS:
+- board_id: Required
+- item_id: App card ID to delete (required)
+
+WARNING: This action cannot be undone.
+
+VOICE-FRIENDLY: "App card deleted successfully"`,
 	},
 }
 

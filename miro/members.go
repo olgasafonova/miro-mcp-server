@@ -105,3 +105,113 @@ func (c *Client) ShareBoard(ctx context.Context, args ShareBoardArgs) (ShareBoar
 		Message: fmt.Sprintf("Shared board with %s as %s", args.Email, role),
 	}, nil
 }
+
+// GetBoardMember retrieves a specific board member by ID.
+func (c *Client) GetBoardMember(ctx context.Context, args GetBoardMemberArgs) (GetBoardMemberResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetBoardMemberResult{}, err
+	}
+	if args.MemberID == "" {
+		return GetBoardMemberResult{}, fmt.Errorf("member_id is required")
+	}
+
+	path := "/boards/" + args.BoardID + "/members/" + args.MemberID
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return GetBoardMemberResult{}, err
+	}
+
+	var member BoardMember
+	if err := json.Unmarshal(respBody, &member); err != nil {
+		return GetBoardMemberResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	name := member.Name
+	if name == "" {
+		name = member.Email
+	}
+
+	return GetBoardMemberResult{
+		ID:      member.ID,
+		Name:    member.Name,
+		Email:   member.Email,
+		Role:    member.Role,
+		Message: fmt.Sprintf("Member '%s' has role '%s'", name, member.Role),
+	}, nil
+}
+
+// RemoveBoardMember removes a member from a board.
+func (c *Client) RemoveBoardMember(ctx context.Context, args RemoveBoardMemberArgs) (RemoveBoardMemberResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return RemoveBoardMemberResult{}, err
+	}
+	if args.MemberID == "" {
+		return RemoveBoardMemberResult{}, fmt.Errorf("member_id is required")
+	}
+
+	path := "/boards/" + args.BoardID + "/members/" + args.MemberID
+
+	_, err := c.request(ctx, http.MethodDelete, path, nil)
+	if err != nil {
+		return RemoveBoardMemberResult{
+			Success:  false,
+			MemberID: args.MemberID,
+			Message:  fmt.Sprintf("Failed to remove member: %v", err),
+		}, err
+	}
+
+	return RemoveBoardMemberResult{
+		Success:  true,
+		MemberID: args.MemberID,
+		Message:  "Member removed from board",
+	}, nil
+}
+
+// UpdateBoardMember updates a board member's role.
+func (c *Client) UpdateBoardMember(ctx context.Context, args UpdateBoardMemberArgs) (UpdateBoardMemberResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateBoardMemberResult{}, err
+	}
+	if args.MemberID == "" {
+		return UpdateBoardMemberResult{}, fmt.Errorf("member_id is required")
+	}
+	if args.Role == "" {
+		return UpdateBoardMemberResult{}, fmt.Errorf("role is required")
+	}
+
+	// Validate role
+	validRoles := map[string]bool{"viewer": true, "commenter": true, "editor": true}
+	if !validRoles[args.Role] {
+		return UpdateBoardMemberResult{}, fmt.Errorf("invalid role '%s': must be viewer, commenter, or editor", args.Role)
+	}
+
+	path := "/boards/" + args.BoardID + "/members/" + args.MemberID
+
+	reqBody := map[string]interface{}{
+		"role": args.Role,
+	}
+
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateBoardMemberResult{}, err
+	}
+
+	var member BoardMember
+	if err := json.Unmarshal(respBody, &member); err != nil {
+		return UpdateBoardMemberResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	name := member.Name
+	if name == "" {
+		name = member.Email
+	}
+
+	return UpdateBoardMemberResult{
+		ID:      member.ID,
+		Name:    member.Name,
+		Email:   member.Email,
+		Role:    member.Role,
+		Message: fmt.Sprintf("Updated '%s' to role '%s'", name, member.Role),
+	}, nil
+}

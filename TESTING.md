@@ -1,6 +1,6 @@
 # Miro MCP Server - Testing Status
 
-Last updated: 2025-12-22 (Session 3)
+Last updated: 2025-12-22 (v1.6.0 Release)
 
 ## Test Board
 
@@ -55,16 +55,16 @@ Last updated: 2025-12-22 (Session 3)
 
 | Tool | Status | Issue |
 |------|--------|-------|
-| `miro_create_mindmap_node` | ❌ | API returns 405 - endpoint may have changed |
 | `miro_create_embed` | ⚠️ | BUG FIXED - was sending both width and height |
 | `miro_get_board_picture` | ⚠️ | Returns empty - may need board activity to generate |
-| `miro_create_webhook` | ❌ | API error "subscription or endpoint does not exist" |
-| `miro_list_webhooks` | ❌ | Same error - may need app setup or permissions |
+| `miro_create_webhook` | ❌ | API error - webhooks sunset Dec 2025, tools removed |
+| `miro_list_webhooks` | ❌ | API error - webhooks sunset Dec 2025, tools removed |
 
-### Fixed Issues (Session 3 - 2025-12-22)
+### Fixed Issues (v1.6.0 - 2025-12-22)
 
 | Issue | Fix | File |
 |-------|-----|------|
+| `miro_create_mindmap_node` 405 error | Changed to v2-experimental endpoint with correct path | `miro/mindmaps.go`, `miro/client.go` |
 | `miro_create_embed` sends both width and height | Only send width OR height, not both | `miro/create.go` |
 | Tag color "orange" documented but API rejects | Updated valid colors list | `tools/definitions.go`, `miro/types_tags.go` |
 
@@ -88,13 +88,24 @@ The Miro API accepts these tag colors (NOT orange):
 | `miro_create_board` | boards | |
 | `miro_copy_board` | boards | |
 | `miro_delete_board` | boards | Destructive |
+| `miro_update_board` | boards | v1.6.0 - Update name/description |
 | `miro_create_document` | create | Needs public PDF URL |
+| `miro_create_mindmap_node` | create | v1.6.0 - Fixed to use v2-experimental |
 | `miro_share_board` | members | Needs email |
+| `miro_get_board_member` | members | v1.6.0 - Get member by ID |
+| `miro_remove_board_member` | members | v1.6.0 - Remove member |
+| `miro_update_board_member` | members | v1.6.0 - Update role |
+| `miro_list_groups` | groups | v1.6.0 - List groups on board |
+| `miro_get_group` | groups | v1.6.0 - Get group by ID |
+| `miro_get_group_items` | groups | v1.6.0 - List items in group |
+| `miro_delete_group` | groups | v1.6.0 - Delete group |
+| `miro_create_app_card` | create | v1.6.0 - App card with custom fields |
+| `miro_get_app_card` | read | v1.6.0 - Get app card details |
+| `miro_update_app_card` | update | v1.6.0 - Update app card |
+| `miro_delete_app_card` | delete | v1.6.0 - Delete app card |
 | `miro_create_export_job` | export | Enterprise only |
 | `miro_get_export_job_status` | export | Enterprise only |
 | `miro_get_export_job_results` | export | Enterprise only |
-| `miro_get_webhook` | webhooks | Needs working webhook |
-| `miro_delete_webhook` | webhooks | Needs working webhook |
 
 ## Test Items Created (Session 3)
 

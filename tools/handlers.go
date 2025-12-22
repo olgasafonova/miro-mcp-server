@@ -65,6 +65,7 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"CreateBoard": makeHandler(h, h.client.CreateBoard),
 		"CopyBoard":   makeHandler(h, h.client.CopyBoard),
 		"DeleteBoard": makeHandler(h, h.client.DeleteBoard),
+		"UpdateBoard": makeHandler(h, h.client.UpdateBoard),
 
 		// Create tools
 		"CreateSticky":    makeHandler(h, h.client.CreateSticky),
@@ -109,12 +110,19 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"CreateStickyGrid":    makeHandler(h, h.client.CreateStickyGrid),
 
 		// Group tools
-		"CreateGroup": makeHandler(h, h.client.CreateGroup),
-		"Ungroup":     makeHandler(h, h.client.Ungroup),
+		"CreateGroup":    makeHandler(h, h.client.CreateGroup),
+		"Ungroup":        makeHandler(h, h.client.Ungroup),
+		"ListGroups":     makeHandler(h, h.client.ListGroups),
+		"GetGroup":       makeHandler(h, h.client.GetGroup),
+		"GetGroupItems":  makeHandler(h, h.client.GetGroupItems),
+		"DeleteGroup":    makeHandler(h, h.client.DeleteGroup),
 
 		// Board member tools
-		"ListBoardMembers": makeHandler(h, h.client.ListBoardMembers),
-		"ShareBoard":       makeHandler(h, h.client.ShareBoard),
+		"ListBoardMembers":   makeHandler(h, h.client.ListBoardMembers),
+		"ShareBoard":         makeHandler(h, h.client.ShareBoard),
+		"GetBoardMember":     makeHandler(h, h.client.GetBoardMember),
+		"RemoveBoardMember":  makeHandler(h, h.client.RemoveBoardMember),
+		"UpdateBoardMember":  makeHandler(h, h.client.UpdateBoardMember),
 
 		// Mindmap tools
 		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
@@ -130,6 +138,12 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 
 		// Audit tools (local, not Miro API)
 		"GetAuditLog": makeHandler(h, h.GetAuditLog),
+
+		// App card tools
+		"CreateAppCard": makeHandler(h, h.client.CreateAppCard),
+		"GetAppCard":    makeHandler(h, h.client.GetAppCard),
+		"UpdateAppCard": makeHandler(h, h.client.UpdateAppCard),
+		"DeleteAppCard": makeHandler(h, h.client.DeleteAppCard),
 
 		// Webhook tools - REMOVED (Miro sunset Dec 5, 2025)
 		// The /v2-experimental/webhooks/board_subscriptions endpoints no longer work.

@@ -50,7 +50,7 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 		}
 	}
 
-	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/mind_map_nodes", reqBody)
+	respBody, err := c.requestExperimental(ctx, http.MethodPost, "/boards/"+args.BoardID+"/mindmap_nodes", reqBody)
 	if err != nil {
 		return CreateMindmapNodeResult{}, err
 	}

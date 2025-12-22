@@ -141,3 +141,23 @@ type GetBoardSummaryResult struct {
 	RecentItems []ItemSummary  `json:"recent_items,omitempty"` // Last 5 modified
 	Message     string         `json:"message"`
 }
+
+// =============================================================================
+// Update Board
+// =============================================================================
+
+// UpdateBoardArgs contains parameters for updating a board.
+type UpdateBoardArgs struct {
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to update"`
+	Name        string `json:"name,omitempty" jsonschema_description:"New name for the board"`
+	Description string `json:"description,omitempty" jsonschema_description:"New description for the board"`
+}
+
+// UpdateBoardResult contains the updated board details.
+type UpdateBoardResult struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	ViewLink    string `json:"view_link"`
+	Message     string `json:"message"`
+}

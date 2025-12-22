@@ -2916,8 +2916,8 @@ func TestCreateMindmapNode_Success(t *testing.T) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if !strings.HasSuffix(r.URL.Path, "/mind_map_nodes") {
-			t.Errorf("expected mind_map_nodes path, got %s", r.URL.Path)
+		if !strings.HasSuffix(r.URL.Path, "/mindmap_nodes") {
+			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
 		}
 
 		w.Header().Set("Content-Type", "application/json")

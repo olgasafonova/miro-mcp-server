@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 58 tools implemented. Phases 1-6 complete. (Webhooks removed - Miro sunset Dec 2025)
+**Current Status**: 65 tools implemented. Phases 1-7 complete. (Webhooks removed - Miro sunset Dec 2025)
 
 ## Quick Start
 
@@ -44,7 +44,8 @@ miro-mcp-server/
 │   ├── tags.go                # Tag operations (create, attach, detach)
 │   ├── groups.go              # Group operations (create, ungroup)
 │   ├── members.go             # Member operations (list, share)
-│   ├── mindmaps.go            # Mindmap operations
+│   ├── mindmaps.go            # Mindmap operations (create, get, list, delete)
+│   ├── frames.go              # Frame operations (get, update, delete, get items)
 │   ├── export.go              # Export operations (picture, export jobs)
 │   ├── diagrams.go            # Diagram generation from Mermaid
 │   │
@@ -56,6 +57,7 @@ miro-mcp-server/
 │   ├── types_groups.go        # Group types
 │   ├── types_members.go       # Member types
 │   ├── types_mindmaps.go      # Mindmap types
+│   ├── types_frames.go        # Frame types
 │   ├── types_export.go        # Export types
 │   ├── types_diagrams.go      # Diagram types
 │   │
@@ -102,6 +104,7 @@ type TagService interface { ... }
 type GroupService interface { ... }
 type MemberService interface { ... }
 type MindmapService interface { ... }
+type FrameService interface { ... }
 type TokenService interface { ... }
 type ExportService interface { ... }
 type WebhookService interface { ... }
@@ -117,6 +120,7 @@ type MiroClient interface {
     GroupService
     MemberService
     MindmapService
+    FrameService
     TokenService
     ExportService
     WebhookService
@@ -227,6 +231,11 @@ See `ROADMAP.md` for full details.
 - **Diagrams**: `miro_generate_diagram` (Mermaid flowchart → Miro shapes)
 - **Parser**: flowchart/graph keywords, TB/LR/BT/RL directions, 5 node shapes
 - **Layout**: Sugiyama-style layered algorithm with barycenter ordering
+
+### Phase 7: Complete ✅ (+7 tools)
+- **Frames**: `miro_get_frame`, `miro_update_frame`, `miro_delete_frame`, `miro_get_frame_items`
+- **Mindmaps**: `miro_get_mindmap_node`, `miro_list_mindmap_nodes`, `miro_delete_mindmap_node`
+- **Distribution**: Homebrew tap, Docker image, ARM64 Linux binary, install script
 
 ## Miro API Quick Reference
 

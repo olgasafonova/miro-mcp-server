@@ -794,6 +794,69 @@ PARAMETERS:
 VOICE-FRIENDLY: "Updated card title to 'Review PR'"`,
 	},
 	{
+		Name:       "miro_update_image",
+		Method:     "UpdateImage",
+		Title:      "Update Image",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update an image via dedicated endpoint with image-specific options.
+
+USE WHEN: User says "change image title", "move the image", "resize picture"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Image ID (required)
+- title: New image title/alt text
+- url: New image URL
+- x, y: New position
+- width: New width (preserves aspect ratio)
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated image title to 'Logo'"`,
+	},
+	{
+		Name:       "miro_update_document",
+		Method:     "UpdateDocument",
+		Title:      "Update Document",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a document via dedicated endpoint.
+
+USE WHEN: User says "change document title", "move the PDF", "resize document preview"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Document ID (required)
+- title: New document title
+- url: New document URL
+- x, y: New position
+- width: New preview width
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated document title"`,
+	},
+	{
+		Name:       "miro_update_embed",
+		Method:     "UpdateEmbed",
+		Title:      "Update Embed",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update an embed via dedicated endpoint.
+
+USE WHEN: User says "change embed URL", "resize the video", "move the embed"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Embed ID (required)
+- url: New embed URL
+- mode: Display mode (inline or modal)
+- x, y: New position
+- width, height: New dimensions
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated embed settings"`,
+	},
+	{
 		Name:        "miro_delete_item",
 		Method:      "DeleteItem",
 		Title:       "Delete Item",

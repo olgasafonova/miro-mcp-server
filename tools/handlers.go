@@ -108,8 +108,11 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"UpdateSticky": makeHandler(h, h.client.UpdateSticky),
 		"UpdateShape":  makeHandler(h, h.client.UpdateShape),
 		"UpdateText":   makeHandler(h, h.client.UpdateText),
-		"UpdateCard":   makeHandler(h, h.client.UpdateCard),
-		"DeleteItem":   makeHandler(h, h.client.DeleteItem),
+		"UpdateCard":     makeHandler(h, h.client.UpdateCard),
+		"UpdateImage":    makeHandler(h, h.client.UpdateImage),
+		"UpdateDocument": makeHandler(h, h.client.UpdateDocument),
+		"UpdateEmbed":    makeHandler(h, h.client.UpdateEmbed),
+		"DeleteItem":     makeHandler(h, h.client.DeleteItem),
 
 		// Composite tools
 		"FindBoardByNameTool": makeHandler(h, h.client.FindBoardByNameTool),

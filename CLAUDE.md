@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 73 tools implemented. Phases 1-7 complete, plus batch update/delete and type-specific updates. (Webhooks removed - Miro sunset Dec 2025)
+**Current Status**: 76 tools implemented. Phases 1-7 complete, plus batch update/delete and full type-specific updates for all item types. (Webhooks removed - Miro sunset Dec 2025)
 
 ## Quick Start
 

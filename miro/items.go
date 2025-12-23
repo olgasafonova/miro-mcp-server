@@ -1131,3 +1131,261 @@ func createSnippet(content, query string, contextLen int) string {
 
 	return snippet
 }
+
+// UpdateImage updates an image using the dedicated images endpoint.
+func (c *Client) UpdateImage(ctx context.Context, args UpdateImageArgs) (UpdateImageResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateImageResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateImageResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	data := make(map[string]interface{})
+	if args.Title != nil {
+		data["title"] = *args.Title
+	}
+	if args.URL != nil {
+		data["url"] = *args.URL
+	}
+	if len(data) > 0 {
+		reqBody["data"] = data
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	if args.Width != nil {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": *args.Width,
+		}
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateImageResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/images/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateImageResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			Title    string `json:"title"`
+			ImageURL string `json:"imageUrl"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateImageResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	return UpdateImageResult{
+		ID:      resp.ID,
+		Title:   resp.Data.Title,
+		URL:     resp.Data.ImageURL,
+		Message: "Image updated successfully",
+	}, nil
+}
+
+// UpdateDocument updates a document using the dedicated documents endpoint.
+func (c *Client) UpdateDocument(ctx context.Context, args UpdateDocumentArgs) (UpdateDocumentResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateDocumentResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateDocumentResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	data := make(map[string]interface{})
+	if args.Title != nil {
+		data["title"] = *args.Title
+	}
+	if args.URL != nil {
+		data["documentUrl"] = *args.URL
+	}
+	if len(data) > 0 {
+		reqBody["data"] = data
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	if args.Width != nil {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": *args.Width,
+		}
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateDocumentResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/documents/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateDocumentResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			Title string `json:"title"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateDocumentResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	return UpdateDocumentResult{
+		ID:      resp.ID,
+		Title:   resp.Data.Title,
+		Message: "Document updated successfully",
+	}, nil
+}
+
+// UpdateEmbed updates an embed using the dedicated embeds endpoint.
+func (c *Client) UpdateEmbed(ctx context.Context, args UpdateEmbedArgs) (UpdateEmbedResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateEmbedResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateEmbedResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	data := make(map[string]interface{})
+	if args.URL != nil {
+		data["url"] = *args.URL
+	}
+	if args.Mode != nil {
+		data["mode"] = *args.Mode
+	}
+	if len(data) > 0 {
+		reqBody["data"] = data
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	geom := make(map[string]interface{})
+	if args.Width != nil {
+		geom["width"] = *args.Width
+	}
+	if args.Height != nil {
+		geom["height"] = *args.Height
+	}
+	if len(geom) > 0 {
+		reqBody["geometry"] = geom
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateEmbedResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/embeds/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateEmbedResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			URL         string `json:"url"`
+			ProviderURL string `json:"providerUrl"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateEmbedResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	return UpdateEmbedResult{
+		ID:       resp.ID,
+		URL:      resp.Data.URL,
+		Provider: resp.Data.ProviderURL,
+		Message:  "Embed updated successfully",
+	}, nil
+}

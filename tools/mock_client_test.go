@@ -36,10 +36,13 @@ type MockClient struct {
 	BulkUpdateFn   func(ctx context.Context, args miro.BulkUpdateArgs) (miro.BulkUpdateResult, error)
 	BulkDeleteFn   func(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error)
 	// Type-specific updates
-	UpdateStickyFn func(ctx context.Context, args miro.UpdateStickyArgs) (miro.UpdateStickyResult, error)
-	UpdateShapeFn  func(ctx context.Context, args miro.UpdateShapeArgs) (miro.UpdateShapeResult, error)
-	UpdateTextFn   func(ctx context.Context, args miro.UpdateTextArgs) (miro.UpdateTextResult, error)
-	UpdateCardFn   func(ctx context.Context, args miro.UpdateCardArgs) (miro.UpdateCardResult, error)
+	UpdateStickyFn   func(ctx context.Context, args miro.UpdateStickyArgs) (miro.UpdateStickyResult, error)
+	UpdateShapeFn    func(ctx context.Context, args miro.UpdateShapeArgs) (miro.UpdateShapeResult, error)
+	UpdateTextFn     func(ctx context.Context, args miro.UpdateTextArgs) (miro.UpdateTextResult, error)
+	UpdateCardFn     func(ctx context.Context, args miro.UpdateCardArgs) (miro.UpdateCardResult, error)
+	UpdateImageFn    func(ctx context.Context, args miro.UpdateImageArgs) (miro.UpdateImageResult, error)
+	UpdateDocumentFn func(ctx context.Context, args miro.UpdateDocumentArgs) (miro.UpdateDocumentResult, error)
+	UpdateEmbedFn    func(ctx context.Context, args miro.UpdateEmbedArgs) (miro.UpdateEmbedResult, error)
 
 	// Create operations
 	CreateStickyFn     func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error)
@@ -358,6 +361,39 @@ func (m *MockClient) UpdateCard(ctx context.Context, args miro.UpdateCardArgs) (
 	return miro.UpdateCardResult{
 		ID:      args.ItemID,
 		Message: "Card updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateImage(ctx context.Context, args miro.UpdateImageArgs) (miro.UpdateImageResult, error) {
+	m.recordCall("UpdateImage", args)
+	if m.UpdateImageFn != nil {
+		return m.UpdateImageFn(ctx, args)
+	}
+	return miro.UpdateImageResult{
+		ID:      args.ItemID,
+		Message: "Image updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateDocument(ctx context.Context, args miro.UpdateDocumentArgs) (miro.UpdateDocumentResult, error) {
+	m.recordCall("UpdateDocument", args)
+	if m.UpdateDocumentFn != nil {
+		return m.UpdateDocumentFn(ctx, args)
+	}
+	return miro.UpdateDocumentResult{
+		ID:      args.ItemID,
+		Message: "Document updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateEmbed(ctx context.Context, args miro.UpdateEmbedArgs) (miro.UpdateEmbedResult, error) {
+	m.recordCall("UpdateEmbed", args)
+	if m.UpdateEmbedFn != nil {
+		return m.UpdateEmbedFn(ctx, args)
+	}
+	return miro.UpdateEmbedResult{
+		ID:      args.ItemID,
+		Message: "Embed updated successfully",
 	}, nil
 }
 

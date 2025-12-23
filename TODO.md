@@ -4,6 +4,17 @@ Last updated: Dec 2025
 
 ## Recently Completed (Dec 2025)
 
+### Type-Specific Update Operations ✅ (NEW)
+- Added **3 new update tools** for complete item update coverage:
+  - `miro_update_image`: Update image title, URL, position, size
+  - `miro_update_document`: Update document title, URL, position, size
+  - `miro_update_embed`: Update embed URL, mode, position, dimensions
+- **Total tools**: 73 → **76 tools**
+- Added implementation in `miro/items.go`
+- Added tool specs in `tools/definitions.go`
+- Updated mock client for testing
+- Added 10 tests: UpdateImage 63.9%, UpdateDocument 63.9%, UpdateEmbed 73.2%
+
 ### Diagrams Package Coverage ✅ (NEW)
 - **diagrams package**: 73.3% → **92.6%** coverage
 - Added `converter_test.go` with tests for:
@@ -52,7 +63,7 @@ Last updated: Dec 2025
   - Board operations: UpdateBoard 88.2%
 - Added GetGroupItems tests (3 tests): 82.6% coverage
 - Added mindmap tests (8 tests): GetMindmapNode 87.5%, ListMindmapNodes 80.8%, DeleteMindmapNode 90.0%
-- **Current coverage**: miro 82.3%, audit 82.1%, diagrams 92.6%, oauth 72.5%, tools 85.0%
+- **Current coverage**: miro 88.9%, audit 82.1%, diagrams 92.6%, oauth 72.5%, tools 85.0%
 
 ### Dependency Updates ✅
 - jwt v5.2.2 → v5.3.0
@@ -72,7 +83,7 @@ Last updated: Dec 2025
 - **Priority**: Low - descriptions work well for LLMs
 
 ### Test Coverage Gaps
-- **miro package**: 82.3% - remaining gaps in utility functions and error paths
+- **miro package**: 88.9% ✅ - well covered
 - **diagrams package**: 92.6% ✅ - well covered
 - **oauth package**: 72.5% - remaining gaps are integration-level (browser flows)
 - **tools package**: 85.0% - well covered

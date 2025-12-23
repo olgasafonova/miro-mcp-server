@@ -628,3 +628,75 @@ type UpdateCardResult struct {
 	DueDate     string `json:"due_date,omitempty"`
 	Message     string `json:"message"`
 }
+
+// =============================================================================
+// Update Image
+// =============================================================================
+
+// UpdateImageArgs contains parameters for updating an image via dedicated endpoint.
+type UpdateImageArgs struct {
+	BoardID  string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID   string   `json:"item_id" jsonschema:"required" jsonschema_description:"Image ID to update"`
+	Title    *string  `json:"title,omitempty" jsonschema_description:"New image title/alt text"`
+	URL      *string  `json:"url,omitempty" jsonschema_description:"New image URL"`
+	X        *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width    *float64 `json:"width,omitempty" jsonschema_description:"New width (preserves aspect ratio)"`
+	ParentID *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateImageResult contains the updated image details.
+type UpdateImageResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Update Document
+// =============================================================================
+
+// UpdateDocumentArgs contains parameters for updating a document via dedicated endpoint.
+type UpdateDocumentArgs struct {
+	BoardID  string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID   string   `json:"item_id" jsonschema:"required" jsonschema_description:"Document ID to update"`
+	Title    *string  `json:"title,omitempty" jsonschema_description:"New document title"`
+	URL      *string  `json:"url,omitempty" jsonschema_description:"New document URL"`
+	X        *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width    *float64 `json:"width,omitempty" jsonschema_description:"New preview width"`
+	ParentID *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateDocumentResult contains the updated document details.
+type UpdateDocumentResult struct {
+	ID      string `json:"id"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Update Embed
+// =============================================================================
+
+// UpdateEmbedArgs contains parameters for updating an embed via dedicated endpoint.
+type UpdateEmbedArgs struct {
+	BoardID  string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID   string   `json:"item_id" jsonschema:"required" jsonschema_description:"Embed ID to update"`
+	URL      *string  `json:"url,omitempty" jsonschema_description:"New embed URL"`
+	Mode     *string  `json:"mode,omitempty" jsonschema_description:"Display mode: inline or modal"`
+	X        *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width    *float64 `json:"width,omitempty" jsonschema_description:"New embed width"`
+	Height   *float64 `json:"height,omitempty" jsonschema_description:"New embed height"`
+	ParentID *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateEmbedResult contains the updated embed details.
+type UpdateEmbedResult struct {
+	ID       string `json:"id"`
+	URL      string `json:"url,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	Message  string `json:"message"`
+}

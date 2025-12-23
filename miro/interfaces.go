@@ -37,6 +37,9 @@ type ItemService interface {
 	UpdateShape(ctx context.Context, args UpdateShapeArgs) (UpdateShapeResult, error)
 	UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTextResult, error)
 	UpdateCard(ctx context.Context, args UpdateCardArgs) (UpdateCardResult, error)
+	UpdateImage(ctx context.Context, args UpdateImageArgs) (UpdateImageResult, error)
+	UpdateDocument(ctx context.Context, args UpdateDocumentArgs) (UpdateDocumentResult, error)
+	UpdateEmbed(ctx context.Context, args UpdateEmbedArgs) (UpdateEmbedResult, error)
 }
 
 // CreateService handles creation of specific item types.

@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  miro-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: miro-mcp-server
+    ports:
+      - "8080:8080"
+    environment:
+      - MIRO_ACCESS_TOKEN=${MIRO_ACCESS_TOKEN}
+      - MIRO_TEAM_ID=${MIRO_TEAM_ID:-}
+      - MIRO_TIMEOUT=${MIRO_TIMEOUT:-30s}
+      - MIRO_USER_AGENT=${MIRO_USER_AGENT:-miro-mcp-server/1.0}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    # Resource limits (optional, uncomment to enable)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.5"
+    #       memory: 128M
+    #     reservations:
+    #       cpus: "0.1"
+    #       memory: 32M
+
+  # Optional: Prometheus for metrics collection
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #   depends_on:
+  #     - miro-mcp-server
+
+networks:
+  default:
+    name: miro-mcp-network

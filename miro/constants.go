@@ -53,6 +53,9 @@ const (
 
 	// MinGroupItems is the minimum items required to create a group.
 	MinGroupItems = 2
+
+	// BulkOperationTimeout is the maximum time for bulk operations.
+	BulkOperationTimeout = 30 * time.Second
 )
 
 // =============================================================================

@@ -10,7 +10,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -126,7 +128,7 @@ func main() {
 	}
 }
 
-// runHTTPServer starts the MCP server with HTTP transport
+// runHTTPServer starts the MCP server with HTTP transport and graceful shutdown
 func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose bool) {
 	// Create the Streamable HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
@@ -144,8 +146,11 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose
 		fmt.Fprintf(w, `{"status":"healthy","server":"%s","version":"%s"}`, ServerName, ServerVersion)
 	})
 
-	// MCP endpoint
-	mux.Handle("/", mcpHandler)
+	// MCP endpoint with cache control
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		mcpHandler.ServeHTTP(w, r)
+	}))
 
 	// Create HTTP server with timeouts
 	httpServer := &http.Server{
@@ -167,6 +172,24 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose
 	if !strings.HasPrefix(addr, "127.0.0.1") && !strings.HasPrefix(addr, "localhost") {
 		logger.Warn("Server binding to external interface. Ensure you're behind HTTPS proxy in production.")
 	}
+
+	// Graceful shutdown handling
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		sig := <-sigChan
+		logger.Info("Received shutdown signal", "signal", sig)
+
+		// Give outstanding requests 10 seconds to complete
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("Graceful shutdown failed", "error", err)
+		} else {
+			logger.Info("Server shutdown complete")
+		}
+	}()
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTP server error: %v", err)

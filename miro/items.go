@@ -324,6 +324,10 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 		return BulkCreateResult{}, fmt.Errorf("maximum %d items per bulk operation", MaxBulkItems)
 	}
 
+	// Add timeout for bulk operations to prevent hanging
+	ctx, cancel := context.WithTimeout(ctx, BulkOperationTimeout)
+	defer cancel()
+
 	// Create items in parallel - semaphore in request() limits actual concurrency
 	results := make(chan bulkResult, len(args.Items))
 	var wg sync.WaitGroup
@@ -427,6 +431,10 @@ func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdat
 		return BulkUpdateResult{}, fmt.Errorf("maximum %d items per bulk operation", MaxBulkItems)
 	}
 
+	// Add timeout for bulk operations to prevent hanging
+	ctx, cancel := context.WithTimeout(ctx, BulkOperationTimeout)
+	defer cancel()
+
 	// Update items in parallel - semaphore in request() limits actual concurrency
 	results := make(chan bulkResult, len(args.Items))
 	var wg sync.WaitGroup
@@ -521,6 +529,10 @@ func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDelet
 			Message: fmt.Sprintf("[DRY RUN] Would delete %d items from board %s", len(args.ItemIDs), args.BoardID),
 		}, nil
 	}
+
+	// Add timeout for bulk operations to prevent hanging
+	ctx, cancel := context.WithTimeout(ctx, BulkOperationTimeout)
+	defer cancel()
 
 	// Delete items in parallel - semaphore in request() limits actual concurrency
 	results := make(chan bulkResult, len(args.ItemIDs))

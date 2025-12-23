@@ -2,29 +2,32 @@
 .git
 .gitignore
 
-# Build artifacts
-miro-mcp-server
-dist/
-*.exe
-
-# IDE/Editor
-.idea/
-.vscode/
+# IDE
+.idea
+.vscode
 *.swp
 *.swo
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Documentation (not needed in image)
-*.md
-!README.md
+# Build artifacts
+dist/
+*.exe
+miro-mcp-server
 
 # Test files
 *_test.go
-testdata/
+coverage.out
+coverage.html
 
-# Local config
+# Documentation
+*.md
+!README.md
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Misc
 .env
 .env.*
+*.log

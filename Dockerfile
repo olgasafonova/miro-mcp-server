@@ -1,12 +1,10 @@
-# Miro MCP Server Docker Image
-# Multi-stage build for minimal final image
-
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Install git for fetching dependencies
-RUN apk add --no-cache git
+RUN apk add --no-cache git ca-certificates tzdata
 
+# Set working directory
 WORKDIR /app
 
 # Copy go mod files first for better caching
@@ -17,25 +15,24 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o miro-mcp-server .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o miro-mcp-server .
 
 # Final stage - minimal image
-FROM alpine:3.19
+FROM scratch
 
-# Add ca-certificates for HTTPS calls to Miro API
-RUN apk add --no-cache ca-certificates
+# Copy CA certificates for HTTPS
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Create non-root user for security
-RUN adduser -D -u 1000 miro
-USER miro
+# Copy the binary
+COPY --from=builder /app/miro-mcp-server /miro-mcp-server
 
-WORKDIR /app
-
-# Copy binary from builder
-COPY --from=builder /app/miro-mcp-server .
-
-# MCP server runs on stdio by default
-# For HTTP mode, use: -http :8080
+# Expose default HTTP port
 EXPOSE 8080
 
-ENTRYPOINT ["./miro-mcp-server"]
+# Set environment variables
+ENV MIRO_TIMEOUT=30s
+
+# Run the server in HTTP mode
+ENTRYPOINT ["/miro-mcp-server"]
+CMD ["-http", ":8080"]

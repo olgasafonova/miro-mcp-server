@@ -19,7 +19,6 @@ Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and 
 | [QUICKSTART.md](QUICKSTART.md) | Get running in 2 minutes |
 | [SETUP.md](SETUP.md) | Full setup for all AI tools |
 | [CONFIG.md](CONFIG.md) | Configuration reference |
-| [COMPARISON.md](COMPARISON.md) | Competitive analysis |
 | [PERFORMANCE.md](PERFORMANCE.md) | Optimization guide |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [ERRORS.md](ERRORS.md) | Error handling & troubleshooting |
@@ -293,8 +292,6 @@ sequenceDiagram
 | **Rate limiting** | Automatic with backoff | Manual |
 | **Caching** | 2-minute TTL | None |
 | **Circuit breaker** | Yes | No |
-
-See [COMPARISON.md](COMPARISON.md) for detailed competitive analysis.
 
 ---
 

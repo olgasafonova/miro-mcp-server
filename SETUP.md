@@ -38,7 +38,7 @@ Invoke-WebRequest -Uri "https://github.com/olgasafonova/miro-mcp-server/releases
 
 ### Build from Source (any platform)
 
-Requires Go 1.21+
+Requires Go 1.24+
 
 ```bash
 go install github.com/olgasafonova/miro-mcp-server@latest

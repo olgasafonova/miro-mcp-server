@@ -15,7 +15,7 @@ updates:
     reviewers:
       - "olgasafonova"
 
-  # GitHub Actions
+  # GitHub Actions (no grouping = individual PRs per action)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -23,7 +23,5 @@ updates:
       day: "monday"
     commit-message:
       prefix: "ci"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
+    reviewers:
+      - "olgasafonova"

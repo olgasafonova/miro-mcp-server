@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2025-12-23
+
 ### Added
 - **Reliability**: Transient error retry (502, 503, 504) with exponential backoff
 - **Security**: ReDoS protection for Mermaid diagram parser

@@ -304,8 +304,80 @@ See [COMPARISON.md](COMPARISON.md) for detailed competitive analysis.
 - **Circuit breaker:** Isolates failing endpoints
 - **Parallel bulk ops:** Creates items concurrently
 - **Token validation:** Fails fast on startup with clear error
+- **Transient error retry:** Auto-retries 502/503/504 with backoff
 
 See [PERFORMANCE.md](PERFORMANCE.md) for optimization tips and benchmarks.
+
+---
+
+## HTTP Mode Endpoints
+
+When running with `-http :8080`:
+
+| Endpoint | Description |
+|----------|-------------|
+| `/` | MCP protocol (Streamable HTTP) |
+| `/health` | Health check (JSON) |
+| `/health?deep=true` | Deep health check (tests Miro API) |
+| `/metrics` | Prometheus metrics |
+
+**Health check response:**
+```json
+{
+  "status": "healthy",
+  "server": "miro-mcp-server",
+  "version": "1.9.0",
+  "uptime": "2h30m",
+  "components": {
+    "config": {"status": "healthy"},
+    "miro_api": {"status": "healthy", "latency": "145ms"}
+  }
+}
+```
+
+---
+
+## Development
+
+```bash
+# Build
+make build
+
+# Run tests
+make test
+
+# Run with coverage
+make test-cover
+
+# Lint
+make lint
+
+# Build for all platforms
+make build-all
+
+# See all targets
+make help
+```
+
+---
+
+## Docker Deployment
+
+**Quick start:**
+```bash
+# Using docker-compose
+export MIRO_ACCESS_TOKEN=your-token
+docker-compose up -d
+
+# Or build and run manually
+docker build -t miro-mcp-server .
+docker run -e MIRO_ACCESS_TOKEN=xxx -p 8080:8080 miro-mcp-server
+```
+
+**docker-compose.yml features:**
+- Health checks configured
+- Resource limits template
+- Environment variable passthrough
 
 ---
 

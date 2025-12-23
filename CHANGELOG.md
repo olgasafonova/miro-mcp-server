@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Reliability**: Transient error retry (502, 503, 504) with exponential backoff
+- **Security**: ReDoS protection for Mermaid diagram parser
+- **Validation**: `Config.Validate()` method with token/timeout/team ID validation
+- **Bulk Operations**: Enhanced error recovery with categorized errors and retriable IDs
+- **Health Check**: Enhanced `/health` endpoint with component status and `/health?deep=true` for API connectivity test
+- **Observability**: Prometheus metrics endpoint (`/metrics`) with request counts, latencies, error rates
+- **DevOps**: Dockerfile with multi-stage build (final image ~15MB)
+- **DevOps**: docker-compose.yml with health checks and resource limits template
+- **DevOps**: Makefile with 20+ targets (build, test, lint, docker, etc.)
+
 ### Changed
 - **Dependencies**: Updated MCP SDK v1.1.0 → v1.2.0
 - **Dependencies**: Updated jsonschema-go v0.3.0 → v0.4.2
@@ -14,9 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependencies**: Updated golang-jwt/jwt v5.2.1 → v5.2.2
 - **Dependencies**: Updated Go version 1.23.0 → 1.24.0
 - **Internal**: Consolidated duplicate caching mechanism (sync.Map → unified *Cache)
-
-### Added
-- **Documentation**: TODO.md for remaining improvement tasks
 
 ### Removed
 - **Dead webhook code**: Removed webhook endpoints from HTTP mode (Miro sunset Dec 5, 2025)

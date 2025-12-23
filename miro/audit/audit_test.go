@@ -2,8 +2,10 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -234,6 +236,75 @@ func TestEventBuilder(t *testing.T) {
 	}
 	if event.ID == "" {
 		t.Error("ID not generated")
+	}
+}
+
+func TestEventBuilder_WithItemCount(t *testing.T) {
+	event := NewEvent("miro_bulk_create", "BulkCreate", ActionCreate).
+		WithBoard("board-123").
+		WithItemCount(5).
+		Success().
+		Build()
+
+	if event.ItemCount != 5 {
+		t.Errorf("expected ItemCount=5, got %d", event.ItemCount)
+	}
+}
+
+func TestEventBuilder_WithInput(t *testing.T) {
+	input := map[string]interface{}{
+		"board_id": "abc123",
+		"content":  "test sticky",
+		"color":    "yellow",
+	}
+
+	event := NewEvent("miro_create_sticky", "CreateSticky", ActionCreate).
+		WithBoard("abc123").
+		WithInput(input).
+		Success().
+		Build()
+
+	if event.Input == nil {
+		t.Fatal("expected Input to be set")
+	}
+	if event.Input["board_id"] != "abc123" {
+		t.Error("input board_id not set correctly")
+	}
+	if event.Input["content"] != "test sticky" {
+		t.Error("input content not set correctly")
+	}
+	if event.Input["color"] != "yellow" {
+		t.Error("input color not set correctly")
+	}
+}
+
+func TestEventBuilder_Failure(t *testing.T) {
+	testErr := errors.New("API rate limit exceeded")
+
+	event := NewEvent("miro_create_sticky", "CreateSticky", ActionCreate).
+		WithBoard("board-123").
+		Failure(testErr).
+		Build()
+
+	if event.Success {
+		t.Error("expected Success=false for failure")
+	}
+	if event.Error != "API rate limit exceeded" {
+		t.Errorf("expected error message 'API rate limit exceeded', got '%s'", event.Error)
+	}
+}
+
+func TestEventBuilder_FailureWithNilError(t *testing.T) {
+	event := NewEvent("miro_create_sticky", "CreateSticky", ActionCreate).
+		WithBoard("board-123").
+		Failure(nil).
+		Build()
+
+	if event.Success {
+		t.Error("expected Success=false for failure")
+	}
+	if event.Error != "" {
+		t.Errorf("expected empty error message for nil error, got '%s'", event.Error)
 	}
 }
 
@@ -516,5 +587,69 @@ func TestFileLogger_Cleanup(t *testing.T) {
 	// Old file should be deleted
 	if _, err := os.Stat(oldFile); !os.IsNotExist(err) {
 		t.Error("old file should have been deleted by cleanup")
+	}
+}
+
+func TestFileLogger_CurrentFilePath(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-filepath-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create file logger: %v", err)
+	}
+	defer logger.Close()
+
+	filePath := logger.CurrentFilePath()
+
+	// Verify path is in the temp directory
+	if !strings.HasPrefix(filePath, tmpDir) {
+		t.Errorf("expected file path to start with %s, got %s", tmpDir, filePath)
+	}
+
+	// Verify path has expected format: audit-YYYY-MM-DDTHH-MM-SS.jsonl
+	if !strings.HasSuffix(filePath, ".jsonl") {
+		t.Errorf("expected file path to end with .jsonl, got %s", filePath)
+	}
+
+	if !strings.Contains(filepath.Base(filePath), "audit-") {
+		t.Errorf("expected file name to contain 'audit-', got %s", filepath.Base(filePath))
+	}
+
+	// Verify the file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		t.Errorf("expected file to exist at %s", filePath)
+	}
+}
+
+func TestMemoryLogger_Flush(t *testing.T) {
+	config := Config{Enabled: true}
+	logger := NewMemoryLogger(100, config)
+
+	// Log some events
+	for i := 0; i < 5; i++ {
+		logger.Log(context.Background(), Event{ID: "flush-" + string(rune('0'+i)), Tool: "test"})
+	}
+
+	// Flush should be a no-op for MemoryLogger but should not error
+	err := logger.Flush(context.Background())
+	if err != nil {
+		t.Errorf("Flush should not error: %v", err)
+	}
+
+	// Events should still be there after flush
+	events := logger.GetAllEvents()
+	if len(events) != 5 {
+		t.Errorf("expected 5 events after flush, got %d", len(events))
 	}
 }

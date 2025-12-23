@@ -74,12 +74,6 @@ miro-mcp-server/
 │   │   ├── server.go          # Local callback server
 │   │   └── auth.go            # AuthFlow orchestration
 │   │
-│   ├── webhooks/              # Webhooks package
-│   │   ├── types.go           # Config, Subscription, Event types
-│   │   ├── handler.go         # HTTP callback + signature verification
-│   │   ├── manager.go         # Subscription CRUD via Miro API
-│   │   └── events.go          # EventBus, RingBuffer, SSEHandler
-│   │
 │   └── diagrams/              # Diagram parsing and layout
 │       ├── types.go           # Diagram, Node, Edge types
 │       ├── mermaid.go         # Mermaid flowchart parser
@@ -107,9 +101,9 @@ type MindmapService interface { ... }
 type FrameService interface { ... }
 type TokenService interface { ... }
 type ExportService interface { ... }
-type WebhookService interface { ... }
 type DiagramService interface { ... }
 type ConnectorService interface { ... }
+type AppCardService interface { ... }
 
 // MiroClient embeds all service interfaces
 type MiroClient interface {
@@ -123,8 +117,9 @@ type MiroClient interface {
     FrameService
     TokenService
     ExportService
-    WebhookService
     DiagramService
+    ConnectorService
+    AppCardService
 }
 ```
 
@@ -224,7 +219,7 @@ See `ROADMAP.md` for full details.
 
 ### Phase 5: Complete ✅ (+1 tool)
 - **Audit**: `miro_get_audit_log` (file/memory loggers)
-- **Webhooks**: ~~REMOVED~~ - Miro sunset experimental webhooks Dec 5, 2025
+- **Webhooks**: REMOVED - Miro sunset experimental webhooks Dec 5, 2025 (dead code deleted)
 - **OAuth 2.1**: PKCE flow with auto-refresh
 
 ### Phase 6: Complete ✅ (+1 tool)

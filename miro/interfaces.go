@@ -116,14 +116,6 @@ type ExportService interface {
 	GetExportJobResults(ctx context.Context, args GetExportJobResultsArgs) (GetExportJobResultsResult, error)
 }
 
-// WebhookService handles webhook subscription operations.
-type WebhookService interface {
-	CreateWebhook(ctx context.Context, args CreateWebhookArgs) (CreateWebhookResult, error)
-	ListWebhooks(ctx context.Context, args ListWebhooksArgs) (ListWebhooksResult, error)
-	DeleteWebhook(ctx context.Context, args DeleteWebhookArgs) (DeleteWebhookResult, error)
-	GetWebhook(ctx context.Context, args GetWebhookArgs) (GetWebhookResult, error)
-}
-
 // DiagramService handles diagram generation from code.
 type DiagramService interface {
 	GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) (GenerateDiagramResult, error)
@@ -154,7 +146,6 @@ type MiroClient interface {
 	FrameService
 	TokenService
 	ExportService
-	WebhookService
 	DiagramService
 	ConnectorService
 	AppCardService

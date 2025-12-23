@@ -39,12 +39,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"regexp"
 	"sync"
 	"time"
-
-	"github.com/olgasafonova/miro-mcp-server/miro/webhooks"
 )
 
 // =============================================================================
@@ -132,13 +129,6 @@ type Client struct {
 	// If nil, uses config.AccessToken (static token mode).
 	tokenRefresher TokenRefresher
 	tokenMu        sync.RWMutex
-
-	// webhookMgr handles webhook subscription CRUD.
-	webhookMgr *webhooks.Manager
-	// webhookCallbackURL is the default callback URL for webhooks.
-	webhookCallbackURL string
-	// mu protects lazy-initialized fields.
-	mu sync.Mutex
 }
 
 // UserInfo contains authenticated user information.
@@ -168,10 +158,9 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 		logger:             logger,
 		semaphore:          make(chan struct{}, MaxConcurrentRequests),
 		rateLimiter:        NewAdaptiveRateLimiter(rlConfig),
-		cache:              NewCache(cacheConfig),
-		cacheConfig:        cacheConfig,
-		circuitBreakers:    NewCircuitBreakerRegistry(cbConfig),
-		webhookCallbackURL: os.Getenv("MIRO_WEBHOOKS_CALLBACK_URL"),
+		cache:           NewCache(cacheConfig),
+		cacheConfig:     cacheConfig,
+		circuitBreakers: NewCircuitBreakerRegistry(cbConfig),
 	}
 }
 

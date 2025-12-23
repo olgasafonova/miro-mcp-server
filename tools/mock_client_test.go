@@ -100,12 +100,6 @@ type MockClient struct {
 	GetExportJobStatusFn  func(ctx context.Context, args miro.GetExportJobStatusArgs) (miro.GetExportJobStatusResult, error)
 	GetExportJobResultsFn func(ctx context.Context, args miro.GetExportJobResultsArgs) (miro.GetExportJobResultsResult, error)
 
-	// Webhook operations
-	CreateWebhookFn func(ctx context.Context, args miro.CreateWebhookArgs) (miro.CreateWebhookResult, error)
-	ListWebhooksFn  func(ctx context.Context, args miro.ListWebhooksArgs) (miro.ListWebhooksResult, error)
-	DeleteWebhookFn func(ctx context.Context, args miro.DeleteWebhookArgs) (miro.DeleteWebhookResult, error)
-	GetWebhookFn    func(ctx context.Context, args miro.GetWebhookArgs) (miro.GetWebhookResult, error)
-
 	// Diagram operations
 	GenerateDiagramFn func(ctx context.Context, args miro.GenerateDiagramArgs) (miro.GenerateDiagramResult, error)
 
@@ -1059,69 +1053,6 @@ func (m *MockClient) GetExportJobResults(ctx context.Context, args miro.GetExpor
 		},
 		ExpiresIn: "15 minutes",
 		Message:   "Export completed: 1 board(s) ready for download",
-	}, nil
-}
-
-// =============================================================================
-// WebhookService Implementation
-// =============================================================================
-
-func (m *MockClient) CreateWebhook(ctx context.Context, args miro.CreateWebhookArgs) (miro.CreateWebhookResult, error) {
-	m.recordCall("CreateWebhook", args)
-	if m.CreateWebhookFn != nil {
-		return m.CreateWebhookFn(ctx, args)
-	}
-	return miro.CreateWebhookResult{
-		ID:          "webhook123",
-		BoardID:     args.BoardID,
-		CallbackURL: args.CallbackURL,
-		Status:      "enabled",
-		Message:     fmt.Sprintf("Webhook created for board %s", args.BoardID),
-	}, nil
-}
-
-func (m *MockClient) ListWebhooks(ctx context.Context, args miro.ListWebhooksArgs) (miro.ListWebhooksResult, error) {
-	m.recordCall("ListWebhooks", args)
-	if m.ListWebhooksFn != nil {
-		return m.ListWebhooksFn(ctx, args)
-	}
-	return miro.ListWebhooksResult{
-		Webhooks: []miro.WebhookInfo{
-			{
-				ID:          "webhook123",
-				BoardID:     "board123",
-				CallbackURL: "https://example.com/webhook",
-				Status:      "enabled",
-			},
-		},
-		Count:   1,
-		Message: "Found 1 webhook(s)",
-	}, nil
-}
-
-func (m *MockClient) DeleteWebhook(ctx context.Context, args miro.DeleteWebhookArgs) (miro.DeleteWebhookResult, error) {
-	m.recordCall("DeleteWebhook", args)
-	if m.DeleteWebhookFn != nil {
-		return m.DeleteWebhookFn(ctx, args)
-	}
-	return miro.DeleteWebhookResult{
-		Success:   true,
-		WebhookID: args.WebhookID,
-		Message:   fmt.Sprintf("Webhook %s deleted successfully", args.WebhookID),
-	}, nil
-}
-
-func (m *MockClient) GetWebhook(ctx context.Context, args miro.GetWebhookArgs) (miro.GetWebhookResult, error) {
-	m.recordCall("GetWebhook", args)
-	if m.GetWebhookFn != nil {
-		return m.GetWebhookFn(ctx, args)
-	}
-	return miro.GetWebhookResult{
-		ID:          args.WebhookID,
-		BoardID:     "board123",
-		CallbackURL: "https://example.com/webhook",
-		Status:      "enabled",
-		Message:     fmt.Sprintf("Webhook %s for board board123", args.WebhookID),
 	}, nil
 }
 

@@ -2,7 +2,7 @@
 
 Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
-**66 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**68 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -21,6 +21,7 @@ Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 | [PERFORMANCE.md](PERFORMANCE.md) | Optimization guide |
 | [ROADMAP.md](ROADMAP.md) | Development roadmap |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [ERRORS.md](ERRORS.md) | Error handling & troubleshooting |
 
 ---
 
@@ -86,7 +87,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 66 Tools
+## All 68 Tools
 
 <details>
 <summary><b>Board Management (8)</b></summary>
@@ -177,14 +178,16 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Update & Delete Items (4)</b></summary>
+<summary><b>Update & Delete Items (6)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_update_item` | Update item content/position/color |
 | `miro_update_app_card` | Update app card fields |
+| `miro_bulk_update` | Update multiple items at once |
 | `miro_delete_item` | Delete an item |
 | `miro_delete_app_card` | Delete an app card |
+| `miro_bulk_delete` | Delete multiple items at once |
 
 </details>
 
@@ -339,9 +342,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 66 tools |
-| Team | Full access to all 66 tools |
-| Business | Full access to all 66 tools |
+| Free | Full access to all 68 tools |
+| Team | Full access to all 68 tools |
+| Business | Full access to all 68 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

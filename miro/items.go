@@ -404,6 +404,154 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 	}, nil
 }
 
+// BulkUpdate updates multiple items in one operation.
+// Items are updated in parallel using goroutines, with concurrency
+// controlled by the client's semaphore (MaxConcurrentRequests).
+func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdateResult, error) {
+	if args.BoardID == "" {
+		return BulkUpdateResult{}, fmt.Errorf("board_id is required")
+	}
+	if len(args.Items) == 0 {
+		return BulkUpdateResult{}, fmt.Errorf("at least one item is required")
+	}
+	if len(args.Items) > 20 {
+		return BulkUpdateResult{}, fmt.Errorf("maximum 20 items per bulk operation")
+	}
+
+	// Update items in parallel - semaphore in request() limits actual concurrency
+	results := make(chan bulkResult, len(args.Items))
+	var wg sync.WaitGroup
+
+	for i, item := range args.Items {
+		wg.Add(1)
+		go func(idx int, it BulkUpdateItem) {
+			defer wg.Done()
+
+			// Build update args
+			updateArgs := UpdateItemArgs{
+				BoardID: args.BoardID,
+				ItemID:  it.ItemID,
+			}
+			if it.Content != nil {
+				updateArgs.Content = it.Content
+			}
+			if it.X != nil {
+				updateArgs.X = it.X
+			}
+			if it.Y != nil {
+				updateArgs.Y = it.Y
+			}
+			if it.Width != nil {
+				updateArgs.Width = it.Width
+			}
+			if it.Height != nil {
+				updateArgs.Height = it.Height
+			}
+			if it.Color != nil {
+				updateArgs.Color = it.Color
+			}
+			if it.ParentID != nil {
+				updateArgs.ParentID = it.ParentID
+			}
+
+			_, err := c.UpdateItem(ctx, updateArgs)
+			results <- bulkResult{index: idx, id: it.ItemID, err: err}
+		}(i, item)
+	}
+
+	// Close results channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results maintaining order
+	resultSlice := make([]bulkResult, len(args.Items))
+	for r := range results {
+		resultSlice[r.index] = r
+	}
+
+	// Extract IDs and errors
+	var itemIDs []string
+	var errors []string
+	for _, r := range resultSlice {
+		if r.err != nil {
+			errors = append(errors, fmt.Sprintf("item %d (%s): %v", r.index+1, r.id, r.err))
+		} else if r.id != "" {
+			itemIDs = append(itemIDs, r.id)
+		}
+	}
+
+	return BulkUpdateResult{
+		Updated: len(itemIDs),
+		ItemIDs: itemIDs,
+		Errors:  errors,
+		Message: fmt.Sprintf("Updated %d of %d items", len(itemIDs), len(args.Items)),
+	}, nil
+}
+
+// BulkDelete deletes multiple items in one operation.
+// Items are deleted in parallel using goroutines, with concurrency
+// controlled by the client's semaphore (MaxConcurrentRequests).
+func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDeleteResult, error) {
+	if args.BoardID == "" {
+		return BulkDeleteResult{}, fmt.Errorf("board_id is required")
+	}
+	if len(args.ItemIDs) == 0 {
+		return BulkDeleteResult{}, fmt.Errorf("at least one item_id is required")
+	}
+	if len(args.ItemIDs) > 20 {
+		return BulkDeleteResult{}, fmt.Errorf("maximum 20 items per bulk operation")
+	}
+
+	// Delete items in parallel - semaphore in request() limits actual concurrency
+	results := make(chan bulkResult, len(args.ItemIDs))
+	var wg sync.WaitGroup
+
+	for i, itemID := range args.ItemIDs {
+		wg.Add(1)
+		go func(idx int, id string) {
+			defer wg.Done()
+
+			_, err := c.DeleteItem(ctx, DeleteItemArgs{
+				BoardID: args.BoardID,
+				ItemID:  id,
+			})
+			results <- bulkResult{index: idx, id: id, err: err}
+		}(i, itemID)
+	}
+
+	// Close results channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results maintaining order
+	resultSlice := make([]bulkResult, len(args.ItemIDs))
+	for r := range results {
+		resultSlice[r.index] = r
+	}
+
+	// Extract IDs and errors
+	var itemIDs []string
+	var errors []string
+	for _, r := range resultSlice {
+		if r.err != nil {
+			errors = append(errors, fmt.Sprintf("item %d (%s): %v", r.index+1, r.id, r.err))
+		} else if r.id != "" {
+			itemIDs = append(itemIDs, r.id)
+		}
+	}
+
+	return BulkDeleteResult{
+		Deleted: len(itemIDs),
+		ItemIDs: itemIDs,
+		Errors:  errors,
+		Message: fmt.Sprintf("Deleted %d of %d items", len(itemIDs), len(args.ItemIDs)),
+	}, nil
+}
+
 // ListAllItems retrieves all items from a board with automatic pagination.
 func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListAllItemsResult, error) {
 	if args.BoardID == "" {

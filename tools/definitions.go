@@ -345,6 +345,47 @@ PARAMETERS:
 
 VOICE-FRIENDLY: "Created 5 items on the board"`,
 	},
+	{
+		Name:     "miro_bulk_update",
+		Method:   "BulkUpdate",
+		Title:    "Bulk Update Items",
+		Category: "update",
+		Description: `Update multiple items at once (max 20).
+
+USE WHEN: User says "update these items", "move all these stickies", "change color of these shapes"
+
+PARAMETERS:
+- board_id: Required
+- items: Array of item updates, each with:
+  - item_id: ID of item to update (required)
+  - content: New text content
+  - x, y: New position
+  - width, height: New size
+  - color: New color
+  - parent_id: New frame ID (empty string to remove from frame)
+
+NOTE: Only provide fields you want to change. Null/missing fields are ignored.
+
+VOICE-FRIENDLY: "Updated 5 items on the board"`,
+	},
+	{
+		Name:     "miro_bulk_delete",
+		Method:   "BulkDelete",
+		Title:    "Bulk Delete Items",
+		Category: "delete",
+		Destructive: true,
+		Description: `Delete multiple items at once (max 20).
+
+USE WHEN: User says "delete these items", "remove all these stickies", "clear these shapes"
+
+PARAMETERS:
+- board_id: Required
+- item_ids: Array of item IDs to delete (max 20)
+
+WARNING: This action cannot be undone.
+
+VOICE-FRIENDLY: "Deleted 5 items from the board"`,
+	},
 
 	// ==========================================================================
 	// Read/List Tools
@@ -564,7 +605,7 @@ RETURNS: List of tags attached to the item.`,
 	},
 	{
 		Name:     "miro_get_tag",
-		Method:   "GetTagTool",
+		Method:   "GetTag",
 		Title:    "Get Tag",
 		Category: "tags",
 		ReadOnly: true,

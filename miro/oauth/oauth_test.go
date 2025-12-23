@@ -2,15 +2,25 @@ package oauth
 
 import (
 	"context"
-	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
+
+// mockRoundTripper allows mocking HTTP responses in tests
+type mockRoundTripper struct {
+	handler func(req *http.Request) *http.Response
+}
+
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return m.handler(req), nil
+}
 
 // =============================================================================
 // Config Tests
@@ -304,25 +314,7 @@ func TestProviderGetAuthorizationURL(t *testing.T) {
 }
 
 func TestProviderExchangeCode(t *testing.T) {
-	// Create mock token server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(TokenResponse{
-			AccessToken:  "mock-access-token",
-			RefreshToken: "mock-refresh-token",
-			ExpiresIn:    3600,
-			TokenType:    "bearer",
-			Scope:        "boards:read",
-		})
-	}))
-	defer server.Close()
-
-	// This test would need to mock the token URL, which is hardcoded
-	// For now, just verify the provider can be created
+	// Create mock HTTP client using RoundTripper
 	config := &Config{
 		ClientID:     "test-id",
 		ClientSecret: "test-secret",
@@ -330,8 +322,230 @@ func TestProviderExchangeCode(t *testing.T) {
 	}
 	provider := NewProvider(config)
 
-	if provider == nil {
-		t.Fatal("provider should not be nil")
+	// Replace HTTP client with mock
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				// Verify request
+				if req.Method != http.MethodPost {
+					t.Errorf("expected POST, got %s", req.Method)
+				}
+				if req.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+					t.Errorf("wrong content type: %s", req.Header.Get("Content-Type"))
+				}
+
+				// Return success response
+				body := `{
+					"access_token": "mock-access-token",
+					"refresh_token": "mock-refresh-token",
+					"expires_in": 3600,
+					"token_type": "bearer",
+					"scope": "boards:read"
+				}`
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	tokens, err := provider.ExchangeCode(ctx, "test-code", "test-verifier")
+
+	if err != nil {
+		t.Fatalf("ExchangeCode() error = %v", err)
+	}
+	if tokens.AccessToken != "mock-access-token" {
+		t.Errorf("AccessToken = %q, want 'mock-access-token'", tokens.AccessToken)
+	}
+	if tokens.RefreshToken != "mock-refresh-token" {
+		t.Errorf("RefreshToken = %q, want 'mock-refresh-token'", tokens.RefreshToken)
+	}
+}
+
+func TestProviderExchangeCode_Error(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+		RedirectURI:  "http://localhost:8089/callback",
+	}
+	provider := NewProvider(config)
+
+	// Mock error response
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				body := `{"error": "invalid_grant", "error_description": "Code expired"}`
+				return &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	_, err := provider.ExchangeCode(ctx, "expired-code", "test-verifier")
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	authErr, ok := err.(*AuthError)
+	if !ok {
+		t.Fatalf("expected AuthError, got %T", err)
+	}
+	if authErr.Code != "invalid_grant" {
+		t.Errorf("Error.Code = %q, want 'invalid_grant'", authErr.Code)
+	}
+}
+
+func TestProviderExchangeCode_InvalidJSON(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+		RedirectURI:  "http://localhost:8089/callback",
+	}
+	provider := NewProvider(config)
+
+	// Mock invalid JSON response
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("not json")),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	_, err := provider.ExchangeCode(ctx, "test-code", "test-verifier")
+
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestProviderRefreshToken(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+	}
+	provider := NewProvider(config)
+
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				body := `{
+					"access_token": "new-access-token",
+					"refresh_token": "new-refresh-token",
+					"expires_in": 3600,
+					"token_type": "bearer"
+				}`
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	tokens, err := provider.RefreshToken(ctx, "old-refresh-token")
+
+	if err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+	if tokens.AccessToken != "new-access-token" {
+		t.Errorf("AccessToken = %q, want 'new-access-token'", tokens.AccessToken)
+	}
+}
+
+func TestProviderRefreshToken_Error(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+	}
+	provider := NewProvider(config)
+
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				body := `{"error": "invalid_grant", "error_description": "Refresh token expired"}`
+				return &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	_, err := provider.RefreshToken(ctx, "expired-refresh-token")
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestProviderRevokeToken(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+	}
+	provider := NewProvider(config)
+
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("")),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	err := provider.RevokeToken(ctx, "token-to-revoke")
+
+	if err != nil {
+		t.Fatalf("RevokeToken() error = %v", err)
+	}
+}
+
+func TestProviderRevokeToken_Error(t *testing.T) {
+	config := &Config{
+		ClientID:     "test-id",
+		ClientSecret: "test-secret",
+	}
+	provider := NewProvider(config)
+
+	provider.httpClient = &http.Client{
+		Transport: &mockRoundTripper{
+			handler: func(req *http.Request) *http.Response {
+				return &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(strings.NewReader("server error")),
+					Header:     make(http.Header),
+				}
+			},
+		},
+	}
+
+	ctx := context.Background()
+	err := provider.RevokeToken(ctx, "token-to-revoke")
+
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 
@@ -708,6 +922,246 @@ func TestCallbackServer_WaitForCallback_Timeout(t *testing.T) {
 	}
 	if !containsSubstring(err.Error(), "timed out") {
 		t.Errorf("error should mention timeout, got %q", err.Error())
+	}
+}
+
+// =============================================================================
+// AuthFlow Tests
+// =============================================================================
+
+func TestNewAuthFlow(t *testing.T) {
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	flow := NewAuthFlow(config, logger)
+	if flow == nil {
+		t.Fatal("NewAuthFlow returned nil")
+	}
+}
+
+func TestAuthFlowStatus_NotLoggedIn(t *testing.T) {
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	flow := NewAuthFlow(config, logger)
+	ctx := context.Background()
+
+	// Should fail when not logged in
+	_, err := flow.Status(ctx)
+	if err == nil {
+		t.Error("expected error when not logged in")
+	}
+	if !containsSubstring(err.Error(), "not logged in") {
+		t.Errorf("error should mention 'not logged in', got %q", err.Error())
+	}
+}
+
+func TestAuthFlowStatus_ValidToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "tokens.json")
+
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: tokenPath,
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Pre-save valid tokens
+	store := NewFileTokenStore(tokenPath)
+	ctx := context.Background()
+	tokens := &TokenSet{
+		AccessToken:  "valid-access-token",
+		RefreshToken: "valid-refresh-token",
+		ExpiresAt:    time.Now().Add(1 * time.Hour), // Valid for 1 hour
+		UserID:       "user-123",
+	}
+	if err := store.Save(ctx, tokens); err != nil {
+		t.Fatalf("failed to save tokens: %v", err)
+	}
+
+	flow := NewAuthFlow(config, logger)
+
+	// Should return valid tokens
+	result, err := flow.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if result.AccessToken != "valid-access-token" {
+		t.Errorf("AccessToken = %q, want 'valid-access-token'", result.AccessToken)
+	}
+}
+
+func TestAuthFlowStatus_ExpiredTokenNoRefresh(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "tokens.json")
+
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: tokenPath,
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Pre-save expired tokens without refresh token
+	store := NewFileTokenStore(tokenPath)
+	ctx := context.Background()
+	tokens := &TokenSet{
+		AccessToken:  "expired-access-token",
+		RefreshToken: "", // No refresh token
+		ExpiresAt:    time.Now().Add(-1 * time.Hour), // Expired 1 hour ago
+		UserID:       "user-123",
+	}
+	if err := store.Save(ctx, tokens); err != nil {
+		t.Fatalf("failed to save tokens: %v", err)
+	}
+
+	flow := NewAuthFlow(config, logger)
+
+	// Should fail because token expired and no refresh token
+	_, err := flow.Status(ctx)
+	if err == nil {
+		t.Error("expected error for expired token without refresh")
+	}
+	if !containsSubstring(err.Error(), "expired") {
+		t.Errorf("error should mention 'expired', got %q", err.Error())
+	}
+}
+
+func TestAuthFlowLogout(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "tokens.json")
+
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: tokenPath,
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Pre-save tokens
+	store := NewFileTokenStore(tokenPath)
+	ctx := context.Background()
+	tokens := &TokenSet{
+		AccessToken:  "access-token",
+		RefreshToken: "refresh-token",
+		ExpiresAt:    time.Now().Add(1 * time.Hour),
+		UserID:       "user-123",
+	}
+	if err := store.Save(ctx, tokens); err != nil {
+		t.Fatalf("failed to save tokens: %v", err)
+	}
+
+	flow := NewAuthFlow(config, logger)
+
+	// Note: Logout will try to revoke tokens via API which will fail,
+	// but it should still delete local tokens
+	err := flow.Logout(ctx)
+	if err != nil {
+		t.Fatalf("Logout() error = %v", err)
+	}
+
+	// Tokens should be deleted
+	if store.Exists(ctx) {
+		t.Error("tokens should be deleted after logout")
+	}
+}
+
+func TestAuthFlowLogout_NotLoggedIn(t *testing.T) {
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	flow := NewAuthFlow(config, logger)
+	ctx := context.Background()
+
+	// Should succeed even when not logged in (nothing to delete)
+	err := flow.Logout(ctx)
+	if err != nil {
+		t.Fatalf("Logout() should succeed even when not logged in, got error: %v", err)
+	}
+}
+
+func TestAuthFlowGetAccessToken_NotLoggedIn(t *testing.T) {
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	flow := NewAuthFlow(config, logger)
+	ctx := context.Background()
+
+	// Should fail when not logged in
+	_, err := flow.GetAccessToken(ctx)
+	if err == nil {
+		t.Error("expected error when not logged in")
+	}
+}
+
+func TestAuthFlowGetAccessToken_ValidToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "tokens.json")
+
+	config := &Config{
+		ClientID:       "test-id",
+		ClientSecret:   "test-secret",
+		RedirectURI:    "http://localhost:8089/callback",
+		TokenStorePath: tokenPath,
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Pre-save valid tokens
+	store := NewFileTokenStore(tokenPath)
+	ctx := context.Background()
+	tokens := &TokenSet{
+		AccessToken:  "my-access-token",
+		RefreshToken: "my-refresh-token",
+		ExpiresAt:    time.Now().Add(1 * time.Hour),
+		UserID:       "user-123",
+	}
+	if err := store.Save(ctx, tokens); err != nil {
+		t.Fatalf("failed to save tokens: %v", err)
+	}
+
+	flow := NewAuthFlow(config, logger)
+
+	// Should return the access token
+	token, err := flow.GetAccessToken(ctx)
+	if err != nil {
+		t.Fatalf("GetAccessToken() error = %v", err)
+	}
+	if token != "my-access-token" {
+		t.Errorf("AccessToken = %q, want 'my-access-token'", token)
+	}
+}
+
+func TestOpenBrowser(t *testing.T) {
+	// Just test that openBrowser doesn't panic on supported platforms
+	// We won't actually open a browser in tests
+	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" || runtime.GOOS == "windows" {
+		// The function should return nil or an error, but not panic
+		// We can't really test this without opening a browser
+		t.Skip("skipping browser test in CI/automated environment")
 	}
 }
 

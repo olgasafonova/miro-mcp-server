@@ -30,6 +30,8 @@ type ItemService interface {
 	DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteItemResult, error)
 	SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchBoardResult, error)
 	BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error)
+	BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdateResult, error)
+	BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDeleteResult, error)
 }
 
 // CreateService handles creation of specific item types.
@@ -49,7 +51,7 @@ type CreateService interface {
 type TagService interface {
 	CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagResult, error)
 	ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResult, error)
-	GetTagTool(ctx context.Context, args GetTagArgs) (GetTagResult, error)
+	GetTag(ctx context.Context, args GetTagArgs) (GetTagResult, error)
 	AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error)
 	DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error)
 	GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error)

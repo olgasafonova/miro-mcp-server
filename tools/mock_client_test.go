@@ -33,6 +33,8 @@ type MockClient struct {
 	DeleteItemFn   func(ctx context.Context, args miro.DeleteItemArgs) (miro.DeleteItemResult, error)
 	SearchBoardFn  func(ctx context.Context, args miro.SearchBoardArgs) (miro.SearchBoardResult, error)
 	BulkCreateFn   func(ctx context.Context, args miro.BulkCreateArgs) (miro.BulkCreateResult, error)
+	BulkUpdateFn   func(ctx context.Context, args miro.BulkUpdateArgs) (miro.BulkUpdateResult, error)
+	BulkDeleteFn   func(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error)
 
 	// Create operations
 	CreateStickyFn     func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error)
@@ -52,7 +54,7 @@ type MockClient struct {
 	AttachTagFn   func(ctx context.Context, args miro.AttachTagArgs) (miro.AttachTagResult, error)
 	DetachTagFn   func(ctx context.Context, args miro.DetachTagArgs) (miro.DetachTagResult, error)
 	GetItemTagsFn func(ctx context.Context, args miro.GetItemTagsArgs) (miro.GetItemTagsResult, error)
-	GetTagToolFn  func(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error)
+	GetTagFn      func(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error)
 	UpdateTagFn   func(ctx context.Context, args miro.UpdateTagArgs) (miro.UpdateTagResult, error)
 	DeleteTagFn   func(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error)
 
@@ -359,6 +361,36 @@ func (m *MockClient) BulkCreate(ctx context.Context, args miro.BulkCreateArgs) (
 	}, nil
 }
 
+func (m *MockClient) BulkUpdate(ctx context.Context, args miro.BulkUpdateArgs) (miro.BulkUpdateResult, error) {
+	m.recordCall("BulkUpdate", args)
+	if m.BulkUpdateFn != nil {
+		return m.BulkUpdateFn(ctx, args)
+	}
+	itemIDs := make([]string, len(args.Items))
+	for i, item := range args.Items {
+		itemIDs[i] = item.ItemID
+	}
+	return miro.BulkUpdateResult{
+		Updated: len(args.Items),
+		ItemIDs: itemIDs,
+		Errors:  []string{},
+		Message: fmt.Sprintf("Updated %d items", len(args.Items)),
+	}, nil
+}
+
+func (m *MockClient) BulkDelete(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error) {
+	m.recordCall("BulkDelete", args)
+	if m.BulkDeleteFn != nil {
+		return m.BulkDeleteFn(ctx, args)
+	}
+	return miro.BulkDeleteResult{
+		Deleted: len(args.ItemIDs),
+		ItemIDs: args.ItemIDs,
+		Errors:  []string{},
+		Message: fmt.Sprintf("Deleted %d items", len(args.ItemIDs)),
+	}, nil
+}
+
 // =============================================================================
 // CreateService Implementation
 // =============================================================================
@@ -567,10 +599,10 @@ func (m *MockClient) GetItemTags(ctx context.Context, args miro.GetItemTagsArgs)
 	}, nil
 }
 
-func (m *MockClient) GetTagTool(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error) {
-	m.recordCall("GetTagTool", args)
-	if m.GetTagToolFn != nil {
-		return m.GetTagToolFn(ctx, args)
+func (m *MockClient) GetTag(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error) {
+	m.recordCall("GetTag", args)
+	if m.GetTagFn != nil {
+		return m.GetTagFn(ctx, args)
 	}
 	return miro.GetTagResult{
 		ID:      args.TagID,

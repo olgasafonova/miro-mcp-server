@@ -487,3 +487,51 @@ type BulkCreateResult struct {
 	Errors  []string `json:"errors,omitempty"`
 	Message string   `json:"message"`
 }
+
+// =============================================================================
+// Bulk Update Operations
+// =============================================================================
+
+// BulkUpdateItem defines a single item update in a bulk update request.
+type BulkUpdateItem struct {
+	ItemID   string   `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item to update"`
+	Content  *string  `json:"content,omitempty" jsonschema_description:"New text content"`
+	X        *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width    *float64 `json:"width,omitempty" jsonschema_description:"New width"`
+	Height   *float64 `json:"height,omitempty" jsonschema_description:"New height"`
+	Color    *string  `json:"color,omitempty" jsonschema_description:"New color"`
+	ParentID *string  `json:"parent_id,omitempty" jsonschema_description:"New frame ID (empty string to remove from frame)"`
+}
+
+// BulkUpdateArgs contains parameters for bulk item updates.
+type BulkUpdateArgs struct {
+	BoardID string           `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Items   []BulkUpdateItem `json:"items" jsonschema:"required" jsonschema_description:"Items to update (max 20)"`
+}
+
+// BulkUpdateResult contains results of bulk item updates.
+type BulkUpdateResult struct {
+	Updated int      `json:"updated"`
+	ItemIDs []string `json:"item_ids"`
+	Errors  []string `json:"errors,omitempty"`
+	Message string   `json:"message"`
+}
+
+// =============================================================================
+// Bulk Delete Operations
+// =============================================================================
+
+// BulkDeleteArgs contains parameters for bulk item deletion.
+type BulkDeleteArgs struct {
+	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemIDs []string `json:"item_ids" jsonschema:"required" jsonschema_description:"IDs of items to delete (max 20)"`
+}
+
+// BulkDeleteResult contains results of bulk item deletion.
+type BulkDeleteResult struct {
+	Deleted int      `json:"deleted"`
+	ItemIDs []string `json:"item_ids"`
+	Errors  []string `json:"errors,omitempty"`
+	Message string   `json:"message"`
+}

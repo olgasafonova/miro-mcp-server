@@ -74,6 +74,8 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"CreateConnector": makeHandler(h, h.client.CreateConnector),
 		"CreateFrame":     makeHandler(h, h.client.CreateFrame),
 		"BulkCreate":      makeHandler(h, h.client.BulkCreate),
+		"BulkUpdate":      makeHandler(h, h.client.BulkUpdate),
+		"BulkDelete":      makeHandler(h, h.client.BulkDelete),
 		"CreateCard":      makeHandler(h, h.client.CreateCard),
 		"CreateImage":     makeHandler(h, h.client.CreateImage),
 		"CreateDocument":  makeHandler(h, h.client.CreateDocument),
@@ -91,7 +93,7 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"AttachTag":   makeHandler(h, h.client.AttachTag),
 		"DetachTag":   makeHandler(h, h.client.DetachTag),
 		"GetItemTags": makeHandler(h, h.client.GetItemTags),
-		"GetTagTool":  makeHandler(h, h.client.GetTagTool),
+		"GetTag":      makeHandler(h, h.client.GetTag),
 		"UpdateTag":   makeHandler(h, h.client.UpdateTag),
 		"DeleteTag":   makeHandler(h, h.client.DeleteTag),
 

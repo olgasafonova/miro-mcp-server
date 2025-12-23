@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
+	"github.com/olgasafonova/miro-mcp-server/miro/audit"
 )
 
 // =============================================================================
@@ -452,6 +454,114 @@ func TestBulkCreateHandler(t *testing.T) {
 	}
 }
 
+func TestBulkUpdateHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	content := "Updated content"
+	x := 100.0
+	result, err := mock.BulkUpdate(ctx, miro.BulkUpdateArgs{
+		BoardID: "board123",
+		Items: []miro.BulkUpdateItem{
+			{ItemID: "item1", Content: &content},
+			{ItemID: "item2", X: &x},
+			{ItemID: "item3", Content: &content, X: &x},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Updated != 3 {
+		t.Errorf("Updated = %d, want 3", result.Updated)
+	}
+	if len(result.ItemIDs) != 3 {
+		t.Errorf("ItemIDs len = %d, want 3", len(result.ItemIDs))
+	}
+	if len(result.Errors) != 0 {
+		t.Errorf("expected no errors, got %d", len(result.Errors))
+	}
+}
+
+func TestBulkUpdateHandler_WithCustomBehavior(t *testing.T) {
+	mock := &MockClient{
+		BulkUpdateFn: func(ctx context.Context, args miro.BulkUpdateArgs) (miro.BulkUpdateResult, error) {
+			// Simulate one item failing
+			return miro.BulkUpdateResult{
+				Updated: 2,
+				ItemIDs: []string{"item1", "item2"},
+				Errors:  []string{"item3: not found"},
+				Message: "Updated 2 items with 1 error",
+			}, nil
+		},
+	}
+
+	ctx := context.Background()
+	content := "Updated"
+	result, err := mock.BulkUpdate(ctx, miro.BulkUpdateArgs{
+		BoardID: "board123",
+		Items: []miro.BulkUpdateItem{
+			{ItemID: "item1", Content: &content},
+			{ItemID: "item2", Content: &content},
+			{ItemID: "item3", Content: &content},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Updated != 2 {
+		t.Errorf("Updated = %d, want 2", result.Updated)
+	}
+	if len(result.Errors) != 1 {
+		t.Errorf("expected 1 error, got %d", len(result.Errors))
+	}
+}
+
+func TestBulkDeleteHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.BulkDelete(ctx, miro.BulkDeleteArgs{
+		BoardID: "board123",
+		ItemIDs: []string{"item1", "item2", "item3"},
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Deleted != 3 {
+		t.Errorf("Deleted = %d, want 3", result.Deleted)
+	}
+	if len(result.ItemIDs) != 3 {
+		t.Errorf("ItemIDs len = %d, want 3", len(result.ItemIDs))
+	}
+	if len(result.Errors) != 0 {
+		t.Errorf("expected no errors, got %d", len(result.Errors))
+	}
+}
+
+func TestBulkDeleteHandler_WithCustomBehavior(t *testing.T) {
+	mock := &MockClient{
+		BulkDeleteFn: func(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error) {
+			return miro.BulkDeleteResult{}, errors.New("API rate limit exceeded")
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.BulkDelete(ctx, miro.BulkDeleteArgs{
+		BoardID: "board123",
+		ItemIDs: []string{"item1", "item2"},
+	})
+
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if err.Error() != "API rate limit exceeded" {
+		t.Errorf("error = %q, want 'API rate limit exceeded'", err.Error())
+	}
+}
+
 func TestCreateStickyGridHandler(t *testing.T) {
 	mock := &MockClient{}
 
@@ -794,5 +904,815 @@ func BenchmarkMockCreateSticky(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		mock.CreateSticky(ctx, args)
+	}
+}
+
+// =============================================================================
+// WithAuditLogger and WithUser Tests
+// =============================================================================
+
+func TestWithAuditLogger(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	// Should return the same registry for chaining
+	result := registry.WithAuditLogger(nil)
+	if result != registry {
+		t.Error("WithAuditLogger should return the same registry for chaining")
+	}
+}
+
+func TestWithUser(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	result := registry.WithUser("user123", "test@example.com")
+	if result != registry {
+		t.Error("WithUser should return the same registry for chaining")
+	}
+	if registry.userID != "user123" {
+		t.Errorf("userID = %q, want 'user123'", registry.userID)
+	}
+	if registry.userEmail != "test@example.com" {
+		t.Errorf("userEmail = %q, want 'test@example.com'", registry.userEmail)
+	}
+}
+
+// =============================================================================
+// argsToMap Tests
+// =============================================================================
+
+func TestArgsToMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		wantNil  bool
+		checkKey string
+		checkVal any
+	}{
+		{
+			name:    "nil input",
+			input:   nil,
+			wantNil: true,
+		},
+		{
+			name: "struct with fields",
+			input: miro.CreateStickyArgs{
+				BoardID: "board123",
+				Content: "Test content",
+				Color:   "yellow",
+			},
+			wantNil:  false,
+			checkKey: "board_id",
+			checkVal: "board123",
+		},
+		{
+			name: "struct with nested values",
+			input: miro.ListBoardsArgs{
+				Query: "test query",
+				Limit: 10,
+			},
+			wantNil:  false,
+			checkKey: "query",
+			checkVal: "test query",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := argsToMap(tt.input)
+
+			if tt.wantNil {
+				if result != nil {
+					t.Errorf("expected nil, got %v", result)
+				}
+				return
+			}
+
+			if result == nil {
+				t.Fatal("expected non-nil result")
+			}
+
+			if tt.checkKey != "" {
+				val, ok := result[tt.checkKey]
+				if !ok {
+					t.Errorf("missing key %q in result", tt.checkKey)
+				} else if val != tt.checkVal {
+					t.Errorf("result[%q] = %v, want %v", tt.checkKey, val, tt.checkVal)
+				}
+			}
+		})
+	}
+}
+
+// =============================================================================
+// recoverPanic Tests
+// =============================================================================
+
+func TestRecoverPanic(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	// Should recover from panic without crashing
+	func() {
+		defer registry.recoverPanic("test_tool")
+		panic("test panic")
+	}()
+
+	// If we get here, panic was recovered successfully
+}
+
+func TestRecoverPanicNoPanic(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	// Should handle case where no panic occurs
+	func() {
+		defer registry.recoverPanic("test_tool")
+		// No panic, just normal execution
+	}()
+}
+
+// =============================================================================
+// logExecution Tests
+// =============================================================================
+
+func TestLogExecution(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	// Test various arg/result combinations for coverage
+	tests := []struct {
+		name   string
+		spec   ToolSpec
+		args   any
+		result any
+	}{
+		{
+			name: "ListBoards with query",
+			spec: ToolSpec{Name: "miro_list_boards", Category: "read"},
+			args: miro.ListBoardsArgs{Query: "test"},
+			result: miro.ListBoardsResult{
+				Boards: []miro.BoardSummary{{ID: "b1", Name: "Board"}},
+				Count:  1,
+			},
+		},
+		{
+			name: "GetBoard",
+			spec: ToolSpec{Name: "miro_get_board", Category: "read"},
+			args: miro.GetBoardArgs{BoardID: "board123"},
+			result: miro.GetBoardResult{
+				Board: miro.Board{ID: "board123", Name: "Test"},
+			},
+		},
+		{
+			name: "CreateSticky",
+			spec: ToolSpec{Name: "miro_create_sticky", Category: "create"},
+			args: miro.CreateStickyArgs{BoardID: "b1", Content: "Hello world"},
+			result: miro.CreateStickyResult{
+				ID:      "sticky123",
+				Content: "Hello world",
+			},
+		},
+		{
+			name: "CreateShape",
+			spec: ToolSpec{Name: "miro_create_shape", Category: "create"},
+			args: miro.CreateShapeArgs{BoardID: "b1", Shape: "rectangle"},
+			result: miro.CreateShapeResult{
+				ID:    "shape123",
+				Shape: "rectangle",
+			},
+		},
+		{
+			name: "ListItems with type",
+			spec: ToolSpec{Name: "miro_list_items", Category: "read"},
+			args: miro.ListItemsArgs{BoardID: "b1", Type: "sticky_note"},
+			result: miro.ListItemsResult{
+				Items: []miro.ItemSummary{{ID: "i1", Type: "sticky_note"}},
+				Count: 1,
+			},
+		},
+		{
+			name: "BulkCreate",
+			spec: ToolSpec{Name: "miro_bulk_create", Category: "create"},
+			args: miro.BulkCreateArgs{
+				BoardID: "b1",
+				Items:   []miro.BulkCreateItem{{Type: "sticky_note", Content: "A"}},
+			},
+			result: miro.BulkCreateResult{
+				Created: 1,
+				ItemIDs: []string{"item1"},
+				Errors:  []string{},
+			},
+		},
+		{
+			name: "DeleteItem",
+			spec: ToolSpec{Name: "miro_delete_item", Category: "delete"},
+			args: miro.DeleteItemArgs{BoardID: "b1", ItemID: "i1"},
+			result: miro.DeleteItemResult{
+				Success: true,
+				ItemID:  "i1",
+			},
+		},
+		{
+			name: "GenerateDiagram",
+			spec: ToolSpec{Name: "miro_generate_diagram", Category: "create"},
+			args: miro.GenerateDiagramArgs{BoardID: "b1", Diagram: "graph TD\\nA-->B"},
+			result: miro.GenerateDiagramResult{
+				NodesCreated:      2,
+				ConnectorsCreated: 1,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Should not panic
+			registry.logExecution(tt.spec, tt.args, tt.result)
+		})
+	}
+}
+
+// =============================================================================
+// createAuditEvent Tests
+// =============================================================================
+
+func TestCreateAuditEvent(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+	registry.WithUser("user123", "test@example.com")
+
+	tests := []struct {
+		name     string
+		spec     ToolSpec
+		args     any
+		result   any
+		err      error
+		duration int64
+	}{
+		{
+			name:   "successful create",
+			spec:   ToolSpec{Name: "miro_create_sticky", Method: "CreateSticky"},
+			args:   miro.CreateStickyArgs{BoardID: "board123", Content: "Test"},
+			result: miro.CreateStickyResult{ID: "sticky456"},
+			err:    nil,
+		},
+		{
+			name:   "failed operation",
+			spec:   ToolSpec{Name: "miro_create_sticky", Method: "CreateSticky"},
+			args:   miro.CreateStickyArgs{BoardID: "board123"},
+			result: miro.CreateStickyResult{},
+			err:    errors.New("API error"),
+		},
+		{
+			name:   "with item_id in args",
+			spec:   ToolSpec{Name: "miro_delete_item", Method: "DeleteItem"},
+			args:   miro.DeleteItemArgs{BoardID: "board123", ItemID: "item456"},
+			result: miro.DeleteItemResult{Success: true},
+			err:    nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			event := registry.createAuditEvent(tt.spec, tt.args, tt.result, tt.err, 100*1000000)
+
+			if event.Tool != tt.spec.Name {
+				t.Errorf("Tool = %q, want %q", event.Tool, tt.spec.Name)
+			}
+
+			if tt.err != nil && event.Success {
+				t.Error("expected Success=false for error case")
+			}
+			if tt.err == nil && !event.Success {
+				t.Error("expected Success=true for success case")
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Additional Mock Method Coverage Tests
+// =============================================================================
+
+func TestGetTagHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.GetTag(ctx, miro.GetTagArgs{
+		BoardID: "board123",
+		TagID:   "tag456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "tag456" {
+		t.Errorf("ID = %q, want 'tag456'", result.ID)
+	}
+	if result.Title == "" {
+		t.Error("Title should not be empty")
+	}
+}
+
+func TestUpdateTagHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.UpdateTag(ctx, miro.UpdateTagArgs{
+		BoardID: "board123",
+		TagID:   "tag456",
+		Title:   "Updated Title",
+		Color:   "blue",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+	if result.Title != "Updated Title" {
+		t.Errorf("Title = %q, want 'Updated Title'", result.Title)
+	}
+}
+
+func TestDeleteTagHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.DeleteTag(ctx, miro.DeleteTagArgs{
+		BoardID: "board123",
+		TagID:   "tag456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+}
+
+func TestGetItemTagsHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.GetItemTags(ctx, miro.GetItemTagsArgs{
+		BoardID: "board123",
+		ItemID:  "item456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count == 0 {
+		t.Error("expected at least one tag")
+	}
+	if result.ItemID != "item456" {
+		t.Errorf("ItemID = %q, want 'item456'", result.ItemID)
+	}
+}
+
+func TestUpdateItemHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.UpdateItem(ctx, miro.UpdateItemArgs{
+		BoardID: "board123",
+		ItemID:  "item456",
+		Content: strPtr("Updated content"),
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+}
+
+func TestGetBoardSummaryHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.GetBoardSummary(ctx, miro.GetBoardSummaryArgs{
+		BoardID: "board123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.TotalItems == 0 {
+		t.Error("expected non-zero TotalItems")
+	}
+}
+
+func TestListAllItemsHandler(t *testing.T) {
+	mock := &MockClient{}
+
+	ctx := context.Background()
+	result, err := mock.ListAllItems(ctx, miro.ListAllItemsArgs{
+		BoardID:  "board123",
+		MaxItems: 100,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count == 0 {
+		t.Error("expected non-zero Count")
+	}
+}
+
+// Helper for pointer to string
+func strPtr(s string) *string {
+	return &s
+}
+
+// =============================================================================
+// Mock Audit Logger
+// =============================================================================
+
+// MockAuditLogger is a mock implementation of audit.Logger for testing.
+type MockAuditLogger struct {
+	LogFn   func(ctx context.Context, event audit.Event) error
+	QueryFn func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error)
+	events  []audit.Event
+}
+
+func (m *MockAuditLogger) Log(ctx context.Context, event audit.Event) error {
+	m.events = append(m.events, event)
+	if m.LogFn != nil {
+		return m.LogFn(ctx, event)
+	}
+	return nil
+}
+
+func (m *MockAuditLogger) Query(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+	if m.QueryFn != nil {
+		return m.QueryFn(ctx, opts)
+	}
+	// Default: return all events
+	return &audit.QueryResult{
+		Events:  m.events,
+		Total:   len(m.events),
+		HasMore: false,
+	}, nil
+}
+
+func (m *MockAuditLogger) Flush(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockAuditLogger) Close() error {
+	return nil
+}
+
+// =============================================================================
+// GetAuditLog Tests
+// =============================================================================
+
+func TestGetAuditLog_Success(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	// Set up mock audit logger with events
+	now := time.Now()
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			return &audit.QueryResult{
+				Events: []audit.Event{
+					{
+						ID:         "event1",
+						Timestamp:  now,
+						Tool:       "miro_create_sticky",
+						Action:     audit.ActionCreate,
+						BoardID:    "board123",
+						ItemID:     "item456",
+						Success:    true,
+						DurationMs: 150,
+					},
+					{
+						ID:         "event2",
+						Timestamp:  now.Add(-time.Hour),
+						Tool:       "miro_delete_item",
+						Action:     audit.ActionDelete,
+						BoardID:    "board123",
+						ItemID:     "item789",
+						Success:    false,
+						Error:      "item not found",
+						DurationMs: 50,
+					},
+				},
+				Total:   2,
+				HasMore: false,
+			}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	result, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		BoardID: "board123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Events) != 2 {
+		t.Errorf("expected 2 events, got %d", len(result.Events))
+	}
+	if result.Total != 2 {
+		t.Errorf("Total = %d, want 2", result.Total)
+	}
+	if result.Message == "" {
+		t.Error("Message should not be empty")
+	}
+
+	// Verify first event
+	if result.Events[0].ID != "event1" {
+		t.Errorf("Events[0].ID = %q, want 'event1'", result.Events[0].ID)
+	}
+	if result.Events[0].Tool != "miro_create_sticky" {
+		t.Errorf("Events[0].Tool = %q, want 'miro_create_sticky'", result.Events[0].Tool)
+	}
+	if !result.Events[0].Success {
+		t.Error("Events[0].Success should be true")
+	}
+
+	// Verify second event with error
+	if result.Events[1].Success {
+		t.Error("Events[1].Success should be false")
+	}
+	if result.Events[1].Error != "item not found" {
+		t.Errorf("Events[1].Error = %q, want 'item not found'", result.Events[1].Error)
+	}
+}
+
+func TestGetAuditLog_EmptyResult(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			return &audit.QueryResult{
+				Events:  []audit.Event{},
+				Total:   0,
+				HasMore: false,
+			}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	result, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Events) != 0 {
+		t.Errorf("expected 0 events, got %d", len(result.Events))
+	}
+	if result.Total != 0 {
+		t.Errorf("Total = %d, want 0", result.Total)
+	}
+}
+
+func TestGetAuditLog_InvalidSinceTime(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+	registry.WithAuditLogger(&MockAuditLogger{})
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Since: "not-a-valid-time",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for invalid 'since' time")
+	}
+	if !errors.Is(err, err) || err.Error() == "" {
+		t.Errorf("error should mention invalid time format")
+	}
+}
+
+func TestGetAuditLog_InvalidUntilTime(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+	registry.WithAuditLogger(&MockAuditLogger{})
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Until: "invalid-time-format",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for invalid 'until' time")
+	}
+}
+
+func TestGetAuditLog_ValidTimeRange(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	var capturedOpts audit.QueryOptions
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			capturedOpts = opts
+			return &audit.QueryResult{Events: []audit.Event{}, Total: 0}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Since: "2024-01-01T00:00:00Z",
+		Until: "2024-01-31T23:59:59Z",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify the times were parsed correctly
+	if capturedOpts.Since.IsZero() {
+		t.Error("Since time should be set")
+	}
+	if capturedOpts.Until.IsZero() {
+		t.Error("Until time should be set")
+	}
+	if capturedOpts.Since.Year() != 2024 || capturedOpts.Since.Month() != 1 || capturedOpts.Since.Day() != 1 {
+		t.Errorf("Since = %v, want 2024-01-01", capturedOpts.Since)
+	}
+}
+
+func TestGetAuditLog_DefaultLimit(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	var capturedOpts audit.QueryOptions
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			capturedOpts = opts
+			return &audit.QueryResult{Events: []audit.Event{}, Total: 0}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Limit: 0, // Should default to 50
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedOpts.Limit != 50 {
+		t.Errorf("Limit = %d, want 50 (default)", capturedOpts.Limit)
+	}
+}
+
+func TestGetAuditLog_LimitCapped(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	var capturedOpts audit.QueryOptions
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			capturedOpts = opts
+			return &audit.QueryResult{Events: []audit.Event{}, Total: 0}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Limit: 1000, // Should be capped at 500
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedOpts.Limit != 500 {
+		t.Errorf("Limit = %d, want 500 (max cap)", capturedOpts.Limit)
+	}
+}
+
+func TestGetAuditLog_QueryError(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			return nil, errors.New("database error")
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{})
+
+	if err == nil {
+		t.Fatal("expected error from query")
+	}
+	if err.Error() != "audit query failed: database error" {
+		t.Errorf("error = %q, want 'audit query failed: database error'", err.Error())
+	}
+}
+
+func TestGetAuditLog_FiltersByToolAndAction(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	var capturedOpts audit.QueryOptions
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			capturedOpts = opts
+			return &audit.QueryResult{Events: []audit.Event{}, Total: 0}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Tool:    "miro_create_sticky",
+		Action:  "create",
+		BoardID: "board123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedOpts.Tool != "miro_create_sticky" {
+		t.Errorf("Tool = %q, want 'miro_create_sticky'", capturedOpts.Tool)
+	}
+	if capturedOpts.Action != "create" {
+		t.Errorf("Action = %q, want 'create'", capturedOpts.Action)
+	}
+	if capturedOpts.BoardID != "board123" {
+		t.Errorf("BoardID = %q, want 'board123'", capturedOpts.BoardID)
+	}
+}
+
+func TestGetAuditLog_FiltersBySuccess(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	var capturedOpts audit.QueryOptions
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			capturedOpts = opts
+			return &audit.QueryResult{Events: []audit.Event{}, Total: 0}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	success := true
+	_, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{
+		Success: &success,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedOpts.Success == nil {
+		t.Error("Success filter should be set")
+	} else if *capturedOpts.Success != true {
+		t.Errorf("Success = %v, want true", *capturedOpts.Success)
+	}
+}
+
+func TestGetAuditLog_HasMore(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	mockLogger := &MockAuditLogger{
+		QueryFn: func(ctx context.Context, opts audit.QueryOptions) (*audit.QueryResult, error) {
+			return &audit.QueryResult{
+				Events:  []audit.Event{{ID: "event1"}},
+				Total:   100,
+				HasMore: true,
+			}, nil
+		},
+	}
+	registry.WithAuditLogger(mockLogger)
+
+	ctx := context.Background()
+	result, err := registry.GetAuditLog(ctx, miro.GetAuditLogArgs{Limit: 1})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.HasMore {
+		t.Error("HasMore should be true")
+	}
+	if result.Total != 100 {
+		t.Errorf("Total = %d, want 100", result.Total)
 	}
 }

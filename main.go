@@ -17,12 +17,14 @@ import (
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
 	"github.com/olgasafonova/miro-mcp-server/miro/oauth"
+	"github.com/olgasafonova/miro-mcp-server/prompts"
+	"github.com/olgasafonova/miro-mcp-server/resources"
 	"github.com/olgasafonova/miro-mcp-server/tools"
 )
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.7.0"
+	ServerVersion = "1.8.0"
 )
 
 func main() {
@@ -94,6 +96,16 @@ func main() {
 		WithAuditLogger(auditLogger).
 		WithUser(user.ID, user.Email)
 	registry.RegisterAll(server)
+
+	// Register MCP Resources (miro://board/{id} URIs)
+	resourceRegistry := resources.NewRegistry(client)
+	resourceRegistry.RegisterAll(server)
+	logger.Debug("Registered MCP resources", "count", 3)
+
+	// Register MCP Prompts (workflow templates)
+	promptRegistry := prompts.NewRegistry()
+	promptRegistry.RegisterAll(server)
+	logger.Debug("Registered MCP prompts", "count", 5)
 
 	ctx := context.Background()
 
@@ -182,6 +194,22 @@ const serverInstructions = `# Miro MCP Server - Voice-Friendly Whiteboard Contro
 ### Modifying
 - miro_update_item: Change items ("update sticky text", "move this shape")
 - miro_delete_item: Remove items ("delete that sticky")
+
+## MCP Resources
+
+Access board content directly via resource URIs:
+- miro://board/{board_id} - Get board summary with metadata and item counts
+- miro://board/{board_id}/items - Get all items on a board
+- miro://board/{board_id}/frames - Get all frames on a board
+
+## MCP Prompts (Workflow Templates)
+
+Use prompts for common workflows:
+- create-sprint-board: Create sprint planning board with standard columns
+- create-retrospective: Create retrospective with What Went Well/Could Improve/Action Items
+- create-brainstorm: Set up brainstorming session with central topic
+- create-story-map: Create user story mapping board
+- create-kanban: Create kanban board with customizable columns
 
 ## Workflow
 

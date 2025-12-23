@@ -6,7 +6,7 @@ This file provides context for Claude Code sessions working on this repository.
 
 **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server in Go.
 
-**Current Status**: 76 tools implemented. Phases 1-7 complete, plus batch update/delete and full type-specific updates for all item types. (Webhooks removed - Miro sunset Dec 2025)
+**Current Status**: 76 tools, 3 MCP resources, 5 MCP prompts. Phases 1-7 complete, plus batch update/delete and full type-specific updates for all item types. (Webhooks removed - Miro sunset Dec 2025)
 
 ## Quick Start
 
@@ -79,6 +79,14 @@ miro-mcp-server/
 │       ├── mermaid.go         # Mermaid flowchart parser
 │       ├── layout.go          # Auto-layout algorithm (Sugiyama-style)
 │       └── converter.go       # Convert to Miro API items
+│
+├── resources/                 # MCP Resource handlers
+│   ├── resources.go           # miro://board/{id} URI handlers
+│   └── resources_test.go      # Resource handler tests
+│
+├── prompts/                   # MCP Prompt templates
+│   ├── prompts.go             # Workflow template handlers
+│   └── prompts_test.go        # Prompt handler tests
 │
 └── tools/
     ├── definitions.go         # Tool specs (add new tools here)
@@ -191,8 +199,6 @@ That's it! The generic `makeHandler` function handles type-safe registration aut
 
 ## Implementation Status
 
-See `ROADMAP.md` for full details.
-
 ### Phase 1: Complete ✅ (26 tools)
 - **Boards**: list, get, create, copy, delete
 - **Create**: sticky, shape, text, connector, frame, card, image, document, embed, bulk
@@ -301,7 +307,6 @@ if !mock.WasCalled("CreateSticky") {
 3. `miro/types_operations.go` - Common Args/Result types
 4. `tools/definitions.go` - Tool description format
 5. `tools/handlers.go` - Map-based registration with generics
-6. `ROADMAP.md` - Full implementation plan
 
 ## Current Advantages Over Competitors
 
@@ -320,6 +325,8 @@ if !mock.WasCalled("CreateSticky") {
 13. **Generic handler registration** - type-safe, single-line tool registration
 14. **Audit logging** - track all tool executions with file/memory loggers
 15. **OAuth 2.1 with PKCE** - secure authentication with auto-refresh
+16. **MCP Resources** - direct board content access via `miro://board/{id}` URIs
+17. **MCP Prompts** - 5 workflow templates (sprint board, retrospective, brainstorm, story map, kanban)
 
 ## What NOT to Change
 

@@ -20,7 +20,6 @@ Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 | [CONFIG.md](CONFIG.md) | Configuration reference |
 | [COMPARISON.md](COMPARISON.md) | Competitive analysis |
 | [PERFORMANCE.md](PERFORMANCE.md) | Optimization guide |
-| [ROADMAP.md](ROADMAP.md) | Development roadmap |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [ERRORS.md](ERRORS.md) | Error handling & troubleshooting |
 

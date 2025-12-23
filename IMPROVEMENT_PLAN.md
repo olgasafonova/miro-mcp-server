@@ -99,18 +99,24 @@ This plan addresses verified improvement opportunities identified through compet
 
 ## Phase 4: Optional Enhancements
 
-### 4.1 MCP Resources
+### 4.1 MCP Resources ✅ COMPLETE
 - **Benefit:** Expose board content as MCP resources for direct access
 - **Implementation:** `miro://board/{id}` resource URIs
-- **Effort:** 4-6 hours
-- **Priority:** Medium - would allow direct board content access without tool calls
+- **Resources added:**
+  - `miro://board/{board_id}` - Board summary with metadata and item counts
+  - `miro://board/{board_id}/items` - All items on a board
+  - `miro://board/{board_id}/frames` - All frames on a board
+- **Tests:** Full test coverage in `resources/resources_test.go`
 
-### 4.2 MCP Prompts
+### 4.2 MCP Prompts ✅ COMPLETE
 - **Benefit:** Pre-built prompt templates for common workflows
-- **Examples:** "Create sprint board", "Retrospective template"
-- **Inspiration:** Miro Official MCP has 2 prompts
-- **Effort:** 2-4 hours
-- **Priority:** Medium
+- **Prompts added:**
+  - `create-sprint-board` - Sprint planning board with standard columns
+  - `create-retrospective` - Retrospective with What Went Well/Could Improve/Action Items
+  - `create-brainstorm` - Brainstorming session with central topic
+  - `create-story-map` - User story mapping board
+  - `create-kanban` - Kanban board with customizable columns
+- **Tests:** Full test coverage in `prompts/prompts_test.go`
 
 ### 4.3 Demo GIF
 - **Benefit:** Visual demonstration in README
@@ -179,6 +185,8 @@ This plan addresses verified improvement opportunities identified through compet
 | Validation duplication | 20+ copies | Helper functions | ✅ Done |
 | Magic numbers | Scattered | Centralized constants | ✅ Done |
 | Destructive operations | No preview | dry_run parameter | ✅ Done |
+| MCP Resources | None | 3 resource templates | ✅ Done |
+| MCP Prompts | None | 5 workflow templates | ✅ Done |
 
 ### Test Coverage (as of Dec 2025)
 
@@ -199,7 +207,28 @@ This plan addresses verified improvement opportunities identified through compet
 | Phase 1: Quick Wins | 1-2 hours | ✅ Complete (except demo GIF) |
 | Phase 2: Code Quality | 4-6 hours | ✅ Complete |
 | Phase 3: MCP Compliance | 4-8 hours | ✅ Complete |
-| Phase 4: Optional | As needed | Not started |
+| Phase 4: Optional | As needed | ✅ Partial (Resources + Prompts complete) |
+
+---
+
+## Miro Developer Terms Compliance
+
+Verified compliance with [Miro Developer Terms of Use](https://miro.com/legal/developer-terms-of-use/):
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Use only published APIs | ✅ | All endpoints from official v2 API docs |
+| No undocumented features | ✅ | No reverse engineering or hidden endpoints |
+| Rate limiting | ✅ | 5-concurrent semaphore + exponential backoff |
+| No permanent data storage | ✅ | 2-minute cache TTL for performance only |
+| User-controlled auth | ✅ | Users provide their own tokens |
+| Branding compliance | ✅ | Named "miro-mcp-server" (acknowledges compatibility, no endorsement claim) |
+| No data selling | ✅ | Open source, no commercial data use |
+
+**Notes:**
+- Audit logs store execution metadata (timestamps, tool names), not user content
+- OAuth uses standard PKCE flow per Miro's documentation
+- Users control which boards they access; data handling responsibility falls on them
 
 ---
 
@@ -208,4 +237,5 @@ This plan addresses verified improvement opportunities identified through compet
 - [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector)
 - [MCP Best Practices](https://modelcontextprotocol.info/docs/best-practices/)
 - [Miro REST API Reference](https://developers.miro.com/reference/api-reference)
+- [Miro Developer Terms of Use](https://miro.com/legal/developer-terms-of-use/)
 - [Miro Comments API Request](https://community.miro.com/ideas/access-to-comments-via-rest-api-webhooks-6965) (not available)

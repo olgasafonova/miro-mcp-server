@@ -150,6 +150,7 @@ type UpdateTagResult struct {
 type DeleteTagArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteTagResult confirms tag deletion.

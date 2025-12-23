@@ -273,6 +273,15 @@ func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteIte
 		return DeleteItemResult{}, fmt.Errorf("item_id is required")
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteItemResult{
+			Success: true,
+			ItemID:  args.ItemID,
+			Message: "[DRY RUN] Would delete item " + args.ItemID + " from board " + args.BoardID,
+		}, nil
+	}
+
 	// Miro uses different endpoints for different item types
 	// We'll try the generic items endpoint first
 	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID+"/items/"+args.ItemID, nil)
@@ -502,6 +511,15 @@ func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDelet
 	}
 	if len(args.ItemIDs) > 20 {
 		return BulkDeleteResult{}, fmt.Errorf("maximum 20 items per bulk operation")
+	}
+
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return BulkDeleteResult{
+			Deleted: len(args.ItemIDs),
+			ItemIDs: args.ItemIDs,
+			Message: fmt.Sprintf("[DRY RUN] Would delete %d items from board %s", len(args.ItemIDs), args.BoardID),
+		}, nil
 	}
 
 	// Delete items in parallel - semaphore in request() limits actual concurrency

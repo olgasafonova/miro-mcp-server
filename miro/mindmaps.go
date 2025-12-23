@@ -260,6 +260,15 @@ func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeAr
 		return DeleteMindmapNodeResult{}, fmt.Errorf("node_id is required")
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteMindmapNodeResult{
+			Success: true,
+			ID:      args.NodeID,
+			Message: "[DRY RUN] Would delete mindmap node " + args.NodeID + " from board " + args.BoardID,
+		}, nil
+	}
+
 	path := fmt.Sprintf("/boards/%s/mindmap_nodes/%s", args.BoardID, args.NodeID)
 	_, err := c.requestExperimental(ctx, http.MethodDelete, path, nil)
 	if err != nil {

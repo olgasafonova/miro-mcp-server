@@ -199,6 +199,15 @@ func (c *Client) DeleteBoard(ctx context.Context, args DeleteBoardArgs) (DeleteB
 		return DeleteBoardResult{}, fmt.Errorf("board_id is required")
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteBoardResult{
+			Success: true,
+			BoardID: args.BoardID,
+			Message: "[DRY RUN] Would delete board " + args.BoardID,
+		}, nil
+	}
+
 	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID, nil)
 	if err != nil {
 		return DeleteBoardResult{

@@ -290,6 +290,15 @@ func (c *Client) DeleteAppCard(ctx context.Context, args DeleteAppCardArgs) (Del
 		return DeleteAppCardResult{}, fmt.Errorf("invalid item_id: %w", err)
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteAppCardResult{
+			Success: true,
+			ItemID:  args.ItemID,
+			Message: "[DRY RUN] Would delete app card " + args.ItemID + " from board " + args.BoardID,
+		}, nil
+	}
+
 	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID+"/app_cards/"+args.ItemID, nil)
 	if err != nil {
 		return DeleteAppCardResult{

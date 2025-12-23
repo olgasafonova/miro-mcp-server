@@ -240,6 +240,19 @@ func (c *Client) DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteG
 		return DeleteGroupResult{}, fmt.Errorf("invalid group_id: %w", err)
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		msg := "[DRY RUN] Would delete group " + args.GroupID + ", items would be ungrouped"
+		if args.DeleteItems {
+			msg = "[DRY RUN] Would delete group " + args.GroupID + " and its items"
+		}
+		return DeleteGroupResult{
+			Success: true,
+			GroupID: args.GroupID,
+			Message: msg,
+		}, nil
+	}
+
 	path := "/boards/" + args.BoardID + "/groups/" + args.GroupID
 	if args.DeleteItems {
 		path += "?deleteItems=true"

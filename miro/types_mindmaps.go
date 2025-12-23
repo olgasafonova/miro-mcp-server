@@ -98,6 +98,7 @@ type ListMindmapNodesResult struct {
 type DeleteMindmapNodeArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	NodeID  string `json:"node_id" jsonschema:"required" jsonschema_description:"Mindmap node ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteMindmapNodeResult confirms the deletion.

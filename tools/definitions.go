@@ -128,8 +128,10 @@ USE WHEN: User says "delete this board", "remove board X"
 
 PARAMETERS:
 - board_id: Board to delete (required)
+- dry_run: If true, returns preview without deleting (optional)
 
-WARNING: This action cannot be undone. The board and all its contents will be permanently deleted.`,
+WARNING: This action cannot be undone. The board and all its contents will be permanently deleted.
+Use dry_run=true to preview what will be deleted before executing.`,
 	},
 	{
 		Name:       "miro_update_board",
@@ -295,8 +297,10 @@ USE WHEN: User says "remove this frame", "delete the frame"
 PARAMETERS:
 - board_id: Required
 - frame_id: Required
+- dry_run: If true, returns preview without deleting (optional)
 
 WARNING: This action cannot be undone. Items inside the frame are NOT deleted - they become ungrouped.
+Use dry_run=true to preview what will be deleted before executing.
 
 VOICE-FRIENDLY: "Frame deleted successfully"`,
 	},
@@ -380,8 +384,10 @@ USE WHEN: User says "delete these items", "remove all these stickies", "clear th
 PARAMETERS:
 - board_id: Required
 - item_ids: Array of item IDs to delete (max 20)
+- dry_run: If true, returns preview without deleting (optional)
 
 WARNING: This action cannot be undone.
+Use dry_run=true to preview what will be deleted before executing.
 
 VOICE-FRIENDLY: "Deleted 5 items from the board"`,
 	},
@@ -653,8 +659,10 @@ USE WHEN: User says "delete this tag", "remove the Urgent tag", "get rid of that
 PARAMETERS:
 - board_id: Required
 - tag_id: Tag ID to delete (required)
+- dry_run: If true, returns preview without deleting (optional)
 
 WARNING: This removes the tag from all items and cannot be undone.
+Use dry_run=true to preview what will be deleted before executing.
 
 VOICE-FRIENDLY: "Tag deleted successfully"`,
 	},
@@ -869,8 +877,10 @@ USE WHEN: User says "remove this sticky", "delete that shape", "get rid of X"
 PARAMETERS:
 - board_id: Required
 - item_id: Required
+- dry_run: If true, returns preview without deleting (optional)
 
-WARNING: This action cannot be undone.`,
+WARNING: This action cannot be undone.
+Use dry_run=true to preview what will be deleted before executing.`,
 	},
 	{
 		Name:       "miro_update_connector",
@@ -903,6 +913,7 @@ USE WHEN: User says "remove this line", "delete the connection", "disconnect the
 PARAMETERS:
 - board_id: Required
 - connector_id: Connector ID to delete (required)
+- dry_run: If true, returns preview without deleting (optional)
 
 WARNING: This action cannot be undone.
 
@@ -1126,8 +1137,10 @@ PARAMETERS:
 - board_id: Required
 - group_id: Required
 - delete_items: If true, also delete the items (default: false, items are ungrouped)
+- dry_run: If true, returns preview without deleting (optional)
 
 WARNING: Deleting items cannot be undone.
+Use dry_run=true to preview what will be deleted before executing.
 
 VOICE-FRIENDLY: "Group deleted, items ungrouped"`,
 	},
@@ -1289,8 +1302,10 @@ USE WHEN: User says "remove mindmap node", "delete node"
 PARAMETERS:
 - board_id: Required
 - node_id: Mindmap node ID (required)
+- dry_run: If true, returns preview without deleting (optional)
 
-WARNING: Cannot be undone. Deleting parent may affect children. Uses v2-experimental API.`,
+WARNING: Cannot be undone. Deleting parent may affect children. Uses v2-experimental API.
+Use dry_run=true to preview what will be deleted before executing.`,
 	},
 
 	// ==========================================================================
@@ -1497,8 +1512,10 @@ USE WHEN: User says "remove the app card", "delete that app card"
 PARAMETERS:
 - board_id: Required
 - item_id: App card ID to delete (required)
+- dry_run: If true, returns preview without deleting (optional)
 
 WARNING: This action cannot be undone.
+Use dry_run=true to preview what will be deleted before executing.
 
 VOICE-FRIENDLY: "App card deleted successfully"`,
 	},

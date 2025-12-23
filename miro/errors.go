@@ -217,3 +217,73 @@ func IsValidationError(err error) bool {
 	var validErr *ValidationError
 	return errors.As(err, &validErr)
 }
+
+// =============================================================================
+// Predefined Validation Errors
+// =============================================================================
+
+// Common validation errors as variables for consistent error messages.
+// These use simple messages matching existing error strings for compatibility.
+var (
+	ErrBoardIDRequired   = errors.New("board_id is required")
+	ErrItemIDRequired    = errors.New("item_id is required")
+	ErrNameRequired      = errors.New("name is required")
+	ErrTitleRequired     = errors.New("title is required")
+	ErrContentRequired   = errors.New("content is required")
+	ErrQueryRequired     = errors.New("query is required")
+	ErrTagIDRequired     = errors.New("tag_id is required")
+	ErrFrameIDRequired   = errors.New("frame_id is required")
+	ErrGroupIDRequired   = errors.New("group_id is required")
+	ErrConnectorRequired = errors.New("connector_id is required")
+	ErrNodeIDRequired    = errors.New("node_id is required")
+	ErrMemberIDRequired  = errors.New("member_id is required")
+	ErrEmailRequired     = errors.New("email is required")
+	ErrURLRequired       = errors.New("url is required")
+	ErrShapeRequired     = errors.New("shape is required")
+	ErrDiagramRequired   = errors.New("diagram is required")
+)
+
+// =============================================================================
+// Validation Helpers
+// =============================================================================
+
+// RequireBoardID validates that a board ID is not empty.
+func RequireBoardID(boardID string) error {
+	if boardID == "" {
+		return ErrBoardIDRequired
+	}
+	return nil
+}
+
+// RequireItemID validates that an item ID is not empty.
+func RequireItemID(itemID string) error {
+	if itemID == "" {
+		return ErrItemIDRequired
+	}
+	return nil
+}
+
+// RequireNonEmpty validates that a string field is not empty.
+// Returns an error with the format "{field} is required".
+func RequireNonEmpty(field, value string) error {
+	if value == "" {
+		return fmt.Errorf("%s is required", field)
+	}
+	return nil
+}
+
+// RequireNonEmptySlice validates that a slice has at least one element.
+func RequireNonEmptySlice[T any](field string, slice []T) error {
+	if len(slice) == 0 {
+		return fmt.Errorf("at least one %s is required", field)
+	}
+	return nil
+}
+
+// RequireMinItems validates that a slice has at least n elements.
+func RequireMinItems[T any](field string, slice []T, min int) error {
+	if len(slice) < min {
+		return fmt.Errorf("at least %d %s required", min, field)
+	}
+	return nil
+}

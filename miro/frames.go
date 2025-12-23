@@ -156,6 +156,15 @@ func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteF
 		return DeleteFrameResult{}, fmt.Errorf("frame_id is required")
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteFrameResult{
+			Success: true,
+			ID:      args.FrameID,
+			Message: "[DRY RUN] Would delete frame " + args.FrameID + " from board " + args.BoardID,
+		}, nil
+	}
+
 	path := fmt.Sprintf("/boards/%s/frames/%s", args.BoardID, args.FrameID)
 	_, err := c.request(ctx, http.MethodDelete, path, nil)
 	if err != nil {

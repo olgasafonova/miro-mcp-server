@@ -94,6 +94,7 @@ type CopyBoardResult struct {
 // DeleteBoardArgs contains parameters for deleting a board.
 type DeleteBoardArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"ID of the board to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteBoardResult confirms board deletion.

@@ -179,6 +179,7 @@ type UpdateConnectorResult struct {
 type DeleteConnectorArgs struct {
 	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	ConnectorID string `json:"connector_id" jsonschema:"required" jsonschema_description:"ID of the connector to delete"`
+	DryRun      bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteConnectorResult confirms connector deletion.
@@ -428,6 +429,7 @@ type UpdateItemResult struct {
 type DeleteItemArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"Item ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteItemResult confirms item deletion.
@@ -526,6 +528,7 @@ type BulkUpdateResult struct {
 type BulkDeleteArgs struct {
 	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	ItemIDs []string `json:"item_ids" jsonschema:"required" jsonschema_description:"IDs of items to delete (max 20)"`
+	DryRun  bool     `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // BulkDeleteResult contains results of bulk item deletion.

@@ -455,3 +455,159 @@ func BenchmarkIsRateLimitError(b *testing.B) {
 		IsRateLimitError(err)
 	}
 }
+
+// =============================================================================
+// Validation Helper Tests
+// =============================================================================
+
+func TestRequireBoardID(t *testing.T) {
+	tests := []struct {
+		name    string
+		boardID string
+		wantErr error
+	}{
+		{"empty", "", ErrBoardIDRequired},
+		{"valid", "abc123", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RequireBoardID(tt.boardID)
+			if err != tt.wantErr {
+				t.Errorf("RequireBoardID() = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRequireItemID(t *testing.T) {
+	tests := []struct {
+		name   string
+		itemID string
+		wantErr error
+	}{
+		{"empty", "", ErrItemIDRequired},
+		{"valid", "item123", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RequireItemID(tt.itemID)
+			if err != tt.wantErr {
+				t.Errorf("RequireItemID() = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRequireNonEmpty(t *testing.T) {
+	tests := []struct {
+		name    string
+		field   string
+		value   string
+		wantErr bool
+		errMsg  string
+	}{
+		{"empty value", "board_id", "", true, "board_id is required"},
+		{"non-empty value", "board_id", "abc123", false, ""},
+		{"whitespace only", "name", "   ", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RequireNonEmpty(tt.field, tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RequireNonEmpty() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && err.Error() != tt.errMsg {
+				t.Errorf("RequireNonEmpty() error = %q, want %q", err.Error(), tt.errMsg)
+			}
+		})
+	}
+}
+
+func TestRequireNonEmptySlice(t *testing.T) {
+	t.Run("empty string slice", func(t *testing.T) {
+		err := RequireNonEmptySlice("item", []string{})
+		if err == nil {
+			t.Error("RequireNonEmptySlice() expected error for empty slice")
+		}
+		if err.Error() != "at least one item is required" {
+			t.Errorf("error = %q, want %q", err.Error(), "at least one item is required")
+		}
+	})
+
+	t.Run("non-empty string slice", func(t *testing.T) {
+		err := RequireNonEmptySlice("item", []string{"a", "b"})
+		if err != nil {
+			t.Errorf("RequireNonEmptySlice() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("empty int slice", func(t *testing.T) {
+		err := RequireNonEmptySlice("number", []int{})
+		if err == nil {
+			t.Error("RequireNonEmptySlice() expected error for empty slice")
+		}
+	})
+}
+
+func TestRequireMinItems(t *testing.T) {
+	t.Run("below minimum", func(t *testing.T) {
+		err := RequireMinItems("item_ids", []string{"a"}, 2)
+		if err == nil {
+			t.Error("RequireMinItems() expected error")
+		}
+		if err.Error() != "at least 2 item_ids required" {
+			t.Errorf("error = %q, want %q", err.Error(), "at least 2 item_ids required")
+		}
+	})
+
+	t.Run("at minimum", func(t *testing.T) {
+		err := RequireMinItems("item_ids", []string{"a", "b"}, 2)
+		if err != nil {
+			t.Errorf("RequireMinItems() unexpected error: %v", err)
+		}
+	})
+
+	t.Run("above minimum", func(t *testing.T) {
+		err := RequireMinItems("item_ids", []string{"a", "b", "c"}, 2)
+		if err != nil {
+			t.Errorf("RequireMinItems() unexpected error: %v", err)
+		}
+	})
+}
+
+func TestPredefinedErrors(t *testing.T) {
+	// Verify all predefined errors have correct messages
+	tests := []struct {
+		err     error
+		message string
+	}{
+		{ErrBoardIDRequired, "board_id is required"},
+		{ErrItemIDRequired, "item_id is required"},
+		{ErrNameRequired, "name is required"},
+		{ErrTitleRequired, "title is required"},
+		{ErrContentRequired, "content is required"},
+		{ErrQueryRequired, "query is required"},
+		{ErrTagIDRequired, "tag_id is required"},
+		{ErrFrameIDRequired, "frame_id is required"},
+		{ErrGroupIDRequired, "group_id is required"},
+		{ErrConnectorRequired, "connector_id is required"},
+		{ErrNodeIDRequired, "node_id is required"},
+		{ErrMemberIDRequired, "member_id is required"},
+		{ErrEmailRequired, "email is required"},
+		{ErrURLRequired, "url is required"},
+		{ErrShapeRequired, "shape is required"},
+		{ErrDiagramRequired, "diagram is required"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.message, func(t *testing.T) {
+			if tt.err.Error() != tt.message {
+				t.Errorf("Error() = %q, want %q", tt.err.Error(), tt.message)
+			}
+		})
+	}
+}

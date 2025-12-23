@@ -81,6 +81,7 @@ type UpdateAppCardResult struct {
 type DeleteAppCardArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"App card item ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteAppCardResult contains the deletion result.

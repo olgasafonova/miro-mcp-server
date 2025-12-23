@@ -2,9 +2,10 @@
 
 Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
-**73 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**76 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/olgasafonova/miro-mcp-server/graph/badge.svg)](https://codecov.io/gh/olgasafonova/miro-mcp-server)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -87,7 +88,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 68 Tools
+## All 76 Tools
 
 <details>
 <summary><b>Board Management (8)</b></summary>
@@ -309,6 +310,28 @@ See [PERFORMANCE.md](PERFORMANCE.md) for optimization tips and benchmarks.
 
 ---
 
+## Debugging with MCP Inspector
+
+Test and debug the server interactively with [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector):
+
+```bash
+# Install and run (no setup required)
+npx @modelcontextprotocol/inspector miro-mcp-server
+
+# With environment variables
+MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
+```
+
+Open `http://localhost:6274` to:
+- Browse all 76 tools with their schemas
+- Test tool calls interactively
+- View raw JSON-RPC messages
+- Debug parameter validation
+
+See [SETUP.md](SETUP.md#debugging) for more debugging options.
+
+---
+
 ## Supported Platforms
 
 | Platform | Binary |
@@ -342,9 +365,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 68 tools |
-| Team | Full access to all 68 tools |
-| Business | Full access to all 68 tools |
+| Free | Full access to all 76 tools |
+| Team | Full access to all 76 tools |
+| Business | Full access to all 76 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

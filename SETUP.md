@@ -409,6 +409,67 @@ The server handles rate limits automatically. If you see rate limit errors:
 
 ---
 
+## Debugging
+
+### MCP Inspector (Recommended)
+
+[MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is the official tool for testing and debugging MCP servers.
+
+```bash
+# Run with MCP Inspector
+npx @modelcontextprotocol/inspector miro-mcp-server
+
+# With your token
+MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
+
+# With Docker
+MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector \
+  docker run -i --rm -e MIRO_ACCESS_TOKEN ghcr.io/olgasafonova/miro-mcp-server
+```
+
+Open `http://localhost:6274` to:
+- **Browse tools:** See all 76 tools with their input schemas
+- **Test interactively:** Call any tool with custom parameters
+- **View messages:** See raw JSON-RPC request/response
+- **Debug errors:** Get detailed error information
+
+### Manual JSON-RPC Testing
+
+For quick CLI testing without the Inspector:
+
+```bash
+# Initialize and list tools
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | \
+  MIRO_ACCESS_TOKEN=your-token miro-mcp-server
+```
+
+### Enable Debug Logging
+
+Set log level for verbose output:
+
+```bash
+# More verbose output
+MIRO_ACCESS_TOKEN=your-token miro-mcp-server 2>&1 | tee debug.log
+```
+
+### HTTP Mode Testing
+
+Run in HTTP mode for easier debugging with curl:
+
+```bash
+# Start in HTTP mode
+MIRO_ACCESS_TOKEN=your-token miro-mcp-server -http :8080
+
+# Test with curl (in another terminal)
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+---
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |

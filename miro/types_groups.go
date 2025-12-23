@@ -128,6 +128,7 @@ type DeleteGroupArgs struct {
 	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	GroupID     string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to delete"`
 	DeleteItems bool   `json:"delete_items,omitempty" jsonschema_description:"Also delete the items in the group (default: false, items are ungrouped)"`
+	DryRun      bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteGroupResult confirms group deletion.

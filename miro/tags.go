@@ -302,6 +302,15 @@ func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagRe
 		return DeleteTagResult{}, fmt.Errorf("tag_id is required")
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteTagResult{
+			Success: true,
+			TagID:   args.TagID,
+			Message: "[DRY RUN] Would delete tag " + args.TagID + " from board " + args.BoardID,
+		}, nil
+	}
+
 	path := fmt.Sprintf("/boards/%s/tags/%s", args.BoardID, args.TagID)
 
 	_, err := c.request(ctx, http.MethodDelete, path, nil)

@@ -58,6 +58,7 @@ type UpdateFrameResult struct {
 type DeleteFrameArgs struct {
 	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
 	FrameID string `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
 }
 
 // DeleteFrameResult confirms frame deletion.

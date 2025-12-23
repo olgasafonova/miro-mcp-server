@@ -463,6 +463,15 @@ func (c *Client) DeleteConnector(ctx context.Context, args DeleteConnectorArgs) 
 		return DeleteConnectorResult{}, fmt.Errorf("connector_id is required")
 	}
 
+	// Dry-run mode: return preview without deleting
+	if args.DryRun {
+		return DeleteConnectorResult{
+			Success: true,
+			ID:      args.ConnectorID,
+			Message: "[DRY RUN] Would delete connector " + args.ConnectorID + " from board " + args.BoardID,
+		}, nil
+	}
+
 	path := fmt.Sprintf("/boards/%s/connectors/%s", args.BoardID, args.ConnectorID)
 
 	_, err := c.request(ctx, http.MethodDelete, path, nil)

@@ -25,8 +25,8 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 	if args.Type != "" {
 		params.Set("type", args.Type)
 	}
-	limit := 50
-	if args.Limit > 0 && args.Limit <= 50 {
+	limit := DefaultItemLimit
+	if args.Limit > 0 && args.Limit <= MaxItemLimit {
 		limit = args.Limit
 	}
 	params.Set("limit", strconv.Itoa(limit))
@@ -320,8 +320,8 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 	if len(args.Items) == 0 {
 		return BulkCreateResult{}, fmt.Errorf("at least one item is required")
 	}
-	if len(args.Items) > 20 {
-		return BulkCreateResult{}, fmt.Errorf("maximum 20 items per bulk operation")
+	if len(args.Items) > MaxBulkItems {
+		return BulkCreateResult{}, fmt.Errorf("maximum %d items per bulk operation", MaxBulkItems)
 	}
 
 	// Create items in parallel - semaphore in request() limits actual concurrency
@@ -423,8 +423,8 @@ func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdat
 	if len(args.Items) == 0 {
 		return BulkUpdateResult{}, fmt.Errorf("at least one item is required")
 	}
-	if len(args.Items) > 20 {
-		return BulkUpdateResult{}, fmt.Errorf("maximum 20 items per bulk operation")
+	if len(args.Items) > MaxBulkItems {
+		return BulkUpdateResult{}, fmt.Errorf("maximum %d items per bulk operation", MaxBulkItems)
 	}
 
 	// Update items in parallel - semaphore in request() limits actual concurrency
@@ -509,8 +509,8 @@ func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDelet
 	if len(args.ItemIDs) == 0 {
 		return BulkDeleteResult{}, fmt.Errorf("at least one item_id is required")
 	}
-	if len(args.ItemIDs) > 20 {
-		return BulkDeleteResult{}, fmt.Errorf("maximum 20 items per bulk operation")
+	if len(args.ItemIDs) > MaxBulkItems {
+		return BulkDeleteResult{}, fmt.Errorf("maximum %d items per bulk operation", MaxBulkItems)
 	}
 
 	// Dry-run mode: return preview without deleting
@@ -578,10 +578,10 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 
 	maxItems := args.MaxItems
 	if maxItems == 0 {
-		maxItems = 500
+		maxItems = DefaultListAllMaxItems
 	}
-	if maxItems > 10000 {
-		maxItems = 10000
+	if maxItems > MaxListAllItems {
+		maxItems = MaxListAllItems
 	}
 
 	var allItems []ItemSummary
@@ -593,7 +593,7 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 		result, err := c.ListItems(ctx, ListItemsArgs{
 			BoardID: args.BoardID,
 			Type:    args.Type,
-			Limit:   100, // Max per page
+			Limit:   MaxItemLimitExtended, // Max per page
 			Cursor:  cursor,
 		})
 		if err != nil {
@@ -640,8 +640,8 @@ func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchB
 		return SearchBoardResult{}, fmt.Errorf("query is required")
 	}
 
-	limit := 50
-	if args.Limit > 0 && args.Limit < 50 {
+	limit := DefaultSearchLimit
+	if args.Limit > 0 && args.Limit < MaxSearchLimit {
 		limit = args.Limit
 	}
 

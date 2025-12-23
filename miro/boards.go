@@ -31,8 +31,8 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 	if args.Query != "" {
 		params.Set("query", args.Query)
 	}
-	limit := 20
-	if args.Limit > 0 && args.Limit <= 50 {
+	limit := DefaultBoardLimit
+	if args.Limit > 0 && args.Limit <= MaxBoardLimit {
 		limit = args.Limit
 	}
 	params.Set("limit", strconv.Itoa(limit))

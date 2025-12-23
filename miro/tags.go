@@ -59,8 +59,8 @@ func (c *Client) ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResul
 	}
 
 	params := url.Values{}
-	limit := 50
-	if args.Limit > 0 && args.Limit <= 50 {
+	limit := DefaultItemLimit
+	if args.Limit > 0 && args.Limit <= MaxItemLimit {
 		limit = args.Limit
 	}
 	params.Set("limit", strconv.Itoa(limit))

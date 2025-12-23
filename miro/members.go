@@ -20,8 +20,8 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 	}
 
 	params := url.Values{}
-	limit := 50
-	if args.Limit > 0 && args.Limit <= 100 {
+	limit := DefaultItemLimit
+	if args.Limit > 0 && args.Limit <= MaxItemLimitExtended {
 		limit = args.Limit
 	}
 	params.Set("limit", strconv.Itoa(limit))

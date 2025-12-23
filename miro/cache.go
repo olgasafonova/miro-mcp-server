@@ -27,10 +27,10 @@ type CacheConfig struct {
 // DefaultCacheConfig returns sensible default cache configuration.
 func DefaultCacheConfig() CacheConfig {
 	return CacheConfig{
-		BoardTTL:   2 * time.Minute,
-		ItemTTL:    1 * time.Minute,
-		TagTTL:     2 * time.Minute,
-		MaxEntries: 1000,
+		BoardTTL:   BoardCacheTTL,
+		ItemTTL:    ItemCacheTTL,
+		TagTTL:     TagCacheTTL,
+		MaxEntries: CacheMaxEntries,
 	}
 }
 

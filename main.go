@@ -139,9 +139,9 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose
 	httpServer := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  miro.HTTPReadTimeout,
+		WriteTimeout: miro.HTTPWriteTimeout,
+		IdleTimeout:  miro.HTTPIdleTimeout,
 	}
 
 	logger.Info("Starting Miro MCP Server (HTTP mode)",

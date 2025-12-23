@@ -16,8 +16,8 @@ func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateG
 	if err := ValidateBoardID(args.BoardID); err != nil {
 		return CreateGroupResult{}, err
 	}
-	if len(args.ItemIDs) < 2 {
-		return CreateGroupResult{}, fmt.Errorf("at least 2 items are required to create a group")
+	if len(args.ItemIDs) < MinGroupItems {
+		return CreateGroupResult{}, fmt.Errorf("at least %d items are required to create a group", MinGroupItems)
 	}
 
 	reqBody := map[string]interface{}{
@@ -74,8 +74,8 @@ func (c *Client) ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroup
 		return ListGroupsResult{}, err
 	}
 
-	limit := 50
-	if args.Limit > 0 && args.Limit <= 100 {
+	limit := DefaultItemLimit
+	if args.Limit > 0 && args.Limit <= MaxItemLimitExtended {
 		limit = args.Limit
 	}
 
@@ -143,8 +143,8 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 		return GetGroupItemsResult{}, fmt.Errorf("invalid group_id: %w", err)
 	}
 
-	limit := 50
-	if args.Limit > 0 && args.Limit <= 100 {
+	limit := DefaultItemLimit
+	if args.Limit > 0 && args.Limit <= MaxItemLimitExtended {
 		limit = args.Limit
 	}
 
@@ -202,8 +202,8 @@ func (c *Client) UpdateGroup(ctx context.Context, args UpdateGroupArgs) (UpdateG
 	if err := ValidateItemID(args.GroupID); err != nil {
 		return UpdateGroupResult{}, fmt.Errorf("invalid group_id: %w", err)
 	}
-	if len(args.ItemIDs) < 2 {
-		return UpdateGroupResult{}, fmt.Errorf("at least 2 items are required in a group")
+	if len(args.ItemIDs) < MinGroupItems {
+		return UpdateGroupResult{}, fmt.Errorf("at least %d items are required in a group", MinGroupItems)
 	}
 
 	reqBody := map[string]interface{}{

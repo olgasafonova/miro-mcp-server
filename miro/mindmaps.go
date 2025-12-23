@@ -271,7 +271,7 @@ func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeAr
 	}
 
 	// Invalidate items cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return DeleteMindmapNodeResult{
 		Success: true,

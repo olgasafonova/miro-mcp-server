@@ -68,7 +68,7 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 	}
 
 	// Invalidate items list cache since we added a new item
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateStickyResult{
 		ID:      sticky.ID,
@@ -142,7 +142,7 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateShapeResult{
 		ID:      shape.ID,
@@ -206,7 +206,7 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateTextResult{
 		ID:      text.ID,
@@ -386,7 +386,7 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 	}
 
 	// Invalidate connectors cache
-	c.itemCache.InvalidatePrefix("connectors:" + args.BoardID)
+	c.cache.InvalidatePrefix("connectors:" + args.BoardID)
 
 	return CreateConnectorResult{
 		ID:      connector.ID,
@@ -445,7 +445,7 @@ func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) 
 	}
 
 	// Invalidate connectors cache
-	c.itemCache.InvalidatePrefix("connectors:" + args.BoardID)
+	c.cache.InvalidatePrefix("connectors:" + args.BoardID)
 
 	return UpdateConnectorResult{
 		Success: true,
@@ -475,7 +475,7 @@ func (c *Client) DeleteConnector(ctx context.Context, args DeleteConnectorArgs) 
 	}
 
 	// Invalidate connectors cache
-	c.itemCache.InvalidatePrefix("connectors:" + args.BoardID)
+	c.cache.InvalidatePrefix("connectors:" + args.BoardID)
 
 	return DeleteConnectorResult{
 		Success: true,
@@ -533,7 +533,7 @@ func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateF
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateFrameResult{
 		ID:      frame.ID,
@@ -598,7 +598,7 @@ func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCar
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateCardResult{
 		ID:      card.ID,
@@ -660,7 +660,7 @@ func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateI
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateImageResult{
 		ID:      image.ID,
@@ -723,7 +723,7 @@ func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (C
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateDocumentResult{
 		ID:      doc.ID,
@@ -788,7 +788,7 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 	}
 
 	// Invalidate items list cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return CreateEmbedResult{
 		ID:       embed.ID,

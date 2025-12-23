@@ -209,7 +209,7 @@ func (c *Client) DeleteBoard(ctx context.Context, args DeleteBoardArgs) (DeleteB
 	}
 
 	// Invalidate cache
-	c.cache.Delete("board:" + args.BoardID)
+	c.cache.Invalidate("board:" + args.BoardID)
 
 	return DeleteBoardResult{
 		Success: true,
@@ -309,7 +309,7 @@ func (c *Client) UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateB
 	}
 
 	// Invalidate cache
-	c.cache.Delete("board:" + args.BoardID)
+	c.cache.Invalidate("board:" + args.BoardID)
 
 	return UpdateBoardResult{
 		ID:          board.ID,

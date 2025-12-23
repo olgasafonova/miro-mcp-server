@@ -138,7 +138,7 @@ func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateF
 	}
 
 	// Invalidate items cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return UpdateFrameResult{
 		Success: true,
@@ -167,7 +167,7 @@ func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteF
 	}
 
 	// Invalidate items cache
-	c.itemCache.InvalidatePrefix("items:" + args.BoardID)
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
 	return DeleteFrameResult{
 		Success: true,

@@ -104,7 +104,7 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 
 	// Check cache first
 	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)
-	if cached, ok := c.itemCache.Get(cacheKey); ok {
+	if cached, ok := c.cache.Get(cacheKey); ok {
 		return cached.(GetItemResult), nil
 	}
 
@@ -176,7 +176,7 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 	}
 
 	// Cache the result
-	c.itemCache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
+	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
 
 	return result, nil
 }
@@ -255,7 +255,7 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 	}
 
 	// Invalidate cache for this item
-	c.itemCache.InvalidateItem(args.BoardID, args.ItemID)
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
 
 	return UpdateItemResult{
 		Success: true,
@@ -285,7 +285,7 @@ func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteIte
 	}
 
 	// Invalidate cache for this item and items list
-	c.itemCache.InvalidateItem(args.BoardID, args.ItemID)
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
 
 	return DeleteItemResult{
 		Success: true,

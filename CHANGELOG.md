@@ -5,6 +5,75 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Dependencies**: Updated MCP SDK v1.1.0 → v1.2.0
+- **Dependencies**: Updated jsonschema-go v0.3.0 → v0.4.2
+- **Dependencies**: Updated golang.org/x/oauth2 v0.30.0 → v0.34.0
+- **Dependencies**: Updated golang-jwt/jwt v5.2.1 → v5.2.2
+- **Dependencies**: Updated Go version 1.23.0 → 1.24.0
+- **Internal**: Consolidated duplicate caching mechanism (sync.Map → unified *Cache)
+
+### Added
+- **Documentation**: TODO.md for remaining improvement tasks
+
+### Removed
+- **Dead webhook code**: Removed webhook endpoints from HTTP mode (Miro sunset Dec 5, 2025)
+
+## [1.7.0] - 2025-12-22
+
+### Added
+- **Distribution**: Homebrew tap (`brew install olgasafonova/tap/miro-mcp-server`)
+- **Distribution**: Docker image (`ghcr.io/olgasafonova/miro-mcp-server`)
+- **Distribution**: Linux ARM64 binary
+- **Distribution**: Install script for macOS/Linux
+- **66 tools total**: Complete feature set
+
+### Changed
+- Improved installation documentation
+- Enhanced platform compatibility
+
+## [1.6.0] - 2025-12-22
+
+### Added
+- **Mindmaps**: `miro_get_mindmap_node` - Get node details
+- **Mindmaps**: `miro_list_mindmap_nodes` - List all mindmap nodes on board
+- **Mindmaps**: `miro_delete_mindmap_node` - Delete a mindmap node
+- **Frames**: `miro_get_frame` - Get frame details
+- **Frames**: `miro_update_frame` - Update frame title/color/size
+- **Frames**: `miro_delete_frame` - Delete a frame
+- **Frames**: `miro_get_frame_items` - List items inside a frame
+
+### Changed
+- Enhanced mindmap API support with v2-experimental endpoints
+- Improved frame management capabilities
+
+## [1.5.0] - 2025-12-21
+
+### Added
+- **App Cards**: `miro_create_app_card` - Create app cards with custom fields
+- **App Cards**: `miro_get_app_card` - Get app card details
+- **App Cards**: `miro_update_app_card` - Update app card fields/status
+- **App Cards**: `miro_delete_app_card` - Delete an app card
+- **Tags**: `miro_update_tag` - Update tag name/color
+- **Tags**: `miro_delete_tag` - Delete a tag
+- **Connectors**: `miro_list_connectors` - List all connectors on board
+- **Connectors**: `miro_get_connector` - Get connector details
+- **Connectors**: `miro_update_connector` - Update connector style/caption
+- **Connectors**: `miro_delete_connector` - Delete a connector
+- **Groups**: `miro_list_groups` - List all groups on board
+- **Groups**: `miro_get_group` - Get group details
+- **Groups**: `miro_get_group_items` - List items in a group
+- **Groups**: `miro_delete_group` - Delete a group
+- **Members**: `miro_get_board_member` - Get member details
+- **Members**: `miro_update_board_member` - Update member role
+- **Members**: `miro_remove_board_member` - Remove member from board
+
+### Changed
+- Expanded from 50 to 66 tools
+- Enhanced CRUD coverage across all domains
+
 ## [1.4.2] - 2025-12-21
 
 ### Fixed

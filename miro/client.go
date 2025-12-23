@@ -121,12 +121,8 @@ type Client struct {
 	// rateLimiter provides adaptive rate limiting based on API response headers.
 	rateLimiter *AdaptiveRateLimiter
 
-	// cache stores API responses with TTL (deprecated, use itemCache).
-	cache    sync.Map
-	cacheTTL time.Duration
-
-	// itemCache is the enhanced cache with TTL and invalidation.
-	itemCache   *Cache
+	// cache stores API responses with TTL and invalidation.
+	cache       *Cache
 	cacheConfig CacheConfig
 
 	// circuitBreakers manages circuit breakers for API endpoints.
@@ -143,12 +139,6 @@ type Client struct {
 	webhookCallbackURL string
 	// mu protects lazy-initialized fields.
 	mu sync.Mutex
-}
-
-// cacheEntry holds cached data with expiration.
-type cacheEntry struct {
-	data      interface{}
-	expiresAt time.Time
 }
 
 // UserInfo contains authenticated user information.
@@ -178,8 +168,7 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 		logger:             logger,
 		semaphore:          make(chan struct{}, MaxConcurrentRequests),
 		rateLimiter:        NewAdaptiveRateLimiter(rlConfig),
-		cacheTTL:           DefaultCacheTTL,
-		itemCache:          NewCache(cacheConfig),
+		cache:              NewCache(cacheConfig),
 		cacheConfig:        cacheConfig,
 		circuitBreakers:    NewCircuitBreakerRegistry(cbConfig),
 		webhookCallbackURL: os.Getenv("MIRO_WEBHOOKS_CALLBACK_URL"),
@@ -188,12 +177,12 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 
 // CacheStats returns cache performance statistics.
 func (c *Client) CacheStats() CacheStats {
-	return c.itemCache.Stats()
+	return c.cache.Stats()
 }
 
 // InvalidateCache clears all cached data.
 func (c *Client) InvalidateCache() {
-	c.itemCache.Clear()
+	c.cache.Clear()
 }
 
 // CircuitBreakerStats returns statistics for all circuit breakers.
@@ -499,22 +488,17 @@ func (c *Client) requestExperimental(ctx context.Context, method, path string, b
 
 // getCached retrieves a cached value if valid.
 func (c *Client) getCached(key string) (interface{}, bool) {
-	if entry, ok := c.cache.Load(key); ok {
-		ce := entry.(*cacheEntry)
-		if time.Now().Before(ce.expiresAt) {
-			return ce.data, true
-		}
-		c.cache.Delete(key)
-	}
-	return nil, false
+	return c.cache.Get(key)
 }
 
-// setCache stores a value in the cache.
+// setCache stores a value in the cache with default TTL (BoardTTL).
 func (c *Client) setCache(key string, data interface{}) {
-	c.cache.Store(key, &cacheEntry{
-		data:      data,
-		expiresAt: time.Now().Add(c.cacheTTL),
-	})
+	c.cache.Set(key, data, c.cacheConfig.BoardTTL)
+}
+
+// setCacheWithTTL stores a value in the cache with custom TTL.
+func (c *Client) setCacheWithTTL(key string, data interface{}, ttl time.Duration) {
+	c.cache.Set(key, data, ttl)
 }
 
 // =============================================================================
@@ -567,10 +551,7 @@ func (c *Client) ValidateToken(ctx context.Context) (*UserInfo, error) {
 	}
 
 	// Cache for 5 minutes
-	c.cache.Store("token:userinfo", &cacheEntry{
-		data:      user,
-		expiresAt: time.Now().Add(5 * time.Minute),
-	})
+	c.setCacheWithTTL("token:userinfo", user, 5*time.Minute)
 
 	return user, nil
 }

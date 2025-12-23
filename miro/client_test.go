@@ -220,8 +220,8 @@ func TestNewClient(t *testing.T) {
 	if client.config != cfg {
 		t.Error("config not set correctly")
 	}
-	if client.cacheTTL != DefaultCacheTTL {
-		t.Errorf("cacheTTL = %v, want %v", client.cacheTTL, DefaultCacheTTL)
+	if client.cache == nil {
+		t.Error("cache not initialized")
 	}
 	if cap(client.semaphore) != MaxConcurrentRequests {
 		t.Errorf("semaphore capacity = %d, want %d", cap(client.semaphore), MaxConcurrentRequests)

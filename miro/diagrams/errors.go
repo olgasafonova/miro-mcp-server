@@ -39,6 +39,21 @@ const (
 	ErrCodeTooManyNodes    = "TOO_MANY_NODES"
 	ErrCodeInvalidEdge     = "INVALID_EDGE"
 	ErrCodeUnknownDiagram  = "UNKNOWN_DIAGRAM_TYPE"
+	ErrCodeInputTooLarge   = "INPUT_TOO_LARGE"
+	ErrCodeTooManyLines    = "TOO_MANY_LINES"
+	ErrCodeLineTooLong     = "LINE_TOO_LONG"
+)
+
+// Input size limits for ReDoS protection
+const (
+	// MaxDiagramInputSize is the maximum input size in bytes (50KB).
+	MaxDiagramInputSize = 50 * 1024
+
+	// MaxDiagramLines is the maximum number of lines in a diagram.
+	MaxDiagramLines = 500
+
+	// MaxLineLength is the maximum length of a single line.
+	MaxLineLength = 2000
 )
 
 // NewDiagramError creates a new DiagramError with the given code and message.
@@ -111,6 +126,28 @@ func ErrTooManyNodes(count, limit int) *DiagramError {
 	).WithSuggestion("Split the diagram into smaller subgraphs or reduce the number of nodes")
 }
 
+// ErrInputTooLarge is returned when the input exceeds size limits.
+var ErrInputTooLarge = NewDiagramError(
+	ErrCodeInputTooLarge,
+	fmt.Sprintf("diagram input exceeds maximum size of %d bytes", MaxDiagramInputSize),
+).WithSuggestion("Reduce diagram size or split into multiple smaller diagrams")
+
+// ErrTooManyLinesError is returned when the diagram has too many lines.
+func ErrTooManyLinesError(count int) *DiagramError {
+	return NewDiagramError(
+		ErrCodeTooManyLines,
+		fmt.Sprintf("diagram has %d lines, exceeding limit of %d", count, MaxDiagramLines),
+	).WithSuggestion("Reduce the number of lines or split into multiple diagrams")
+}
+
+// ErrLineTooLongError is returned when a line exceeds the maximum length.
+func ErrLineTooLongError(lineNum, length int) *DiagramError {
+	return NewDiagramError(
+		ErrCodeLineTooLong,
+		fmt.Sprintf("line %d has %d characters, exceeding limit of %d", lineNum, length, MaxLineLength),
+	).WithLine(lineNum).WithSuggestion("Split long labels or node names into shorter segments")
+}
+
 // ErrInvalidNodeShape is returned when an unrecognized shape syntax is used.
 func ErrInvalidNodeShape(shape string) *DiagramError {
 	return NewDiagramError(
@@ -158,8 +195,13 @@ func DiagramTypeHint(input string) string {
 	return ""
 }
 
-// ValidateDiagramInput performs basic validation on diagram input.
+// ValidateDiagramInput performs validation on diagram input including ReDoS protection.
 func ValidateDiagramInput(input string) error {
+	// Check total input size (ReDoS protection)
+	if len(input) > MaxDiagramInputSize {
+		return ErrInputTooLarge
+	}
+
 	input = strings.TrimSpace(input)
 
 	if input == "" {
@@ -169,6 +211,18 @@ func ValidateDiagramInput(input string) error {
 	lines := strings.Split(input, "\n")
 	if len(lines) == 0 {
 		return ErrEmptyDiagram
+	}
+
+	// Check line count (ReDoS protection)
+	if len(lines) > MaxDiagramLines {
+		return ErrTooManyLinesError(len(lines))
+	}
+
+	// Check individual line lengths (ReDoS protection)
+	for i, line := range lines {
+		if len(line) > MaxLineLength {
+			return ErrLineTooLongError(i+1, len(line))
+		}
 	}
 
 	// Check first non-empty, non-comment line

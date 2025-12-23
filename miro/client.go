@@ -65,11 +65,14 @@ const (
 	// DefaultCacheTTL is the default cache time-to-live for board data.
 	DefaultCacheTTL = 2 * time.Minute
 
-	// MaxRetries is the maximum number of retry attempts for rate-limited requests.
+	// MaxRetries is the maximum number of retry attempts for retriable errors.
 	MaxRetries = 3
 
 	// BaseRetryDelay is the initial delay for exponential backoff.
 	BaseRetryDelay = 1 * time.Second
+
+	// MaxRetryDelay caps the exponential backoff delay.
+	MaxRetryDelay = 10 * time.Second
 )
 
 // =============================================================================
@@ -352,7 +355,55 @@ func joinPath(parts []string) string {
 	return result
 }
 
-// request makes an authenticated request to the Miro API.
+// isRetriableError returns true if the error/status code should be retried.
+func isRetriableError(statusCode int, err error) bool {
+	// Retry on transient server errors
+	if statusCode == http.StatusBadGateway || // 502
+		statusCode == http.StatusServiceUnavailable || // 503
+		statusCode == http.StatusGatewayTimeout || // 504
+		statusCode == http.StatusTooManyRequests { // 429
+		return true
+	}
+	// Retry on network errors (connection reset, timeout, etc.)
+	if err != nil {
+		errStr := err.Error()
+		return contains(errStr, "connection reset") ||
+			contains(errStr, "connection refused") ||
+			contains(errStr, "i/o timeout") ||
+			contains(errStr, "no such host") ||
+			contains(errStr, "EOF")
+	}
+	return false
+}
+
+// contains is a simple string contains helper.
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr))
+}
+
+func containsAt(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// calculateRetryDelay calculates the delay for a retry attempt using exponential backoff.
+func calculateRetryDelay(attempt int, retryAfter time.Duration) time.Duration {
+	if retryAfter > 0 {
+		return retryAfter
+	}
+	// Exponential backoff: 1s, 2s, 4s, capped at MaxRetryDelay
+	delay := BaseRetryDelay * time.Duration(1<<uint(attempt))
+	if delay > MaxRetryDelay {
+		delay = MaxRetryDelay
+	}
+	return delay
+}
+
+// request makes an authenticated request to the Miro API with retry support.
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
 	// Check circuit breaker
 	endpoint := extractEndpoint(path)
@@ -390,71 +441,125 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	// Build request URL
-	reqURL := c.baseURL + path
-
-	// Prepare request body
-	var reqBody io.Reader
+	// Marshal body once for potential retries
+	var bodyBytes []byte
 	if body != nil {
-		jsonBody, err := json.Marshal(body)
+		var marshalErr error
+		bodyBytes, marshalErr = json.Marshal(body)
+		if marshalErr != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", marshalErr)
+		}
+	}
+
+	// Retry loop
+	var lastErr error
+	var lastStatusCode int
+	for attempt := 0; attempt <= MaxRetries; attempt++ {
+		if attempt > 0 {
+			// Calculate delay for retry
+			retryAfter := GetRetryAfter(lastErr)
+			delay := calculateRetryDelay(attempt-1, retryAfter)
+
+			c.logger.Debug("Retrying request after transient error",
+				"attempt", attempt,
+				"delay", delay,
+				"last_status", lastStatusCode,
+				"path", path,
+			)
+
+			// Wait before retry, respecting context cancellation
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during retry wait: %w", ctx.Err())
+			}
+		}
+
+		// Build request URL
+		reqURL := c.baseURL + path
+
+		// Prepare request body (fresh reader for each attempt)
+		var reqBody io.Reader
+		if bodyBytes != nil {
+			reqBody = bytes.NewReader(bodyBytes)
+		}
+
+		// Create request
+		req, err := http.NewRequestWithContext(ctx, method, reqURL, reqBody)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
-		reqBody = bytes.NewReader(jsonBody)
-	}
 
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, method, reqURL, reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
+		// Set headers
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("User-Agent", c.config.UserAgent)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		req.Header.Set("Accept", "application/json")
 
-	// Set headers
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", c.config.UserAgent)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	req.Header.Set("Accept", "application/json")
-
-	// Execute request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		cb.RecordFailure()
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		cb.RecordFailure()
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Update rate limiter from response headers (do this for ALL responses)
-	c.rateLimiter.UpdateFromResponse(resp)
-
-	// Check for errors
-	if resp.StatusCode >= 400 {
-		apiErr := ParseAPIError(resp, respBody)
-		// Record failure for server errors (5xx) - don't trip circuit for client errors
-		if resp.StatusCode >= 500 {
+		// Execute request
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			lastStatusCode = 0
+			// Check if network error is retriable
+			if isRetriableError(0, err) && attempt < MaxRetries {
+				cb.RecordFailure()
+				continue
+			}
 			cb.RecordFailure()
+			return nil, fmt.Errorf("request failed: %w", err)
 		}
-		return nil, apiErr
+
+		// Read response body
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			cb.RecordFailure()
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+
+		// Update rate limiter from response headers (do this for ALL responses)
+		c.rateLimiter.UpdateFromResponse(resp)
+
+		lastStatusCode = resp.StatusCode
+
+		// Check for errors
+		if resp.StatusCode >= 400 {
+			apiErr := ParseAPIError(resp, respBody)
+			lastErr = apiErr
+
+			// Check if retriable
+			if isRetriableError(resp.StatusCode, nil) && attempt < MaxRetries {
+				if resp.StatusCode >= 500 {
+					cb.RecordFailure()
+				}
+				continue
+			}
+
+			// Not retriable or max retries exceeded
+			if resp.StatusCode >= 500 {
+				cb.RecordFailure()
+			}
+			return nil, apiErr
+		}
+
+		// Success - record and return
+		cb.RecordSuccess()
+
+		c.logger.Debug("API request completed",
+			"method", method,
+			"path", path,
+			"status", resp.StatusCode,
+			"attempts", attempt+1,
+		)
+
+		return respBody, nil
 	}
 
-	// Record success
-	cb.RecordSuccess()
-
-	c.logger.Debug("API request completed",
-		"method", method,
-		"path", path,
-		"status", resp.StatusCode,
-	)
-
-	return respBody, nil
+	// Should not reach here, but return last error if we do
+	return nil, fmt.Errorf("max retries exceeded: %w", lastErr)
 }
 
 // requestExperimental makes a request to the v2-experimental API endpoints.

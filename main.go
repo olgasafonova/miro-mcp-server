@@ -111,9 +111,15 @@ func main() {
 
 	ctx := context.Background()
 
+	// Create health checker for HTTP mode
+	healthChecker := miro.NewHealthChecker(client, ServerName, ServerVersion)
+
+	// Create metrics collector
+	metricsCollector := miro.NewMetricsCollector()
+
 	// Choose transport based on flags
 	if *httpAddr != "" {
-		runHTTPServer(server, logger, *httpAddr, *verbose)
+		runHTTPServer(server, logger, *httpAddr, *verbose, healthChecker, metricsCollector)
 	} else {
 		// stdio transport mode (default)
 		logger.Info("Starting Miro MCP Server (stdio mode)",
@@ -129,7 +135,7 @@ func main() {
 }
 
 // runHTTPServer starts the MCP server with HTTP transport and graceful shutdown
-func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose bool) {
+func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose bool, healthChecker *miro.HealthChecker, metrics *miro.MetricsCollector) {
 	// Create the Streamable HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
@@ -138,13 +144,36 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose
 	// Create mux for routing
 	mux := http.NewServeMux()
 
-	// Health endpoint
+	// Enhanced health endpoint
+	// Use ?deep=true to perform API connectivity check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		deep := r.URL.Query().Get("deep") == "true"
+		report := healthChecker.Check(r.Context(), deep)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"healthy","server":"%s","version":"%s"}`, ServerName, ServerVersion)
+
+		// Set appropriate status code based on health
+		switch report.Status {
+		case miro.HealthStatusHealthy:
+			w.WriteHeader(http.StatusOK)
+		case miro.HealthStatusDegraded:
+			w.WriteHeader(http.StatusOK) // Still OK but with warnings
+		case miro.HealthStatusUnhealthy:
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+
+		jsonBytes, err := report.ToJSON()
+		if err != nil {
+			logger.Error("Failed to marshal health report", "error", err)
+			fmt.Fprintf(w, `{"status":"unhealthy","error":"failed to generate report"}`)
+			return
+		}
+		w.Write(jsonBytes)
 	})
+
+	// Prometheus metrics endpoint
+	mux.HandleFunc("/metrics", metrics.PrometheusHandler())
 
 	// MCP endpoint with cache control
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

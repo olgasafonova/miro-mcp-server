@@ -812,40 +812,114 @@ func TestCreateSticky_WithWidthAndParent(t *testing.T) {
 }
 
 func TestRateLimitRetry(t *testing.T) {
-	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts < 3 {
-			w.Header().Set("Retry-After", "1")
+	t.Run("succeeds_after_retry", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts < 3 {
+				w.Header().Set("Retry-After", "0") // Use 0 for faster tests
+				w.WriteHeader(http.StatusTooManyRequests)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Rate limit exceeded",
+				})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": []map[string]interface{}{},
+			})
+		}))
+		defer server.Close()
+
+		client := newTestClientWithServer(server.URL)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// With retry logic, this should succeed after 2 rate limits + 1 success
+		_, err := client.request(ctx, http.MethodGet, "/boards", nil)
+		if err != nil {
+			t.Fatalf("expected success after retry, got error: %v", err)
+		}
+		if attempts != 3 {
+			t.Errorf("expected 3 attempts, got %d", attempts)
+		}
+	})
+
+	t.Run("fails_after_max_retries", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			// Always return rate limit error
+			w.Header().Set("Retry-After", "0")
 			w.WriteHeader(http.StatusTooManyRequests)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"message": "Rate limit exceeded",
 			})
-			return
+		}))
+		defer server.Close()
+
+		client := newTestClientWithServer(server.URL)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Should fail after 1 initial + MaxRetries (3) retry attempts = 4 total
+		_, err := client.request(ctx, http.MethodGet, "/boards", nil)
+		if err == nil {
+			t.Fatal("expected error after max retries")
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{},
-		})
-	}))
-	defer server.Close()
+		if !IsRateLimitError(err) {
+			t.Errorf("expected rate limit error, got: %v", err)
+		}
+		// 1 initial attempt + MaxRetries retries
+		expectedAttempts := 1 + MaxRetries
+		if attempts != expectedAttempts {
+			t.Errorf("expected %d attempts (1 initial + %d retries), got %d", expectedAttempts, MaxRetries, attempts)
+		}
+	})
 
-	client := newTestClientWithServer(server.URL)
+	t.Run("retries_transient_errors", func(t *testing.T) {
+		attempts := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if attempts == 1 {
+				// First attempt: 503 Service Unavailable
+				w.WriteHeader(http.StatusServiceUnavailable)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Service temporarily unavailable",
+				})
+				return
+			}
+			if attempts == 2 {
+				// Second attempt: 502 Bad Gateway
+				w.WriteHeader(http.StatusBadGateway)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Bad gateway",
+				})
+				return
+			}
+			// Third attempt: success
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": []map[string]interface{}{},
+			})
+		}))
+		defer server.Close()
 
-	// Use context with short timeout for faster test
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+		client := newTestClientWithServer(server.URL)
 
-	// This tests that requestWithRetry works - we'll use it indirectly via a method that uses retry
-	_, err := client.request(ctx, http.MethodGet, "/boards", nil)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	// The first call should hit rate limit (we don't retry in basic request)
-	if err == nil {
-		t.Fatal("expected rate limit error from first attempt")
-	}
-	if !IsRateLimitError(err) {
-		t.Errorf("expected rate limit error, got: %v", err)
-	}
+		_, err := client.request(ctx, http.MethodGet, "/boards", nil)
+		if err != nil {
+			t.Fatalf("expected success after retrying transient errors, got: %v", err)
+		}
+		if attempts != 3 {
+			t.Errorf("expected 3 attempts, got %d", attempts)
+		}
+	})
 }
 
 func TestDeleteBoard_Success(t *testing.T) {

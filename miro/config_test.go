@@ -103,7 +103,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("valid config", func(t *testing.T) {
 		cfg := &Config{
-			AccessToken: "test-token",
+			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
 			Timeout:     30 * time.Second,
 			UserAgent:   "test-agent",
 		}
@@ -115,7 +115,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("sets defaults for missing values", func(t *testing.T) {
 		cfg := &Config{
-			AccessToken: "test-token",
+			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
 			Timeout:     0,
 			UserAgent:   "",
 		}
@@ -128,6 +128,53 @@ func TestValidateConfig(t *testing.T) {
 		}
 		if cfg.UserAgent != "miro-mcp-server/1.0" {
 			t.Errorf("UserAgent = %q, want %q", cfg.UserAgent, "miro-mcp-server/1.0")
+		}
+	})
+
+	t.Run("validates token format", func(t *testing.T) {
+		cfg := &Config{
+			AccessToken: "too-short",
+		}
+		err := ValidateConfig(cfg)
+		if err == nil {
+			t.Error("expected error for invalid token format")
+		}
+	})
+
+	t.Run("validates timeout range", func(t *testing.T) {
+		// Too short
+		cfg := &Config{
+			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+			Timeout:     1 * time.Second,
+		}
+		err := ValidateConfig(cfg)
+		if err == nil {
+			t.Error("expected error for timeout below minimum")
+		}
+
+		// Too long
+		cfg.Timeout = 10 * time.Minute
+		err = ValidateConfig(cfg)
+		if err == nil {
+			t.Error("expected error for timeout above maximum")
+		}
+	})
+
+	t.Run("validates team ID format", func(t *testing.T) {
+		cfg := &Config{
+			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+			TeamID:      "invalid-team-id",
+		}
+		err := ValidateConfig(cfg)
+		if err == nil {
+			t.Error("expected error for invalid team ID format")
+		}
+
+		// Valid numeric team ID
+		cfg.TeamID = "3458764653228771705"
+		err = ValidateConfig(cfg)
+		if err != nil {
+			t.Errorf("unexpected error for valid team ID: %v", err)
 		}
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -129,18 +130,9 @@ func TestAPIError_Suggestion_RetryAfter(t *testing.T) {
 	if suggestion == "" {
 		t.Error("Suggestion() should not be empty for rate limit")
 	}
-	if !contains(suggestion, "30 seconds") {
+	if !strings.Contains(suggestion, "30 seconds") {
 		t.Errorf("Suggestion() = %q, should mention 30 seconds", suggestion)
 	}
-}
-
-func contains(s, substr string) bool {
-	for i := 0; i+len(substr) <= len(s); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 // =============================================================================

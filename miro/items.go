@@ -3,6 +3,7 @@ package miro
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -310,6 +311,74 @@ type bulkResult struct {
 	err   error
 }
 
+// categorizeBulkError analyzes an error and returns a BulkItemError with appropriate categorization.
+func categorizeBulkError(index int, itemID string, err error) BulkItemError {
+	bulkErr := BulkItemError{
+		Index:   index,
+		ItemID:  itemID,
+		Message: err.Error(),
+	}
+
+	// Check for API errors with status codes
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		bulkErr.StatusCode = apiErr.StatusCode
+
+		switch {
+		case apiErr.StatusCode == 429:
+			bulkErr.ErrorType = "rate_limit"
+			bulkErr.IsRetriable = true
+		case apiErr.StatusCode == 404:
+			bulkErr.ErrorType = "not_found"
+			bulkErr.IsRetriable = false
+		case apiErr.StatusCode >= 500:
+			bulkErr.ErrorType = "server"
+			bulkErr.IsRetriable = true
+		case apiErr.StatusCode == 400:
+			bulkErr.ErrorType = "validation"
+			bulkErr.IsRetriable = false
+		case apiErr.StatusCode == 401 || apiErr.StatusCode == 403:
+			bulkErr.ErrorType = "auth"
+			bulkErr.IsRetriable = false
+		default:
+			bulkErr.ErrorType = "api"
+			bulkErr.IsRetriable = false
+		}
+		return bulkErr
+	}
+
+	// Check for validation errors
+	var valErr *ValidationError
+	if errors.As(err, &valErr) {
+		bulkErr.ErrorType = "validation"
+		bulkErr.IsRetriable = false
+		return bulkErr
+	}
+
+	// Check for context errors (timeout, cancellation)
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		bulkErr.ErrorType = "timeout"
+		bulkErr.IsRetriable = true
+		return bulkErr
+	}
+
+	// Check for network-related errors
+	errStr := err.Error()
+	if strings.Contains(errStr, "connection") ||
+		strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "network") ||
+		strings.Contains(errStr, "EOF") {
+		bulkErr.ErrorType = "network"
+		bulkErr.IsRetriable = true
+		return bulkErr
+	}
+
+	// Default: unknown error
+	bulkErr.ErrorType = "unknown"
+	bulkErr.IsRetriable = false
+	return bulkErr
+}
+
 // BulkCreate creates multiple items in one operation.
 // Items are created in parallel using goroutines, with concurrency
 // controlled by the client's semaphore (MaxConcurrentRequests).
@@ -398,22 +467,41 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 		resultSlice[r.index] = r
 	}
 
-	// Extract IDs and errors
+	// Extract IDs and categorize errors
 	var itemIDs []string
-	var errors []string
+	var errorMsgs []string
+	var failedItems []BulkItemError
+	var retriableIDs []int
+
 	for _, r := range resultSlice {
 		if r.err != nil {
-			errors = append(errors, fmt.Sprintf("item %d: %v", r.index+1, r.err))
+			errorMsgs = append(errorMsgs, fmt.Sprintf("item %d: %v", r.index+1, r.err))
+
+			// Categorize the error for better recovery
+			bulkErr := categorizeBulkError(r.index, "", r.err)
+			failedItems = append(failedItems, bulkErr)
+
+			if bulkErr.IsRetriable {
+				retriableIDs = append(retriableIDs, r.index)
+			}
 		} else if r.id != "" {
 			itemIDs = append(itemIDs, r.id)
 		}
 	}
 
+	// Build informative message
+	message := fmt.Sprintf("Created %d of %d items", len(itemIDs), len(args.Items))
+	if len(retriableIDs) > 0 {
+		message += fmt.Sprintf(". %d items can be retried", len(retriableIDs))
+	}
+
 	return BulkCreateResult{
-		Created: len(itemIDs),
-		ItemIDs: itemIDs,
-		Errors:  errors,
-		Message: fmt.Sprintf("Created %d of %d items", len(itemIDs), len(args.Items)),
+		Created:      len(itemIDs),
+		ItemIDs:      itemIDs,
+		Errors:       errorMsgs,
+		FailedItems:  failedItems,
+		RetriableIDs: retriableIDs,
+		Message:      message,
 	}, nil
 }
 
@@ -488,22 +576,41 @@ func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdat
 		resultSlice[r.index] = r
 	}
 
-	// Extract IDs and errors
+	// Extract IDs and categorize errors
 	var itemIDs []string
-	var errors []string
+	var errorMsgs []string
+	var failedItems []BulkItemError
+	var retriableIDs []string
+
 	for _, r := range resultSlice {
 		if r.err != nil {
-			errors = append(errors, fmt.Sprintf("item %d (%s): %v", r.index+1, r.id, r.err))
+			errorMsgs = append(errorMsgs, fmt.Sprintf("item %d (%s): %v", r.index+1, r.id, r.err))
+
+			// Categorize the error for better recovery
+			bulkErr := categorizeBulkError(r.index, r.id, r.err)
+			failedItems = append(failedItems, bulkErr)
+
+			if bulkErr.IsRetriable {
+				retriableIDs = append(retriableIDs, r.id)
+			}
 		} else if r.id != "" {
 			itemIDs = append(itemIDs, r.id)
 		}
 	}
 
+	// Build informative message
+	message := fmt.Sprintf("Updated %d of %d items", len(itemIDs), len(args.Items))
+	if len(retriableIDs) > 0 {
+		message += fmt.Sprintf(". %d items can be retried", len(retriableIDs))
+	}
+
 	return BulkUpdateResult{
-		Updated: len(itemIDs),
-		ItemIDs: itemIDs,
-		Errors:  errors,
-		Message: fmt.Sprintf("Updated %d of %d items", len(itemIDs), len(args.Items)),
+		Updated:      len(itemIDs),
+		ItemIDs:      itemIDs,
+		Errors:       errorMsgs,
+		FailedItems:  failedItems,
+		RetriableIDs: retriableIDs,
+		Message:      message,
 	}, nil
 }
 
@@ -563,22 +670,31 @@ func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDelet
 		resultSlice[r.index] = r
 	}
 
-	// Extract IDs and errors
+	// Extract IDs and errors with categorization
 	var itemIDs []string
-	var errors []string
+	var errorMsgs []string
+	var failedItems []BulkItemError
+	var retriableIDs []string
 	for _, r := range resultSlice {
 		if r.err != nil {
-			errors = append(errors, fmt.Sprintf("item %d (%s): %v", r.index+1, r.id, r.err))
+			errorMsgs = append(errorMsgs, fmt.Sprintf("item %d (%s): %v", r.index+1, r.id, r.err))
+			bulkErr := categorizeBulkError(r.index, r.id, r.err)
+			failedItems = append(failedItems, bulkErr)
+			if bulkErr.IsRetriable && r.id != "" {
+				retriableIDs = append(retriableIDs, r.id)
+			}
 		} else if r.id != "" {
 			itemIDs = append(itemIDs, r.id)
 		}
 	}
 
 	return BulkDeleteResult{
-		Deleted: len(itemIDs),
-		ItemIDs: itemIDs,
-		Errors:  errors,
-		Message: fmt.Sprintf("Deleted %d of %d items", len(itemIDs), len(args.ItemIDs)),
+		Deleted:      len(itemIDs),
+		ItemIDs:      itemIDs,
+		Errors:       errorMsgs,
+		FailedItems:  failedItems,
+		RetriableIDs: retriableIDs,
+		Message:      fmt.Sprintf("Deleted %d of %d items", len(itemIDs), len(args.ItemIDs)),
 	}, nil
 }
 

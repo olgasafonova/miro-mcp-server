@@ -482,12 +482,24 @@ type BulkCreateArgs struct {
 	Items   []BulkCreateItem `json:"items" jsonschema:"required" jsonschema_description:"Items to create (max 20)"`
 }
 
+// BulkItemError represents a single item failure in a bulk operation.
+type BulkItemError struct {
+	Index       int    `json:"index"`                  // Position in the original request
+	ItemID      string `json:"item_id,omitempty"`      // Item ID (for update/delete operations)
+	ErrorType   string `json:"error_type"`             // Category: "rate_limit", "not_found", "validation", "server", "network"
+	Message     string `json:"message"`                // Human-readable error description
+	IsRetriable bool   `json:"is_retriable"`           // Whether this error can be retried
+	StatusCode  int    `json:"status_code,omitempty"`  // HTTP status code if applicable
+}
+
 // BulkCreateResult contains results of bulk item creation.
 type BulkCreateResult struct {
-	Created int      `json:"created"`
-	ItemIDs []string `json:"item_ids"`
-	Errors  []string `json:"errors,omitempty"`
-	Message string   `json:"message"`
+	Created      int              `json:"created"`
+	ItemIDs      []string         `json:"item_ids"`
+	Errors       []string         `json:"errors,omitempty"`
+	FailedItems  []BulkItemError  `json:"failed_items,omitempty"`  // Detailed failure info
+	RetriableIDs []int            `json:"retriable_ids,omitempty"` // Indices that can be retried
+	Message      string           `json:"message"`
 }
 
 // =============================================================================
@@ -514,10 +526,12 @@ type BulkUpdateArgs struct {
 
 // BulkUpdateResult contains results of bulk item updates.
 type BulkUpdateResult struct {
-	Updated int      `json:"updated"`
-	ItemIDs []string `json:"item_ids"`
-	Errors  []string `json:"errors,omitempty"`
-	Message string   `json:"message"`
+	Updated      int              `json:"updated"`
+	ItemIDs      []string         `json:"item_ids"`
+	Errors       []string         `json:"errors,omitempty"`
+	FailedItems  []BulkItemError  `json:"failed_items,omitempty"`  // Detailed failure info
+	RetriableIDs []string         `json:"retriable_ids,omitempty"` // Item IDs that can be retried
+	Message      string           `json:"message"`
 }
 
 // =============================================================================
@@ -533,10 +547,12 @@ type BulkDeleteArgs struct {
 
 // BulkDeleteResult contains results of bulk item deletion.
 type BulkDeleteResult struct {
-	Deleted int      `json:"deleted"`
-	ItemIDs []string `json:"item_ids"`
-	Errors  []string `json:"errors,omitempty"`
-	Message string   `json:"message"`
+	Deleted      int              `json:"deleted"`
+	ItemIDs      []string         `json:"item_ids"`
+	Errors       []string         `json:"errors,omitempty"`
+	FailedItems  []BulkItemError  `json:"failed_items,omitempty"`  // Detailed failure info
+	RetriableIDs []string         `json:"retriable_ids,omitempty"` // Item IDs that can be retried
+	Message      string           `json:"message"`
 }
 
 // =============================================================================

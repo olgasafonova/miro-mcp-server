@@ -5,7 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+)
+
+// Configuration validation constants.
+const (
+	// MinTimeout is the minimum allowed request timeout.
+	MinTimeout = 5 * time.Second
+
+	// MaxTimeout is the maximum allowed request timeout.
+	MaxTimeout = 5 * time.Minute
 )
 
 // LoadConfigFromEnv creates a Config from environment variables.
@@ -66,19 +76,116 @@ func loadTeamIDFromTokensFile() string {
 	return tokens.TeamID
 }
 
-// ValidateConfig checks if the configuration is valid.
-func ValidateConfig(cfg *Config) error {
-	if cfg == nil {
-		return fmt.Errorf("config is nil")
+// Validate checks if the Config is valid and applies defaults for optional fields.
+// Returns an error describing the first validation failure found.
+func (c *Config) Validate() error {
+	if c == nil {
+		return &ValidationError{
+			Field:   "Config",
+			Message: "configuration is nil",
+		}
 	}
-	if cfg.AccessToken == "" {
-		return fmt.Errorf("access token is required")
+
+	// Validate access token (required)
+	if c.AccessToken == "" {
+		return &ValidationError{
+			Field:   "AccessToken",
+			Message: "access token is required. Get one at https://miro.com/app/settings/user-profile/apps",
+		}
 	}
-	if cfg.Timeout <= 0 {
-		cfg.Timeout = DefaultTimeout
+
+	// Basic token format validation (should look like a JWT or API token)
+	if !isValidTokenFormat(c.AccessToken) {
+		return &ValidationError{
+			Field:   "AccessToken",
+			Message: "access token format appears invalid. Expected JWT or API token format",
+		}
 	}
-	if cfg.UserAgent == "" {
-		cfg.UserAgent = "miro-mcp-server/1.0"
+
+	// Validate timeout range
+	if c.Timeout < 0 {
+		return &ValidationError{
+			Field:   "Timeout",
+			Message: fmt.Sprintf("timeout cannot be negative: %v", c.Timeout),
+		}
 	}
+	if c.Timeout == 0 {
+		c.Timeout = DefaultTimeout
+	} else if c.Timeout < MinTimeout {
+		return &ValidationError{
+			Field:   "Timeout",
+			Message: fmt.Sprintf("timeout %v is below minimum %v", c.Timeout, MinTimeout),
+		}
+	} else if c.Timeout > MaxTimeout {
+		return &ValidationError{
+			Field:   "Timeout",
+			Message: fmt.Sprintf("timeout %v exceeds maximum %v", c.Timeout, MaxTimeout),
+		}
+	}
+
+	// Apply default user agent if not set
+	if c.UserAgent == "" {
+		c.UserAgent = "miro-mcp-server/1.0"
+	}
+
+	// TeamID is optional but validate format if provided
+	if c.TeamID != "" && !isValidTeamID(c.TeamID) {
+		return &ValidationError{
+			Field:   "TeamID",
+			Message: "team ID format appears invalid. Expected numeric string",
+		}
+	}
+
 	return nil
+}
+
+// ValidateConfig checks if the configuration is valid.
+// Deprecated: Use Config.Validate() method instead.
+func ValidateConfig(cfg *Config) error {
+	return cfg.Validate()
+}
+
+// isValidTokenFormat performs basic validation on the token format.
+// Accepts JWT-like tokens (xxx.yyy.zzz) or Miro API tokens (eyJ... prefixed).
+func isValidTokenFormat(token string) bool {
+	token = strings.TrimSpace(token)
+	if len(token) < 20 {
+		return false
+	}
+
+	// JWT-like format: three base64 segments separated by dots
+	if strings.Count(token, ".") == 2 {
+		parts := strings.Split(token, ".")
+		for _, part := range parts {
+			if len(part) == 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Miro API tokens typically start with "eyJ" (base64 encoded JSON header)
+	if strings.HasPrefix(token, "eyJ") {
+		return true
+	}
+
+	// Accept any non-empty token with reasonable length for flexibility
+	return len(token) >= 20 && len(token) <= 4096
+}
+
+// isValidTeamID validates the team ID format.
+// Miro team IDs are numeric strings.
+func isValidTeamID(teamID string) bool {
+	teamID = strings.TrimSpace(teamID)
+	if len(teamID) == 0 || len(teamID) > 50 {
+		return false
+	}
+
+	// Team IDs are numeric
+	for _, r := range teamID {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }

@@ -39,7 +39,13 @@ func NewMermaidParser() *MermaidParser {
 }
 
 // Parse parses Mermaid syntax and returns a Diagram.
+// Performs input validation including size limits to prevent ReDoS attacks.
 func (p *MermaidParser) Parse(input string) (*Diagram, error) {
+	// Validate input size and structure (ReDoS protection)
+	if err := ValidateDiagramInput(input); err != nil {
+		return nil, err
+	}
+
 	diagram := NewDiagram(TypeFlowchart)
 	lines := strings.Split(input, "\n")
 
@@ -311,7 +317,13 @@ func (p *MermaidParser) parseNodeLine(diagram *Diagram, line string, subgraph st
 
 // ParseMermaid is a convenience function to parse Mermaid syntax.
 // It auto-detects the diagram type (flowchart or sequence).
+// Performs input validation including size limits to prevent ReDoS attacks.
 func ParseMermaid(input string) (*Diagram, error) {
+	// Validate input size and structure (ReDoS protection)
+	if err := ValidateDiagramInput(input); err != nil {
+		return nil, err
+	}
+
 	// Check for sequence diagram
 	if isSequenceDiagram(input) {
 		parser := NewSequenceParser()

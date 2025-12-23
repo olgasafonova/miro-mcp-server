@@ -8,11 +8,11 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 
 | Server | Language | Tools | Best For |
 |--------|----------|-------|----------|
-| **olgasafonova/miro-mcp-server** | Go | 66 | Production use, performance, single binary |
-| k-jarzyna/mcp-miro | TypeScript | 81 | Maximum API coverage |
+| **olgasafonova/miro-mcp-server** | Go | 76 | Production use, performance, single binary |
+| k-jarzyna/mcp-miro | TypeScript | 90+ | Maximum API coverage, Enterprise features |
 | LuotoCompany/mcp-server-miro | TypeScript | ~15 | Quick start, OpenAPI-based |
 | evalstate/mcp-miro | TypeScript | ~8 | Basic operations |
-| Miro Official MCP | Cloud | ~10 | No setup required |
+| Miro Official MCP | Cloud | 5 | No setup, AI-powered diagrams |
 
 ---
 
@@ -21,25 +21,26 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 ### 1. olgasafonova/miro-mcp-server (This Project)
 
 **Language:** Go
-**Tools:** 66
+**Tools:** 76
 **License:** MIT
 **Distribution:** Homebrew, Docker, binaries
 
 **Strengths:**
 - Single binary (~14MB) - no runtime dependencies
-- Built-in Mermaid diagram generation
+- Built-in Mermaid diagram generation (flowcharts, sequence diagrams)
 - Automatic rate limiting with backoff
 - Response caching (2-min TTL)
 - Circuit breaker for fault tolerance
 - Voice-optimized tool descriptions
 - OAuth 2.1 with PKCE
 - Local audit logging
+- Dry-run mode for destructive operations
 - 5 platform binaries + Docker
 
 **Limitations:**
-- Fewer tools than k-jarzyna (66 vs 81)
-- No Comments API yet
-- Export features require Enterprise plan
+- Fewer tools than k-jarzyna (76 vs 90+)
+- No Enterprise compliance tools (legal holds, etc.)
+- Export jobs require Enterprise plan
 
 **Ideal for:** Production deployments, teams needing reliability and performance
 
@@ -48,13 +49,14 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 ### 2. k-jarzyna/mcp-miro
 
 **Language:** TypeScript
-**Tools:** 81
+**Tools:** 90+
 **License:** Apache 2.0
 **Stars:** 59
 
 **Strengths:**
 - Most comprehensive API coverage
-- Includes Comments, Templates, Organization tools
+- Enterprise compliance tools (legal holds, audit logs, classifications)
+- Organization and project management
 - Active development
 
 **Limitations:**
@@ -63,7 +65,7 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 - ~100MB with node_modules
 - No diagram generation
 
-**Ideal for:** Maximum feature coverage, TypeScript projects
+**Ideal for:** Enterprise users needing compliance features, TypeScript projects
 
 ---
 
@@ -111,21 +113,24 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 
 ### 5. Miro Official MCP
 
-**Type:** Cloud-hosted
-**Tools:** ~10
+**Type:** Cloud-hosted (https://mcp.miro.com/)
+**Tools:** 5
+**Prompts:** 2 (code_create_from_board, code_explain_on_board)
 
 **Strengths:**
-- No setup required
-- Official support
-- Built-in diagram and code generation
+- No setup required - OAuth 2.1 with dynamic client registration
+- Official Miro support
+- AI-powered diagram generation from PRDs/text
+- Code generation from board content
+- Enterprise compliance (admin enablement required)
 
 **Limitations:**
-- Limited control
-- Proprietary
-- Fewer tools
-- Requires internet
+- Cloud-only (requires internet)
+- Limited to 5 tools (read-focused, diagram generation)
+- Uses Miro AI credits for some operations
+- Beta status - features may change
 
-**Ideal for:** Quick demos, non-technical users
+**Ideal for:** Quick demos, AI-powered diagram/code generation workflows
 
 ---
 
@@ -169,10 +174,12 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 | Groups | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Mindmaps | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Members/sharing | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Export | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Export jobs | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Diagram generation | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Comments | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Templates | ❌ | ✅ | ❌ | ❌ | ❌ |
+| MCP Prompts | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Enterprise compliance | ❌ | ✅ | ❌ | ❌ | ❌ |
+
+> **Note:** Comments API and Templates API do not exist in Miro's public REST API.
 
 ### Infrastructure
 
@@ -297,10 +304,10 @@ Track all tool executions for debugging and compliance.
 
 ### Choose k-jarzyna When:
 
-- You need **maximum API coverage**
-- You need **Comments API**
+- You need **Enterprise compliance tools** (legal holds, classifications)
+- You need **maximum API coverage** (90+ tools)
 - You're already in a **Node.js** ecosystem
-- Tool count is more important than performance
+- Organization/project management features are critical
 
 ### Choose LuotoCompany When:
 
@@ -310,9 +317,10 @@ Track all tool executions for debugging and compliance.
 
 ### Choose Official Miro MCP When:
 
-- You want **zero setup**
-- You don't need extensive features
-- You're **evaluating** MCP technology
+- You want **zero setup** (cloud-hosted)
+- You need **AI-powered diagram generation** from PRDs/text
+- You want **code generation** from board content
+- You're doing quick demos or **evaluating** MCP technology
 
 ---
 
@@ -327,7 +335,6 @@ Most tools have identical names and parameters:
 | `miro_list_boards` | `miro_list_boards` | Identical |
 | `miro_create_sticky_note` | `miro_create_sticky` | Shorter name |
 | `miro_create_shape` | `miro_create_shape` | Identical |
-| `miro_create_comment` | - | Not yet implemented |
 
 1. Install this project
 2. Update MCP config (same format)
@@ -339,29 +346,28 @@ Most tools have identical names and parameters:
 
 ### This Project (Planned)
 
-- [ ] Comments API
-- [ ] Templates API
-- [ ] Presentation mode
-- [ ] Real-time collaboration events
+- [ ] MCP Prompts (workflow templates)
+- [ ] MCP Resources (`miro://board/{id}`)
+- [ ] Additional diagram types
 
 ### k-jarzyna
 
 - Active development
-- Full API parity focus
+- Enterprise compliance focus
 
 ---
 
 ## Conclusion
 
 **For most production use cases**, this project (olgasafonova/miro-mcp-server) offers the best balance of:
-- Performance
-- Reliability
-- Ease of deployment
-- Unique features (diagrams, caching, rate limiting)
+- Performance (10-20x faster startup, 1/7th memory)
+- Reliability (rate limiting, caching, circuit breaker)
+- Ease of deployment (single binary, Homebrew, Docker)
+- Unique features (Mermaid diagrams, dry-run mode, audit logging)
 
-**For maximum API coverage**, k-jarzyna/mcp-miro has 15 more tools but lacks infrastructure features.
+**For Enterprise compliance**, k-jarzyna/mcp-miro has legal holds, classifications, and organization tools.
 
-**For zero-setup demos**, Miro's official cloud MCP works without installation.
+**For AI-powered workflows**, Miro's official cloud MCP offers diagram/code generation with MCP Prompts.
 
 ---
 
@@ -370,6 +376,9 @@ Most tools have identical names and parameters:
 - [k-jarzyna/mcp-miro](https://github.com/k-jarzyna/mcp-miro)
 - [LuotoCompany/mcp-server-miro](https://github.com/LuotoCompany/mcp-server-miro)
 - [evalstate/mcp-miro](https://github.com/evalstate/mcp-miro)
+- [Miro Official MCP](https://developers.miro.com/docs/miro-mcp)
 - [Miro Developer Documentation](https://developers.miro.com)
 - [Best MCP Servers 2025](https://www.pomerium.com/blog/best-model-context-protocol-mcp-servers-in-2025)
 - [MCP Server Frameworks Comparison](https://medium.com/@FrankGoortani/comparing-model-context-protocol-mcp-server-frameworks-03df586118fd)
+
+*Last updated: December 2025*

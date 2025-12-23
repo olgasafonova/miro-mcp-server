@@ -8,6 +8,8 @@ This plan addresses verified improvement opportunities identified through compet
 
 **Key Finding:** The server already has proper input schemas via `jsonschema` struct tags, complete installation options, and full Miro REST API coverage (non-enterprise).
 
+**Last Updated:** 2025-12-23
+
 ---
 
 ## Phase 1: Quick Wins (1-2 hours) ✅ COMPLETE
@@ -33,7 +35,7 @@ This plan addresses verified improvement opportunities identified through compet
 
 ---
 
-## Phase 2: Code Quality (4-6 hours)
+## Phase 2: Code Quality (4-6 hours) ✅ COMPLETE
 
 ### 2.1 Extract Validation Helpers ✅
 - **Issue:** Duplicated validation pattern in 44+ methods
@@ -55,10 +57,20 @@ This plan addresses verified improvement opportunities identified through compet
 - **Status:** Pending (low priority - tests work fine)
 - **Solution:** Split by domain (boards_test.go, items_test.go, etc.)
 
-### 2.4 Define Config Constants
+### 2.4 Define Config Constants ✅
 - **Issue:** Magic numbers scattered throughout code
-- **Status:** Pending
-- **Solution:** Centralize in `miro/constants.go`
+- **Status:** Complete
+- **Solution:** Created `miro/constants.go` with centralized constants:
+  - API pagination limits (DefaultBoardLimit, MaxBoardLimit, etc.)
+  - Bulk operation limits (MaxBulkItems, MinGroupItems)
+  - HTTP server timeouts (HTTPReadTimeout, HTTPWriteTimeout, HTTPIdleTimeout)
+  - Cache configuration (BoardCacheTTL, ItemCacheTTL, TagCacheTTL, CacheMaxEntries)
+  - Rate limiting config (RateLimitMaxDelay, IdleConnTimeout)
+  - Circuit breaker config (CircuitBreakerTimeout, thresholds)
+  - OAuth config (OAuthServerReadTimeout, TokenRefreshBuffer)
+  - Diagram config (MaxDiagramNodes, DefaultNodeWidth/Height/Spacing)
+  - Audit log config (DefaultAuditMaxSizeBytes, DefaultMemoryRingSize)
+- **Files updated:** main.go, cache.go, constants.go
 
 ---
 
@@ -87,19 +99,47 @@ This plan addresses verified improvement opportunities identified through compet
 
 ## Phase 4: Optional Enhancements
 
-### 4.1 Smithery Registry Listing
+### 4.1 MCP Resources
+- **Benefit:** Expose board content as MCP resources for direct access
+- **Implementation:** `miro://board/{id}` resource URIs
+- **Effort:** 4-6 hours
+- **Priority:** Medium - would allow direct board content access without tool calls
+
+### 4.2 MCP Prompts
+- **Benefit:** Pre-built prompt templates for common workflows
+- **Examples:** "Create sprint board", "Retrospective template"
+- **Inspiration:** Miro Official MCP has 2 prompts
+- **Effort:** 2-4 hours
+- **Priority:** Medium
+
+### 4.3 Demo GIF
+- **Benefit:** Visual demonstration in README
+- **Status:** Requires manual screen recording
+- **Effort:** 1 hour
+
+### 4.4 Smithery Registry Listing
 - **Benefit:** Discoverability for Claude users
 - **Effort:** 2 hours
 - **Priority:** Low (existing installation methods work well)
 
-### 4.2 Architecture Diagram
+### 4.5 Architecture Diagram
 - **Benefit:** Better documentation
 - **Effort:** 1 hour
 
-### 4.3 Enterprise Compliance Tools
+### 4.6 Enterprise Compliance Tools
 - **Tools:** Legal holds, cases, content logs, classifications
 - **Requirement:** Miro Enterprise plan
 - **Priority:** Only if Enterprise customers need it
+
+### 4.7 Split Large Test Files (Low Priority)
+- **Issue:** `miro/client_test.go` (9,617 lines), `miro/audit/audit_test.go` (36,446 lines)
+- **Solution:** Split by domain (boards_test.go, items_test.go, etc.)
+- **Priority:** Low - tests work fine as-is
+
+### 4.8 Integration Test Improvements
+- **Current:** Require MIRO_TEST_TOKEN
+- **Enhancement:** Record/replay HTTP for offline testing
+- **Priority:** Low
 
 ---
 
@@ -131,13 +171,24 @@ This plan addresses verified improvement opportunities identified through compet
 
 ## Success Metrics
 
-| Metric | Current | Target |
-|--------|---------|--------|
-| Tool count accuracy | Inconsistent | 76 everywhere |
-| Test coverage visibility | Hidden | Badge in README |
-| MCP Inspector docs | None | Complete guide |
-| Validation duplication | 20+ copies | 1 helper function |
-| Magic numbers | Scattered | Centralized constants |
+| Metric | Before | After | Status |
+|--------|--------|-------|--------|
+| Tool count accuracy | Inconsistent | 76 everywhere | ✅ Done |
+| Test coverage visibility | Hidden | Badge in README | ✅ Done |
+| MCP Inspector docs | None | Complete guide | ✅ Done |
+| Validation duplication | 20+ copies | Helper functions | ✅ Done |
+| Magic numbers | Scattered | Centralized constants | ✅ Done |
+| Destructive operations | No preview | dry_run parameter | ✅ Done |
+
+### Test Coverage (as of Dec 2025)
+
+| Package | Coverage |
+|---------|----------|
+| miro | 88.9% |
+| audit | 82.1% |
+| diagrams | 92.6% |
+| oauth | 72.5% (browser flows not testable) |
+| tools | 85.0% |
 
 ---
 
@@ -146,9 +197,9 @@ This plan addresses verified improvement opportunities identified through compet
 | Phase | Duration | Status |
 |-------|----------|--------|
 | Phase 1: Quick Wins | 1-2 hours | ✅ Complete (except demo GIF) |
-| Phase 2: Code Quality | 4-6 hours | ✅ Partial (validation helpers done) |
+| Phase 2: Code Quality | 4-6 hours | ✅ Complete |
 | Phase 3: MCP Compliance | 4-8 hours | ✅ Complete |
-| Phase 4: Optional | As needed | Optional |
+| Phase 4: Optional | As needed | Not started |
 
 ---
 

@@ -3044,6 +3044,283 @@ func TestTruncateMindmap(t *testing.T) {
 }
 
 // =============================================================================
+// Mindmap Get/List/Delete Tests
+// =============================================================================
+
+func TestGetMindmapNode_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/mindmap_nodes/") {
+			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "node123",
+			"position": map[string]interface{}{
+				"x": 100.0,
+				"y": 200.0,
+			},
+			"data": map[string]interface{}{
+				"isRoot": true,
+				"nodeView": map[string]interface{}{
+					"type": "text",
+					"data": map[string]interface{}{
+						"content": "Root Node",
+					},
+				},
+			},
+			"children": []map[string]interface{}{
+				{"id": "child1"},
+				{"id": "child2"},
+			},
+			"createdAt":  "2024-01-01T00:00:00Z",
+			"modifiedAt": "2024-01-02T00:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetMindmapNode(context.Background(), GetMindmapNodeArgs{
+		BoardID: "board123",
+		NodeID:  "node123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "node123" {
+		t.Errorf("ID = %q, want 'node123'", result.ID)
+	}
+	if result.Content != "Root Node" {
+		t.Errorf("Content = %q, want 'Root Node'", result.Content)
+	}
+	if !result.IsRoot {
+		t.Error("IsRoot = false, want true")
+	}
+	if len(result.ChildIDs) != 2 {
+		t.Errorf("ChildIDs count = %d, want 2", len(result.ChildIDs))
+	}
+	if result.X != 100.0 {
+		t.Errorf("X = %f, want 100.0", result.X)
+	}
+}
+
+func TestGetMindmapNode_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    GetMindmapNodeArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    GetMindmapNodeArgs{NodeID: "node123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty node ID",
+			args:    GetMindmapNodeArgs{BoardID: "board123"},
+			wantErr: "node_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetMindmapNode(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestListMindmapNodes_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/mindmap_nodes") {
+			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id": "node1",
+					"data": map[string]interface{}{
+						"isRoot": true,
+						"nodeView": map[string]interface{}{
+							"data": map[string]interface{}{
+								"content": "Root",
+							},
+						},
+					},
+				},
+				{
+					"id": "node2",
+					"data": map[string]interface{}{
+						"isRoot": false,
+						"nodeView": map[string]interface{}{
+							"data": map[string]interface{}{
+								"content": "Child",
+							},
+						},
+					},
+					"parent": map[string]interface{}{
+						"id": "node1",
+					},
+				},
+			},
+			"cursor": "",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
+		BoardID: "board123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
+	}
+	if len(result.Nodes) != 2 {
+		t.Errorf("Nodes count = %d, want 2", len(result.Nodes))
+	}
+	if result.Nodes[0].ID != "node1" {
+		t.Errorf("Nodes[0].ID = %q, want 'node1'", result.Nodes[0].ID)
+	}
+	if !result.Nodes[0].IsRoot {
+		t.Error("Nodes[0].IsRoot = false, want true")
+	}
+	if result.Nodes[1].ParentID != "node1" {
+		t.Errorf("Nodes[1].ParentID = %q, want 'node1'", result.Nodes[1].ParentID)
+	}
+}
+
+func TestListMindmapNodes_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "board_id is required") {
+		t.Errorf("error = %q, want containing 'board_id is required'", err.Error())
+	}
+}
+
+func TestListMindmapNodes_WithPagination(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id": "node1",
+					"data": map[string]interface{}{
+						"isRoot": true,
+						"nodeView": map[string]interface{}{
+							"data": map[string]interface{}{
+								"content": "Node",
+							},
+						},
+					},
+				},
+			},
+			"cursor": "next_page",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
+		BoardID: "board123",
+		Limit:   10,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+}
+
+func TestDeleteMindmapNode_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/mindmap_nodes/") {
+			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.DeleteMindmapNode(context.Background(), DeleteMindmapNodeArgs{
+		BoardID: "board123",
+		NodeID:  "node123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success = false, want true")
+	}
+	if result.ID != "node123" {
+		t.Errorf("ID = %q, want 'node123'", result.ID)
+	}
+}
+
+func TestDeleteMindmapNode_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    DeleteMindmapNodeArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    DeleteMindmapNodeArgs{NodeID: "node123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty node ID",
+			args:    DeleteMindmapNodeArgs{BoardID: "board123"},
+			wantErr: "node_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.DeleteMindmapNode(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
 // Connector Update/Delete Tests
 // =============================================================================
 
@@ -3416,6 +3693,1074 @@ func TestCreateEmbed_ValidationErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := client.CreateEmbed(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// GetTag Tests
+// =============================================================================
+
+func TestGetTag_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/tags/tag456" {
+			t.Errorf("expected /boards/board123/tags/tag456, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":        "tag456",
+			"title":     "Urgent",
+			"fillColor": "red",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetTag(context.Background(), GetTagArgs{
+		BoardID: "board123",
+		TagID:   "tag456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "tag456" {
+		t.Errorf("ID = %q, want 'tag456'", result.ID)
+	}
+	if result.Title != "Urgent" {
+		t.Errorf("Title = %q, want 'Urgent'", result.Title)
+	}
+	if result.Color != "red" {
+		t.Errorf("Color = %q, want 'red'", result.Color)
+	}
+}
+
+func TestGetTag_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    GetTagArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    GetTagArgs{TagID: "tag123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty tag ID",
+			args:    GetTagArgs{BoardID: "board123"},
+			wantErr: "tag_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetTag(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetTag_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"code":    "not_found",
+			"message": "Tag not found",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.GetTag(context.Background(), GetTagArgs{
+		BoardID: "board123",
+		TagID:   "nonexistent",
+	})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !IsNotFoundError(err) {
+		t.Errorf("expected not found error, got: %v", err)
+	}
+}
+
+// =============================================================================
+// Frame Operations Tests
+// =============================================================================
+
+func TestGetFrame_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/frames/frame456" {
+			t.Errorf("expected /boards/board123/frames/frame456, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "frame456",
+			"type": "frame",
+			"data": map[string]interface{}{
+				"title": "Sprint Planning",
+			},
+			"position": map[string]interface{}{
+				"x": 100.0,
+				"y": 200.0,
+			},
+			"geometry": map[string]interface{}{
+				"width":  800.0,
+				"height": 600.0,
+			},
+			"style": map[string]interface{}{
+				"fillColor": "#FFFFFF",
+			},
+			"children": []string{"child1", "child2"},
+			"createdAt":  "2024-01-01T10:00:00Z",
+			"modifiedAt": "2024-01-02T15:30:00Z",
+			"createdBy":  map[string]interface{}{"id": "user1"},
+			"modifiedBy": map[string]interface{}{"id": "user2"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetFrame(context.Background(), GetFrameArgs{
+		BoardID: "board123",
+		FrameID: "frame456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "frame456" {
+		t.Errorf("ID = %q, want 'frame456'", result.ID)
+	}
+	if result.Title != "Sprint Planning" {
+		t.Errorf("Title = %q, want 'Sprint Planning'", result.Title)
+	}
+	if result.X != 100 {
+		t.Errorf("X = %f, want 100", result.X)
+	}
+	if result.Y != 200 {
+		t.Errorf("Y = %f, want 200", result.Y)
+	}
+	if result.Width != 800 {
+		t.Errorf("Width = %f, want 800", result.Width)
+	}
+	if result.Height != 600 {
+		t.Errorf("Height = %f, want 600", result.Height)
+	}
+	if result.ChildCount != 2 {
+		t.Errorf("ChildCount = %d, want 2", result.ChildCount)
+	}
+}
+
+func TestGetFrame_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    GetFrameArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    GetFrameArgs{FrameID: "frame123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty frame ID",
+			args:    GetFrameArgs{BoardID: "board123"},
+			wantErr: "frame_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetFrame(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdateFrame_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/frames/frame456" {
+			t.Errorf("expected /boards/board123/frames/frame456, got %s", r.URL.Path)
+		}
+
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+		if data, ok := body["data"].(map[string]interface{}); ok {
+			if data["title"] != "Updated Title" {
+				t.Errorf("title = %v, want 'Updated Title'", data["title"])
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "frame456",
+			"data": map[string]interface{}{
+				"title": "Updated Title",
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	title := "Updated Title"
+	result, err := client.UpdateFrame(context.Background(), UpdateFrameArgs{
+		BoardID: "board123",
+		FrameID: "frame456",
+		Title:   &title,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+	if result.ID != "frame456" {
+		t.Errorf("ID = %q, want 'frame456'", result.ID)
+	}
+}
+
+func TestUpdateFrame_NoUpdates(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+	_, err := client.UpdateFrame(context.Background(), UpdateFrameArgs{
+		BoardID: "board123",
+		FrameID: "frame456",
+		// No update fields provided
+	})
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "at least one update field is required") {
+		t.Errorf("expected 'at least one update field is required', got: %v", err)
+	}
+}
+
+func TestDeleteFrame_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/frames/frame456" {
+			t.Errorf("expected /boards/board123/frames/frame456, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.DeleteFrame(context.Background(), DeleteFrameArgs{
+		BoardID: "board123",
+		FrameID: "frame456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+	if result.ID != "frame456" {
+		t.Errorf("ID = %q, want 'frame456'", result.ID)
+	}
+}
+
+func TestDeleteFrame_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    DeleteFrameArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    DeleteFrameArgs{FrameID: "frame123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty frame ID",
+			args:    DeleteFrameArgs{BoardID: "board123"},
+			wantErr: "frame_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.DeleteFrame(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetFrameItems_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.HasPrefix(r.URL.Path, "/boards/board123/frames/frame456/items") {
+			t.Errorf("expected /boards/board123/frames/frame456/items, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":   "item1",
+					"type": "sticky_note",
+					"data": map[string]interface{}{
+						"content": "Sticky content",
+					},
+				},
+				{
+					"id":   "item2",
+					"type": "shape",
+					"data": map[string]interface{}{
+						"content": "Shape content",
+					},
+				},
+			},
+			"cursor": "next-cursor",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetFrameItems(context.Background(), GetFrameItemsArgs{
+		BoardID: "board123",
+		FrameID: "frame456",
+		Limit:   50,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
+	}
+	if !result.HasMore {
+		t.Error("HasMore should be true when cursor is present")
+	}
+	if result.Items[0].ID != "item1" {
+		t.Errorf("first item ID = %q, want 'item1'", result.Items[0].ID)
+	}
+}
+
+func TestGetFrameItems_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    GetFrameItemsArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    GetFrameItemsArgs{FrameID: "frame123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty frame ID",
+			args:    GetFrameItemsArgs{BoardID: "board123"},
+			wantErr: "frame_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetFrameItems(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Group Operations Tests
+// =============================================================================
+
+func TestListGroups_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.HasPrefix(r.URL.Path, "/boards/board123/groups") {
+			t.Errorf("expected /boards/board123/groups, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":    "group1",
+					"items": []string{"item1", "item2"},
+				},
+				{
+					"id":    "group2",
+					"items": []string{"item3"},
+				},
+			},
+			"cursor": "",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.ListGroups(context.Background(), ListGroupsArgs{
+		BoardID: "board123",
+		Limit:   50,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
+	}
+	if result.Groups[0].ID != "group1" {
+		t.Errorf("first group ID = %q, want 'group1'", result.Groups[0].ID)
+	}
+}
+
+func TestGetGroup_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/groups/group456" {
+			t.Errorf("expected /boards/board123/groups/group456, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":    "group456",
+			"items": []string{"item1", "item2", "item3"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetGroup(context.Background(), GetGroupArgs{
+		BoardID: "board123",
+		GroupID: "group456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "group456" {
+		t.Errorf("ID = %q, want 'group456'", result.ID)
+	}
+	if len(result.Items) != 3 {
+		t.Errorf("Items count = %d, want 3", len(result.Items))
+	}
+}
+
+func TestGetGroup_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    GetGroupArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    GetGroupArgs{GroupID: "group123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty group ID",
+			args:    GetGroupArgs{BoardID: "board123"},
+			wantErr: "invalid group_id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetGroup(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetGroupItems_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.HasPrefix(r.URL.Path, "/boards/board123/groups/group456/items") {
+			t.Errorf("expected /boards/board123/groups/group456/items, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":   "item1",
+					"type": "sticky_note",
+					"data": map[string]interface{}{
+						"content": "First item",
+					},
+				},
+				{
+					"id":   "item2",
+					"type": "shape",
+					"data": map[string]interface{}{
+						"content": "Second item",
+					},
+				},
+			},
+			"cursor": "",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetGroupItems(context.Background(), GetGroupItemsArgs{
+		BoardID: "board123",
+		GroupID: "group456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
+	}
+	if len(result.Items) != 2 {
+		t.Errorf("Items count = %d, want 2", len(result.Items))
+	}
+	if result.Items[0].ID != "item1" {
+		t.Errorf("Items[0].ID = %q, want 'item1'", result.Items[0].ID)
+	}
+	if result.Items[0].Type != "sticky_note" {
+		t.Errorf("Items[0].Type = %q, want 'sticky_note'", result.Items[0].Type)
+	}
+	if result.HasMore {
+		t.Error("HasMore = true, want false")
+	}
+}
+
+func TestGetGroupItems_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    GetGroupItemsArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    GetGroupItemsArgs{GroupID: "group123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty group ID",
+			args:    GetGroupItemsArgs{BoardID: "board123"},
+			wantErr: "invalid group_id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetGroupItems(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetGroupItems_WithPagination(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":   "item1",
+					"type": "sticky_note",
+					"data": map[string]interface{}{
+						"content": "Item",
+					},
+				},
+			},
+			"cursor": "next_page_token",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetGroupItems(context.Background(), GetGroupItemsArgs{
+		BoardID: "board123",
+		GroupID: "group456",
+		Limit:   10,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+}
+
+func TestDeleteGroup_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/groups/group456" {
+			t.Errorf("expected /boards/board123/groups/group456, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.DeleteGroup(context.Background(), DeleteGroupArgs{
+		BoardID: "board123",
+		GroupID: "group456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+	if result.GroupID != "group456" {
+		t.Errorf("GroupID = %q, want 'group456'", result.GroupID)
+	}
+}
+
+func TestDeleteGroup_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    DeleteGroupArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    DeleteGroupArgs{GroupID: "group123"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty group ID",
+			args:    DeleteGroupArgs{BoardID: "board123"},
+			wantErr: "invalid group_id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.DeleteGroup(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Bulk Operations Tests
+// =============================================================================
+
+func TestBulkUpdate_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:],
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	content1 := "Updated content 1"
+	content2 := "Updated content 2"
+	result, err := client.BulkUpdate(context.Background(), BulkUpdateArgs{
+		BoardID: "board123",
+		Items: []BulkUpdateItem{
+			{ItemID: "item1", Content: &content1},
+			{ItemID: "item2", Content: &content2},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Updated != 2 {
+		t.Errorf("Updated = %d, want 2", result.Updated)
+	}
+	if len(result.Errors) != 0 {
+		t.Errorf("Errors count = %d, want 0", len(result.Errors))
+	}
+}
+
+func TestBulkUpdate_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    BulkUpdateArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    BulkUpdateArgs{Items: []BulkUpdateItem{{ItemID: "item1"}}},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty items",
+			args:    BulkUpdateArgs{BoardID: "board123", Items: []BulkUpdateItem{}},
+			wantErr: "at least one item is required",
+		},
+		{
+			name: "too many items",
+			args: BulkUpdateArgs{
+				BoardID: "board123",
+				Items: func() []BulkUpdateItem {
+					items := make([]BulkUpdateItem, 21)
+					for i := range items {
+						items[i] = BulkUpdateItem{ItemID: fmt.Sprintf("item%d", i)}
+					}
+					return items
+				}(),
+			},
+			wantErr: "maximum 20 items",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.BulkUpdate(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBulkDelete_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.BulkDelete(context.Background(), BulkDeleteArgs{
+		BoardID: "board123",
+		ItemIDs: []string{"item1", "item2", "item3"},
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Deleted != 3 {
+		t.Errorf("Deleted = %d, want 3", result.Deleted)
+	}
+	if len(result.Errors) != 0 {
+		t.Errorf("Errors count = %d, want 0", len(result.Errors))
+	}
+}
+
+func TestBulkDelete_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    BulkDeleteArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    BulkDeleteArgs{ItemIDs: []string{"item1"}},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty items",
+			args:    BulkDeleteArgs{BoardID: "board123", ItemIDs: []string{}},
+			wantErr: "at least one item_id is required",
+		},
+		{
+			name: "too many items",
+			args: BulkDeleteArgs{
+				BoardID: "board123",
+				ItemIDs: func() []string {
+					ids := make([]string, 21)
+					for i := range ids {
+						ids[i] = fmt.Sprintf("item%d", i)
+					}
+					return ids
+				}(),
+			},
+			wantErr: "maximum 20 items",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.BulkDelete(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Member Operations Tests
+// =============================================================================
+
+func TestGetBoardMember_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/members/member456" {
+			t.Errorf("expected /boards/board123/members/member456, got %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":    "member456",
+			"name":  "John Doe",
+			"email": "john@example.com",
+			"role":  "editor",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetBoardMember(context.Background(), GetBoardMemberArgs{
+		BoardID:  "board123",
+		MemberID: "member456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "member456" {
+		t.Errorf("ID = %q, want 'member456'", result.ID)
+	}
+	if result.Name != "John Doe" {
+		t.Errorf("Name = %q, want 'John Doe'", result.Name)
+	}
+	if result.Role != "editor" {
+		t.Errorf("Role = %q, want 'editor'", result.Role)
+	}
+}
+
+func TestRemoveBoardMember_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/members/member456" {
+			t.Errorf("expected /boards/board123/members/member456, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.RemoveBoardMember(context.Background(), RemoveBoardMemberArgs{
+		BoardID:  "board123",
+		MemberID: "member456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+}
+
+func TestUpdateBoardMember_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123/members/member456" {
+			t.Errorf("expected /boards/board123/members/member456, got %s", r.URL.Path)
+		}
+
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["role"] != "editor" {
+			t.Errorf("role = %v, want 'editor'", body["role"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "member456",
+			"name": "John Doe",
+			"role": "editor",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateBoardMember(context.Background(), UpdateBoardMemberArgs{
+		BoardID:  "board123",
+		MemberID: "member456",
+		Role:     "editor",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "member456" {
+		t.Errorf("ID = %q, want 'member456'", result.ID)
+	}
+	if result.Role != "editor" {
+		t.Errorf("Role = %q, want 'editor'", result.Role)
+	}
+}
+
+// =============================================================================
+// UpdateBoard Tests
+// =============================================================================
+
+func TestUpdateBoard_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if r.URL.Path != "/boards/board123" {
+			t.Errorf("expected /boards/board123, got %s", r.URL.Path)
+		}
+
+		var body map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["name"] != "Updated Board Name" {
+			t.Errorf("name = %v, want 'Updated Board Name'", body["name"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":          "board123",
+			"name":        "Updated Board Name",
+			"description": "Updated description",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateBoard(context.Background(), UpdateBoardArgs{
+		BoardID:     "board123",
+		Name:        "Updated Board Name",
+		Description: "Updated description",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "board123" {
+		t.Errorf("ID = %q, want 'board123'", result.ID)
+	}
+	if result.Name != "Updated Board Name" {
+		t.Errorf("Name = %q, want 'Updated Board Name'", result.Name)
+	}
+}
+
+func TestUpdateBoard_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    UpdateBoardArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    UpdateBoardArgs{Name: "New Name"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "no updates",
+			args:    UpdateBoardArgs{BoardID: "board123"},
+			wantErr: "at least one of name or description is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.UpdateBoard(context.Background(), tt.args)
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

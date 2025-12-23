@@ -13,7 +13,16 @@ Last updated: Dec 2024
 ### Test Coverage Improvements ✅
 - Added app card tests (21 tests, was 0% coverage)
 - Added audit helper tests (+7 tests for WithItemCount, WithInput, Failure, CurrentFilePath, Flush)
-- Current coverage: miro 63.6%, audit 82.1%, tools 85.0%
+- Added tests for functions with 0% coverage (Dec 2024):
+  - `GetTag`/`getTagInternal`: 100%/91.7% (was 0%)
+  - Frame operations: GetFrame 93.5%, UpdateFrame 67.7%, DeleteFrame 90.0%, GetFrameItems 72.7%
+  - Group operations: ListGroups 73.3%, GetGroup 83.3%, DeleteGroup 78.6%
+  - Bulk operations: BulkUpdate 83.7%, BulkDelete 96.4%
+  - Member operations: GetBoardMember/RemoveBoardMember/UpdateBoardMember 66.7%
+  - Board operations: UpdateBoard 88.2%
+- Added GetGroupItems tests (3 tests): 82.6% coverage
+- Added mindmap tests (8 tests): GetMindmapNode 87.5%, ListMindmapNodes 80.8%, DeleteMindmapNode 90.0%
+- Current coverage: miro 79.3%, audit 82.1%, tools 85.0%
 
 ### Dependency Updates ✅
 - jwt v5.2.2 → v5.3.0
@@ -32,9 +41,10 @@ Last updated: Dec 2024
 - **Priority**: Low - descriptions work well for LLMs
 
 ### Test Coverage Gaps
-- **miro package**: 63.6% - could improve coverage for error paths
+- **miro package**: 79.3% - remaining gaps in utility functions and error paths
 - **diagrams package**: 73.3% - edge cases in Mermaid parsing
 - **oauth package**: 72.5% - token refresh edge cases
+- **GenerateDiagram**: 0% - diagram generation from Mermaid (miro/diagrams.go)
 
 ## New Features (Miro API)
 

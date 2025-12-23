@@ -7,7 +7,6 @@ Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and 
 **76 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/olgasafonova/miro-mcp-server/graph/badge.svg)](https://codecov.io/gh/olgasafonova/miro-mcp-server)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

@@ -1,6 +1,8 @@
 # Miro MCP Server
 
-Control Miro whiteboards with AI. Built in Go for speed and simplicity.
+Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and simplicity.
+
+> **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
 **76 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
@@ -297,6 +299,31 @@ See [COMPARISON.md](COMPARISON.md) for detailed competitive analysis.
 
 ---
 
+## Official vs Community
+
+Miro has released an [official MCP server](https://miro.com/marketplace/miro-mcp-server/) (beta). Here's how they compare:
+
+| Feature | This Server | Official Miro MCP |
+|---------|-------------|-------------------|
+| **Tools** | 76 | ~10 (beta) |
+| **Diagram generation** | Mermaid → Miro | Not yet |
+| **Bulk operations** | Yes | Not yet |
+| **Mindmaps** | Yes | Not yet |
+| **Tags & Groups** | Yes | Not yet |
+| **Export** | Yes | Not yet |
+| **Runtime** | Single Go binary | Node.js |
+| **Rate limiting** | Adaptive | Basic |
+| **Caching** | Built-in | No |
+| **OAuth flow** | Built-in CLI | Requires setup |
+
+**When to use the official server:** You want Miro-supported tooling and only need basic operations.
+
+**When to use this server:** You need the full API surface, diagram generation, bulk ops, or want a lightweight binary.
+
+Both can coexist — use different MCP server names in your config.
+
+---
+
 ## Performance
 
 - **Caching:** 2-minute TTL reduces API calls
@@ -446,3 +473,11 @@ See [SETUP.md](SETUP.md) for configuration guides.
 ## License
 
 MIT
+
+---
+
+<p align="center">
+  Built for the <a href="https://miro.com">Miro</a> and <a href="https://modelcontextprotocol.io">MCP</a> communities.
+  <br>
+  <sub>Miro is a trademark of Miro Inc. This project is not affiliated with or endorsed by Miro.</sub>
+</p>

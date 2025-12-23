@@ -1,1 +1,40 @@
+# Binary
 miro-mcp-server
+miro-mcp-server.exe
+
+# Build artifacts
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug
+debug.log
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Token/credential files (never commit!)
+tokens.json
+.env
+.env.local

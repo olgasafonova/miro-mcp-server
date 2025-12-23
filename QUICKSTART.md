@@ -75,4 +75,4 @@ Claude: "Created yellow sticky 'Hello World'"
 | "Connect box A to box B" | Arrow connector |
 | "Tag this as Urgent" | Red tag attached |
 
-See [README.md](README.md) for all 66 tools.
+See [README.md](README.md) for all 76 tools.

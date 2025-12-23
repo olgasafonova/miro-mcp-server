@@ -176,7 +176,8 @@ A detailed comparison of Miro MCP servers for AI tool integration.
 | Members/sharing | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Export jobs | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Diagram generation | ✅ | ❌ | ❌ | ❌ | ✅ |
-| MCP Prompts | ❌ | ❌ | ❌ | ❌ | ✅ |
+| MCP Prompts | ✅ | ❌ | ❌ | ❌ | ✅ |
+| MCP Resources | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Enterprise compliance | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 > **Note:** Comments API and Templates API do not exist in Miro's public REST API.
@@ -344,11 +345,11 @@ Most tools have identical names and parameters:
 
 ## Roadmap Comparison
 
-### This Project (Planned)
+### This Project
 
-- [ ] MCP Prompts (workflow templates)
-- [ ] MCP Resources (`miro://board/{id}`)
-- [ ] Additional diagram types
+- [x] MCP Prompts (5 workflow templates: sprint board, retrospective, brainstorm, story map, kanban)
+- [x] MCP Resources (`miro://board/{id}`, `miro://board/{id}/items`, `miro://board/{id}/frames`)
+- [ ] Additional diagram types (beyond flowchart and sequence)
 
 ### k-jarzyna
 

@@ -2,8 +2,8 @@
 
 > **Goal**: Build the most comprehensive, performant, secure, and user-friendly Miro MCP server.
 > **Language**: Go (unique differentiator - only Go-based Miro MCP server)
-> **Status**: 66 tools implemented. Phases 1-7 complete.
-> **Last Updated**: 2025-12-22
+> **Status**: 76 tools implemented. Phases 1-7 complete, plus batch operations and type-specific updates.
+> **Last Updated**: 2025-12-23
 
 ---
 
@@ -35,7 +35,7 @@ miro-mcp-server/
     └── handlers.go        # Generic handler registration
 ```
 
-### Implemented Tools (66 total)
+### Implemented Tools (76 total)
 
 | Category | Tool | Method |
 |----------|------|--------|
@@ -52,7 +52,7 @@ miro-mcp-server/
 | | `miro_share_board` | ShareBoard |
 | | `miro_update_board_member` | UpdateBoardMember |
 | | `miro_remove_board_member` | RemoveBoardMember |
-| **Create (14)** | `miro_create_sticky` | CreateSticky |
+| **Create (13)** | `miro_create_sticky` | CreateSticky |
 | | `miro_create_sticky_grid` | CreateStickyGrid |
 | | `miro_create_shape` | CreateShape |
 | | `miro_create_text` | CreateText |
@@ -65,7 +65,6 @@ miro-mcp-server/
 | | `miro_create_connector` | CreateConnector |
 | | `miro_create_group` | CreateGroup |
 | | `miro_create_mindmap_node` | CreateMindmapNode |
-| | `miro_bulk_create` | BulkCreate |
 | **Frames (4)** | `miro_get_frame` | GetFrame |
 | | `miro_update_frame` | UpdateFrame |
 | | `miro_delete_frame` | DeleteFrame |
@@ -79,11 +78,22 @@ miro-mcp-server/
 | | `miro_get_item` | GetItem |
 | | `miro_get_app_card` | GetAppCard |
 | | `miro_search_board` | SearchBoard |
-| **Update (5)** | `miro_update_item` | UpdateItem |
+| **Update (13)** | `miro_update_item` | UpdateItem |
 | | `miro_update_app_card` | UpdateAppCard |
 | | `miro_update_connector` | UpdateConnector |
 | | `miro_update_tag` | UpdateTag |
 | | `miro_update_frame` | UpdateFrame |
+| | `miro_update_sticky` | UpdateSticky |
+| | `miro_update_shape` | UpdateShape |
+| | `miro_update_text` | UpdateText |
+| | `miro_update_card` | UpdateCard |
+| | `miro_update_group` | UpdateGroup |
+| | `miro_update_image` | UpdateImage |
+| | `miro_update_document` | UpdateDocument |
+| | `miro_update_embed` | UpdateEmbed |
+| **Bulk (3)** | `miro_bulk_create` | BulkCreate |
+| | `miro_bulk_update` | BulkUpdate |
+| | `miro_bulk_delete` | BulkDelete |
 | **Delete (6)** | `miro_delete_item` | DeleteItem |
 | | `miro_delete_app_card` | DeleteAppCard |
 | | `miro_delete_connector` | DeleteConnector |
@@ -139,7 +149,7 @@ miro-mcp-server/
 | **evalstate/mcp-miro** | TypeScript | 101 | ~8 | Nov 2024 | - |
 | **k-jarzyna/mcp-miro** | TypeScript | 59 | 81 | Active | Apache 2.0 |
 | **LuotoCompany/mcp-server-miro** | TypeScript | 14 | ~15 | Apr 2025 | MIT |
-| **Ours** | **Go** | - | **66** | Active | MIT |
+| **Ours** | **Go** | - | **76** | Active | MIT |
 
 ### Feature Comparison Matrix
 
@@ -1079,6 +1089,38 @@ go test -cover ./...
 | Install script | ✅ Done | `curl -fsSL https://...install.sh | sh` |
 | Linux ARM64 | ✅ Done | New binary for ARM64 Linux |
 | GitHub Release | ✅ Done | v1.7.0 with all binaries |
+
+### Phase 8: Batch Operations & Type-Specific Updates (Complete ✅)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Batch Update/Delete | ✅ Done | Efficient multi-item operations |
+| Type-Specific Updates | ✅ Done | Dedicated endpoints for all item types |
+
+#### Phase 8 Tools (+10 new, 76 total)
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `miro_bulk_update` | ✅ Done | Update up to 20 items at once |
+| `miro_bulk_delete` | ✅ Done | Delete up to 20 items at once |
+| `miro_update_sticky` | ✅ Done | Update sticky via dedicated endpoint |
+| `miro_update_shape` | ✅ Done | Update shape via dedicated endpoint |
+| `miro_update_text` | ✅ Done | Update text via dedicated endpoint |
+| `miro_update_card` | ✅ Done | Update card via dedicated endpoint |
+| `miro_update_group` | ✅ Done | Update group members |
+| `miro_update_image` | ✅ Done | Update image title, URL, position |
+| `miro_update_document` | ✅ Done | Update document title, URL, position |
+| `miro_update_embed` | ✅ Done | Update embed URL, mode, dimensions |
+
+#### Phase 8 Coverage
+
+| Package | Coverage |
+|---------|----------|
+| miro | 88.9% |
+| audit | 92.8% |
+| diagrams | 92.6% |
+| oauth | 72.5% |
+| tools | 99.1% |
 
 ---
 

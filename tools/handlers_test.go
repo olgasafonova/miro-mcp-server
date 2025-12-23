@@ -1171,6 +1171,20 @@ func TestCreateAuditEvent(t *testing.T) {
 			result: miro.DeleteItemResult{Success: true},
 			err:    nil,
 		},
+		{
+			name:   "with created count in result",
+			spec:   ToolSpec{Name: "miro_bulk_create", Method: "BulkCreate"},
+			args:   miro.BulkCreateArgs{BoardID: "board123"},
+			result: miro.BulkCreateResult{Created: 5, ItemIDs: []string{"1", "2", "3", "4", "5"}},
+			err:    nil,
+		},
+		{
+			name:   "nil args",
+			spec:   ToolSpec{Name: "miro_test", Method: "Test"},
+			args:   nil,
+			result: nil,
+			err:    nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1715,4 +1729,311 @@ func TestGetAuditLog_HasMore(t *testing.T) {
 	if result.Total != 100 {
 		t.Errorf("Total = %d, want 100", result.Total)
 	}
+}
+
+// =============================================================================
+// registerTool Unknown Method Tests
+// =============================================================================
+
+func TestRegisterTool_UnknownMethod(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+
+	// Register a tool with an unknown method
+	unknownSpec := ToolSpec{
+		Name:   "miro_unknown",
+		Method: "UnknownMethodThatDoesNotExist",
+		Title:  "Unknown Tool",
+	}
+
+	// Should not panic, should log an error
+	registry.registerTool(server, unknownSpec)
+
+	// Verify the handler was not registered - no crash means success
+}
+
+// =============================================================================
+// argsToMap Edge Case Tests
+// =============================================================================
+
+// unmarshalableType is a type that cannot be unmarshaled to a map
+type unmarshalableType struct {
+	Ch chan int `json:"ch"` // channels cannot be marshaled
+}
+
+func TestArgsToMap_MarshalError(t *testing.T) {
+	// A channel cannot be marshaled to JSON
+	input := unmarshalableType{Ch: make(chan int)}
+	result := argsToMap(input)
+
+	if result != nil {
+		t.Errorf("expected nil for unmarshalable type, got %v", result)
+	}
+}
+
+func TestArgsToMap_UnmarshalToNonMap(t *testing.T) {
+	// A primitive value cannot be unmarshaled to a map
+	input := "just a string"
+	result := argsToMap(input)
+
+	if result != nil {
+		t.Errorf("expected nil for string input, got %v", result)
+	}
+}
+
+func TestArgsToMap_ArrayInput(t *testing.T) {
+	// An array cannot be unmarshaled to a map
+	input := []string{"one", "two", "three"}
+	result := argsToMap(input)
+
+	if result != nil {
+		t.Errorf("expected nil for array input, got %v", result)
+	}
+}
+
+func TestArgsToMap_IntegerInput(t *testing.T) {
+	// An integer cannot be unmarshaled to a map
+	input := 12345
+	result := argsToMap(input)
+
+	if result != nil {
+		t.Errorf("expected nil for integer input, got %v", result)
+	}
+}
+
+func TestArgsToMap_EmptyStruct(t *testing.T) {
+	// An empty struct should return an empty map, not nil
+	type EmptyStruct struct{}
+	input := EmptyStruct{}
+	result := argsToMap(input)
+
+	if result == nil {
+		t.Error("expected non-nil map for empty struct")
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty map, got %d entries", len(result))
+	}
+}
+
+func TestArgsToMap_NestedStruct(t *testing.T) {
+	type Inner struct {
+		Value string `json:"value"`
+	}
+	type Outer struct {
+		Name  string `json:"name"`
+		Inner Inner  `json:"inner"`
+	}
+	input := Outer{
+		Name:  "outer",
+		Inner: Inner{Value: "nested"},
+	}
+	result := argsToMap(input)
+
+	if result == nil {
+		t.Fatal("expected non-nil map")
+	}
+	if result["name"] != "outer" {
+		t.Errorf("name = %v, want 'outer'", result["name"])
+	}
+	inner, ok := result["inner"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("inner should be a map, got %T", result["inner"])
+	}
+	if inner["value"] != "nested" {
+		t.Errorf("inner.value = %v, want 'nested'", inner["value"])
+	}
+}
+
+// =============================================================================
+// MCP Integration Tests - Tests the registerTool callback via MCP protocol
+// =============================================================================
+
+func TestMCPToolExecution_Success(t *testing.T) {
+	// Create mock client with expected behavior
+	called := false
+	mock := &MockClient{
+		ListBoardsFn: func(ctx context.Context, args miro.ListBoardsArgs) (miro.ListBoardsResult, error) {
+			called = true
+			return miro.ListBoardsResult{
+				Boards: []miro.BoardSummary{{ID: "board1", Name: "Test Board"}},
+				Count:  1,
+			}, nil
+		},
+	}
+
+	registry := newTestRegistry(mock)
+
+	// Create MCP server and register tools
+	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	registry.RegisterAll(server)
+
+	// Create in-memory transports for testing
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+
+	// Start server in background
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- server.Run(ctx, serverTransport)
+	}()
+
+	// Create client and connect
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("Failed to connect client: %v", err)
+	}
+	defer session.Close()
+
+	// Call the tool via MCP protocol
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "miro_list_boards",
+		Arguments: map[string]interface{}{
+			"limit": float64(10),
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool failed: %v", err)
+	}
+
+	if result.IsError {
+		t.Errorf("Tool returned error: %v", result.Content)
+	}
+
+	// Verify the mock was called
+	if !called {
+		t.Error("ListBoards was not called")
+	}
+
+	cancel()
+	<-serverDone
+}
+
+func TestMCPToolExecution_Error(t *testing.T) {
+	// Create mock client that returns an error
+	mock := &MockClient{
+		GetBoardFn: func(ctx context.Context, args miro.GetBoardArgs) (miro.GetBoardResult, error) {
+			return miro.GetBoardResult{}, errors.New("board not found")
+		},
+	}
+
+	registry := newTestRegistry(mock)
+
+	// Create MCP server and register tools
+	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	registry.RegisterAll(server)
+
+	// Create in-memory transports for testing
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+
+	// Start server in background
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- server.Run(ctx, serverTransport)
+	}()
+
+	// Create client and connect
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("Failed to connect client: %v", err)
+	}
+	defer session.Close()
+
+	// Call the tool via MCP protocol - should fail
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "miro_get_board",
+		Arguments: map[string]interface{}{
+			"board_id": "nonexistent",
+		},
+	})
+
+	// The MCP SDK may return error in different ways depending on version
+	// Either as an error return or as result.IsError
+	if err == nil && !result.IsError {
+		t.Error("Expected tool to return error")
+	}
+
+	cancel()
+	<-serverDone
+}
+
+func TestMCPToolExecution_WithAuditLogging(t *testing.T) {
+	// Create mock client
+	mock := &MockClient{
+		CreateStickyFn: func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error) {
+			return miro.CreateStickyResult{
+				ID:      "sticky123",
+				Message: "Created sticky note",
+			}, nil
+		},
+	}
+
+	// Create registry with audit logger
+	memLogger := audit.NewMemoryLogger(100, audit.Config{Enabled: true})
+	registry := NewHandlerRegistry(mock, testLogger()).
+		WithAuditLogger(memLogger).
+		WithUser("user123", "test@example.com")
+
+	// Create MCP server and register tools
+	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	registry.RegisterAll(server)
+
+	// Create in-memory transports
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- server.Run(ctx, serverTransport)
+	}()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0"}, nil)
+	session, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("Failed to connect client: %v", err)
+	}
+	defer session.Close()
+
+	// Call tool via MCP
+	_, err = session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "miro_create_sticky",
+		Arguments: map[string]interface{}{
+			"board_id": "board123",
+			"content":  "Test sticky",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool failed: %v", err)
+	}
+
+	// Query audit log to verify event was recorded
+	queryCtx := context.Background()
+	events, err := memLogger.Query(queryCtx, audit.QueryOptions{Tool: "miro_create_sticky", Limit: 10})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+
+	if len(events.Events) == 0 {
+		t.Error("Expected audit event to be logged")
+	} else {
+		event := events.Events[0]
+		if event.Tool != "miro_create_sticky" {
+			t.Errorf("Tool = %s, want miro_create_sticky", event.Tool)
+		}
+		if event.UserID != "user123" {
+			t.Errorf("UserID = %s, want user123", event.UserID)
+		}
+	}
+
+	cancel()
+	<-serverDone
 }

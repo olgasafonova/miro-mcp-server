@@ -104,8 +104,12 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"DeleteConnector": makeHandler(h, h.client.DeleteConnector),
 
 		// Update/Delete tools
-		"UpdateItem": makeHandler(h, h.client.UpdateItem),
-		"DeleteItem": makeHandler(h, h.client.DeleteItem),
+		"UpdateItem":   makeHandler(h, h.client.UpdateItem),
+		"UpdateSticky": makeHandler(h, h.client.UpdateSticky),
+		"UpdateShape":  makeHandler(h, h.client.UpdateShape),
+		"UpdateText":   makeHandler(h, h.client.UpdateText),
+		"UpdateCard":   makeHandler(h, h.client.UpdateCard),
+		"DeleteItem":   makeHandler(h, h.client.DeleteItem),
 
 		// Composite tools
 		"FindBoardByNameTool": makeHandler(h, h.client.FindBoardByNameTool),
@@ -113,12 +117,13 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"CreateStickyGrid":    makeHandler(h, h.client.CreateStickyGrid),
 
 		// Group tools
-		"CreateGroup":    makeHandler(h, h.client.CreateGroup),
-		"Ungroup":        makeHandler(h, h.client.Ungroup),
-		"ListGroups":     makeHandler(h, h.client.ListGroups),
-		"GetGroup":       makeHandler(h, h.client.GetGroup),
-		"GetGroupItems":  makeHandler(h, h.client.GetGroupItems),
-		"DeleteGroup":    makeHandler(h, h.client.DeleteGroup),
+		"CreateGroup":   makeHandler(h, h.client.CreateGroup),
+		"Ungroup":       makeHandler(h, h.client.Ungroup),
+		"ListGroups":    makeHandler(h, h.client.ListGroups),
+		"GetGroup":      makeHandler(h, h.client.GetGroup),
+		"GetGroupItems": makeHandler(h, h.client.GetGroupItems),
+		"UpdateGroup":   makeHandler(h, h.client.UpdateGroup),
+		"DeleteGroup":   makeHandler(h, h.client.DeleteGroup),
 
 		// Board member tools
 		"ListBoardMembers":   makeHandler(h, h.client.ListBoardMembers),

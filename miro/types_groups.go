@@ -102,14 +102,32 @@ type GetGroupItemsResult struct {
 }
 
 // =============================================================================
+// Update Group
+// =============================================================================
+
+// UpdateGroupArgs contains parameters for updating a group's items.
+type UpdateGroupArgs struct {
+	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	GroupID string   `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to update"`
+	ItemIDs []string `json:"item_ids" jsonschema:"required" jsonschema_description:"New list of item IDs for the group (replaces current items)"`
+}
+
+// UpdateGroupResult contains the updated group details.
+type UpdateGroupResult struct {
+	ID      string   `json:"id"`
+	ItemIDs []string `json:"item_ids"`
+	Message string   `json:"message"`
+}
+
+// =============================================================================
 // Delete Group
 // =============================================================================
 
 // DeleteGroupArgs contains parameters for deleting a group.
 type DeleteGroupArgs struct {
-	BoardID      string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	GroupID      string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to delete"`
-	DeleteItems  bool   `json:"delete_items,omitempty" jsonschema_description:"Also delete the items in the group (default: false, items are ungrouped)"`
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	GroupID     string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to delete"`
+	DeleteItems bool   `json:"delete_items,omitempty" jsonschema_description:"Also delete the items in the group (default: false, items are ungrouped)"`
 }
 
 // DeleteGroupResult confirms group deletion.

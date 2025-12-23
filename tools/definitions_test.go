@@ -113,7 +113,8 @@ func TestToolCount(t *testing.T) {
 	//         +3 mindmap tools (get, list, delete) = 65
 	// v1.7.1: +1 tag tool (get_tag) = 66
 	// v1.8.0: +2 bulk tools (bulk_update, bulk_delete) = 68
-	expectedCount := 68
+	// v1.9.0: +5 type-specific update tools (update_sticky, update_shape, update_text, update_card, update_group) = 73
+	expectedCount := 73
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

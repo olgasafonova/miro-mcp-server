@@ -653,3 +653,776 @@ func TestMemoryLogger_Flush(t *testing.T) {
 		t.Errorf("expected 5 events after flush, got %d", len(events))
 	}
 }
+
+func TestMemoryLogger_Clear(t *testing.T) {
+	config := Config{Enabled: true}
+	logger := NewMemoryLogger(100, config)
+
+	// Log some events
+	for i := 0; i < 5; i++ {
+		logger.Log(context.Background(), Event{
+			ID:   "clear-" + string(rune('0'+i)),
+			Tool: "test",
+		})
+	}
+
+	// Verify events exist
+	events := logger.GetAllEvents()
+	if len(events) != 5 {
+		t.Fatalf("expected 5 events before clear, got %d", len(events))
+	}
+
+	// Clear the logger
+	logger.Clear()
+
+	// Verify events are gone
+	events = logger.GetAllEvents()
+	if len(events) != 0 {
+		t.Errorf("expected 0 events after clear, got %d", len(events))
+	}
+
+	// Verify stats are reset
+	stats := logger.GetStats()
+	if stats.TotalEvents != 0 {
+		t.Errorf("expected TotalEvents=0 after clear, got %d", stats.TotalEvents)
+	}
+
+	// Verify we can log new events after clear
+	logger.Log(context.Background(), Event{ID: "new-1", Tool: "test"})
+	events = logger.GetAllEvents()
+	if len(events) != 1 {
+		t.Errorf("expected 1 event after logging post-clear, got %d", len(events))
+	}
+}
+
+func TestMemoryLogger_Close(t *testing.T) {
+	config := Config{Enabled: true}
+	logger := NewMemoryLogger(100, config)
+
+	// Log some events
+	logger.Log(context.Background(), Event{ID: "close-1", Tool: "test"})
+
+	// Close should be a no-op but should not error
+	err := logger.Close()
+	if err != nil {
+		t.Errorf("Close should not error: %v", err)
+	}
+}
+
+func TestMemoryLogger_QueryTimeRange(t *testing.T) {
+	config := Config{Enabled: true}
+	logger := NewMemoryLogger(100, config)
+
+	now := time.Now()
+	earlier := now.Add(-1 * time.Hour)
+	later := now.Add(1 * time.Hour)
+
+	// Log events at different times
+	logger.Log(context.Background(), Event{ID: "1", Tool: "test", Timestamp: earlier})
+	logger.Log(context.Background(), Event{ID: "2", Tool: "test", Timestamp: now})
+	logger.Log(context.Background(), Event{ID: "3", Tool: "test", Timestamp: later})
+
+	// Query since now should exclude earlier event
+	result, err := logger.Query(context.Background(), QueryOptions{Since: now})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 2 {
+		t.Errorf("expected 2 events since now, got %d", len(result.Events))
+	}
+
+	// Query until now should exclude later event
+	result, err = logger.Query(context.Background(), QueryOptions{Until: now})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 2 {
+		t.Errorf("expected 2 events until now, got %d", len(result.Events))
+	}
+}
+
+func TestMemoryLogger_QueryMethodAndUserID(t *testing.T) {
+	config := Config{Enabled: true}
+	logger := NewMemoryLogger(100, config)
+
+	// Log events with different methods and users
+	logger.Log(context.Background(), Event{ID: "1", Method: "CreateSticky", UserID: "user-1", Timestamp: time.Now()})
+	logger.Log(context.Background(), Event{ID: "2", Method: "CreateSticky", UserID: "user-2", Timestamp: time.Now()})
+	logger.Log(context.Background(), Event{ID: "3", Method: "DeleteItem", UserID: "user-1", Timestamp: time.Now()})
+
+	// Query by method
+	result, err := logger.Query(context.Background(), QueryOptions{Method: "CreateSticky"})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 2 {
+		t.Errorf("expected 2 events for method CreateSticky, got %d", len(result.Events))
+	}
+
+	// Query by user ID
+	result, err = logger.Query(context.Background(), QueryOptions{UserID: "user-1"})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 2 {
+		t.Errorf("expected 2 events for user-1, got %d", len(result.Events))
+	}
+}
+
+func TestMemoryLogger_QueryOffsetExceedsTotal(t *testing.T) {
+	config := Config{Enabled: true}
+	logger := NewMemoryLogger(100, config)
+
+	// Log a few events
+	for i := 0; i < 3; i++ {
+		logger.Log(context.Background(), Event{ID: "off-" + string(rune('0'+i)), Tool: "test", Timestamp: time.Now()})
+	}
+
+	// Query with offset exceeding total
+	result, err := logger.Query(context.Background(), QueryOptions{Offset: 10})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 0 {
+		t.Errorf("expected 0 events when offset exceeds total, got %d", len(result.Events))
+	}
+	if result.Total != 3 {
+		t.Errorf("expected Total=3, got %d", result.Total)
+	}
+}
+
+func TestNewMemoryLogger_DefaultMaxSize(t *testing.T) {
+	config := Config{Enabled: true}
+	// Pass 0 or negative maxSize, should default to 1000
+	logger := NewMemoryLogger(0, config)
+
+	// Verify we can log at least 1000 events without error
+	for i := 0; i < 1000; i++ {
+		logger.Log(context.Background(), Event{ID: "default-" + string(rune(i)), Tool: "test"})
+	}
+
+	events := logger.GetAllEvents()
+	if len(events) != 1000 {
+		t.Errorf("expected 1000 events with default maxSize, got %d", len(events))
+	}
+}
+
+// =============================================================================
+// parseDuration Tests
+// =============================================================================
+
+func TestParseDuration_DaysSuffix(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{"30d", 30},
+		{"7d", 7},
+		{"90d", 90},
+		{"1d", 1},
+		{"365d", 365},
+		{"  30d  ", 30},     // whitespace
+		{"30D", 30},         // uppercase
+		{"  30D  ", 30},     // mixed
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseDuration(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseDuration(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseDuration_IntegerOnly(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{"30", 30},
+		{"7", 7},
+		{"90", 90},
+		{"  30  ", 30},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseDuration(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseDuration(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseDuration_Invalid(t *testing.T) {
+	tests := []string{
+		"",
+		"abc",
+		"abcd",
+		"30x",
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			result := parseDuration(input)
+			if result != 0 {
+				t.Errorf("parseDuration(%q) = %d, want 0", input, result)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// parseSize Tests
+// =============================================================================
+
+func TestParseSize_KilobytesSuffix(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{"1K", 1024},
+		{"10K", 10 * 1024},
+		{"100K", 100 * 1024},
+		{"500k", 500 * 1024}, // lowercase
+		{"  1K  ", 1024},     // whitespace
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseSize(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseSize(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseSize_MegabytesSuffix(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{"1M", 1024 * 1024},
+		{"10M", 10 * 1024 * 1024},
+		{"100M", 100 * 1024 * 1024},
+		{"500m", 500 * 1024 * 1024}, // lowercase
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseSize(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseSize(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseSize_GigabytesSuffix(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{"1G", 1024 * 1024 * 1024},
+		{"2G", 2 * 1024 * 1024 * 1024},
+		{"1g", 1024 * 1024 * 1024}, // lowercase
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseSize(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseSize(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseSize_PlainBytes(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+	}{
+		{"1024", 1024},
+		{"1000000", 1000000},
+		{"  1024  ", 1024}, // whitespace
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := parseSize(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseSize(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestParseSize_Invalid(t *testing.T) {
+	tests := []string{
+		"",
+		"abc",
+		"abcM",
+	}
+
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			result := parseSize(input)
+			if result != 0 {
+				t.Errorf("parseSize(%q) = %d, want 0", input, result)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Additional Coverage Tests
+// =============================================================================
+
+func TestNewFileLogger_InvalidPath(t *testing.T) {
+	// Test with path that cannot be created (null character in path)
+	config := Config{
+		Enabled: true,
+		Path:    "/dev/null\x00invalid",
+	}
+
+	_, err := NewFileLogger(config)
+	if err == nil {
+		t.Error("expected error for invalid path with null character")
+	}
+}
+
+func TestNewFileLogger_EmptyPath(t *testing.T) {
+	config := Config{
+		Enabled: true,
+		Path:    "",
+	}
+
+	_, err := NewFileLogger(config)
+	if err == nil {
+		t.Error("expected error for empty path")
+	}
+	if !strings.Contains(err.Error(), "path is required") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestNewLogger_FileLoggerWithPath(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-newlogger-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+	}
+
+	logger, err := NewLogger(config)
+	if err != nil {
+		t.Fatalf("NewLogger failed: %v", err)
+	}
+	defer logger.Close()
+
+	// Should be file logger
+	if _, ok := logger.(*FileLogger); !ok {
+		t.Error("expected FileLogger for non-empty path")
+	}
+}
+
+func TestFileLogger_QueryReadDirError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-query-err-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	// Remove directory to cause ReadDir error
+	logger.Close()
+	os.RemoveAll(tmpDir)
+
+	// Query should fail because directory is gone
+	_, queryErr := logger.Query(context.Background(), QueryOptions{})
+	if queryErr == nil {
+		t.Error("expected error when directory doesn't exist")
+	}
+}
+
+func TestFileLogger_QueryWithOffset(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-query-offset-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	defer logger.Close()
+
+	// Log 5 events
+	for i := 0; i < 5; i++ {
+		logger.Log(context.Background(), Event{
+			ID:        "offset-" + string(rune('0'+i)),
+			Tool:      "test",
+			Timestamp: time.Now(),
+		})
+	}
+	logger.Flush(context.Background())
+
+	// Query with offset exceeding total
+	result, err := logger.Query(context.Background(), QueryOptions{Offset: 10})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 0 {
+		t.Errorf("expected 0 events with offset=10, got %d", len(result.Events))
+	}
+	if result.Total != 5 {
+		t.Errorf("expected Total=5, got %d", result.Total)
+	}
+}
+
+func TestFileLogger_ReadEventsContextCancellation(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-ctx-cancel-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	defer logger.Close()
+
+	// Log many events
+	for i := 0; i < 100; i++ {
+		logger.Log(context.Background(), Event{
+			ID:        "ctx-" + string(rune(i)),
+			Tool:      "test",
+			Timestamp: time.Now(),
+		})
+	}
+	logger.Flush(context.Background())
+
+	// Create a cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Query with cancelled context - should return partial results or error
+	result, _ := logger.Query(ctx, QueryOptions{})
+	// The context is checked per line during scan, so with cancelled context
+	// we might get 0 results or partial results
+	_ = result // Just ensure no panic
+}
+
+func TestFileLogger_CleanupWithDirectoryEntry(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-cleanup-dir-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create a subdirectory (should be skipped by cleanup)
+	subDir := filepath.Join(tmpDir, "subdir")
+	os.Mkdir(subDir, 0755)
+
+	config := Config{
+		Enabled:       true,
+		Path:          tmpDir,
+		RetentionDays: 30,
+		MaxSizeBytes:  10 * 1024 * 1024,
+		BufferSize:    0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	// Log an event to trigger cleanup
+	logger.Log(context.Background(), Event{ID: "cleanup-dir-test", Tool: "test"})
+	logger.Close()
+
+	// Give cleanup goroutine time to run
+	time.Sleep(100 * time.Millisecond)
+
+	// Subdirectory should still exist (not deleted by cleanup)
+	if _, err := os.Stat(subDir); os.IsNotExist(err) {
+		t.Error("subdirectory should not have been deleted by cleanup")
+	}
+}
+
+func TestFileLogger_CleanupRetentionZero(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-cleanup-zero-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create an old file
+	oldFile := filepath.Join(tmpDir, "audit-2020-01-01T00-00-00.jsonl")
+	os.WriteFile(oldFile, []byte("{}"), 0600)
+	oldTime := time.Now().AddDate(0, 0, -60)
+	os.Chtimes(oldFile, oldTime, oldTime)
+
+	config := Config{
+		Enabled:       true,
+		Path:          tmpDir,
+		RetentionDays: 0, // Disabled retention
+		MaxSizeBytes:  10 * 1024 * 1024,
+		BufferSize:    0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	logger.Log(context.Background(), Event{ID: "retention-zero-test", Tool: "test"})
+	logger.Close()
+
+	// Give cleanup goroutine time to run
+	time.Sleep(100 * time.Millisecond)
+
+	// Old file should still exist (retention disabled)
+	if _, err := os.Stat(oldFile); os.IsNotExist(err) {
+		t.Error("old file should not have been deleted when retention is 0")
+	}
+}
+
+func TestDetectAction_DefaultCase(t *testing.T) {
+	// Test methods that don't match any prefix - should return ActionRead
+	result := DetectAction("unknownmethod")
+	if result != ActionRead {
+		t.Errorf("DetectAction(unknownmethod) = %v, want %v", result, ActionRead)
+	}
+
+	result = DetectAction("random")
+	if result != ActionRead {
+		t.Errorf("DetectAction(random) = %v, want %v", result, ActionRead)
+	}
+}
+
+func TestLoadConfigFromEnv_SanitizeOption(t *testing.T) {
+	os.Setenv("MIRO_AUDIT_ENABLED", "1")
+	os.Setenv("MIRO_AUDIT_SANITIZE", "true")
+	defer func() {
+		os.Unsetenv("MIRO_AUDIT_ENABLED")
+		os.Unsetenv("MIRO_AUDIT_SANITIZE")
+	}()
+
+	config := LoadConfigFromEnv()
+
+	if !config.Enabled {
+		t.Error("expected Enabled=true")
+	}
+	if !config.SanitizeInput {
+		t.Error("expected SanitizeInput=true")
+	}
+}
+
+func TestFileLogger_SanitizeInputOnLog(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-sanitize-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:       true,
+		Path:          tmpDir,
+		MaxSizeBytes:  10 * 1024 * 1024,
+		BufferSize:    0,
+		SanitizeInput: true,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	defer logger.Close()
+
+	// Log event with sensitive input
+	event := Event{
+		ID:        "sanitize-test",
+		Tool:      "test",
+		Timestamp: time.Now(),
+		Input: map[string]interface{}{
+			"board_id":     "abc123",
+			"access_token": "secret123",
+		},
+	}
+
+	logger.Log(context.Background(), event)
+	logger.Flush(context.Background())
+
+	// Query and verify input was sanitized
+	result, err := logger.Query(context.Background(), QueryOptions{})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	if len(result.Events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(result.Events))
+	}
+	if result.Events[0].Input["access_token"] != "[REDACTED]" {
+		t.Error("expected access_token to be redacted")
+	}
+}
+
+func TestFileLogger_LogWhenDisabled(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-disabled-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      false, // Disabled
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+	defer logger.Close()
+
+	// Log should be a no-op when disabled
+	err = logger.Log(context.Background(), Event{ID: "disabled-test", Tool: "test"})
+	if err != nil {
+		t.Errorf("Log should not error when disabled: %v", err)
+	}
+}
+
+func TestFileLogger_CloseWithNoFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-close-nofile-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   0,
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	// Close immediately without logging
+	err = logger.Close()
+	if err != nil {
+		t.Errorf("Close should not error: %v", err)
+	}
+
+	// Close again should also not error
+	err = logger.Close()
+	// May error or not depending on implementation, just check no panic
+}
+
+func TestFileLogger_FlushLockedWithError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "audit-flush-err-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	config := Config{
+		Enabled:      true,
+		Path:         tmpDir,
+		MaxSizeBytes: 10 * 1024 * 1024,
+		BufferSize:   5, // Buffer events
+	}
+
+	logger, err := NewFileLogger(config)
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	// Log some events to fill buffer
+	for i := 0; i < 3; i++ {
+		logger.Log(context.Background(), Event{
+			ID:        "flush-err-" + string(rune('0'+i)),
+			Tool:      "test",
+			Timestamp: time.Now(),
+		})
+	}
+
+	// Close the underlying file to cause write error on flush
+	logger.mu.Lock()
+	if logger.file != nil {
+		logger.file.Close()
+	}
+	logger.mu.Unlock()
+
+	// Flush should now fail
+	err = logger.Flush(context.Background())
+	// May or may not error depending on buffering state
+	// Just verify no panic occurs
+}
+
+func TestMemoryLogger_SanitizeInputOnLog(t *testing.T) {
+	config := Config{Enabled: true, SanitizeInput: true}
+	logger := NewMemoryLogger(100, config)
+
+	// Log event with sensitive input
+	event := Event{
+		ID:        "sanitize-mem-test",
+		Tool:      "test",
+		Timestamp: time.Now(),
+		Input: map[string]interface{}{
+			"board_id": "abc123",
+			"secret":   "secret123",
+		},
+	}
+
+	logger.Log(context.Background(), event)
+
+	events := logger.GetAllEvents()
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].Input["secret"] != "[REDACTED]" {
+		t.Error("expected secret to be redacted")
+	}
+}

@@ -706,6 +706,402 @@ func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchB
 	}, nil
 }
 
+// =============================================================================
+// Type-Specific Update Operations
+// =============================================================================
+
+// UpdateSticky updates a sticky note using the dedicated sticky_notes endpoint.
+func (c *Client) UpdateSticky(ctx context.Context, args UpdateStickyArgs) (UpdateStickyResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateStickyResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateStickyResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	data := make(map[string]interface{})
+	if args.Content != nil {
+		data["content"] = *args.Content
+	}
+	if args.Shape != nil {
+		data["shape"] = *args.Shape
+	}
+	if len(data) > 0 {
+		reqBody["data"] = data
+	}
+
+	// Build style section
+	if args.Color != nil {
+		reqBody["style"] = map[string]interface{}{
+			"fillColor": *args.Color,
+		}
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	if args.Width != nil {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": *args.Width,
+		}
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateStickyResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/sticky_notes/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateStickyResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			Content string `json:"content"`
+			Shape   string `json:"shape"`
+		} `json:"data"`
+		Style struct {
+			FillColor string `json:"fillColor"`
+		} `json:"style"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateStickyResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	return UpdateStickyResult{
+		ID:      resp.ID,
+		Content: resp.Data.Content,
+		Shape:   resp.Data.Shape,
+		Color:   resp.Style.FillColor,
+		Message: "Sticky note updated successfully",
+	}, nil
+}
+
+// UpdateShape updates a shape using the dedicated shapes endpoint.
+func (c *Client) UpdateShape(ctx context.Context, args UpdateShapeArgs) (UpdateShapeResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateShapeResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateShapeResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	data := make(map[string]interface{})
+	if args.Content != nil {
+		data["content"] = *args.Content
+	}
+	if args.ShapeType != nil {
+		data["shape"] = *args.ShapeType
+	}
+	if len(data) > 0 {
+		reqBody["data"] = data
+	}
+
+	// Build style section
+	style := make(map[string]interface{})
+	if args.Color != nil {
+		style["fillColor"] = *args.Color
+	}
+	if args.TextColor != nil {
+		style["fontColor"] = *args.TextColor
+	}
+	if len(style) > 0 {
+		reqBody["style"] = style
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	geom := make(map[string]interface{})
+	if args.Width != nil {
+		geom["width"] = *args.Width
+	}
+	if args.Height != nil {
+		geom["height"] = *args.Height
+	}
+	if len(geom) > 0 {
+		reqBody["geometry"] = geom
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateShapeResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/shapes/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateShapeResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			Content string `json:"content"`
+			Shape   string `json:"shape"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateShapeResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	return UpdateShapeResult{
+		ID:        resp.ID,
+		ShapeType: resp.Data.Shape,
+		Content:   resp.Data.Content,
+		Message:   "Shape updated successfully",
+	}, nil
+}
+
+// UpdateText updates a text item using the dedicated text endpoint.
+func (c *Client) UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTextResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateTextResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateTextResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	if args.Content != nil {
+		reqBody["data"] = map[string]interface{}{
+			"content": *args.Content,
+		}
+	}
+
+	// Build style section
+	style := make(map[string]interface{})
+	if args.FontSize != nil {
+		style["fontSize"] = fmt.Sprintf("%d", *args.FontSize)
+	}
+	if args.TextAlign != nil {
+		style["textAlign"] = *args.TextAlign
+	}
+	if args.Color != nil {
+		style["color"] = *args.Color
+	}
+	if len(style) > 0 {
+		reqBody["style"] = style
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	if args.Width != nil {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": *args.Width,
+		}
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateTextResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/texts/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateTextResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			Content string `json:"content"`
+		} `json:"data"`
+		Style struct {
+			FontSize string `json:"fontSize"`
+		} `json:"style"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateTextResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	var fontSize int
+	fmt.Sscanf(resp.Style.FontSize, "%d", &fontSize)
+
+	return UpdateTextResult{
+		ID:       resp.ID,
+		Content:  resp.Data.Content,
+		FontSize: fontSize,
+		Message:  "Text updated successfully",
+	}, nil
+}
+
+// UpdateCard updates a card using the dedicated cards endpoint.
+func (c *Client) UpdateCard(ctx context.Context, args UpdateCardArgs) (UpdateCardResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateCardResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateCardResult{}, fmt.Errorf("invalid item_id: %w", err)
+	}
+
+	reqBody := make(map[string]interface{})
+
+	// Build data section
+	data := make(map[string]interface{})
+	if args.Title != nil {
+		data["title"] = *args.Title
+	}
+	if args.Description != nil {
+		data["description"] = *args.Description
+	}
+	if args.DueDate != nil {
+		if *args.DueDate == "" {
+			data["dueDate"] = nil
+		} else {
+			data["dueDate"] = *args.DueDate
+		}
+	}
+	if len(data) > 0 {
+		reqBody["data"] = data
+	}
+
+	// Build position section
+	if args.X != nil || args.Y != nil {
+		pos := map[string]interface{}{"origin": "center"}
+		if args.X != nil {
+			pos["x"] = *args.X
+		}
+		if args.Y != nil {
+			pos["y"] = *args.Y
+		}
+		reqBody["position"] = pos
+	}
+
+	// Build geometry section
+	if args.Width != nil {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": *args.Width,
+		}
+	}
+
+	// Build parent section
+	if args.ParentID != nil {
+		if *args.ParentID == "" {
+			reqBody["parent"] = nil
+		} else {
+			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
+		}
+	}
+
+	if len(reqBody) == 0 {
+		return UpdateCardResult{
+			ID:      args.ItemID,
+			Message: "No changes specified",
+		}, nil
+	}
+
+	path := "/boards/" + args.BoardID + "/cards/" + args.ItemID
+	respBody, err := c.request(ctx, http.MethodPatch, path, reqBody)
+	if err != nil {
+		return UpdateCardResult{}, err
+	}
+
+	var resp struct {
+		ID   string `json:"id"`
+		Data struct {
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			DueDate     string `json:"dueDate"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateCardResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
+	return UpdateCardResult{
+		ID:          resp.ID,
+		Title:       resp.Data.Title,
+		Description: resp.Data.Description,
+		DueDate:     resp.Data.DueDate,
+		Message:     "Card updated successfully",
+	}, nil
+}
+
 // createSnippet creates a text snippet around the matched query.
 func createSnippet(content, query string, contextLen int) string {
 	lowerContent := strings.ToLower(content)

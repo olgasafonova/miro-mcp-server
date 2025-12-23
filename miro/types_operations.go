@@ -535,3 +535,96 @@ type BulkDeleteResult struct {
 	Errors  []string `json:"errors,omitempty"`
 	Message string   `json:"message"`
 }
+
+// =============================================================================
+// Type-Specific Update Operations
+// =============================================================================
+
+// UpdateStickyArgs contains parameters for updating a sticky note via dedicated endpoint.
+type UpdateStickyArgs struct {
+	BoardID  string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID   string   `json:"item_id" jsonschema:"required" jsonschema_description:"Sticky note ID to update"`
+	Content  *string  `json:"content,omitempty" jsonschema_description:"New text content"`
+	Shape    *string  `json:"shape,omitempty" jsonschema_description:"Sticky shape: square or rectangle"`
+	Color    *string  `json:"color,omitempty" jsonschema_description:"Sticky color: gray, light_yellow, yellow, orange, light_green, green, dark_green, cyan, light_pink, pink, violet, red, light_blue, blue, dark_blue, black"`
+	X        *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width    *float64 `json:"width,omitempty" jsonschema_description:"New width"`
+	ParentID *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateStickyResult contains the updated sticky note details.
+type UpdateStickyResult struct {
+	ID      string `json:"id"`
+	Content string `json:"content,omitempty"`
+	Shape   string `json:"shape,omitempty"`
+	Color   string `json:"color,omitempty"`
+	Message string `json:"message"`
+}
+
+// UpdateShapeArgs contains parameters for updating a shape via dedicated endpoint.
+type UpdateShapeArgs struct {
+	BoardID   string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID    string   `json:"item_id" jsonschema:"required" jsonschema_description:"Shape ID to update"`
+	Content   *string  `json:"content,omitempty" jsonschema_description:"New text inside shape"`
+	ShapeType *string  `json:"shape_type,omitempty" jsonschema_description:"New shape type: rectangle, circle, triangle, rhombus, round_rectangle, parallelogram, trapezoid, pentagon, hexagon, star, flow_chart_predefined_process, etc."`
+	Color     *string  `json:"color,omitempty" jsonschema_description:"New fill color (hex like #006400)"`
+	TextColor *string  `json:"text_color,omitempty" jsonschema_description:"New text color (hex like #ffffff)"`
+	X         *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y         *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width     *float64 `json:"width,omitempty" jsonschema_description:"New width"`
+	Height    *float64 `json:"height,omitempty" jsonschema_description:"New height"`
+	ParentID  *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateShapeResult contains the updated shape details.
+type UpdateShapeResult struct {
+	ID        string `json:"id"`
+	ShapeType string `json:"shape_type,omitempty"`
+	Content   string `json:"content,omitempty"`
+	Message   string `json:"message"`
+}
+
+// UpdateTextArgs contains parameters for updating a text item via dedicated endpoint.
+type UpdateTextArgs struct {
+	BoardID   string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID    string   `json:"item_id" jsonschema:"required" jsonschema_description:"Text item ID to update"`
+	Content   *string  `json:"content,omitempty" jsonschema_description:"New text content (supports basic HTML: <p>, <a>, <b>, <strong>, <i>, <em>, <u>, <s>)"`
+	FontSize  *int     `json:"font_size,omitempty" jsonschema_description:"New font size (10-288, default 14)"`
+	TextAlign *string  `json:"text_align,omitempty" jsonschema_description:"Text alignment: left, center, right"`
+	Color     *string  `json:"color,omitempty" jsonschema_description:"New text color (hex like #1a1a1a)"`
+	X         *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y         *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width     *float64 `json:"width,omitempty" jsonschema_description:"New width"`
+	ParentID  *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateTextResult contains the updated text item details.
+type UpdateTextResult struct {
+	ID       string `json:"id"`
+	Content  string `json:"content,omitempty"`
+	FontSize int    `json:"font_size,omitempty"`
+	Message  string `json:"message"`
+}
+
+// UpdateCardArgs contains parameters for updating a card via dedicated endpoint.
+type UpdateCardArgs struct {
+	BoardID     string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID      string   `json:"item_id" jsonschema:"required" jsonschema_description:"Card ID to update"`
+	Title       *string  `json:"title,omitempty" jsonschema_description:"New card title"`
+	Description *string  `json:"description,omitempty" jsonschema_description:"New card description/body"`
+	DueDate     *string  `json:"due_date,omitempty" jsonschema_description:"New due date (ISO 8601) or empty to remove"`
+	X           *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y           *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	Width       *float64 `json:"width,omitempty" jsonschema_description:"New width"`
+	ParentID    *string  `json:"parent_id,omitempty" jsonschema_description:"Move to frame (empty string removes from frame)"`
+}
+
+// UpdateCardResult contains the updated card details.
+type UpdateCardResult struct {
+	ID          string `json:"id"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	DueDate     string `json:"due_date,omitempty"`
+	Message     string `json:"message"`
+}

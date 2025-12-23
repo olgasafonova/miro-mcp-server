@@ -35,6 +35,11 @@ type MockClient struct {
 	BulkCreateFn   func(ctx context.Context, args miro.BulkCreateArgs) (miro.BulkCreateResult, error)
 	BulkUpdateFn   func(ctx context.Context, args miro.BulkUpdateArgs) (miro.BulkUpdateResult, error)
 	BulkDeleteFn   func(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error)
+	// Type-specific updates
+	UpdateStickyFn func(ctx context.Context, args miro.UpdateStickyArgs) (miro.UpdateStickyResult, error)
+	UpdateShapeFn  func(ctx context.Context, args miro.UpdateShapeArgs) (miro.UpdateShapeResult, error)
+	UpdateTextFn   func(ctx context.Context, args miro.UpdateTextArgs) (miro.UpdateTextResult, error)
+	UpdateCardFn   func(ctx context.Context, args miro.UpdateCardArgs) (miro.UpdateCardResult, error)
 
 	// Create operations
 	CreateStickyFn     func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error)
@@ -70,6 +75,7 @@ type MockClient struct {
 	ListGroupsFn    func(ctx context.Context, args miro.ListGroupsArgs) (miro.ListGroupsResult, error)
 	GetGroupFn      func(ctx context.Context, args miro.GetGroupArgs) (miro.GetGroupResult, error)
 	GetGroupItemsFn func(ctx context.Context, args miro.GetGroupItemsArgs) (miro.GetGroupItemsResult, error)
+	UpdateGroupFn   func(ctx context.Context, args miro.UpdateGroupArgs) (miro.UpdateGroupResult, error)
 	DeleteGroupFn   func(ctx context.Context, args miro.DeleteGroupArgs) (miro.DeleteGroupResult, error)
 
 	// Member operations
@@ -308,6 +314,50 @@ func (m *MockClient) UpdateItem(ctx context.Context, args miro.UpdateItemArgs) (
 		Success: true,
 		ItemID:  args.ItemID,
 		Message: "Item updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateSticky(ctx context.Context, args miro.UpdateStickyArgs) (miro.UpdateStickyResult, error) {
+	m.recordCall("UpdateSticky", args)
+	if m.UpdateStickyFn != nil {
+		return m.UpdateStickyFn(ctx, args)
+	}
+	return miro.UpdateStickyResult{
+		ID:      args.ItemID,
+		Message: "Sticky updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateShape(ctx context.Context, args miro.UpdateShapeArgs) (miro.UpdateShapeResult, error) {
+	m.recordCall("UpdateShape", args)
+	if m.UpdateShapeFn != nil {
+		return m.UpdateShapeFn(ctx, args)
+	}
+	return miro.UpdateShapeResult{
+		ID:      args.ItemID,
+		Message: "Shape updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateText(ctx context.Context, args miro.UpdateTextArgs) (miro.UpdateTextResult, error) {
+	m.recordCall("UpdateText", args)
+	if m.UpdateTextFn != nil {
+		return m.UpdateTextFn(ctx, args)
+	}
+	return miro.UpdateTextResult{
+		ID:      args.ItemID,
+		Message: "Text updated successfully",
+	}, nil
+}
+
+func (m *MockClient) UpdateCard(ctx context.Context, args miro.UpdateCardArgs) (miro.UpdateCardResult, error) {
+	m.recordCall("UpdateCard", args)
+	if m.UpdateCardFn != nil {
+		return m.UpdateCardFn(ctx, args)
+	}
+	return miro.UpdateCardResult{
+		ID:      args.ItemID,
+		Message: "Card updated successfully",
 	}, nil
 }
 
@@ -764,6 +814,18 @@ func (m *MockClient) GetGroupItems(ctx context.Context, args miro.GetGroupItemsA
 		Count:   1,
 		HasMore: false,
 		Message: "Found 1 items in group",
+	}, nil
+}
+
+func (m *MockClient) UpdateGroup(ctx context.Context, args miro.UpdateGroupArgs) (miro.UpdateGroupResult, error) {
+	m.recordCall("UpdateGroup", args)
+	if m.UpdateGroupFn != nil {
+		return m.UpdateGroupFn(ctx, args)
+	}
+	return miro.UpdateGroupResult{
+		ID:      args.GroupID,
+		ItemIDs: args.ItemIDs,
+		Message: fmt.Sprintf("Updated group with %d items", len(args.ItemIDs)),
 	}, nil
 }
 

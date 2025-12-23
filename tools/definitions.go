@@ -223,8 +223,7 @@ PARAMETERS:
 - start_item_id: ID of source item (required)
 - end_item_id: ID of target item (required)
 - style: straight, elbowed (default), curved
-- start_cap: Arrow style at start (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle)
-- end_cap: Arrow style at end (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle). Default: arrow
+- start_cap, end_cap: none, arrow (default end), stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle
 - caption: Label on the connector`,
 	},
 	{
@@ -564,14 +563,14 @@ RETURNS: List of tags with IDs, titles, and colors.`,
 		Category: "tags",
 		Description: `Attach a tag to a sticky note or card.
 
-USE WHEN: User says "tag this sticky as Urgent", "add Done label to item", "mark as reviewed"
+USE WHEN: User says "tag this sticky as Urgent", "add Done label", "mark as reviewed"
 
 PARAMETERS:
 - board_id: Required
 - item_id: Sticky note or card ID (required)
-- tag_id: Tag ID (required, get from list_tags or create_tag)
+- tag_id: Tag ID (required)
 
-IMPORTANT: Tags can ONLY be attached to sticky_note or card items. Shapes, text, frames, images, and other item types CANNOT be tagged. If user asks to tag a shape/star/circle, explain this limitation.`,
+NOTE: Tags only work on sticky_note and card items. Shapes/text/frames cannot be tagged.`,
 	},
 	{
 		Name:     "miro_detach_tag",
@@ -706,6 +705,95 @@ PARAMETERS:
 - parent_id: Move to a frame (empty string to remove from frame)`,
 	},
 	{
+		Name:       "miro_update_sticky",
+		Method:     "UpdateSticky",
+		Title:      "Update Sticky Note",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a sticky note via dedicated endpoint with type-specific options.
+
+USE WHEN: User says "change sticky color", "update sticky to square", "resize sticky note"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Sticky note ID (required)
+- content: New text
+- shape: square or rectangle
+- color: gray, light_yellow, yellow, orange, light_green, green, dark_green, cyan, light_pink, pink, violet, red, light_blue, blue, dark_blue, black
+- x, y: New position
+- width: New width
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated sticky to yellow square"`,
+	},
+	{
+		Name:       "miro_update_shape",
+		Method:     "UpdateShape",
+		Title:      "Update Shape",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a shape via dedicated endpoint with type-specific options.
+
+USE WHEN: User says "change shape color", "resize the rectangle", "update shape text"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Shape ID (required)
+- content: New text inside shape
+- shape: rectangle, round_rectangle, circle, triangle, rhombus, parallelogram, trapezoid, pentagon, hexagon, star, etc.
+- fill_color: Fill color (hex or name)
+- text_color: Text color
+- x, y: New position
+- width, height: New size
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated shape to blue circle"`,
+	},
+	{
+		Name:       "miro_update_text",
+		Method:     "UpdateText",
+		Title:      "Update Text",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a text element via dedicated endpoint.
+
+USE WHEN: User says "change text content", "resize text", "change font size"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Text ID (required)
+- content: New text
+- font_size: Font size in points
+- color: Text color
+- x, y: New position
+- width: New width
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated text to 'New Title'"`,
+	},
+	{
+		Name:       "miro_update_card",
+		Method:     "UpdateCard",
+		Title:      "Update Card",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a card via dedicated endpoint with card-specific options.
+
+USE WHEN: User says "change card title", "update due date", "modify card description"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Card ID (required)
+- title: New card title
+- description: New description
+- due_date: New due date (ISO format)
+- x, y: New position
+- width: New width
+- parent_id: Move to frame (empty to remove)
+
+VOICE-FRIENDLY: "Updated card title to 'Review PR'"`,
+	},
+	{
 		Name:        "miro_delete_item",
 		Method:      "DeleteItem",
 		Title:       "Delete Item",
@@ -729,20 +817,15 @@ WARNING: This action cannot be undone.`,
 		Idempotent: true,
 		Description: `Update an existing connector's style, arrows, or label.
 
-USE WHEN: User says "change the arrow style", "update connector color", "add label to the line"
+USE WHEN: User says "change the arrow style", "update connector color", "add label to line"
 
 PARAMETERS:
 - board_id: Required
-- connector_id: Connector ID to update (required)
-- style: Line style (straight, elbowed, curved)
-- start_cap: Arrow at start (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle)
-- end_cap: Arrow at end (none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle)
-- caption: Text label on the connector
-- color: Line color (hex code)
-
-NOTE: At least one update field must be provided.
-
-VOICE-FRIENDLY: "Updated connector to curved style with arrow"`,
+- connector_id: Connector ID (required)
+- style: straight, elbowed, curved
+- start_cap, end_cap: none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle
+- caption: Text label
+- color: Line color (hex)`,
 	},
 	{
 		Name:        "miro_delete_connector",
@@ -948,6 +1031,25 @@ RETURNS: List of items with IDs, types, and content.
 VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
 	},
 	{
+		Name:       "miro_update_group",
+		Method:     "UpdateGroup",
+		Title:      "Update Group",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a group's member items.
+
+USE WHEN: User says "add item to group", "change group members", "update the group"
+
+PARAMETERS:
+- board_id: Required
+- group_id: Required
+- item_ids: New list of item IDs (replaces current, minimum 2)
+
+NOTE: This replaces all group members. Include existing IDs to keep them.
+
+VOICE-FRIENDLY: "Updated group with 5 items"`,
+	},
+	{
 		Name:        "miro_delete_group",
 		Method:      "DeleteGroup",
 		Title:       "Delete Group",
@@ -1067,23 +1169,16 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 		Method:   "CreateMindmapNode",
 		Title:    "Create Mindmap Node",
 		Category: "create",
-		Description: `Create a mindmap node on a board. Mindmaps are hierarchical diagrams for brainstorming and idea organization.
+		Description: `Create a mindmap node. Omit parent_id for root; add parent_id for children.
 
-USE WHEN: User says "create a mindmap", "add mindmap node", "add a branch to the mindmap"
+USE WHEN: User says "create mindmap", "add mindmap node", "add branch"
 
 PARAMETERS:
 - board_id: Required
-- content: Node text content (required)
-- parent_id: ID of parent node (omit for root node)
-- node_view: Style - "text" (default) or "bubble"
-- x, y: Position (only for root nodes without parent)
-
-WORKFLOW:
-1. Create root node first (without parent_id)
-2. Add child nodes with parent_id pointing to root
-3. Continue adding nested children as needed
-
-VOICE-FRIENDLY: "Created mindmap node 'Project Ideas' as root"`,
+- content: Node text (required)
+- parent_id: Parent node ID (omit for root)
+- node_view: "text" (default) or "bubble"
+- x, y: Position (root nodes only)`,
 	},
 	{
 		Name:     "miro_get_mindmap_node",
@@ -1091,19 +1186,15 @@ VOICE-FRIENDLY: "Created mindmap node 'Project Ideas' as root"`,
 		Title:    "Get Mindmap Node",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get details of a specific mindmap node including content, hierarchy, and position.
+		Description: `Get mindmap node details including content, hierarchy, and position.
 
-USE WHEN: User asks "show mindmap node details", "what's in this node", "get node info"
+USE WHEN: User asks "show mindmap node", "what's in this node", "node info"
 
 PARAMETERS:
 - board_id: Required
 - node_id: Mindmap node ID (required)
 
-RETURNS: Node ID, content, node view style, whether it's root, parent ID, child IDs, position, timestamps.
-
-NOTE: Uses v2-experimental Miro API endpoint.
-
-VOICE-FRIENDLY: "Mindmap node 'Marketing Strategy' has 3 children"`,
+NOTE: Uses v2-experimental API.`,
 	},
 	{
 		Name:     "miro_list_mindmap_nodes",
@@ -1113,18 +1204,14 @@ VOICE-FRIENDLY: "Mindmap node 'Marketing Strategy' has 3 children"`,
 		ReadOnly: true,
 		Description: `List all mindmap nodes on a board.
 
-USE WHEN: User asks "show all mindmap nodes", "list mindmap", "what's in the mindmap"
+USE WHEN: User asks "show mindmap nodes", "list mindmap", "what's in the mindmap"
 
 PARAMETERS:
 - board_id: Required
-- limit: Max nodes to return (default 50, max 100)
+- limit: Max nodes (default 50, max 100)
 - cursor: Pagination cursor
 
-RETURNS: List of nodes with IDs, content, root status, and parent relationships.
-
-NOTE: Uses v2-experimental Miro API endpoint. Returns nodes flat - use parent_id to reconstruct hierarchy.
-
-VOICE-FRIENDLY: "Found 12 mindmap nodes - 1 root, 11 children"`,
+NOTE: v2-experimental API. Returns flat list; use parent_id to reconstruct hierarchy.`,
 	},
 	{
 		Name:        "miro_delete_mindmap_node",
@@ -1134,17 +1221,13 @@ VOICE-FRIENDLY: "Found 12 mindmap nodes - 1 root, 11 children"`,
 		Destructive: true,
 		Description: `Delete a mindmap node from a board.
 
-USE WHEN: User says "remove this mindmap node", "delete node", "remove from mindmap"
+USE WHEN: User says "remove mindmap node", "delete node"
 
 PARAMETERS:
 - board_id: Required
-- node_id: Mindmap node ID to delete (required)
+- node_id: Mindmap node ID (required)
 
-WARNING: This action cannot be undone. Deleting a parent node may affect child nodes.
-
-NOTE: Uses v2-experimental Miro API endpoint.
-
-VOICE-FRIENDLY: "Mindmap node deleted successfully"`,
+WARNING: Cannot be undone. Deleting parent may affect children. Uses v2-experimental API.`,
 	},
 
 	// ==========================================================================
@@ -1174,21 +1257,17 @@ VOICE-FRIENDLY: "Got preview image for the board"`,
 		Method:   "CreateExportJob",
 		Title:    "Create Export Job",
 		Category: "export",
-		Description: `Create an export job to export one or more boards to PDF, SVG, or HTML.
+		Description: `Export boards to PDF, SVG, or HTML. ENTERPRISE ONLY.
 
-USE WHEN: User says "export board as PDF", "download board", "export to PDF", "backup board"
+USE WHEN: User says "export board as PDF", "download board", "backup board"
 
 PARAMETERS:
-- org_id: Organization ID (required, Enterprise feature)
-- board_ids: Array of board IDs to export (required, max 50)
-- format: Export format - pdf (default), svg, or html
-- request_id: Unique ID for idempotency (auto-generated if not provided)
+- org_id: Organization ID (required)
+- board_ids: Array of board IDs (required, max 50)
+- format: pdf (default), svg, html
+- request_id: Idempotency key (auto-generated)
 
-ENTERPRISE ONLY: This feature requires an Enterprise Miro plan with eDiscovery enabled.
-
-RETURNS: Job ID and status. Use get_export_job_status to monitor progress.
-
-VOICE-FRIENDLY: "Started export job for 3 boards"`,
+Returns job ID. Use get_export_job_status to monitor.`,
 	},
 	{
 		Name:     "miro_get_export_job_status",
@@ -1196,19 +1275,15 @@ VOICE-FRIENDLY: "Started export job for 3 boards"`,
 		Title:    "Get Export Job Status",
 		Category: "export",
 		ReadOnly: true,
-		Description: `Check the status of a board export job.
+		Description: `Check export job status. ENTERPRISE ONLY.
 
-USE WHEN: User asks "is the export done", "check export status", "how's the export going"
+USE WHEN: User asks "is export done", "check export status"
 
 PARAMETERS:
 - org_id: Organization ID (required)
-- job_id: Export job ID from create_export_job (required)
+- job_id: Export job ID (required)
 
-RETURNS: Job status (in_progress, completed, failed), progress percentage, and boards exported count.
-
-ENTERPRISE ONLY: This feature requires an Enterprise Miro plan.
-
-VOICE-FRIENDLY: "Export is 75% complete - 3 of 4 boards done"`,
+Returns status (in_progress/completed/failed), progress %, boards count.`,
 	},
 	{
 		Name:     "miro_get_export_job_results",
@@ -1216,21 +1291,15 @@ VOICE-FRIENDLY: "Export is 75% complete - 3 of 4 boards done"`,
 		Title:    "Get Export Job Results",
 		Category: "export",
 		ReadOnly: true,
-		Description: `Get download links for a completed export job.
+		Description: `Get download links for completed export. ENTERPRISE ONLY.
 
-USE WHEN: User says "get export download link", "download the exported boards", "where's my export"
+USE WHEN: User says "get export download", "where's my export"
 
 PARAMETERS:
 - org_id: Organization ID (required)
 - job_id: Export job ID (required)
 
-RETURNS: Download URLs for each exported board. Links expire in 15 minutes.
-
-ENTERPRISE ONLY: This feature requires an Enterprise Miro plan.
-
-NOTE: If links expired, call this again to regenerate them.
-
-VOICE-FRIENDLY: "Export ready - 4 boards available for download"`,
+Returns download URLs. Links expire in 15 min; call again to regenerate.`,
 	},
 
 	// ==========================================================================
@@ -1242,24 +1311,17 @@ VOICE-FRIENDLY: "Export ready - 4 boards available for download"`,
 		Title:    "Get Audit Log",
 		Category: "audit",
 		ReadOnly: true,
-		Description: `Query the local audit log for MCP tool executions.
+		Description: `Query local audit log for MCP tool executions (this session only).
 
-USE WHEN: User asks "what operations have been performed", "show recent activity", "audit trail"
+USE WHEN: User asks "show recent activity", "audit trail", "what operations were done"
 
 PARAMETERS:
-- since: Return events after this time (ISO 8601 format)
-- until: Return events before this time (ISO 8601 format)
-- tool: Filter by tool name (e.g., miro_create_sticky)
-- board_id: Filter by board ID
-- action: Filter by action type (create, read, update, delete, export, auth)
-- success: Filter by success status (true/false)
-- limit: Maximum events to return (default 50, max 500)
-
-RETURNS: List of audit events with timestamps, tools, actions, and results.
-
-NOTE: This queries the LOCAL audit log of this MCP server session, not Miro's enterprise audit logs.
-
-VOICE-FRIENDLY: "Found 15 operations in the last hour - 12 creates, 3 reads"`,
+- since, until: Time range (ISO 8601)
+- tool: Filter by tool name
+- board_id: Filter by board
+- action: create, read, update, delete, export, auth
+- success: true/false
+- limit: Max events (default 50, max 500)`,
 	},
 
 	// ==========================================================================
@@ -1277,57 +1339,21 @@ VOICE-FRIENDLY: "Found 15 operations in the last hour - 12 creates, 3 reads"`,
 		Method:   "GenerateDiagram",
 		Title:    "Generate Diagram from Code",
 		Category: "diagrams",
-		Description: `Generate a visual diagram on a Miro board from Mermaid code. Supports flowcharts and sequence diagrams. Automatically creates shapes and connectors with proper layout.
+		Description: `Generate diagram on Miro from Mermaid code. Creates shapes and connectors with auto-layout.
 
-USE WHEN: User says "create a flowchart", "generate diagram from this code", "draw process flow", "visualize this workflow", "create sequence diagram"
+USE WHEN: User says "create flowchart", "generate diagram", "draw process flow", "sequence diagram"
 
-SUPPORTED DIAGRAM TYPES:
-1. Flowcharts (flowchart/graph)
-2. Sequence diagrams (sequenceDiagram)
+TYPES: flowchart/graph, sequenceDiagram
 
-FLOWCHART SYNTAX:
-` + "```" + `
-flowchart TB
-    A[Start] --> B{Is it working?}
-    B -->|Yes| C[Great!]
-    B -->|No| D[Debug]
-    D --> B
-` + "```" + `
-
-SEQUENCE DIAGRAM SYNTAX:
-` + "```" + `
-sequenceDiagram
-    participant A as Alice
-    participant B as Bob
-    A->>B: Hello Bob!
-    B-->>A: Hi Alice!
-    A->>B: How are you?
-` + "```" + `
-
-FLOWCHART SHAPES:
-- [text] = Rectangle
-- (text) = Rounded rectangle
-- {text} = Diamond (decision)
-- ((text)) = Circle
-- {{text}} = Hexagon
-
-SEQUENCE DIAGRAM ELEMENTS:
-- participant X = Declare participant
-- actor X = Declare actor (circle shape)
-- A->>B: text = Sync message (solid arrow)
-- A-->>B: text = Async message (dotted arrow)
-- A-xB: text = Lost message (cross end)
+FLOWCHART: A[rect] --> B{diamond} -->|label| C((circle))
+SEQUENCE: participant A; A->>B: sync; A-->>B: async
 
 PARAMETERS:
-- board_id: Required. Board to create diagram on
-- diagram: Required. Mermaid diagram code
-- start_x, start_y: Starting position (default: 0, 0)
-- node_width: Width of each node (default: 180)
-- parent_id: Frame ID to place diagram inside
-
-RETURNS: Count of created nodes, connectors, and their IDs.
-
-VOICE-FRIENDLY: "Created sequence diagram with 3 participants and 5 messages"`,
+- board_id: Required
+- diagram: Mermaid code (required)
+- start_x, start_y: Position (default 0,0)
+- node_width: Node width (default 180)
+- parent_id: Frame ID`,
 	},
 
 	// ==========================================================================

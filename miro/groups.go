@@ -194,6 +194,43 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 	}, nil
 }
 
+// UpdateGroup updates a group's items.
+func (c *Client) UpdateGroup(ctx context.Context, args UpdateGroupArgs) (UpdateGroupResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateGroupResult{}, err
+	}
+	if err := ValidateItemID(args.GroupID); err != nil {
+		return UpdateGroupResult{}, fmt.Errorf("invalid group_id: %w", err)
+	}
+	if len(args.ItemIDs) < 2 {
+		return UpdateGroupResult{}, fmt.Errorf("at least 2 items are required in a group")
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"items": args.ItemIDs,
+		},
+	}
+
+	path := "/boards/" + args.BoardID + "/groups/" + args.GroupID
+
+	respBody, err := c.request(ctx, http.MethodPut, path, reqBody)
+	if err != nil {
+		return UpdateGroupResult{}, err
+	}
+
+	var group Group
+	if err := json.Unmarshal(respBody, &group); err != nil {
+		return UpdateGroupResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return UpdateGroupResult{
+		ID:      group.ID,
+		ItemIDs: args.ItemIDs,
+		Message: fmt.Sprintf("Updated group with %d items", len(args.ItemIDs)),
+	}, nil
+}
+
 // DeleteGroup deletes a group (items can optionally be deleted too).
 func (c *Client) DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteGroupResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {

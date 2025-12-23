@@ -2,7 +2,7 @@
 
 Control Miro whiteboards with AI. Built in Go for speed and simplicity.
 
-**68 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**73 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)

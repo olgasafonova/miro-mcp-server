@@ -32,6 +32,11 @@ type ItemService interface {
 	BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error)
 	BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdateResult, error)
 	BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDeleteResult, error)
+	// Type-specific updates
+	UpdateSticky(ctx context.Context, args UpdateStickyArgs) (UpdateStickyResult, error)
+	UpdateShape(ctx context.Context, args UpdateShapeArgs) (UpdateShapeResult, error)
+	UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTextResult, error)
+	UpdateCard(ctx context.Context, args UpdateCardArgs) (UpdateCardResult, error)
 }
 
 // CreateService handles creation of specific item types.
@@ -75,6 +80,7 @@ type GroupService interface {
 	ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroupsResult, error)
 	GetGroup(ctx context.Context, args GetGroupArgs) (GetGroupResult, error)
 	GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (GetGroupItemsResult, error)
+	UpdateGroup(ctx context.Context, args UpdateGroupArgs) (UpdateGroupResult, error)
 	DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteGroupResult, error)
 }
 

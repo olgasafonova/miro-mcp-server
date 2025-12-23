@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependencies**: Updated MCP SDK v1.1.0 → v1.2.0
 - **Dependencies**: Updated jsonschema-go v0.3.0 → v0.4.2
 - **Dependencies**: Updated golang.org/x/oauth2 v0.30.0 → v0.34.0
-- **Dependencies**: Updated golang-jwt/jwt v5.2.1 → v5.2.2
+- **Dependencies**: Updated golang-jwt/jwt v5.2.1 → v5.3.0
 - **Dependencies**: Updated Go version 1.23.0 → 1.24.0
 - **Internal**: Consolidated duplicate caching mechanism (sync.Map → unified *Cache)
 

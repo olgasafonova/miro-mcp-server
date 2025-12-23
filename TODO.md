@@ -1,8 +1,38 @@
 # TODO - Remaining Tasks
 
-Last updated: Dec 2024
+Last updated: Dec 2025
 
-## Recently Completed (Dec 2024)
+## Recently Completed (Dec 2025)
+
+### Diagrams Package Coverage ✅ (NEW)
+- **diagrams package**: 73.3% → **92.6%** coverage
+- Added `converter_test.go` with tests for:
+  - `convertFlowchartToMiro`: 0% → 100%
+  - `convertShape`: 0% → 100%
+  - `convertArrowType`: 50% → 100%
+  - `getShapeColor`: 0% → 100%
+  - `ConvertToMiro`: 100%
+  - `ConvertSequenceToMiro`: 97.6%
+- Added `errors_test.go` with tests for:
+  - `DiagramError.Error()`: 0% → 100%
+  - `WithLine`, `WithInput`: 0% → 100%
+  - `ErrTooManyNodes`, `ErrInvalidNodeShape`, `ErrInvalidEdge`: 0% → 100%
+  - `ParseDiagramSyntaxError`: 0% → 100%
+  - `DiagramTypeHint`: 0% → 100%
+  - `ValidateDiagramInput`: 0% → 100%
+- Added `sequence_test.go` with tests for `ParseSequence`: 0% → 100%
+
+### GenerateDiagram Tests ✅ (NEW)
+- Added `miro/diagrams_test.go` with 15 tests
+- **GenerateDiagram**: 0% → covered via mock HTTP server
+- Tests cover validation, flowcharts, sequence diagrams, error paths
+
+### OAuth Package Review ✅ (NEW)
+- **oauth package**: 72.5% - reviewed and documented
+- 0% coverage functions are integration-level (not feasible to unit test):
+  - `Login`: Interactive browser OAuth flow
+  - `openBrowser`: Platform-specific browser launching
+- Token refresh path tested via `Provider.RefreshToken` tests
 
 ### Dead Code Removal ✅
 - Removed entire `miro/webhooks/` package (Miro sunset Dec 5, 2025)
@@ -13,7 +43,7 @@ Last updated: Dec 2024
 ### Test Coverage Improvements ✅
 - Added app card tests (21 tests, was 0% coverage)
 - Added audit helper tests (+7 tests for WithItemCount, WithInput, Failure, CurrentFilePath, Flush)
-- Added tests for functions with 0% coverage (Dec 2024):
+- Added tests for functions with 0% coverage (Dec 2025):
   - `GetTag`/`getTagInternal`: 100%/91.7% (was 0%)
   - Frame operations: GetFrame 93.5%, UpdateFrame 67.7%, DeleteFrame 90.0%, GetFrameItems 72.7%
   - Group operations: ListGroups 73.3%, GetGroup 83.3%, DeleteGroup 78.6%
@@ -22,11 +52,12 @@ Last updated: Dec 2024
   - Board operations: UpdateBoard 88.2%
 - Added GetGroupItems tests (3 tests): 82.6% coverage
 - Added mindmap tests (8 tests): GetMindmapNode 87.5%, ListMindmapNodes 80.8%, DeleteMindmapNode 90.0%
-- Current coverage: miro 79.3%, audit 82.1%, tools 85.0%
+- **Current coverage**: miro 82.3%, audit 82.1%, diagrams 92.6%, oauth 72.5%, tools 85.0%
 
 ### Dependency Updates ✅
 - jwt v5.2.2 → v5.3.0
 - metadata v0.3.0 → v0.9.0
+- golang.org/x/tools v0.34.0 → v0.40.0 (NEW)
 
 ### GetTag Naming Inconsistency ✅
 - Renamed internal helper to `getTagInternal` (unexported)
@@ -41,10 +72,10 @@ Last updated: Dec 2024
 - **Priority**: Low - descriptions work well for LLMs
 
 ### Test Coverage Gaps
-- **miro package**: 79.3% - remaining gaps in utility functions and error paths
-- **diagrams package**: 73.3% - edge cases in Mermaid parsing
-- **oauth package**: 72.5% - token refresh edge cases
-- **GenerateDiagram**: 0% - diagram generation from Mermaid (miro/diagrams.go)
+- **miro package**: 82.3% - remaining gaps in utility functions and error paths
+- **diagrams package**: 92.6% ✅ - well covered
+- **oauth package**: 72.5% - remaining gaps are integration-level (browser flows)
+- **tools package**: 85.0% - well covered
 
 ## New Features (Miro API)
 

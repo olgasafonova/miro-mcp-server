@@ -372,10 +372,10 @@ NOTE: Only provide fields you want to change. Null/missing fields are ignored.
 VOICE-FRIENDLY: "Updated 5 items on the board"`,
 	},
 	{
-		Name:     "miro_bulk_delete",
-		Method:   "BulkDelete",
-		Title:    "Bulk Delete Items",
-		Category: "delete",
+		Name:        "miro_bulk_delete",
+		Method:      "BulkDelete",
+		Title:       "Bulk Delete Items",
+		Category:    "delete",
 		Destructive: true,
 		Description: `Delete multiple items at once (max 20).
 
@@ -694,10 +694,10 @@ VOICE-FRIENDLY: "Retrieved 847 items in 9 pages"`,
 	// Update/Delete Tools
 	// ==========================================================================
 	{
-		Name:     "miro_update_item",
-		Method:   "UpdateItem",
-		Title:    "Update Item",
-		Category: "update",
+		Name:       "miro_update_item",
+		Method:     "UpdateItem",
+		Title:      "Update Item",
+		Category:   "update",
 		Idempotent: true,
 		Description: `Update an existing item's content, position, or style.
 
@@ -1035,10 +1035,10 @@ NOTE: At least 2 items are required to create a group. Use list_items to find it
 VOICE-FRIENDLY: "Grouped 4 items together"`,
 	},
 	{
-		Name:        "miro_ungroup",
-		Method:      "Ungroup",
-		Title:       "Ungroup Items",
-		Category:    "update",
+		Name:     "miro_ungroup",
+		Method:   "Ungroup",
+		Title:    "Ungroup Items",
+		Category: "update",
 		Description: `Remove a group, releasing its items to be moved independently.
 
 USE WHEN: User says "ungroup these", "separate the group", "break apart the group"

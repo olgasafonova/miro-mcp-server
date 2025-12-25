@@ -240,12 +240,12 @@ func TestGetShapeColor(t *testing.T) {
 		shape         NodeShape
 		expectedColor string
 	}{
-		{ShapeDiamond, "#FFE066"},     // Yellow for decisions
-		{ShapeCircle, "#B8E986"},      // Green for start/end
-		{ShapeStadium, "#B3E5FC"},     // Light blue for process
-		{ShapeParallelogram, "#E1BEE7"}, // Light purple for I/O
-		{ShapeHexagon, "#FFCCBC"},     // Light orange for preparation
-		{ShapeRectangle, "#E3F2FD"},   // Default light blue
+		{ShapeDiamond, "#FFE066"},          // Yellow for decisions
+		{ShapeCircle, "#B8E986"},           // Green for start/end
+		{ShapeStadium, "#B3E5FC"},          // Light blue for process
+		{ShapeParallelogram, "#E1BEE7"},    // Light purple for I/O
+		{ShapeHexagon, "#FFCCBC"},          // Light orange for preparation
+		{ShapeRectangle, "#E3F2FD"},        // Default light blue
 		{ShapeRoundedRectangle, "#E3F2FD"}, // Default
 	}
 

@@ -63,7 +63,7 @@ func convertFlowchartToMiro(diagram *Diagram) *MiroOutput {
 		shape := MiroShape{
 			Shape:   convertShape(node.Shape),
 			Content: node.Label,
-			X:       node.X + node.Width/2,  // Miro uses center position
+			X:       node.X + node.Width/2, // Miro uses center position
 			Y:       node.Y + node.Height/2,
 			Width:   node.Width,
 			Height:  node.Height,
@@ -132,8 +132,8 @@ func convertFlowchartToMiro(diagram *Diagram) *MiroOutput {
 		padding := 40.0
 		frame := MiroFrame{
 			Title:  sg.Label,
-			X:      minX - padding + (maxX - minX + 2*padding) / 2,
-			Y:      minY - padding - 30 + (maxY - minY + 2*padding + 30) / 2, // Extra space for title
+			X:      minX - padding + (maxX-minX+2*padding)/2,
+			Y:      minY - padding - 30 + (maxY-minY+2*padding+30)/2, // Extra space for title
 			Width:  maxX - minX + 2*padding,
 			Height: maxY - minY + 2*padding + 30,
 			Color:  "#F5F5F5",
@@ -211,13 +211,13 @@ func getShapeColor(shape NodeShape) string {
 
 // SequenceLayout constants for sequence diagram rendering
 const (
-	seqParticipantWidth   = 120.0
-	seqParticipantHeight  = 50.0
-	seqLifelineWidth      = 10.0  // Wide enough to be clearly visible
-	seqAnchorSize         = 8.0   // Minimum size allowed by Miro API
-	seqMessageSpacing     = 60.0
-	seqLifelineColor      = "#90CAF9" // Visible blue for lifelines
-	seqAnchorColor        = "#90CAF9" // Match lifeline color so anchors blend in
+	seqParticipantWidth  = 120.0
+	seqParticipantHeight = 50.0
+	seqLifelineWidth     = 10.0 // Wide enough to be clearly visible
+	seqAnchorSize        = 8.0  // Minimum size allowed by Miro API
+	seqMessageSpacing    = 60.0
+	seqLifelineColor     = "#90CAF9" // Visible blue for lifelines
+	seqAnchorColor       = "#90CAF9" // Match lifeline color so anchors blend in
 )
 
 // ConvertSequenceToMiro converts a sequence diagram to Miro items.

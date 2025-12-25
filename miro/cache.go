@@ -57,9 +57,9 @@ type CacheEntry struct {
 
 // CacheStats tracks cache performance metrics.
 type CacheStats struct {
-	Hits       int64
-	Misses     int64
-	Evictions  int64
+	Hits          int64
+	Misses        int64
+	Evictions     int64
 	Invalidations int64
 }
 

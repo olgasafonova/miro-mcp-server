@@ -104,10 +104,10 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"DeleteConnector": makeHandler(h, h.client.DeleteConnector),
 
 		// Update/Delete tools
-		"UpdateItem":   makeHandler(h, h.client.UpdateItem),
-		"UpdateSticky": makeHandler(h, h.client.UpdateSticky),
-		"UpdateShape":  makeHandler(h, h.client.UpdateShape),
-		"UpdateText":   makeHandler(h, h.client.UpdateText),
+		"UpdateItem":     makeHandler(h, h.client.UpdateItem),
+		"UpdateSticky":   makeHandler(h, h.client.UpdateSticky),
+		"UpdateShape":    makeHandler(h, h.client.UpdateShape),
+		"UpdateText":     makeHandler(h, h.client.UpdateText),
 		"UpdateCard":     makeHandler(h, h.client.UpdateCard),
 		"UpdateImage":    makeHandler(h, h.client.UpdateImage),
 		"UpdateDocument": makeHandler(h, h.client.UpdateDocument),
@@ -129,17 +129,17 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"DeleteGroup":   makeHandler(h, h.client.DeleteGroup),
 
 		// Board member tools
-		"ListBoardMembers":   makeHandler(h, h.client.ListBoardMembers),
-		"ShareBoard":         makeHandler(h, h.client.ShareBoard),
-		"GetBoardMember":     makeHandler(h, h.client.GetBoardMember),
-		"RemoveBoardMember":  makeHandler(h, h.client.RemoveBoardMember),
-		"UpdateBoardMember":  makeHandler(h, h.client.UpdateBoardMember),
+		"ListBoardMembers":  makeHandler(h, h.client.ListBoardMembers),
+		"ShareBoard":        makeHandler(h, h.client.ShareBoard),
+		"GetBoardMember":    makeHandler(h, h.client.GetBoardMember),
+		"RemoveBoardMember": makeHandler(h, h.client.RemoveBoardMember),
+		"UpdateBoardMember": makeHandler(h, h.client.UpdateBoardMember),
 
 		// Mindmap tools
-		"CreateMindmapNode":  makeHandler(h, h.client.CreateMindmapNode),
-		"GetMindmapNode":     makeHandler(h, h.client.GetMindmapNode),
-		"ListMindmapNodes":   makeHandler(h, h.client.ListMindmapNodes),
-		"DeleteMindmapNode":  makeHandler(h, h.client.DeleteMindmapNode),
+		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
+		"GetMindmapNode":    makeHandler(h, h.client.GetMindmapNode),
+		"ListMindmapNodes":  makeHandler(h, h.client.ListMindmapNodes),
+		"DeleteMindmapNode": makeHandler(h, h.client.DeleteMindmapNode),
 
 		// Frame tools (beyond create)
 		"GetFrame":      makeHandler(h, h.client.GetFrame),
@@ -416,4 +416,3 @@ func (h *HandlerRegistry) logExecution(spec ToolSpec, args, result any) {
 
 	h.logger.Info("Tool executed", attrs...)
 }
-

@@ -34,11 +34,11 @@ type RateLimiterConfig struct {
 // DefaultRateLimiterConfig returns sensible defaults for Miro's rate limits.
 func DefaultRateLimiterConfig() RateLimiterConfig {
 	return RateLimiterConfig{
-		SlowdownThreshold: 0.2,               // Slow down at 20% remaining
+		SlowdownThreshold: 0.2, // Slow down at 20% remaining
 		MinDelay:          100 * time.Millisecond,
 		MaxDelay:          2 * time.Second,
-		DefaultLimit:      100,               // Miro's default is ~100/min
-		ProactiveBuffer:   5,                 // Keep 5 requests in reserve
+		DefaultLimit:      100, // Miro's default is ~100/min
+		ProactiveBuffer:   5,   // Keep 5 requests in reserve
 	}
 }
 
@@ -207,10 +207,10 @@ func (r *AdaptiveRateLimiter) State() RateLimitState {
 
 // RateLimiterStats holds statistics for the rate limiter.
 type RateLimiterStats struct {
-	TotalRequests   int64
-	TotalDelays     int64
-	AvgDelayMs      float64
-	CurrentState    RateLimitState
+	TotalRequests int64
+	TotalDelays   int64
+	AvgDelayMs    float64
+	CurrentState  RateLimitState
 }
 
 // Stats returns statistics for the rate limiter.

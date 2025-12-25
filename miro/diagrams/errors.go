@@ -30,18 +30,18 @@ func (e *DiagramError) Error() string {
 
 // Error codes for diagram parsing errors
 const (
-	ErrCodeNoNodes         = "NO_NODES"
-	ErrCodeInvalidSyntax   = "INVALID_SYNTAX"
-	ErrCodeMissingHeader   = "MISSING_HEADER"
-	ErrCodeEmptyDiagram    = "EMPTY_DIAGRAM"
-	ErrCodeInvalidShape    = "INVALID_SHAPE"
-	ErrCodeCircularRef     = "CIRCULAR_REFERENCE"
-	ErrCodeTooManyNodes    = "TOO_MANY_NODES"
-	ErrCodeInvalidEdge     = "INVALID_EDGE"
-	ErrCodeUnknownDiagram  = "UNKNOWN_DIAGRAM_TYPE"
-	ErrCodeInputTooLarge   = "INPUT_TOO_LARGE"
-	ErrCodeTooManyLines    = "TOO_MANY_LINES"
-	ErrCodeLineTooLong     = "LINE_TOO_LONG"
+	ErrCodeNoNodes        = "NO_NODES"
+	ErrCodeInvalidSyntax  = "INVALID_SYNTAX"
+	ErrCodeMissingHeader  = "MISSING_HEADER"
+	ErrCodeEmptyDiagram   = "EMPTY_DIAGRAM"
+	ErrCodeInvalidShape   = "INVALID_SHAPE"
+	ErrCodeCircularRef    = "CIRCULAR_REFERENCE"
+	ErrCodeTooManyNodes   = "TOO_MANY_NODES"
+	ErrCodeInvalidEdge    = "INVALID_EDGE"
+	ErrCodeUnknownDiagram = "UNKNOWN_DIAGRAM_TYPE"
+	ErrCodeInputTooLarge  = "INPUT_TOO_LARGE"
+	ErrCodeTooManyLines   = "TOO_MANY_LINES"
+	ErrCodeLineTooLong    = "LINE_TOO_LONG"
 )
 
 // Input size limits for ReDoS protection
@@ -234,8 +234,8 @@ func ValidateDiagramInput(input string) error {
 
 		lineLower := strings.ToLower(line)
 		if strings.HasPrefix(lineLower, "flowchart") ||
-		   strings.HasPrefix(lineLower, "graph") ||
-		   lineLower == "sequencediagram" {
+			strings.HasPrefix(lineLower, "graph") ||
+			lineLower == "sequencediagram" {
 			return nil // Valid header found
 		}
 

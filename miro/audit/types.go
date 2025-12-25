@@ -152,7 +152,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Enabled:       true,
-		Path:          "",                // In-memory if empty
+		Path:          "", // In-memory if empty
 		RetentionDays: 30,
 		MaxSizeBytes:  100 * 1024 * 1024, // 100 MB
 		BufferSize:    100,

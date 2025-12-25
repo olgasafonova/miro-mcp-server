@@ -162,9 +162,9 @@ func TestHandleRetrospective(t *testing.T) {
 	registry := NewRegistry()
 
 	tests := []struct {
-		name       string
-		args       map[string]string
-		checkFor   []string
+		name         string
+		args         map[string]string
+		checkFor     []string
 		checkAgainst []string
 	}{
 		{
@@ -332,10 +332,10 @@ func TestHandleKanban(t *testing.T) {
 	registry := NewRegistry()
 
 	tests := []struct {
-		name           string
-		args           map[string]string
-		checkFor       []string
-		expectedCols   int
+		name         string
+		args         map[string]string
+		checkFor     []string
+		expectedCols int
 	}{
 		{
 			name: "default columns",

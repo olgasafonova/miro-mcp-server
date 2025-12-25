@@ -821,9 +821,9 @@ func TestParseDuration_DaysSuffix(t *testing.T) {
 		{"90d", 90},
 		{"1d", 1},
 		{"365d", 365},
-		{"  30d  ", 30},     // whitespace
-		{"30D", 30},         // uppercase
-		{"  30D  ", 30},     // mixed
+		{"  30d  ", 30}, // whitespace
+		{"30D", 30},     // uppercase
+		{"  30D  ", 30}, // mixed
 	}
 
 	for _, tt := range tests {
@@ -1356,7 +1356,7 @@ func TestFileLogger_CloseWithNoFile(t *testing.T) {
 	}
 
 	// Close again should also not error
-	err = logger.Close()
+	_ = logger.Close()
 	// May error or not depending on implementation, just check no panic
 }
 
@@ -1396,7 +1396,7 @@ func TestFileLogger_FlushLockedWithError(t *testing.T) {
 	logger.mu.Unlock()
 
 	// Flush should now fail
-	err = logger.Flush(context.Background())
+	_ = logger.Flush(context.Background())
 	// May or may not error depending on buffering state
 	// Just verify no panic occurs
 }

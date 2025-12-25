@@ -187,11 +187,11 @@ func TestNormalizeTagColor(t *testing.T) {
 
 func TestCreateSnippet(t *testing.T) {
 	tests := []struct {
-		name      string
-		content   string
-		query     string
+		name       string
+		content    string
+		query      string
 		contextLen int
-		expect    string
+		expect     string
 	}{
 		{"match at start", "hello world test", "hello", 5, "hello worl..."},
 		{"match in middle", "this is a test string", "test", 5, "...is a test stri..."},
@@ -4912,7 +4912,7 @@ func TestGetFrame_Success(t *testing.T) {
 			"style": map[string]interface{}{
 				"fillColor": "#FFFFFF",
 			},
-			"children": []string{"child1", "child2"},
+			"children":   []string{"child1", "child2"},
 			"createdAt":  "2024-01-01T10:00:00Z",
 			"modifiedAt": "2024-01-02T15:30:00Z",
 			"createdBy":  map[string]interface{}{"id": "user1"},
@@ -7923,7 +7923,7 @@ func TestCalculateDelay_AtBufferThreshold(t *testing.T) {
 	// State at buffer (remaining <= ProactiveBuffer)
 	state := RateLimitState{
 		Limit:     100,
-		Remaining: 5, // Below buffer of 10
+		Remaining: 5,           // Below buffer of 10
 		ResetAt:   time.Time{}, // Zero time - fallback case
 	}
 
@@ -8293,7 +8293,7 @@ func TestGetItem_WithLinks(t *testing.T) {
 			"id":   "item123",
 			"type": "sticky_note",
 			"links": map[string]interface{}{
-				"self":   "https://api.miro.com/v2/boards/board123/items/item123",
+				"self":    "https://api.miro.com/v2/boards/board123/items/item123",
 				"related": "https://api.miro.com/v2/boards/board123",
 			},
 		})
@@ -9688,4 +9688,3 @@ func TestUpdateEmbed_WithAllFields(t *testing.T) {
 		t.Errorf("ID = %q, want 'embed123'", result.ID)
 	}
 }
-

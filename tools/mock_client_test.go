@@ -15,15 +15,15 @@ import (
 // Each method can be configured with custom behavior via function fields.
 type MockClient struct {
 	// Board operations
-	ListBoardsFn           func(ctx context.Context, args miro.ListBoardsArgs) (miro.ListBoardsResult, error)
-	GetBoardFn             func(ctx context.Context, args miro.GetBoardArgs) (miro.GetBoardResult, error)
-	CreateBoardFn          func(ctx context.Context, args miro.CreateBoardArgs) (miro.CreateBoardResult, error)
-	CopyBoardFn            func(ctx context.Context, args miro.CopyBoardArgs) (miro.CopyBoardResult, error)
-	DeleteBoardFn          func(ctx context.Context, args miro.DeleteBoardArgs) (miro.DeleteBoardResult, error)
-	UpdateBoardFn          func(ctx context.Context, args miro.UpdateBoardArgs) (miro.UpdateBoardResult, error)
-	FindBoardByNameFn      func(ctx context.Context, name string) (*miro.BoardSummary, error)
-	FindBoardByNameToolFn  func(ctx context.Context, args miro.FindBoardByNameArgs) (miro.FindBoardByNameResult, error)
-	GetBoardSummaryFn      func(ctx context.Context, args miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error)
+	ListBoardsFn          func(ctx context.Context, args miro.ListBoardsArgs) (miro.ListBoardsResult, error)
+	GetBoardFn            func(ctx context.Context, args miro.GetBoardArgs) (miro.GetBoardResult, error)
+	CreateBoardFn         func(ctx context.Context, args miro.CreateBoardArgs) (miro.CreateBoardResult, error)
+	CopyBoardFn           func(ctx context.Context, args miro.CopyBoardArgs) (miro.CopyBoardResult, error)
+	DeleteBoardFn         func(ctx context.Context, args miro.DeleteBoardArgs) (miro.DeleteBoardResult, error)
+	UpdateBoardFn         func(ctx context.Context, args miro.UpdateBoardArgs) (miro.UpdateBoardResult, error)
+	FindBoardByNameFn     func(ctx context.Context, name string) (*miro.BoardSummary, error)
+	FindBoardByNameToolFn func(ctx context.Context, args miro.FindBoardByNameArgs) (miro.FindBoardByNameResult, error)
+	GetBoardSummaryFn     func(ctx context.Context, args miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error)
 
 	// Item operations
 	ListItemsFn    func(ctx context.Context, args miro.ListItemsArgs) (miro.ListItemsResult, error)
@@ -82,11 +82,11 @@ type MockClient struct {
 	DeleteGroupFn   func(ctx context.Context, args miro.DeleteGroupArgs) (miro.DeleteGroupResult, error)
 
 	// Member operations
-	ListBoardMembersFn   func(ctx context.Context, args miro.ListBoardMembersArgs) (miro.ListBoardMembersResult, error)
-	ShareBoardFn         func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error)
-	GetBoardMemberFn     func(ctx context.Context, args miro.GetBoardMemberArgs) (miro.GetBoardMemberResult, error)
-	RemoveBoardMemberFn  func(ctx context.Context, args miro.RemoveBoardMemberArgs) (miro.RemoveBoardMemberResult, error)
-	UpdateBoardMemberFn  func(ctx context.Context, args miro.UpdateBoardMemberArgs) (miro.UpdateBoardMemberResult, error)
+	ListBoardMembersFn  func(ctx context.Context, args miro.ListBoardMembersArgs) (miro.ListBoardMembersResult, error)
+	ShareBoardFn        func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error)
+	GetBoardMemberFn    func(ctx context.Context, args miro.GetBoardMemberArgs) (miro.GetBoardMemberResult, error)
+	RemoveBoardMemberFn func(ctx context.Context, args miro.RemoveBoardMemberArgs) (miro.RemoveBoardMemberResult, error)
+	UpdateBoardMemberFn func(ctx context.Context, args miro.UpdateBoardMemberArgs) (miro.UpdateBoardMemberResult, error)
 
 	// Mindmap operations
 	CreateMindmapNodeFn func(ctx context.Context, args miro.CreateMindmapNodeArgs) (miro.CreateMindmapNodeResult, error)

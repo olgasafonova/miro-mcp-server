@@ -239,7 +239,7 @@ type Document struct {
 // EmbedData contains embed specific data.
 type EmbedData struct {
 	URL          string `json:"url,omitempty"`
-	Mode         string `json:"mode,omitempty"`         // "inline" or "modal"
+	Mode         string `json:"mode,omitempty"` // "inline" or "modal"
 	PreviewURL   string `json:"previewUrl,omitempty"`
 	ProviderName string `json:"providerName,omitempty"` // YouTube, Vimeo, etc.
 }

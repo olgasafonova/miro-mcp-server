@@ -9,11 +9,11 @@ import (
 // MermaidParser parses Mermaid diagram syntax.
 type MermaidParser struct {
 	// Patterns for parsing
-	directionPattern  *regexp.Regexp
-	nodePattern       *regexp.Regexp
-	edgePattern       *regexp.Regexp
-	subgraphStart     *regexp.Regexp
-	subgraphEnd       *regexp.Regexp
+	directionPattern *regexp.Regexp
+	nodePattern      *regexp.Regexp
+	edgePattern      *regexp.Regexp
+	subgraphStart    *regexp.Regexp
+	subgraphEnd      *regexp.Regexp
 }
 
 // NewMermaidParser creates a new Mermaid parser.

@@ -370,12 +370,12 @@ func TestIsValidationError(t *testing.T) {
 func TestParseAPIError_RealResponse(t *testing.T) {
 	// Simulate a real HTTP response using httptest.ResponseRecorder
 	tests := []struct {
-		name         string
-		statusCode   int
-		headers      map[string]string
-		body         string
-		expectCode   string
-		expectRetry  int
+		name        string
+		statusCode  int
+		headers     map[string]string
+		body        string
+		expectCode  string
+		expectRetry int
 	}{
 		{
 			name:       "401 with JSON",
@@ -384,10 +384,10 @@ func TestParseAPIError_RealResponse(t *testing.T) {
 			expectCode: "unauthorized",
 		},
 		{
-			name:       "429 with Retry-After",
-			statusCode: 429,
-			headers:    map[string]string{"Retry-After": "60"},
-			body:       `{"message":"Rate limit exceeded"}`,
+			name:        "429 with Retry-After",
+			statusCode:  429,
+			headers:     map[string]string{"Retry-After": "60"},
+			body:        `{"message":"Rate limit exceeded"}`,
 			expectRetry: 60,
 		},
 		{
@@ -474,8 +474,8 @@ func TestRequireBoardID(t *testing.T) {
 
 func TestRequireItemID(t *testing.T) {
 	tests := []struct {
-		name   string
-		itemID string
+		name    string
+		itemID  string
 		wantErr error
 	}{
 		{"empty", "", ErrItemIDRequired},

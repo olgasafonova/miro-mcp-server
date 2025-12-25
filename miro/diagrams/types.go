@@ -73,13 +73,13 @@ type Node struct {
 
 // Edge represents a connection between nodes.
 type Edge struct {
-	ID        string    // Unique identifier
-	FromID    string    // Source node ID
-	ToID      string    // Target node ID
-	Label     string    // Edge label/caption
-	Style     EdgeStyle // Line style
-	StartCap  ArrowType // Arrow at start
-	EndCap    ArrowType // Arrow at end
+	ID              string    // Unique identifier
+	FromID          string    // Source node ID
+	ToID            string    // Target node ID
+	Label           string    // Edge label/caption
+	Style           EdgeStyle // Line style
+	StartCap        ArrowType // Arrow at start
+	EndCap          ArrowType // Arrow at end
 	IsBidirectional bool
 
 	// Sequence diagram specific

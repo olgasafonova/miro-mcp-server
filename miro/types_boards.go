@@ -137,7 +137,7 @@ type GetBoardSummaryResult struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
 	ViewLink    string         `json:"view_link"`
-	ItemCounts  map[string]int `json:"item_counts"`  // {"sticky_note": 15, "shape": 8, ...}
+	ItemCounts  map[string]int `json:"item_counts"` // {"sticky_note": 15, "shape": 8, ...}
 	TotalItems  int            `json:"total_items"`
 	RecentItems []ItemSummary  `json:"recent_items,omitempty"` // Last 5 modified
 	Message     string         `json:"message"`

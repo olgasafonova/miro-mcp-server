@@ -1020,7 +1020,7 @@ func TestAuthFlowStatus_ExpiredTokenNoRefresh(t *testing.T) {
 	ctx := context.Background()
 	tokens := &TokenSet{
 		AccessToken:  "expired-access-token",
-		RefreshToken: "", // No refresh token
+		RefreshToken: "",                             // No refresh token
 		ExpiresAt:    time.Now().Add(-1 * time.Hour), // Expired 1 hour ago
 		UserID:       "user-123",
 	}

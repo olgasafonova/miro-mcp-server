@@ -16,7 +16,7 @@ type SequenceParser struct {
 	activatePattern    *regexp.Regexp
 	loopStartPattern   *regexp.Regexp
 	loopEndPattern     *regexp.Regexp
-	elsePattern *regexp.Regexp
+	elsePattern        *regexp.Regexp
 }
 
 // Participant represents a sequence diagram participant.
@@ -29,11 +29,11 @@ type Participant struct {
 
 // Message represents a message between participants.
 type Message struct {
-	From      string
-	To        string
-	Text      string
-	Style     string // sync, async, reply, cross
-	Activate  bool
+	From       string
+	To         string
+	Text       string
+	Style      string // sync, async, reply, cross
+	Activate   bool
 	Deactivate bool
 }
 

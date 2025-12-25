@@ -158,9 +158,9 @@ func NewClient(config *Config, logger *slog.Logger) *Client {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
-		logger:             logger,
-		semaphore:          make(chan struct{}, MaxConcurrentRequests),
-		rateLimiter:        NewAdaptiveRateLimiter(rlConfig),
+		logger:          logger,
+		semaphore:       make(chan struct{}, MaxConcurrentRequests),
+		rateLimiter:     NewAdaptiveRateLimiter(rlConfig),
 		cache:           NewCache(cacheConfig),
 		cacheConfig:     cacheConfig,
 		circuitBreakers: NewCircuitBreakerRegistry(cbConfig),
@@ -574,7 +574,6 @@ func (c *Client) requestExperimental(ctx context.Context, method, path string, b
 
 	return c.request(ctx, method, path, body)
 }
-
 
 // =============================================================================
 // Caching

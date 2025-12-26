@@ -1,0 +1,290 @@
+{
+  "name": "Miro MCP Argument Correctness",
+  "description": "Tests for correct argument extraction and formatting in Miro tool calls",
+  "version": "1.0.0",
+  "tests": [
+    {
+      "id": "sticky-color-1",
+      "tool": "miro_create_sticky",
+      "prompt": "Create a yellow sticky note saying 'Review design'",
+      "expected_args": {
+        "content": "Review design",
+        "color": "yellow"
+      },
+      "required_args": ["board_id", "content"],
+      "category": "create"
+    },
+    {
+      "id": "sticky-position-1",
+      "tool": "miro_create_sticky",
+      "prompt": "Put a blue sticky at position 500, 300 with text 'Action item'",
+      "expected_args": {
+        "content": "Action item",
+        "color": "blue",
+        "x": 500,
+        "y": 300
+      },
+      "required_args": ["board_id", "content"],
+      "category": "create"
+    },
+    {
+      "id": "shape-type-1",
+      "tool": "miro_create_shape",
+      "prompt": "Draw a circle 200 pixels wide",
+      "expected_args": {
+        "shape": "circle",
+        "width": 200,
+        "height": 200
+      },
+      "required_args": ["board_id", "shape"],
+      "category": "create"
+    },
+    {
+      "id": "shape-type-2",
+      "tool": "miro_create_shape",
+      "prompt": "Create a red triangle with text 'Warning'",
+      "expected_args": {
+        "shape": "triangle",
+        "content": "Warning",
+        "color": "red"
+      },
+      "required_args": ["board_id", "shape"],
+      "category": "create"
+    },
+    {
+      "id": "connector-style-1",
+      "tool": "miro_create_connector",
+      "prompt": "Draw a curved arrow from item A to item B",
+      "expected_args": {
+        "style": "curved",
+        "end_cap": "arrow"
+      },
+      "required_args": ["board_id", "start_item_id", "end_item_id"],
+      "category": "create"
+    },
+    {
+      "id": "connector-style-2",
+      "tool": "miro_create_connector",
+      "prompt": "Connect with a straight line, no arrows",
+      "expected_args": {
+        "style": "straight",
+        "start_cap": "none",
+        "end_cap": "none"
+      },
+      "required_args": ["board_id", "start_item_id", "end_item_id"],
+      "category": "create"
+    },
+    {
+      "id": "frame-size-1",
+      "tool": "miro_create_frame",
+      "prompt": "Create a frame called 'Sprint 1' that's 1200 by 800 pixels",
+      "expected_args": {
+        "title": "Sprint 1",
+        "width": 1200,
+        "height": 800
+      },
+      "required_args": ["board_id"],
+      "category": "create"
+    },
+    {
+      "id": "text-style-1",
+      "tool": "miro_create_text",
+      "prompt": "Add title 'Project Goals' with 48pt font",
+      "expected_args": {
+        "content": "Project Goals",
+        "font_size": 48
+      },
+      "required_args": ["board_id", "content"],
+      "category": "create"
+    },
+    {
+      "id": "sticky-grid-1",
+      "tool": "miro_create_sticky_grid",
+      "prompt": "Create a 3x3 grid of green stickies",
+      "expected_args": {
+        "rows": 3,
+        "columns": 3,
+        "color": "green"
+      },
+      "required_args": ["board_id"],
+      "category": "create"
+    },
+    {
+      "id": "sticky-grid-2",
+      "tool": "miro_create_sticky_grid",
+      "prompt": "Make 4 columns and 2 rows of pink sticky notes",
+      "expected_args": {
+        "rows": 2,
+        "columns": 4,
+        "color": "pink"
+      },
+      "required_args": ["board_id"],
+      "category": "create"
+    },
+    {
+      "id": "board-create-1",
+      "tool": "miro_create_board",
+      "prompt": "Create a board called 'Team Retro' with description 'Q1 retrospective'",
+      "expected_args": {
+        "name": "Team Retro",
+        "description": "Q1 retrospective"
+      },
+      "required_args": ["name"],
+      "category": "boards"
+    },
+    {
+      "id": "board-copy-1",
+      "tool": "miro_copy_board",
+      "prompt": "Copy this board and name it 'Sprint 2 Template'",
+      "expected_args": {
+        "name": "Sprint 2 Template"
+      },
+      "required_args": ["board_id"],
+      "category": "boards"
+    },
+    {
+      "id": "tag-create-1",
+      "tool": "miro_create_tag",
+      "prompt": "Create a red tag called 'Urgent'",
+      "expected_args": {
+        "title": "Urgent",
+        "color": "red"
+      },
+      "required_args": ["board_id", "title"],
+      "category": "tags"
+    },
+    {
+      "id": "card-create-1",
+      "tool": "miro_create_card",
+      "prompt": "Create a card titled 'User Story' with due date 2024-03-15",
+      "expected_args": {
+        "title": "User Story",
+        "due_date": "2024-03-15"
+      },
+      "required_args": ["board_id", "title"],
+      "category": "create"
+    },
+    {
+      "id": "image-create-1",
+      "tool": "miro_create_image",
+      "prompt": "Add image from https://example.com/logo.png at position 100, 100",
+      "expected_args": {
+        "url": "https://example.com/logo.png",
+        "x": 100,
+        "y": 100
+      },
+      "required_args": ["board_id", "url"],
+      "category": "create"
+    },
+    {
+      "id": "update-position-1",
+      "tool": "miro_update_item",
+      "prompt": "Move this item to position 400, 600",
+      "expected_args": {
+        "x": 400,
+        "y": 600
+      },
+      "required_args": ["board_id", "item_id"],
+      "category": "update"
+    },
+    {
+      "id": "update-size-1",
+      "tool": "miro_update_item",
+      "prompt": "Resize this to 300 by 200 pixels",
+      "expected_args": {
+        "width": 300,
+        "height": 200
+      },
+      "required_args": ["board_id", "item_id"],
+      "category": "update"
+    },
+    {
+      "id": "list-items-filter-1",
+      "tool": "miro_list_items",
+      "prompt": "Show me all sticky notes on the board",
+      "expected_args": {
+        "type": "sticky_note"
+      },
+      "required_args": ["board_id"],
+      "category": "read"
+    },
+    {
+      "id": "list-items-limit-1",
+      "tool": "miro_list_items",
+      "prompt": "Get the first 25 items",
+      "expected_args": {
+        "limit": 25
+      },
+      "required_args": ["board_id"],
+      "category": "read"
+    },
+    {
+      "id": "search-query-1",
+      "tool": "miro_search_board",
+      "prompt": "Find all items containing 'TODO'",
+      "expected_args": {
+        "query": "TODO"
+      },
+      "required_args": ["board_id", "query"],
+      "category": "read"
+    },
+    {
+      "id": "diagram-mermaid-1",
+      "tool": "miro_generate_diagram",
+      "prompt": "Generate flowchart from: graph TD; A-->B; B-->C",
+      "expected_args": {
+        "diagram": "graph TD; A-->B; B-->C"
+      },
+      "required_args": ["board_id", "diagram"],
+      "category": "create"
+    },
+    {
+      "id": "share-board-1",
+      "tool": "miro_share_board",
+      "prompt": "Share this board with john@example.com as viewer",
+      "expected_args": {
+        "email": "john@example.com",
+        "role": "viewer"
+      },
+      "required_args": ["board_id", "email"],
+      "category": "boards"
+    },
+    {
+      "id": "share-board-2",
+      "tool": "miro_share_board",
+      "prompt": "Give editor access to team@company.com",
+      "expected_args": {
+        "email": "team@company.com",
+        "role": "editor"
+      },
+      "required_args": ["board_id", "email"],
+      "category": "boards"
+    },
+    {
+      "id": "embed-create-1",
+      "tool": "miro_create_embed",
+      "prompt": "Embed the YouTube video https://youtube.com/watch?v=abc123",
+      "expected_args": {
+        "url": "https://youtube.com/watch?v=abc123"
+      },
+      "required_args": ["board_id", "url"],
+      "category": "create"
+    },
+    {
+      "id": "bulk-create-1",
+      "tool": "miro_bulk_create",
+      "prompt": "Create 5 stickies with texts: one, two, three, four, five",
+      "expected_args": {
+        "items": [
+          {"type": "sticky_note", "content": "one"},
+          {"type": "sticky_note", "content": "two"},
+          {"type": "sticky_note", "content": "three"},
+          {"type": "sticky_note", "content": "four"},
+          {"type": "sticky_note", "content": "five"}
+        ]
+      },
+      "required_args": ["board_id", "items"],
+      "category": "create"
+    }
+  ]
+}

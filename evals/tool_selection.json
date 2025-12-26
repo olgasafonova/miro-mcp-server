@@ -1,0 +1,357 @@
+{
+  "name": "Miro MCP Tool Selection Evaluation",
+  "description": "Tests for LLM tool selection accuracy across Miro whiteboard operations",
+  "version": "1.0.0",
+  "tests": [
+    {
+      "id": "board-list-1",
+      "prompt": "Show me all my Miro boards",
+      "expected_tool": "miro_list_boards",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-list-2",
+      "prompt": "What boards do I have access to?",
+      "expected_tool": "miro_list_boards",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-find-1",
+      "prompt": "Find the board called Sprint Planning",
+      "expected_tool": "miro_find_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-get-1",
+      "prompt": "Tell me about this board",
+      "expected_tool": "miro_get_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-summary-1",
+      "prompt": "Give me a summary of what's on this board",
+      "expected_tool": "miro_get_board_summary",
+      "category": "boards",
+      "difficulty": "medium"
+    },
+    {
+      "id": "board-create-1",
+      "prompt": "Create a new board called Team Retro",
+      "expected_tool": "miro_create_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-copy-1",
+      "prompt": "Duplicate this board",
+      "expected_tool": "miro_copy_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-delete-1",
+      "prompt": "Delete this board",
+      "expected_tool": "miro_delete_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-update-1",
+      "prompt": "Rename the board to Q1 Planning",
+      "expected_tool": "miro_update_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "sticky-create-1",
+      "prompt": "Add a yellow sticky note saying 'Review design'",
+      "expected_tool": "miro_create_sticky",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "sticky-create-2",
+      "prompt": "Create a post-it with the text 'Action item'",
+      "expected_tool": "miro_create_sticky",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "sticky-grid-1",
+      "prompt": "Create a grid of sticky notes for brainstorming",
+      "expected_tool": "miro_create_sticky_grid",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "sticky-grid-2",
+      "prompt": "Add 10 sticky notes arranged in a grid",
+      "expected_tool": "miro_create_sticky_grid",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "shape-create-1",
+      "prompt": "Draw a rectangle on the board",
+      "expected_tool": "miro_create_shape",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "shape-create-2",
+      "prompt": "Add a circle for the logo placeholder",
+      "expected_tool": "miro_create_shape",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "text-create-1",
+      "prompt": "Add a title that says 'Sprint Goals'",
+      "expected_tool": "miro_create_text",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "frame-create-1",
+      "prompt": "Create a frame called 'Week 1'",
+      "expected_tool": "miro_create_frame",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "frame-create-2",
+      "prompt": "Add a section for brainstorming ideas",
+      "expected_tool": "miro_create_frame",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "connector-create-1",
+      "prompt": "Draw an arrow between these two boxes",
+      "expected_tool": "miro_create_connector",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "connector-create-2",
+      "prompt": "Connect the sticky note to the shape",
+      "expected_tool": "miro_create_connector",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "card-create-1",
+      "prompt": "Create a card with a title and description",
+      "expected_tool": "miro_create_card",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "image-create-1",
+      "prompt": "Add an image from this URL",
+      "expected_tool": "miro_create_image",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "embed-create-1",
+      "prompt": "Embed this YouTube video on the board",
+      "expected_tool": "miro_create_embed",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "document-create-1",
+      "prompt": "Add a PDF document to the board",
+      "expected_tool": "miro_create_document",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "mindmap-create-1",
+      "prompt": "Create a mindmap node for brainstorming",
+      "expected_tool": "miro_create_mindmap_node",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "diagram-generate-1",
+      "prompt": "Generate a flowchart from this Mermaid code",
+      "expected_tool": "miro_generate_diagram",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "diagram-generate-2",
+      "prompt": "Create a sequence diagram from this description",
+      "expected_tool": "miro_generate_diagram",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "tag-create-1",
+      "prompt": "Create a tag called 'Priority'",
+      "expected_tool": "miro_create_tag",
+      "category": "tags",
+      "difficulty": "easy"
+    },
+    {
+      "id": "tag-list-1",
+      "prompt": "Show me all tags on this board",
+      "expected_tool": "miro_list_tags",
+      "category": "tags",
+      "difficulty": "easy"
+    },
+    {
+      "id": "tag-attach-1",
+      "prompt": "Add the 'Urgent' tag to this sticky",
+      "expected_tool": "miro_attach_tag",
+      "category": "tags",
+      "difficulty": "easy"
+    },
+    {
+      "id": "tag-detach-1",
+      "prompt": "Remove the tag from this item",
+      "expected_tool": "miro_detach_tag",
+      "category": "tags",
+      "difficulty": "easy"
+    },
+    {
+      "id": "item-list-1",
+      "prompt": "Show me all items on this board",
+      "expected_tool": "miro_list_items",
+      "category": "read",
+      "difficulty": "easy"
+    },
+    {
+      "id": "item-list-all-1",
+      "prompt": "Get all items including their details",
+      "expected_tool": "miro_list_all_items",
+      "category": "read",
+      "difficulty": "medium"
+    },
+    {
+      "id": "item-get-1",
+      "prompt": "Show me the details of this item",
+      "expected_tool": "miro_get_item",
+      "category": "read",
+      "difficulty": "easy"
+    },
+    {
+      "id": "item-search-1",
+      "prompt": "Search for items containing 'action'",
+      "expected_tool": "miro_search_board",
+      "category": "read",
+      "difficulty": "easy"
+    },
+    {
+      "id": "item-update-1",
+      "prompt": "Change the color of this sticky to blue",
+      "expected_tool": "miro_update_sticky",
+      "category": "update",
+      "difficulty": "medium"
+    },
+    {
+      "id": "item-update-2",
+      "prompt": "Update the text on this shape",
+      "expected_tool": "miro_update_shape",
+      "category": "update",
+      "difficulty": "medium"
+    },
+    {
+      "id": "item-update-3",
+      "prompt": "Move this item to a different position",
+      "expected_tool": "miro_update_item",
+      "category": "update",
+      "difficulty": "medium"
+    },
+    {
+      "id": "item-delete-1",
+      "prompt": "Delete this sticky note",
+      "expected_tool": "miro_delete_item",
+      "category": "delete",
+      "difficulty": "easy"
+    },
+    {
+      "id": "connector-list-1",
+      "prompt": "Show me all connectors on the board",
+      "expected_tool": "miro_list_connectors",
+      "category": "read",
+      "difficulty": "easy"
+    },
+    {
+      "id": "connector-delete-1",
+      "prompt": "Remove the arrow between these items",
+      "expected_tool": "miro_delete_connector",
+      "category": "delete",
+      "difficulty": "easy"
+    },
+    {
+      "id": "group-create-1",
+      "prompt": "Group these items together",
+      "expected_tool": "miro_create_group",
+      "category": "create",
+      "difficulty": "easy"
+    },
+    {
+      "id": "group-ungroup-1",
+      "prompt": "Ungroup these items",
+      "expected_tool": "miro_ungroup",
+      "category": "update",
+      "difficulty": "easy"
+    },
+    {
+      "id": "bulk-create-1",
+      "prompt": "Create multiple sticky notes at once",
+      "expected_tool": "miro_bulk_create",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "bulk-delete-1",
+      "prompt": "Delete all these items",
+      "expected_tool": "miro_bulk_delete",
+      "category": "delete",
+      "difficulty": "medium"
+    },
+    {
+      "id": "members-list-1",
+      "prompt": "Who has access to this board?",
+      "expected_tool": "miro_list_board_members",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "board-share-1",
+      "prompt": "Share this board with john@example.com",
+      "expected_tool": "miro_share_board",
+      "category": "boards",
+      "difficulty": "easy"
+    },
+    {
+      "id": "export-1",
+      "prompt": "Export this board as an image",
+      "expected_tool": "miro_get_board_picture",
+      "category": "boards",
+      "difficulty": "medium"
+    },
+    {
+      "id": "audit-1",
+      "prompt": "Show me the audit log for this team",
+      "expected_tool": "miro_get_audit_log",
+      "category": "boards",
+      "difficulty": "medium"
+    },
+    {
+      "id": "app-card-create-1",
+      "prompt": "Create an app card with custom fields",
+      "expected_tool": "miro_create_app_card",
+      "category": "create",
+      "difficulty": "hard"
+    }
+  ]
+}

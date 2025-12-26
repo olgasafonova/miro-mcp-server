@@ -1,0 +1,293 @@
+{
+  "name": "Miro MCP Tool Confusion Pairs",
+  "description": "Tests for distinguishing between commonly confused Miro tools",
+  "version": "1.0.0",
+  "pairs": [
+    {
+      "tools": ["miro_list_boards", "miro_find_board"],
+      "distinction": "list_boards returns all accessible boards; find_board searches by name/query",
+      "tests": [
+        {
+          "prompt": "Show me all my boards",
+          "expected_tool": "miro_list_boards",
+          "rationale": "User wants to see all boards, not search for a specific one"
+        },
+        {
+          "prompt": "Find the board named Sprint Planning",
+          "expected_tool": "miro_find_board",
+          "rationale": "User wants to search for a specific board by name"
+        },
+        {
+          "prompt": "What boards do I have?",
+          "expected_tool": "miro_list_boards",
+          "rationale": "General listing request, not a search"
+        },
+        {
+          "prompt": "Is there a board called Retro?",
+          "expected_tool": "miro_find_board",
+          "rationale": "Looking for a specific board by name"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_get_board", "miro_get_board_summary"],
+      "distinction": "get_board returns metadata (name, owner, dates); get_board_summary returns content overview (item counts, types)",
+      "tests": [
+        {
+          "prompt": "Who owns this board?",
+          "expected_tool": "miro_get_board",
+          "rationale": "Asking for board metadata"
+        },
+        {
+          "prompt": "What's on this board?",
+          "expected_tool": "miro_get_board_summary",
+          "rationale": "Asking about board contents"
+        },
+        {
+          "prompt": "When was this board created?",
+          "expected_tool": "miro_get_board",
+          "rationale": "Asking for board metadata"
+        },
+        {
+          "prompt": "How many sticky notes are on the board?",
+          "expected_tool": "miro_get_board_summary",
+          "rationale": "Asking about board content counts"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_list_items", "miro_list_all_items"],
+      "distinction": "list_items returns paginated basic info; list_all_items returns all items with full details",
+      "tests": [
+        {
+          "prompt": "Show me the first 50 items on the board",
+          "expected_tool": "miro_list_items",
+          "rationale": "Paginated request"
+        },
+        {
+          "prompt": "Get all items with their full details",
+          "expected_tool": "miro_list_all_items",
+          "rationale": "Needs complete item data"
+        },
+        {
+          "prompt": "List items on the board",
+          "expected_tool": "miro_list_items",
+          "rationale": "Simple listing is sufficient"
+        },
+        {
+          "prompt": "Export all board contents with positions",
+          "expected_tool": "miro_list_all_items",
+          "rationale": "Needs complete data for export"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_create_sticky", "miro_create_sticky_grid"],
+      "distinction": "create_sticky makes one note; create_sticky_grid makes multiple in a grid layout",
+      "tests": [
+        {
+          "prompt": "Add a sticky note saying 'To Do'",
+          "expected_tool": "miro_create_sticky",
+          "rationale": "Single sticky note"
+        },
+        {
+          "prompt": "Create 9 sticky notes in a 3x3 grid for brainstorming",
+          "expected_tool": "miro_create_sticky_grid",
+          "rationale": "Multiple stickies in grid layout"
+        },
+        {
+          "prompt": "Put a post-it with the action item",
+          "expected_tool": "miro_create_sticky",
+          "rationale": "Single sticky note"
+        },
+        {
+          "prompt": "Set up a sticky wall with different colors",
+          "expected_tool": "miro_create_sticky_grid",
+          "rationale": "Multiple stickies for a wall"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_update_item", "miro_update_sticky"],
+      "distinction": "update_item moves/resizes any item; update_sticky changes sticky-specific properties (content, color)",
+      "tests": [
+        {
+          "prompt": "Move this sticky to position 100, 200",
+          "expected_tool": "miro_update_item",
+          "rationale": "Position change works for any item type"
+        },
+        {
+          "prompt": "Change the sticky note color to blue",
+          "expected_tool": "miro_update_sticky",
+          "rationale": "Color is sticky-specific property"
+        },
+        {
+          "prompt": "Resize this sticky note",
+          "expected_tool": "miro_update_item",
+          "rationale": "Size change works for any item type"
+        },
+        {
+          "prompt": "Update the text on this sticky",
+          "expected_tool": "miro_update_sticky",
+          "rationale": "Content is sticky-specific property"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_create_frame", "miro_create_group"],
+      "distinction": "frame is a visual container with background; group is an invisible logical grouping",
+      "tests": [
+        {
+          "prompt": "Create a section called 'Week 1' to organize items",
+          "expected_tool": "miro_create_frame",
+          "rationale": "Section implies visible container"
+        },
+        {
+          "prompt": "Group these selected items together",
+          "expected_tool": "miro_create_group",
+          "rationale": "Grouping existing items logically"
+        },
+        {
+          "prompt": "Add a frame with a blue background",
+          "expected_tool": "miro_create_frame",
+          "rationale": "Visual container with background"
+        },
+        {
+          "prompt": "Lock these items so they move together",
+          "expected_tool": "miro_create_group",
+          "rationale": "Logical grouping for movement"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_attach_tag", "miro_create_tag"],
+      "distinction": "attach_tag adds existing tag to item; create_tag creates new tag definition",
+      "tests": [
+        {
+          "prompt": "Add the 'Urgent' tag to this sticky",
+          "expected_tool": "miro_attach_tag",
+          "rationale": "Adding existing tag to item"
+        },
+        {
+          "prompt": "Create a new tag called 'Priority'",
+          "expected_tool": "miro_create_tag",
+          "rationale": "Creating a new tag definition"
+        },
+        {
+          "prompt": "Tag this item as 'Done'",
+          "expected_tool": "miro_attach_tag",
+          "rationale": "Attaching tag to item"
+        },
+        {
+          "prompt": "Set up tags for status tracking",
+          "expected_tool": "miro_create_tag",
+          "rationale": "Creating tag definitions"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_delete_item", "miro_bulk_delete"],
+      "distinction": "delete_item removes one item; bulk_delete removes multiple items at once",
+      "tests": [
+        {
+          "prompt": "Delete this sticky note",
+          "expected_tool": "miro_delete_item",
+          "rationale": "Single item deletion"
+        },
+        {
+          "prompt": "Remove all items in this frame",
+          "expected_tool": "miro_bulk_delete",
+          "rationale": "Multiple items to delete"
+        },
+        {
+          "prompt": "Get rid of this shape",
+          "expected_tool": "miro_delete_item",
+          "rationale": "Single item deletion"
+        },
+        {
+          "prompt": "Clear everything on the board",
+          "expected_tool": "miro_bulk_delete",
+          "rationale": "Multiple items to delete"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_search_board", "miro_list_items"],
+      "distinction": "search_board finds items by content/query; list_items returns all items paginated",
+      "tests": [
+        {
+          "prompt": "Find all items containing 'action'",
+          "expected_tool": "miro_search_board",
+          "rationale": "Text-based search"
+        },
+        {
+          "prompt": "Show me all items on the board",
+          "expected_tool": "miro_list_items",
+          "rationale": "List all, not search"
+        },
+        {
+          "prompt": "Where are the TODO items?",
+          "expected_tool": "miro_search_board",
+          "rationale": "Searching for specific content"
+        },
+        {
+          "prompt": "Get the first 20 items",
+          "expected_tool": "miro_list_items",
+          "rationale": "Paginated listing"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_get_board_picture", "miro_create_export_job"],
+      "distinction": "get_board_picture returns instant preview image; create_export_job starts async high-quality export",
+      "tests": [
+        {
+          "prompt": "Get a quick preview of the board",
+          "expected_tool": "miro_get_board_picture",
+          "rationale": "Instant preview"
+        },
+        {
+          "prompt": "Export the board as high-resolution PDF",
+          "expected_tool": "miro_create_export_job",
+          "rationale": "High-quality export job"
+        },
+        {
+          "prompt": "Show me what the board looks like",
+          "expected_tool": "miro_get_board_picture",
+          "rationale": "Quick visual preview"
+        },
+        {
+          "prompt": "Create a print-ready export",
+          "expected_tool": "miro_create_export_job",
+          "rationale": "High-quality export for printing"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_create_card", "miro_create_app_card"],
+      "distinction": "create_card makes standard Miro card; create_app_card makes app-specific card with custom fields",
+      "tests": [
+        {
+          "prompt": "Create a card with title and description",
+          "expected_tool": "miro_create_card",
+          "rationale": "Standard card"
+        },
+        {
+          "prompt": "Create a Jira-linked app card",
+          "expected_tool": "miro_create_app_card",
+          "rationale": "App integration card"
+        },
+        {
+          "prompt": "Add a simple card to the board",
+          "expected_tool": "miro_create_card",
+          "rationale": "Standard card"
+        },
+        {
+          "prompt": "Create a card with custom status field",
+          "expected_tool": "miro_create_app_card",
+          "rationale": "Custom fields require app card"
+        }
+      ]
+    }
+  ]
+}

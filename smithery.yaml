@@ -1,0 +1,24 @@
+build:
+  dockerBuildPath: .
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - miroAccessToken
+    properties:
+      miroAccessToken:
+        type: string
+        description: Your Miro access token. Get one at https://miro.com/app/settings/user-profile/apps
+      miroTeamId:
+        type: string
+        description: Optional team ID to filter boards by team.
+  commandFunction: |-
+    (config) => ({
+      command: '/miro-mcp-server',
+      args: [],
+      env: {
+        MIRO_ACCESS_TOKEN: config.miroAccessToken,
+        ...(config.miroTeamId && { MIRO_TEAM_ID: config.miroTeamId })
+      }
+    })

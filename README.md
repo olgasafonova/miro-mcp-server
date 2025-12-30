@@ -10,6 +10,12 @@ Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and 
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <img src="docs/miro-demo.gif" alt="Miro MCP Demo - Sprint planning board created via AI" width="600">
+  <br>
+  <em>Sprint planning board created entirely via MCP tools</em>
+</p>
+
 ---
 
 ## Documentation

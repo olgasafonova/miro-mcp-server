@@ -1,7 +1,7 @@
 build:
   dockerBuildPath: .
 startCommand:
-  type: stdio
+  type: http
   configSchema:
     type: object
     required:
@@ -13,5 +13,6 @@ startCommand:
       miroTeamId:
         type: string
         description: Optional team ID to filter boards by team.
+  port: 8080
   commandFunction: |-
-    (config) => ({ command: './miro-mcp-server', args: [], env: { MIRO_ACCESS_TOKEN: config.miroAccessToken, ...(config.miroTeamId && { MIRO_TEAM_ID: config.miroTeamId }) } })
+    (config) => ({ command: './miro-mcp-server', args: ['-http', ':8080'], env: { MIRO_ACCESS_TOKEN: config.miroAccessToken, ...(config.miroTeamId && { MIRO_TEAM_ID: config.miroTeamId }) } })

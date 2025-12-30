@@ -1,38 +1,34 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
-# Install git for fetching dependencies
-RUN apk add --no-cache git ca-certificates tzdata
-
-# Set working directory
 WORKDIR /app
 
-# Copy go mod files first for better caching
+# Install git for version info
+RUN apk add --no-cache git
+
+# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
 COPY . .
 
-# Build the binary
+# Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o miro-mcp-server .
 
-# Final stage - minimal image
-FROM scratch
+# Runtime stage
+FROM alpine:3.20
 
-# Copy CA certificates for HTTPS
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+# Install ca-certificates for HTTPS
+RUN apk add --no-cache ca-certificates
 
-# Copy the binary
-COPY --from=builder /app/miro-mcp-server /miro-mcp-server
+WORKDIR /app
 
-# Expose default HTTP port
-EXPOSE 8080
+# Copy binary from builder
+COPY --from=builder /app/miro-mcp-server .
 
-# Set environment variables
-ENV MIRO_TIMEOUT=30s
+# Create non-root user
+RUN adduser -D -u 1000 mcp
+USER mcp
 
-# Run the server in HTTP mode
-ENTRYPOINT ["/miro-mcp-server"]
-CMD ["-http", ":8080"]
+ENTRYPOINT ["./miro-mcp-server"]

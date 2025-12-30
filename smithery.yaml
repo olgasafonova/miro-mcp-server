@@ -14,11 +14,4 @@ startCommand:
         type: string
         description: Optional team ID to filter boards by team.
   commandFunction: |-
-    (config) => ({
-      command: '/miro-mcp-server',
-      args: [],
-      env: {
-        MIRO_ACCESS_TOKEN: config.miroAccessToken,
-        ...(config.miroTeamId && { MIRO_TEAM_ID: config.miroTeamId })
-      }
-    })
+    (config) => ({ command: './miro-mcp-server', args: [], env: { MIRO_ACCESS_TOKEN: config.miroAccessToken, ...(config.miroTeamId && { MIRO_TEAM_ID: config.miroTeamId }) } })

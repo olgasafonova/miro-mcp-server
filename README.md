@@ -466,6 +466,23 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 ---
 
+## Like This Project?
+
+If this server saved you time, consider giving it a ⭐ on GitHub. It helps others discover the project.
+
+---
+
+## More MCP Servers
+
+Check out my other MCP servers:
+
+| Server | Description | Stars |
+|--------|-------------|-------|
+| [mediawiki-mcp-server](https://github.com/olgasafonova/mediawiki-mcp-server) | Connect AI to any MediaWiki wiki. Search, read, edit wiki content. | ![GitHub stars](https://img.shields.io/github/stars/olgasafonova/mediawiki-mcp-server?style=flat) |
+| [productplan-mcp-server](https://github.com/olgasafonova/productplan-mcp-server) | Talk to your ProductPlan roadmaps. Query OKRs, ideas, launches. | ![GitHub stars](https://img.shields.io/github/stars/olgasafonova/productplan-mcp-server?style=flat) |
+
+---
+
 ## License
 
 MIT

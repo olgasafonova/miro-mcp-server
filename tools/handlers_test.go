@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -1842,6 +1843,335 @@ func TestArgsToMap_NestedStruct(t *testing.T) {
 	}
 	if inner["value"] != "nested" {
 		t.Errorf("inner.value = %v, want 'nested'", inner["value"])
+	}
+}
+
+// =============================================================================
+// Parameter Validation Edge Case Tests
+// =============================================================================
+
+func TestCreateSticky_EmptyBoardID(t *testing.T) {
+	mock := &MockClient{
+		CreateStickyFn: func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error) {
+			if args.BoardID == "" {
+				return miro.CreateStickyResult{}, errors.New("board_id is required")
+			}
+			return miro.CreateStickyResult{ID: "test"}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.CreateSticky(ctx, miro.CreateStickyArgs{
+		BoardID: "",
+		Content: "Test",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty board_id")
+	}
+	if err.Error() != "board_id is required" {
+		t.Errorf("error = %q, want 'board_id is required'", err.Error())
+	}
+}
+
+func TestCreateSticky_EmptyContent(t *testing.T) {
+	mock := &MockClient{
+		CreateStickyFn: func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error) {
+			if args.Content == "" {
+				return miro.CreateStickyResult{}, errors.New("content is required")
+			}
+			return miro.CreateStickyResult{ID: "test"}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.CreateSticky(ctx, miro.CreateStickyArgs{
+		BoardID: "board123",
+		Content: "",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty content")
+	}
+	if err.Error() != "content is required" {
+		t.Errorf("error = %q, want 'content is required'", err.Error())
+	}
+}
+
+func TestUpdateItem_EmptyItemID(t *testing.T) {
+	mock := &MockClient{
+		UpdateItemFn: func(ctx context.Context, args miro.UpdateItemArgs) (miro.UpdateItemResult, error) {
+			if args.ItemID == "" {
+				return miro.UpdateItemResult{}, errors.New("item_id is required")
+			}
+			return miro.UpdateItemResult{Success: true}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.UpdateItem(ctx, miro.UpdateItemArgs{
+		BoardID: "board123",
+		ItemID:  "",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty item_id")
+	}
+	if err.Error() != "item_id is required" {
+		t.Errorf("error = %q, want 'item_id is required'", err.Error())
+	}
+}
+
+func TestSearchBoard_EmptyQuery(t *testing.T) {
+	mock := &MockClient{
+		SearchBoardFn: func(ctx context.Context, args miro.SearchBoardArgs) (miro.SearchBoardResult, error) {
+			if args.Query == "" {
+				return miro.SearchBoardResult{}, errors.New("query is required")
+			}
+			return miro.SearchBoardResult{Query: args.Query, Count: 1}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.SearchBoard(ctx, miro.SearchBoardArgs{
+		BoardID: "board123",
+		Query:   "",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty query")
+	}
+	if err.Error() != "query is required" {
+		t.Errorf("error = %q, want 'query is required'", err.Error())
+	}
+}
+
+func TestBulkCreate_EmptyItems(t *testing.T) {
+	mock := &MockClient{
+		BulkCreateFn: func(ctx context.Context, args miro.BulkCreateArgs) (miro.BulkCreateResult, error) {
+			if len(args.Items) == 0 {
+				return miro.BulkCreateResult{}, errors.New("at least one item is required")
+			}
+			return miro.BulkCreateResult{Created: len(args.Items)}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.BulkCreate(ctx, miro.BulkCreateArgs{
+		BoardID: "board123",
+		Items:   []miro.BulkCreateItem{},
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty items array")
+	}
+	if err.Error() != "at least one item is required" {
+		t.Errorf("error = %q, want 'at least one item is required'", err.Error())
+	}
+}
+
+func TestBulkDelete_EmptyItemIDs(t *testing.T) {
+	mock := &MockClient{
+		BulkDeleteFn: func(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error) {
+			if len(args.ItemIDs) == 0 {
+				return miro.BulkDeleteResult{}, errors.New("at least one item_id is required")
+			}
+			return miro.BulkDeleteResult{Deleted: len(args.ItemIDs)}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.BulkDelete(ctx, miro.BulkDeleteArgs{
+		BoardID: "board123",
+		ItemIDs: []string{},
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty item_ids array")
+	}
+	if err.Error() != "at least one item_id is required" {
+		t.Errorf("error = %q, want 'at least one item_id is required'", err.Error())
+	}
+}
+
+func TestCreateGroup_InsufficientItems(t *testing.T) {
+	mock := &MockClient{
+		CreateGroupFn: func(ctx context.Context, args miro.CreateGroupArgs) (miro.CreateGroupResult, error) {
+			if len(args.ItemIDs) < 2 {
+				return miro.CreateGroupResult{}, errors.New("at least 2 item_ids required")
+			}
+			return miro.CreateGroupResult{ID: "group123", ItemIDs: args.ItemIDs}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.CreateGroup(ctx, miro.CreateGroupArgs{
+		BoardID: "board123",
+		ItemIDs: []string{"item1"}, // Only 1 item, need at least 2
+	})
+
+	if err == nil {
+		t.Fatal("expected error for insufficient items")
+	}
+	if err.Error() != "at least 2 item_ids required" {
+		t.Errorf("error = %q, want 'at least 2 item_ids required'", err.Error())
+	}
+}
+
+func TestCreateShape_InvalidShapeType(t *testing.T) {
+	mock := &MockClient{
+		CreateShapeFn: func(ctx context.Context, args miro.CreateShapeArgs) (miro.CreateShapeResult, error) {
+			validShapes := map[string]bool{
+				"rectangle": true, "circle": true, "triangle": true,
+				"rhombus": true, "round_rectangle": true,
+			}
+			if !validShapes[args.Shape] {
+				return miro.CreateShapeResult{}, errors.New("invalid shape type")
+			}
+			return miro.CreateShapeResult{ID: "shape123", Shape: args.Shape}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.CreateShape(ctx, miro.CreateShapeArgs{
+		BoardID: "board123",
+		Shape:   "invalid_shape",
+	})
+
+	if err == nil {
+		t.Fatal("expected error for invalid shape type")
+	}
+	if err.Error() != "invalid shape type" {
+		t.Errorf("error = %q, want 'invalid shape type'", err.Error())
+	}
+}
+
+func TestCreateStickyGrid_EmptyContents(t *testing.T) {
+	mock := &MockClient{
+		CreateStickyGridFn: func(ctx context.Context, args miro.CreateStickyGridArgs) (miro.CreateStickyGridResult, error) {
+			if len(args.Contents) == 0 {
+				return miro.CreateStickyGridResult{}, errors.New("at least one content item is required")
+			}
+			return miro.CreateStickyGridResult{Created: len(args.Contents)}, nil
+		},
+	}
+
+	ctx := context.Background()
+	_, err := mock.CreateStickyGrid(ctx, miro.CreateStickyGridArgs{
+		BoardID:  "board123",
+		Contents: []string{},
+	})
+
+	if err == nil {
+		t.Fatal("expected error for empty contents")
+	}
+	if err.Error() != "at least one content item is required" {
+		t.Errorf("error = %q, want 'at least one content item is required'", err.Error())
+	}
+}
+
+func TestShareBoard_InvalidEmail(t *testing.T) {
+	mock := &MockClient{
+		ShareBoardFn: func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error) {
+			if args.Email == "" {
+				return miro.ShareBoardResult{}, errors.New("email is required")
+			}
+			// Basic email format check
+			if !strings.Contains(args.Email, "@") {
+				return miro.ShareBoardResult{}, errors.New("invalid email format")
+			}
+			return miro.ShareBoardResult{Success: true, Email: args.Email}, nil
+		},
+	}
+
+	ctx := context.Background()
+
+	// Test empty email
+	_, err := mock.ShareBoard(ctx, miro.ShareBoardArgs{
+		BoardID: "board123",
+		Email:   "",
+	})
+	if err == nil || err.Error() != "email is required" {
+		t.Errorf("expected 'email is required' error, got %v", err)
+	}
+
+	// Test invalid email format
+	_, err = mock.ShareBoard(ctx, miro.ShareBoardArgs{
+		BoardID: "board123",
+		Email:   "not-an-email",
+	})
+	if err == nil || err.Error() != "invalid email format" {
+		t.Errorf("expected 'invalid email format' error, got %v", err)
+	}
+}
+
+func TestCreateConnector_MissingEndpoints(t *testing.T) {
+	mock := &MockClient{
+		CreateConnectorFn: func(ctx context.Context, args miro.CreateConnectorArgs) (miro.CreateConnectorResult, error) {
+			if args.StartItemID == "" {
+				return miro.CreateConnectorResult{}, errors.New("start_item_id is required")
+			}
+			if args.EndItemID == "" {
+				return miro.CreateConnectorResult{}, errors.New("end_item_id is required")
+			}
+			return miro.CreateConnectorResult{ID: "conn123"}, nil
+		},
+	}
+
+	ctx := context.Background()
+
+	// Test missing start_item_id
+	_, err := mock.CreateConnector(ctx, miro.CreateConnectorArgs{
+		BoardID:     "board123",
+		StartItemID: "",
+		EndItemID:   "item2",
+	})
+	if err == nil || err.Error() != "start_item_id is required" {
+		t.Errorf("expected 'start_item_id is required' error, got %v", err)
+	}
+
+	// Test missing end_item_id
+	_, err = mock.CreateConnector(ctx, miro.CreateConnectorArgs{
+		BoardID:     "board123",
+		StartItemID: "item1",
+		EndItemID:   "",
+	})
+	if err == nil || err.Error() != "end_item_id is required" {
+		t.Errorf("expected 'end_item_id is required' error, got %v", err)
+	}
+}
+
+func TestDeleteItem_BothIDsRequired(t *testing.T) {
+	mock := &MockClient{
+		DeleteItemFn: func(ctx context.Context, args miro.DeleteItemArgs) (miro.DeleteItemResult, error) {
+			if args.BoardID == "" {
+				return miro.DeleteItemResult{}, errors.New("board_id is required")
+			}
+			if args.ItemID == "" {
+				return miro.DeleteItemResult{}, errors.New("item_id is required")
+			}
+			return miro.DeleteItemResult{Success: true}, nil
+		},
+	}
+
+	ctx := context.Background()
+
+	// Test missing board_id
+	_, err := mock.DeleteItem(ctx, miro.DeleteItemArgs{
+		BoardID: "",
+		ItemID:  "item123",
+	})
+	if err == nil || err.Error() != "board_id is required" {
+		t.Errorf("expected 'board_id is required' error, got %v", err)
+	}
+
+	// Test missing item_id
+	_, err = mock.DeleteItem(ctx, miro.DeleteItemArgs{
+		BoardID: "board123",
+		ItemID:  "",
+	})
+	if err == nil || err.Error() != "item_id is required" {
+		t.Errorf("expected 'item_id is required' error, got %v", err)
 	}
 }
 

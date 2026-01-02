@@ -166,11 +166,16 @@ VOICE-FRIENDLY: "Updated board name to 'Sprint Planning Q1'"`,
 USE WHEN: User says "add a sticky", "create note saying X", "put a yellow sticky with X"
 
 PARAMETERS:
-- board_id: Required. Get from list_boards
+- board_id: Required. Get from list_boards or find_board
 - content: The text on the sticky (required)
-- color: yellow, green, blue, pink, orange, red, gray, cyan, purple
-- x, y: Position (default 0,0)
-- parent_id: Frame ID to place it in
+- color: yellow, green, blue, pink, orange, red, gray, cyan, purple (default: yellow)
+- x, y: Position (default: 0, 0)
+- parent_id: Frame ID to place sticky inside
+
+RETURNS: Item ID, content, position, and view link.
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "content": "Review PRs", "color": "green", "x": 100, "y": 200}
 
 VOICE-FRIENDLY: "Created yellow sticky 'Action item: Review design'"`,
 	},
@@ -189,11 +194,17 @@ SHAPE TYPES:
 - Flowchart: flow_chart_predefined_process, wedge_round_rectangle_callout
 
 PARAMETERS:
-- board_id: Required
-- shape: Shape type (required)
+- board_id: Required. Get from list_boards or find_board
+- shape: Shape type (required, default: rectangle)
 - content: Text inside shape
-- color: Fill color
-- width, height: Size in pixels (default 200x200)`,
+- color: Fill color (e.g., "#FF5733" or color name)
+- x, y: Position (default: 0, 0)
+- width, height: Size (default: 200, 200)
+
+RETURNS: Item ID, shape type, position, size, and view link.
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "shape": "circle", "content": "Start", "color": "green", "x": 0, "y": 0}`,
 	},
 	{
 		Name:     "miro_create_text",
@@ -441,12 +452,15 @@ VOICE-FRIENDLY: "That sticky says 'Review Q4 goals' and was created by John yest
 USE WHEN: User asks "find items about X", "search for budget", "which stickies mention deadline"
 
 PARAMETERS:
-- board_id: Required
-- query: Text to search for (required)
+- board_id: Required. Get from list_boards or find_board
+- query: Text to search for (required, case-insensitive)
 - type: Filter by type (sticky_note, shape, text, frame)
-- limit: Max results (default 20, max 50)
+- limit: Max results (default: 20, max: 50)
 
-RETURNS: Matching items with content snippets highlighting the match.
+RETURNS: Matching items with ID, type, content snippet, and position.
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "query": "budget", "type": "sticky_note", "limit": 10}
 
 VOICE-FRIENDLY: "Found 3 stickies mentioning 'budget': 'Q4 budget review', 'Budget approval needed', 'Marketing budget'"`,
 	},
@@ -704,13 +718,18 @@ VOICE-FRIENDLY: "Retrieved 847 items in 9 pages"`,
 USE WHEN: User says "change sticky text to X", "move this item", "update the color"
 
 PARAMETERS:
-- board_id: Required
-- item_id: Required
+- board_id: Required. Get from list_boards or find_board
+- item_id: Required. Get from list_items or search_board
 - content: New text content
 - x, y: New position
 - width, height: New size
-- color: New color
-- parent_id: Move to a frame (empty string to remove from frame)`,
+- color: New color (e.g., "yellow", "#FF5733")
+- parent_id: Move to a frame (empty string to remove from frame)
+
+RETURNS: Updated item with ID, content, position, and size.
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "item_id": "3458764abc", "content": "Updated text", "color": "blue"}`,
 	},
 	{
 		Name:       "miro_update_sticky",

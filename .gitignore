@@ -38,3 +38,7 @@ debug.log
 tokens.json
 .env
 .env.local
+
+# Claude Code
+.mcp.json
+.mcpregistry_*

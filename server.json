@@ -22,6 +22,101 @@
           "required": true
         }
       ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/olgasafonova/miro-mcp-server/releases/download/v1.10.0/miro-mcp-server-darwin-arm64",
+      "fileSha256": "PLACEHOLDER_SHA256",
+      "runtime": {
+        "type": "native",
+        "platforms": ["darwin-arm64"]
+      },
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIRO_ACCESS_TOKEN",
+          "description": "Miro API access token with boards:read and boards:write permissions",
+          "required": true
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/olgasafonova/miro-mcp-server/releases/download/v1.10.0/miro-mcp-server-darwin-amd64",
+      "fileSha256": "PLACEHOLDER_SHA256",
+      "runtime": {
+        "type": "native",
+        "platforms": ["darwin-amd64"]
+      },
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIRO_ACCESS_TOKEN",
+          "description": "Miro API access token with boards:read and boards:write permissions",
+          "required": true
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/olgasafonova/miro-mcp-server/releases/download/v1.10.0/miro-mcp-server-linux-amd64",
+      "fileSha256": "PLACEHOLDER_SHA256",
+      "runtime": {
+        "type": "native",
+        "platforms": ["linux-amd64"]
+      },
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIRO_ACCESS_TOKEN",
+          "description": "Miro API access token with boards:read and boards:write permissions",
+          "required": true
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/olgasafonova/miro-mcp-server/releases/download/v1.10.0/miro-mcp-server-linux-arm64",
+      "fileSha256": "PLACEHOLDER_SHA256",
+      "runtime": {
+        "type": "native",
+        "platforms": ["linux-arm64"]
+      },
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIRO_ACCESS_TOKEN",
+          "description": "Miro API access token with boards:read and boards:write permissions",
+          "required": true
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/olgasafonova/miro-mcp-server/releases/download/v1.10.0/miro-mcp-server-windows-amd64.exe",
+      "fileSha256": "PLACEHOLDER_SHA256",
+      "runtime": {
+        "type": "native",
+        "platforms": ["windows-amd64"]
+      },
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIRO_ACCESS_TOKEN",
+          "description": "Miro API access token with boards:read and boards:write permissions",
+          "required": true
+        }
+      ]
     }
   ]
 }

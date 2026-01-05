@@ -33,11 +33,99 @@ jobs:
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Update server.json version
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          jq --arg v "$VERSION" --arg img "ghcr.io/olgasafonova/miro-mcp-server:$VERSION" \
-            '.version = $v | .packages[0].identifier = $img' server.json > server.json.tmp
+          mkdir -p assets
+          gh release download "v${VERSION}" --pattern "miro-mcp-server-*" --dir assets || true
+          ls -la assets/
+
+      - name: Calculate SHA256 hashes
+        id: hashes
+        run: |
+          cd assets
+          for f in *; do
+            # Extract platform suffix from filename (e.g., darwin-arm64, linux-amd64)
+            name=$(echo "$f" | sed 's/miro-mcp-server-//' | sed 's/\.exe$//')
+            # Replace hyphens with underscores for valid output names
+            output_name=$(echo "$name" | tr '-' '_')
+            hash=$(sha256sum "$f" | cut -d' ' -f1)
+            echo "${output_name}_sha256=${hash}" >> $GITHUB_OUTPUT
+            echo "$f: $hash"
+          done
+
+      - name: Update server.json
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO="olgasafonova/miro-mcp-server"
+          BASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
+
+          # Get env vars from current server.json
+          ENV_VARS=$(jq '.packages[0].environmentVariables' server.json)
+
+          # Build new server.json with OCI and all MCPB packages
+          jq --arg v "$VERSION" \
+             --arg docker_img "ghcr.io/${REPO}:${VERSION}" \
+             --arg base_url "$BASE_URL" \
+             --argjson env_vars "$ENV_VARS" \
+             --arg darwin_arm64_sha "${{ steps.hashes.outputs.darwin_arm64_sha256 }}" \
+             --arg darwin_amd64_sha "${{ steps.hashes.outputs.darwin_amd64_sha256 }}" \
+             --arg linux_amd64_sha "${{ steps.hashes.outputs.linux_amd64_sha256 }}" \
+             --arg linux_arm64_sha "${{ steps.hashes.outputs.linux_arm64_sha256 }}" \
+             --arg windows_amd64_sha "${{ steps.hashes.outputs.windows_amd64_sha256 }}" \
+             '
+             .version = $v |
+             .packages = [
+               {
+                 "registryType": "oci",
+                 "identifier": $docker_img,
+                 "transport": {"type": "stdio"},
+                 "environmentVariables": $env_vars
+               },
+               {
+                 "registryType": "mcpb",
+                 "identifier": ($base_url + "/miro-mcp-server-darwin-arm64"),
+                 "fileSha256": $darwin_arm64_sha,
+                 "runtime": {"type": "native", "platforms": ["darwin-arm64"]},
+                 "transport": {"type": "stdio"},
+                 "environmentVariables": $env_vars
+               },
+               {
+                 "registryType": "mcpb",
+                 "identifier": ($base_url + "/miro-mcp-server-darwin-amd64"),
+                 "fileSha256": $darwin_amd64_sha,
+                 "runtime": {"type": "native", "platforms": ["darwin-amd64"]},
+                 "transport": {"type": "stdio"},
+                 "environmentVariables": $env_vars
+               },
+               {
+                 "registryType": "mcpb",
+                 "identifier": ($base_url + "/miro-mcp-server-linux-amd64"),
+                 "fileSha256": $linux_amd64_sha,
+                 "runtime": {"type": "native", "platforms": ["linux-amd64"]},
+                 "transport": {"type": "stdio"},
+                 "environmentVariables": $env_vars
+               },
+               {
+                 "registryType": "mcpb",
+                 "identifier": ($base_url + "/miro-mcp-server-linux-arm64"),
+                 "fileSha256": $linux_arm64_sha,
+                 "runtime": {"type": "native", "platforms": ["linux-arm64"]},
+                 "transport": {"type": "stdio"},
+                 "environmentVariables": $env_vars
+               },
+               {
+                 "registryType": "mcpb",
+                 "identifier": ($base_url + "/miro-mcp-server-windows-amd64.exe"),
+                 "fileSha256": $windows_amd64_sha,
+                 "runtime": {"type": "native", "platforms": ["windows-amd64"]},
+                 "transport": {"type": "stdio"},
+                 "environmentVariables": $env_vars
+               }
+             ]
+             ' server.json > server.json.tmp
           mv server.json.tmp server.json
           cat server.json
 
@@ -45,7 +133,6 @@ jobs:
         run: |
           curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz
           chmod +x mcp-publisher
-          ./mcp-publisher --version
 
       - name: Authenticate with MCP Registry
         run: ./mcp-publisher login github-oidc

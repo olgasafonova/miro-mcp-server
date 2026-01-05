@@ -17,6 +17,7 @@ import (
 // =============================================================================
 
 // ListItems retrieves items from a board.
+// When detail_level=full, additional fields (style, geometry, timestamps, user info) are included.
 func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsResult, error) {
 	if args.BoardID == "" {
 		return ListItemsResult{}, fmt.Errorf("board_id is required")
@@ -54,36 +55,16 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 		return ListItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Check if full details are requested
+	fullDetails := strings.EqualFold(args.DetailLevel, "full")
+
 	// Parse items into summaries
 	items := make([]ItemSummary, 0, len(resp.Data))
 	for _, raw := range resp.Data {
-		var base struct {
-			ID       string `json:"id"`
-			Type     string `json:"type"`
-			Position *struct {
-				X float64 `json:"x"`
-				Y float64 `json:"y"`
-			} `json:"position"`
-			ParentID string `json:"parentId"`
-			Data     struct {
-				Content string `json:"content"`
-			} `json:"data"`
+		item := parseItemSummary(raw, fullDetails)
+		if item.ID != "" {
+			items = append(items, item)
 		}
-		if err := json.Unmarshal(raw, &base); err != nil {
-			continue
-		}
-
-		item := ItemSummary{
-			ID:       base.ID,
-			Type:     base.Type,
-			Content:  base.Data.Content,
-			ParentID: base.ParentID,
-		}
-		if base.Position != nil {
-			item.X = base.Position.X
-			item.Y = base.Position.Y
-		}
-		items = append(items, item)
 	}
 
 	return ListItemsResult{
@@ -92,6 +73,103 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 		HasMore: resp.Cursor != "",
 		Cursor:  resp.Cursor,
 	}, nil
+}
+
+// parseItemSummary extracts an ItemSummary from raw JSON data.
+// When fullDetails is true, additional fields are populated.
+func parseItemSummary(raw json.RawMessage, fullDetails bool) ItemSummary {
+	// Base structure for minimal fields
+	var base struct {
+		ID       string `json:"id"`
+		Type     string `json:"type"`
+		Position *struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		} `json:"position"`
+		ParentID string `json:"parentId"`
+		Data     struct {
+			Content string `json:"content"`
+			Title   string `json:"title"`
+		} `json:"data"`
+		// Extended fields (only parsed when fullDetails=true)
+		Geometry *struct {
+			Width  float64 `json:"width"`
+			Height float64 `json:"height"`
+		} `json:"geometry"`
+		Style *struct {
+			FillColor   string `json:"fillColor"`
+			TextAlign   string `json:"textAlign"`
+			BorderColor string `json:"borderColor"`
+			FontSize    string `json:"fontSize"`
+		} `json:"style"`
+		CreatedAt  string `json:"createdAt"`
+		ModifiedAt string `json:"modifiedAt"`
+		CreatedBy  *struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"createdBy"`
+		ModifiedBy *struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"modifiedBy"`
+	}
+
+	if err := json.Unmarshal(raw, &base); err != nil {
+		return ItemSummary{}
+	}
+
+	// Build minimal summary
+	content := base.Data.Content
+	if content == "" {
+		content = base.Data.Title
+	}
+
+	item := ItemSummary{
+		ID:       base.ID,
+		Type:     base.Type,
+		Content:  content,
+		ParentID: base.ParentID,
+	}
+
+	if base.Position != nil {
+		item.X = base.Position.X
+		item.Y = base.Position.Y
+	}
+
+	// Add extended fields when full details requested
+	if fullDetails {
+		if base.Geometry != nil {
+			item.Width = base.Geometry.Width
+			item.Height = base.Geometry.Height
+		}
+
+		if base.Style != nil {
+			item.Style = &ItemStyleInfo{
+				FillColor:   base.Style.FillColor,
+				TextAlign:   base.Style.TextAlign,
+				BorderColor: base.Style.BorderColor,
+				FontSize:    base.Style.FontSize,
+			}
+		}
+
+		item.CreatedAt = base.CreatedAt
+		item.ModifiedAt = base.ModifiedAt
+
+		if base.CreatedBy != nil {
+			item.CreatedBy = &UserInfo{
+				ID:   base.CreatedBy.ID,
+				Name: base.CreatedBy.Name,
+			}
+		}
+		if base.ModifiedBy != nil {
+			item.ModifiedBy = &UserInfo{
+				ID:   base.ModifiedBy.ID,
+				Name: base.ModifiedBy.Name,
+			}
+		}
+	}
+
+	return item
 }
 
 // GetItem retrieves detailed information about a specific item.
@@ -720,10 +798,11 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 
 	for {
 		result, err := c.ListItems(ctx, ListItemsArgs{
-			BoardID: args.BoardID,
-			Type:    args.Type,
-			Limit:   MaxItemLimitExtended, // Max per page
-			Cursor:  cursor,
+			BoardID:     args.BoardID,
+			Type:        args.Type,
+			Limit:       MaxItemLimitExtended, // Max per page
+			Cursor:      cursor,
+			DetailLevel: args.DetailLevel,
 		})
 		if err != nil {
 			return ListAllItemsResult{}, err

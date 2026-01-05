@@ -74,11 +74,12 @@ type DeleteFrameResult struct {
 
 // GetFrameItemsArgs contains parameters for getting items within a frame.
 type GetFrameItemsArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	FrameID string `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to get items from"`
-	Type    string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, card, image"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50, max 100)"`
-	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	FrameID     string `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to get items from"`
+	Type        string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, card, image"`
+	Limit       int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50, max 100)"`
+	Cursor      string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema_description:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }
 
 // GetFrameItemsResult contains items within a frame.

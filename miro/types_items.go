@@ -7,6 +7,7 @@ import "time"
 // =============================================================================
 
 // ItemSummary is a compact item representation.
+// When detail_level=full is used, additional fields are populated.
 type ItemSummary struct {
 	ID       string  `json:"id"`
 	Type     string  `json:"type"`
@@ -14,7 +15,27 @@ type ItemSummary struct {
 	X        float64 `json:"x"`
 	Y        float64 `json:"y"`
 	ParentID string  `json:"parent_id,omitempty"`
+
+	// Extended fields (populated when detail_level=full)
+	Width      float64          `json:"width,omitempty"`
+	Height     float64          `json:"height,omitempty"`
+	Style      *ItemStyleInfo   `json:"style,omitempty"`
+	CreatedAt  string           `json:"created_at,omitempty"`
+	ModifiedAt string           `json:"modified_at,omitempty"`
+	CreatedBy  *UserInfo        `json:"created_by,omitempty"`
+	ModifiedBy *UserInfo        `json:"modified_by,omitempty"`
 }
+
+// ItemStyleInfo contains style information for items (used in full mode).
+type ItemStyleInfo struct {
+	FillColor   string `json:"fill_color,omitempty"`
+	TextAlign   string `json:"text_align,omitempty"`
+	BorderColor string `json:"border_color,omitempty"`
+	FontSize    string `json:"font_size,omitempty"`
+	Shape       string `json:"shape,omitempty"`
+}
+
+// Note: UserInfo is defined in client.go and reused here.
 
 // ItemMatch represents a search result with context.
 type ItemMatch struct {

@@ -344,10 +344,11 @@ type CreateStickyGridResult struct {
 
 // ListItemsArgs contains parameters for listing board items.
 type ListItemsArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Type    string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, connector, frame"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50, max 100)"`
-	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Type        string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, connector, frame"`
+	Limit       int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50, max 100)"`
+	Cursor      string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema_description:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }
 
 // ListItemsResult contains board items.
@@ -364,9 +365,10 @@ type ListItemsResult struct {
 
 // ListAllItemsArgs extends ListItemsArgs for full pagination.
 type ListAllItemsArgs struct {
-	BoardID  string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Type     string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, connector, frame, card, image, document, embed"`
-	MaxItems int    `json:"max_items,omitempty" jsonschema_description:"Maximum total items to fetch across all pages (default 500, max 10000)"`
+	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Type        string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, connector, frame, card, image, document, embed"`
+	MaxItems    int    `json:"max_items,omitempty" jsonschema_description:"Maximum total items to fetch across all pages (default 500, max 10000)"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema_description:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }
 
 // ListAllItemsResult contains all items from a board.

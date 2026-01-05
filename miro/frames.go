@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -186,6 +187,7 @@ func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteF
 }
 
 // GetFrameItems retrieves all items within a specific frame.
+// When detail_level=full, additional fields (style, geometry, timestamps, user info) are included.
 func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (GetFrameItemsResult, error) {
 	if args.BoardID == "" {
 		return GetFrameItemsResult{}, fmt.Errorf("board_id is required")
@@ -224,32 +226,16 @@ func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (Get
 		return GetFrameItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Parse items into summaries
+	// Check if full details are requested
+	fullDetails := strings.EqualFold(args.DetailLevel, "full")
+
+	// Parse items into summaries using shared helper
 	items := make([]ItemSummary, 0, len(resp.Data))
 	for _, raw := range resp.Data {
-		var base struct {
-			ID   string `json:"id"`
-			Type string `json:"type"`
-			Data struct {
-				Content string `json:"content"`
-				Title   string `json:"title"`
-			} `json:"data"`
+		item := parseItemSummary(raw, fullDetails)
+		if item.ID != "" {
+			items = append(items, item)
 		}
-		if err := json.Unmarshal(raw, &base); err != nil {
-			continue
-		}
-
-		item := ItemSummary{
-			ID:   base.ID,
-			Type: base.Type,
-		}
-		// Extract content based on item type
-		if base.Data.Content != "" {
-			item.Content = base.Data.Content
-		} else if base.Data.Title != "" {
-			item.Content = base.Data.Title
-		}
-		items = append(items, item)
 	}
 
 	hasMore := resp.Cursor != ""

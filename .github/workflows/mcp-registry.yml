@@ -33,6 +33,44 @@ jobs:
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
+      - name: Wait for Docker image
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          IMAGE="ghcr.io/olgasafonova/miro-mcp-server:${VERSION}"
+          echo "Waiting for Docker image: $IMAGE"
+
+          for i in {1..30}; do
+            if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+              echo "Docker image available!"
+              exit 0
+            fi
+            echo "Attempt $i/30: Image not ready, waiting 30s..."
+            sleep 30
+          done
+
+          echo "Error: Docker image not available after 15 minutes"
+          exit 1
+
+      - name: Wait for release binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Waiting for release binaries..."
+
+          for i in {1..20}; do
+            COUNT=$(gh release view "v${VERSION}" --json assets --jq '.assets | length')
+            if [ "$COUNT" -ge 5 ]; then
+              echo "Release has $COUNT assets, ready!"
+              exit 0
+            fi
+            echo "Attempt $i/20: Only $COUNT assets, waiting 15s..."
+            sleep 15
+          done
+
+          echo "Error: Release binaries not ready after 5 minutes"
+          exit 1
+
       - name: Download release assets
         env:
           GH_TOKEN: ${{ github.token }}

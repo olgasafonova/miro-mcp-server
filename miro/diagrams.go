@@ -68,8 +68,8 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 		}
 	}
 
-	// Convert to Miro items
-	miroOutput := diagrams.ConvertToMiro(diagram)
+	// Convert to Miro items (with optional stencil shapes)
+	miroOutput := diagrams.ConvertToMiroWithOptions(diagram, args.UseStencils)
 
 	// Create all items on the board
 	var nodeIDs []string
@@ -94,20 +94,41 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 		frameIDs = append(frameIDs, result.ID)
 	}
 
-	// Create shapes
+	// Create shapes (use experimental API for stencil shapes)
 	shapeIDMap := make(map[int]string) // Index to created ID
 	for i, shape := range miroOutput.Shapes {
-		result, err := c.CreateShape(ctx, CreateShapeArgs{
-			BoardID:  args.BoardID,
-			Shape:    shape.Shape,
-			Content:  shape.Content,
-			X:        shape.X,
-			Y:        shape.Y,
-			Width:    shape.Width,
-			Height:   shape.Height,
-			Color:    shape.Color,
-			ParentID: args.ParentID,
-		})
+		var result CreateShapeResult
+		var err error
+
+		if shape.IsStencil {
+			// Use experimental API for flowchart stencil shapes
+			result, err = c.CreateShapeExperimental(ctx, CreateShapeExperimentalArgs{
+				BoardID:     args.BoardID,
+				Shape:       shape.Shape,
+				Content:     shape.Content,
+				X:           shape.X,
+				Y:           shape.Y,
+				Width:       shape.Width,
+				Height:      shape.Height,
+				FillColor:   shape.Color,
+				BorderColor: shape.BorderColor,
+				ParentID:    args.ParentID,
+			})
+		} else {
+			// Use standard API for basic shapes
+			result, err = c.CreateShape(ctx, CreateShapeArgs{
+				BoardID:  args.BoardID,
+				Shape:    shape.Shape,
+				Content:  shape.Content,
+				X:        shape.X,
+				Y:        shape.Y,
+				Width:    shape.Width,
+				Height:   shape.Height,
+				Color:    shape.Color,
+				ParentID: args.ParentID,
+			})
+		}
+
 		if err != nil {
 			c.logger.Warn("failed to create shape", "content", shape.Content, "error", err)
 			continue

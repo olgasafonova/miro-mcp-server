@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Diagrams**: `use_stencils` parameter for professional flowchart shapes
+  - Uses Miro's flowchart stencil shapes (`flow_chart_terminator`, `flow_chart_decision`, `flow_chart_process`, etc.)
+  - Professional color coding with matching border colors
+  - Green for Start/End, yellow for decisions, blue for processes
+  - Leverages v2-experimental API for enhanced visual styling
+
 ## [1.8.0] - 2025-12-23
 
 ### Added

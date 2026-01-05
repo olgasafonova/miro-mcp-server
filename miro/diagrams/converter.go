@@ -2,13 +2,15 @@ package diagrams
 
 // MiroShape represents a shape to be created in Miro.
 type MiroShape struct {
-	Shape   string  // Miro shape type
-	Content string  // Text content
-	X       float64 // Center X position
-	Y       float64 // Center Y position
-	Width   float64
-	Height  float64
-	Color   string // Fill color (optional)
+	Shape      string  // Miro shape type
+	Content    string  // Text content
+	X          float64 // Center X position
+	Y          float64 // Center Y position
+	Width      float64
+	Height     float64
+	Color      string // Fill color (optional)
+	IsStencil  bool   // True if this is a flowchart stencil shape (requires experimental API)
+	BorderColor string // Border color (optional, for stencil styling)
 }
 
 // MiroConnector represents a connector to be created in Miro.
@@ -41,14 +43,25 @@ type MiroOutput struct {
 // ConvertToMiro converts a laid-out diagram to Miro API items.
 // Automatically detects sequence diagrams and uses appropriate converter.
 func ConvertToMiro(diagram *Diagram) *MiroOutput {
+	return ConvertToMiroWithOptions(diagram, false)
+}
+
+// ConvertToMiroWithOptions converts a diagram with configurable options.
+// When useStencils is true, uses professional flowchart stencil shapes.
+func ConvertToMiroWithOptions(diagram *Diagram, useStencils bool) *MiroOutput {
 	if diagram.Type == TypeSequence {
 		return ConvertSequenceToMiro(diagram)
 	}
-	return convertFlowchartToMiro(diagram)
+	return convertFlowchartToMiroWithOptions(diagram, useStencils)
 }
 
 // convertFlowchartToMiro converts a flowchart diagram to Miro items.
 func convertFlowchartToMiro(diagram *Diagram) *MiroOutput {
+	return convertFlowchartToMiroWithOptions(diagram, false)
+}
+
+// convertFlowchartToMiroWithOptions converts a flowchart with optional stencil shapes.
+func convertFlowchartToMiroWithOptions(diagram *Diagram, useStencils bool) *MiroOutput {
 	output := &MiroOutput{
 		Shapes:     make([]MiroShape, 0),
 		Connectors: make([]MiroConnector, 0),
@@ -60,14 +73,30 @@ func convertFlowchartToMiro(diagram *Diagram) *MiroOutput {
 
 	// Convert nodes to shapes
 	for id, node := range diagram.Nodes {
-		shape := MiroShape{
-			Shape:   convertShape(node.Shape),
-			Content: node.Label,
-			X:       node.X + node.Width/2, // Miro uses center position
-			Y:       node.Y + node.Height/2,
-			Width:   node.Width,
-			Height:  node.Height,
-			Color:   getShapeColor(node.Shape),
+		var shape MiroShape
+
+		if useStencils {
+			shape = MiroShape{
+				Shape:       convertShapeToStencil(node.Shape),
+				Content:     node.Label,
+				X:           node.X + node.Width/2, // Miro uses center position
+				Y:           node.Y + node.Height/2,
+				Width:       node.Width,
+				Height:      node.Height,
+				Color:       getStencilColor(node.Shape),
+				IsStencil:   true,
+				BorderColor: getStencilBorderColor(node.Shape),
+			}
+		} else {
+			shape = MiroShape{
+				Shape:   convertShape(node.Shape),
+				Content: node.Label,
+				X:       node.X + node.Width/2, // Miro uses center position
+				Y:       node.Y + node.Height/2,
+				Width:   node.Width,
+				Height:  node.Height,
+				Color:   getShapeColor(node.Shape),
+			}
 		}
 
 		if node.Color != "" {
@@ -202,6 +231,83 @@ func getShapeColor(shape NodeShape) string {
 		return "#FFCCBC" // Light orange for preparation
 	default:
 		return "#E3F2FD" // Default light blue
+	}
+}
+
+// =============================================================================
+// Flowchart Stencil Shape Conversion (v2-experimental API)
+// =============================================================================
+
+// convertShapeToStencil maps internal shape to Miro flowchart stencil shape name.
+// These shapes require the v2-experimental API endpoint.
+func convertShapeToStencil(shape NodeShape) string {
+	switch shape {
+	case ShapeCircle:
+		return "flow_chart_terminator" // Stadium/pill shape for Start/End
+	case ShapeDiamond:
+		return "flow_chart_decision" // Diamond for decisions
+	case ShapeRectangle:
+		return "flow_chart_process" // Rectangle for process steps
+	case ShapeRoundedRectangle:
+		return "flow_chart_process" // Also process
+	case ShapeStadium:
+		return "flow_chart_terminator" // Stadium maps to terminator
+	case ShapeParallelogram:
+		return "flow_chart_input_output" // Parallelogram for I/O
+	case ShapeHexagon:
+		return "flow_chart_preparation" // Hexagon for preparation
+	case ShapeCylinder:
+		return "flow_chart_database" // Cylinder for database
+	case ShapeTrapezoid:
+		return "flow_chart_manual_operation" // Trapezoid for manual operation
+	default:
+		return "flow_chart_process" // Default to process
+	}
+}
+
+// getStencilColor returns professional fill colors for flowchart stencil shapes.
+// Uses a cohesive color palette that works well with Miro's visual style.
+func getStencilColor(shape NodeShape) string {
+	switch shape {
+	case ShapeCircle, ShapeStadium:
+		return "#C8E6C9" // Light green for Start/End (terminator)
+	case ShapeDiamond:
+		return "#FFF9C4" // Light yellow for decisions
+	case ShapeRectangle, ShapeRoundedRectangle:
+		return "#BBDEFB" // Light blue for process steps
+	case ShapeParallelogram:
+		return "#E1BEE7" // Light purple for I/O
+	case ShapeHexagon:
+		return "#FFE0B2" // Light orange for preparation
+	case ShapeCylinder:
+		return "#B3E5FC" // Cyan for database
+	case ShapeTrapezoid:
+		return "#FFCCBC" // Light coral for manual operation
+	default:
+		return "#E3F2FD" // Default light blue
+	}
+}
+
+// getStencilBorderColor returns matching border colors for stencil shapes.
+// Darker variants of the fill colors for visual definition.
+func getStencilBorderColor(shape NodeShape) string {
+	switch shape {
+	case ShapeCircle, ShapeStadium:
+		return "#4CAF50" // Green border for terminator
+	case ShapeDiamond:
+		return "#FFC107" // Amber border for decisions
+	case ShapeRectangle, ShapeRoundedRectangle:
+		return "#2196F3" // Blue border for process
+	case ShapeParallelogram:
+		return "#9C27B0" // Purple border for I/O
+	case ShapeHexagon:
+		return "#FF9800" // Orange border for preparation
+	case ShapeCylinder:
+		return "#00BCD4" // Cyan border for database
+	case ShapeTrapezoid:
+		return "#FF5722" // Deep orange border for manual operation
+	default:
+		return "#1976D2" // Default blue border
 	}
 }
 

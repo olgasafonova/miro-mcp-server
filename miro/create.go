@@ -154,6 +154,96 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 	}, nil
 }
 
+// CreateShapeExperimentalArgs contains arguments for creating a shape via experimental API.
+type CreateShapeExperimentalArgs struct {
+	BoardID     string  `json:"board_id"`
+	Shape       string  `json:"shape"`       // Flowchart stencil shape type
+	Content     string  `json:"content"`
+	X           float64 `json:"x"`
+	Y           float64 `json:"y"`
+	Width       float64 `json:"width"`
+	Height      float64 `json:"height"`
+	FillColor   string  `json:"fill_color,omitempty"`
+	BorderColor string  `json:"border_color,omitempty"`
+	ParentID    string  `json:"parent_id,omitempty"`
+}
+
+// CreateShapeExperimental creates a shape using the v2-experimental API.
+// Used for flowchart stencil shapes that require the experimental endpoint.
+func (c *Client) CreateShapeExperimental(ctx context.Context, args CreateShapeExperimentalArgs) (CreateShapeResult, error) {
+	if args.BoardID == "" {
+		return CreateShapeResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.Shape == "" {
+		return CreateShapeResult{}, fmt.Errorf("shape type is required")
+	}
+
+	// Default dimensions
+	width := args.Width
+	if width == 0 {
+		width = 200
+	}
+	height := args.Height
+	if height == 0 {
+		height = 200
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"shape":   args.Shape,
+			"content": args.Content,
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+		"geometry": map[string]interface{}{
+			"width":  width,
+			"height": height,
+		},
+	}
+
+	// Build style with fill and border colors
+	style := make(map[string]interface{})
+	if args.FillColor != "" {
+		style["fillColor"] = args.FillColor
+	}
+	if args.BorderColor != "" {
+		style["borderColor"] = args.BorderColor
+	}
+	if len(style) > 0 {
+		reqBody["style"] = style
+	}
+
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+
+	respBody, err := c.requestExperimental(ctx, http.MethodPost, "/boards/"+args.BoardID+"/shapes", reqBody)
+	if err != nil {
+		return CreateShapeResult{}, err
+	}
+
+	var shape Shape
+	if err := json.Unmarshal(respBody, &shape); err != nil {
+		return CreateShapeResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Invalidate items list cache
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
+
+	return CreateShapeResult{
+		ID:      shape.ID,
+		ItemURL: BuildItemURL(args.BoardID, shape.ID),
+		Shape:   shape.Data.Shape,
+		Content: shape.Data.Content,
+		Message: fmt.Sprintf("Created %s stencil shape", args.Shape),
+	}, nil
+}
+
 // CreateText creates a text item on a board.
 func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTextResult, error) {
 	if args.BoardID == "" {

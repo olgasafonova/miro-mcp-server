@@ -392,10 +392,10 @@ func (c *Client) GetBoardContent(ctx context.Context, args GetBoardContentArgs) 
 	// Default to including connectors and tags
 	includeConnectors := true
 	includeTags := true
-	if args.IncludeConnectors == false {
+	if !args.IncludeConnectors {
 		includeConnectors = false
 	}
-	if args.IncludeTags == false {
+	if !args.IncludeTags {
 		includeTags = false
 	}
 

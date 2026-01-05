@@ -705,3 +705,303 @@ func TestGenerateDiagram_FrameCreationFailure(t *testing.T) {
 		t.Errorf("FramesCreated = %d, want 0", result.FramesCreated)
 	}
 }
+
+// =============================================================================
+// Output Mode Tests (P5: Compound Diagram Items)
+// =============================================================================
+
+func TestGenerateDiagram_OutputModeDiscrete(t *testing.T) {
+	var shapeCount, connectorCount atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
+			count := shapeCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("shape%d", count),
+				"type": "shape",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
+			count := connectorCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("conn%d", count),
+				"type": "connector",
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+
+	// Default mode (discrete)
+	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+		BoardID:    "board123",
+		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
+		OutputMode: "discrete",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.OutputMode != "discrete" {
+		t.Errorf("OutputMode = %q, want 'discrete'", result.OutputMode)
+	}
+	if result.DiagramID != "" {
+		t.Errorf("DiagramID should be empty for discrete mode, got %q", result.DiagramID)
+	}
+	if result.TotalItems != 3 { // 2 shapes + 1 connector
+		t.Errorf("TotalItems = %d, want 3", result.TotalItems)
+	}
+}
+
+func TestGenerateDiagram_OutputModeGrouped(t *testing.T) {
+	var shapeCount, connectorCount atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
+			count := shapeCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("shape%d", count),
+				"type": "shape",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
+			count := connectorCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("conn%d", count),
+				"type": "connector",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/groups") && r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":    "group123",
+				"type":  "group",
+				"items": []string{"shape1", "shape2", "conn1"},
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+
+	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+		BoardID:    "board123",
+		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
+		OutputMode: "grouped",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.OutputMode != "grouped" {
+		t.Errorf("OutputMode = %q, want 'grouped'", result.OutputMode)
+	}
+	if result.DiagramID != "group123" {
+		t.Errorf("DiagramID = %q, want 'group123'", result.DiagramID)
+	}
+	if result.DiagramType != "group" {
+		t.Errorf("DiagramType = %q, want 'group'", result.DiagramType)
+	}
+	if !strings.Contains(result.DiagramURL, "group123") {
+		t.Errorf("DiagramURL = %q, want to contain 'group123'", result.DiagramURL)
+	}
+	if !strings.Contains(result.Message, "grouped") {
+		t.Errorf("Message = %q, want to contain 'grouped'", result.Message)
+	}
+}
+
+func TestGenerateDiagram_OutputModeFramed(t *testing.T) {
+	var shapeCount, connectorCount atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
+			count := shapeCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("shape%d", count),
+				"type": "shape",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
+			count := connectorCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("conn%d", count),
+				"type": "connector",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/frames") && r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   "frame456",
+				"type": "frame",
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+
+	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+		BoardID:    "board123",
+		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
+		OutputMode: "framed",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.OutputMode != "framed" {
+		t.Errorf("OutputMode = %q, want 'framed'", result.OutputMode)
+	}
+	if result.DiagramID != "frame456" {
+		t.Errorf("DiagramID = %q, want 'frame456'", result.DiagramID)
+	}
+	if result.DiagramType != "frame" {
+		t.Errorf("DiagramType = %q, want 'frame'", result.DiagramType)
+	}
+	if !strings.Contains(result.Message, "framed") {
+		t.Errorf("Message = %q, want to contain 'framed'", result.Message)
+	}
+	// Frame should be added to FrameIDs
+	if len(result.FrameIDs) == 0 || result.FrameIDs[0] != "frame456" {
+		t.Errorf("FrameIDs = %v, want ['frame456']", result.FrameIDs)
+	}
+}
+
+func TestGenerateDiagram_OutputModeGroupedFailure(t *testing.T) {
+	var shapeCount, connectorCount atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
+			count := shapeCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("shape%d", count),
+				"type": "shape",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
+			count := connectorCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("conn%d", count),
+				"type": "connector",
+			})
+			return
+		}
+
+		// Groups endpoint fails
+		if strings.Contains(r.URL.Path, "/groups") && r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"message": "Internal server error",
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+
+	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+		BoardID:    "board123",
+		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
+		OutputMode: "grouped",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should still have created items, just not grouped
+	if result.NodesCreated != 2 {
+		t.Errorf("NodesCreated = %d, want 2", result.NodesCreated)
+	}
+	if result.DiagramID != "" {
+		t.Errorf("DiagramID should be empty when grouping fails, got %q", result.DiagramID)
+	}
+	if !strings.Contains(result.Message, "grouping failed") {
+		t.Errorf("Message = %q, want to contain 'grouping failed'", result.Message)
+	}
+}
+
+func TestGenerateDiagram_OutputModeDefaultsToDiscrete(t *testing.T) {
+	var shapeCount atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
+			count := shapeCount.Add(1)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   fmt.Sprintf("shape%d", count),
+				"type": "shape",
+			})
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":   "conn1",
+				"type": "connector",
+			})
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+
+	// No OutputMode specified
+	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+		BoardID: "board123",
+		Diagram: "flowchart TB\n    A[Start]-->B[End]",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.OutputMode != "discrete" {
+		t.Errorf("OutputMode = %q, want 'discrete' (default)", result.OutputMode)
+	}
+}

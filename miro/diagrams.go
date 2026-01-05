@@ -162,24 +162,14 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 		connectorIDs = append(connectorIDs, result.ID)
 	}
 
-	// Build summary message
-	var parts []string
-	if len(nodeIDs) > 0 {
-		parts = append(parts, fmt.Sprintf("%d nodes", len(nodeIDs)))
-	}
-	if len(connectorIDs) > 0 {
-		parts = append(parts, fmt.Sprintf("%d connectors", len(connectorIDs)))
-	}
-	if len(frameIDs) > 0 {
-		parts = append(parts, fmt.Sprintf("%d frames", len(frameIDs)))
-	}
+	// Collect all item IDs for compound modes
+	allItemIDs := make([]string, 0, len(nodeIDs)+len(connectorIDs))
+	allItemIDs = append(allItemIDs, nodeIDs...)
+	allItemIDs = append(allItemIDs, connectorIDs...)
+	totalItems := len(allItemIDs)
 
-	message := "Created diagram"
-	if len(parts) > 0 {
-		message = fmt.Sprintf("Created diagram with %s", strings.Join(parts, ", "))
-	}
-
-	return GenerateDiagramResult{
+	// Build base result
+	result := GenerateDiagramResult{
 		NodesCreated:      len(nodeIDs),
 		ConnectorsCreated: len(connectorIDs),
 		FramesCreated:     len(frameIDs),
@@ -191,6 +181,86 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 		FrameURLs:         BuildItemURLs(args.BoardID, frameIDs),
 		DiagramWidth:      diagram.Width,
 		DiagramHeight:     diagram.Height,
-		Message:           message,
-	}, nil
+		TotalItems:        totalItems,
+	}
+
+	// Handle output modes
+	outputMode := strings.ToLower(args.OutputMode)
+	if outputMode == "" {
+		outputMode = "discrete"
+	}
+	result.OutputMode = outputMode
+
+	switch outputMode {
+	case "grouped":
+		// Group all items together (need at least 2 items)
+		if len(allItemIDs) >= 2 {
+			groupResult, err := c.CreateGroup(ctx, CreateGroupArgs{
+				BoardID: args.BoardID,
+				ItemIDs: allItemIDs,
+			})
+			if err != nil {
+				c.logger.Warn("failed to group diagram items", "error", err)
+				result.Message = fmt.Sprintf("Created diagram with %d items (grouping failed: %v)", totalItems, err)
+			} else {
+				result.DiagramID = groupResult.ID
+				result.DiagramURL = groupResult.ItemURL
+				result.DiagramType = "group"
+				result.Message = fmt.Sprintf("Created grouped diagram with %d items", totalItems)
+			}
+		} else {
+			result.Message = fmt.Sprintf("Created diagram with %d items (too few items to group)", totalItems)
+		}
+
+	case "framed":
+		// Create a frame and put all items inside
+		// Calculate frame bounds from diagram dimensions
+		padding := 40.0
+		frameWidth := diagram.Width + padding*2
+		frameHeight := diagram.Height + padding*2
+
+		// Frame center position (accounting for startX/startY offset)
+		frameCenterX := args.StartX + diagram.Width/2
+		frameCenterY := args.StartY + diagram.Height/2
+
+		frameResult, err := c.CreateFrame(ctx, CreateFrameArgs{
+			BoardID: args.BoardID,
+			Title:   "Diagram",
+			X:       frameCenterX,
+			Y:       frameCenterY,
+			Width:   frameWidth,
+			Height:  frameHeight,
+		})
+		if err != nil {
+			c.logger.Warn("failed to create diagram frame", "error", err)
+			result.Message = fmt.Sprintf("Created diagram with %d items (framing failed: %v)", totalItems, err)
+		} else {
+			result.DiagramID = frameResult.ID
+			result.DiagramURL = frameResult.ItemURL
+			result.DiagramType = "frame"
+			result.FrameIDs = append(result.FrameIDs, frameResult.ID)
+			result.FrameURLs = append(result.FrameURLs, frameResult.ItemURL)
+			result.FramesCreated++
+			result.Message = fmt.Sprintf("Created framed diagram with %d items", totalItems)
+		}
+
+	default: // "discrete"
+		var parts []string
+		if len(nodeIDs) > 0 {
+			parts = append(parts, fmt.Sprintf("%d nodes", len(nodeIDs)))
+		}
+		if len(connectorIDs) > 0 {
+			parts = append(parts, fmt.Sprintf("%d connectors", len(connectorIDs)))
+		}
+		if len(frameIDs) > 0 {
+			parts = append(parts, fmt.Sprintf("%d frames", len(frameIDs)))
+		}
+
+		result.Message = "Created diagram"
+		if len(parts) > 0 {
+			result.Message = fmt.Sprintf("Created diagram with %s", strings.Join(parts, ", "))
+		}
+	}
+
+	return result, nil
 }

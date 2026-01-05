@@ -164,24 +164,29 @@ Use Miro's official flowchart stencils instead of basic shapes.
 #### 5. Compound Diagram Items
 **Priority:** P5
 **Effort:** Medium
-**Status:** Planned
+**Status:** ✅ DONE (January 2026)
 
-Create single diagram widget instead of discrete shapes.
+Create compound diagram for easier manipulation instead of discrete shapes.
 
 **Current behavior:**
 - 5 nodes = 5 separate shape items
 - 5 edges = 5 separate connector items
-- Total: 10 items on board
+- Total: 10 items on board (hard to move/delete together)
 
-**Proposed behavior:**
-- Single "diagram" item containing all nodes/edges
+**Implemented behavior:**
+- Added `output_mode` parameter with three modes:
+  - `"discrete"` (default): Individual shapes and connectors
+  - `"grouped"`: All items grouped together via Miro Groups API
+  - `"framed"`: All items contained in a frame
 - Cleaner board organization
 - Easier to move/delete as a unit
 
 **Implementation:**
-- Investigate Miro's diagram widget API
-- Add `output_mode` parameter: `"discrete"` (default) | `"compound"`
-- Return single item ID for compound mode
+- Researched Miro API; no native "diagram widget" exists
+- Solution: Use Groups API to combine all diagram items
+- Alternative: Frame mode wraps diagram in a container
+- New response fields: `output_mode`, `diagram_id`, `diagram_url`, `diagram_type`, `total_items`
+- Graceful degradation: falls back to discrete if grouping fails
 
 ---
 
@@ -328,8 +333,8 @@ Q3+ 2026
 | AI Board Analysis | Claude API |
 | Document Generation | Claude API |
 | Auto-Expand Diagrams | Claude API |
-| Professional Stencils | Miro Stencil API access |
-| Compound Diagrams | Miro Diagram Widget API |
+| Professional Stencils | Miro Stencil API access (v2-experimental) |
+| Compound Diagrams | ✅ None (uses existing Groups/Frames API) |
 
 ---
 

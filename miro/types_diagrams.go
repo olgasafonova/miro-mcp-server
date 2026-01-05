@@ -13,6 +13,7 @@ type GenerateDiagramArgs struct {
 	NodeWidth   float64 `json:"node_width,omitempty" jsonschema_description:"Width of each node (default: 180)"`
 	ParentID    string  `json:"parent_id,omitempty" jsonschema_description:"Parent frame ID to create diagram inside"`
 	UseStencils bool    `json:"use_stencils,omitempty" jsonschema_description:"Use professional flowchart stencils instead of basic shapes. Provides better visual styling with proper flowchart symbols (terminator, process, decision, I/O)."`
+	OutputMode  string  `json:"output_mode,omitempty" jsonschema_description:"Output mode: 'discrete' (default) returns individual items, 'grouped' groups all items together for easy move/delete, 'framed' creates a frame containing all items"`
 }
 
 // GenerateDiagramResult contains the result of diagram generation.
@@ -29,6 +30,12 @@ type GenerateDiagramResult struct {
 	DiagramWidth      float64  `json:"diagram_width"`
 	DiagramHeight     float64  `json:"diagram_height"`
 	Message           string   `json:"message"`
+	// Compound output mode fields
+	OutputMode   string `json:"output_mode,omitempty"`
+	DiagramID    string `json:"diagram_id,omitempty"`
+	DiagramURL   string `json:"diagram_url,omitempty"`
+	DiagramType  string `json:"diagram_type,omitempty"` // "group" or "frame"
+	TotalItems   int    `json:"total_items,omitempty"`
 }
 
 // DiagramNode represents a node in the generated diagram (for response details).

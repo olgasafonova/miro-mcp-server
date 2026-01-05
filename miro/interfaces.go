@@ -19,6 +19,7 @@ type BoardService interface {
 	FindBoardByName(ctx context.Context, name string) (*BoardSummary, error)
 	FindBoardByNameTool(ctx context.Context, args FindBoardByNameArgs) (FindBoardByNameResult, error)
 	GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) (GetBoardSummaryResult, error)
+	GetBoardContent(ctx context.Context, args GetBoardContentArgs) (GetBoardContentResult, error)
 }
 
 // ItemService handles item CRUD and search operations.

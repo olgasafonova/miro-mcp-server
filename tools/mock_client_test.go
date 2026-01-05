@@ -24,6 +24,7 @@ type MockClient struct {
 	FindBoardByNameFn     func(ctx context.Context, name string) (*miro.BoardSummary, error)
 	FindBoardByNameToolFn func(ctx context.Context, args miro.FindBoardByNameArgs) (miro.FindBoardByNameResult, error)
 	GetBoardSummaryFn     func(ctx context.Context, args miro.GetBoardSummaryArgs) (miro.GetBoardSummaryResult, error)
+	GetBoardContentFn     func(ctx context.Context, args miro.GetBoardContentArgs) (miro.GetBoardContentResult, error)
 
 	// Item operations
 	ListItemsFn    func(ctx context.Context, args miro.ListItemsArgs) (miro.ListItemsResult, error)
@@ -259,6 +260,29 @@ func (m *MockClient) GetBoardSummary(ctx context.Context, args miro.GetBoardSumm
 		ItemCounts:  map[string]int{"sticky_note": 5, "shape": 3, "text": 2},
 		RecentItems: []miro.ItemSummary{},
 		Message:     "Board 'Test Board' has 10 items",
+	}, nil
+}
+
+func (m *MockClient) GetBoardContent(ctx context.Context, args miro.GetBoardContentArgs) (miro.GetBoardContentResult, error) {
+	m.recordCall("GetBoardContent", args)
+	if m.GetBoardContentFn != nil {
+		return m.GetBoardContentFn(ctx, args)
+	}
+	return miro.GetBoardContentResult{
+		ID:          args.BoardID,
+		Name:        "Test Board",
+		ViewLink:    "https://miro.com/app/board/" + args.BoardID,
+		TotalItems:  10,
+		ItemCounts:  map[string]int{"sticky_note": 5, "shape": 3, "text": 2},
+		ItemsByType: miro.ItemsByType{
+			StickyNotes: []miro.ItemSummary{{ID: "s1", Type: "sticky_note", Content: "Test"}},
+		},
+		ContentSummary: miro.ContentSummary{
+			AllText:       []string{"Test"},
+			UniqueEntries: 1,
+			TotalChars:    4,
+		},
+		Message: "Board 'Test Board' has 10 items",
 	}, nil
 }
 

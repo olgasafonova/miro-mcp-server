@@ -4,7 +4,7 @@ Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**76 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**77 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -87,10 +87,10 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 76 Tools
+## All 77 Tools
 
 <details>
-<summary><b>Board Management (8)</b></summary>
+<summary><b>Board Management (9)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -98,6 +98,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_find_board` | Find board by name |
 | `miro_get_board` | Get board details |
 | `miro_get_board_summary` | Get board stats and item counts |
+| `miro_get_board_content` | Get all board content for AI analysis |
 | `miro_create_board` | Create a new board |
 | `miro_copy_board` | Copy an existing board |
 | `miro_update_board` | Update board name/description |
@@ -301,7 +302,7 @@ Miro has released an [official MCP server](https://miro.com/marketplace/miro-mcp
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 76 | ~10 (beta) |
+| **Tools** | 77 | ~10 (beta) |
 | **Diagram generation** | Mermaid → Miro | Not yet |
 | **Bulk operations** | Yes | Not yet |
 | **Mindmaps** | Yes | Not yet |
@@ -417,7 +418,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 76 tools with their schemas
+- Browse all 77 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -459,9 +460,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 76 tools |
-| Team | Full access to all 76 tools |
-| Business | Full access to all 76 tools |
+| Free | Full access to all 77 tools |
+| Team | Full access to all 77 tools |
+| Business | Full access to all 77 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

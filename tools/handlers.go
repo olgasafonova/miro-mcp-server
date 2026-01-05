@@ -117,6 +117,7 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		// Composite tools
 		"FindBoardByNameTool": makeHandler(h, h.client.FindBoardByNameTool),
 		"GetBoardSummary":     makeHandler(h, h.client.GetBoardSummary),
+		"GetBoardContent":     makeHandler(h, h.client.GetBoardContent),
 		"CreateStickyGrid":    makeHandler(h, h.client.CreateStickyGrid),
 
 		// Group tools

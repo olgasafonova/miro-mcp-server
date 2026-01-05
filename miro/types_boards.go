@@ -162,3 +162,92 @@ type UpdateBoardResult struct {
 	ViewLink    string `json:"view_link"`
 	Message     string `json:"message"`
 }
+
+// =============================================================================
+// Board Content (Rich Data Export for AI Analysis)
+// =============================================================================
+
+// GetBoardContentArgs contains parameters for getting comprehensive board content.
+type GetBoardContentArgs struct {
+	BoardID           string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to analyze"`
+	IncludeConnectors bool   `json:"include_connectors,omitempty" jsonschema_description:"Include connector relationships (default true)"`
+	IncludeTags       bool   `json:"include_tags,omitempty" jsonschema_description:"Include tag data and usage (default true)"`
+	MaxItems          int    `json:"max_items,omitempty" jsonschema_description:"Maximum items to fetch (default 500, max 2000)"`
+}
+
+// FrameContext represents a frame with its child items.
+type FrameContext struct {
+	ID       string        `json:"id"`
+	Title    string        `json:"title,omitempty"`
+	X        float64       `json:"x"`
+	Y        float64       `json:"y"`
+	Width    float64       `json:"width"`
+	Height   float64       `json:"height"`
+	Children []ItemSummary `json:"children,omitempty"`
+}
+
+// ConnectorContext represents a connection between items.
+type ConnectorContext struct {
+	ID            string `json:"id"`
+	StartItemID   string `json:"start_item_id"`
+	StartItemType string `json:"start_item_type,omitempty"`
+	EndItemID     string `json:"end_item_id"`
+	EndItemType   string `json:"end_item_type,omitempty"`
+	Caption       string `json:"caption,omitempty"`
+}
+
+// TagContext represents a tag with usage information.
+type TagContext struct {
+	ID         string   `json:"id"`
+	Title      string   `json:"title"`
+	Color      string   `json:"color,omitempty"`
+	UsageCount int      `json:"usage_count"`
+	ItemIDs    []string `json:"item_ids,omitempty"`
+}
+
+// ItemsByType groups items by their type for easier analysis.
+type ItemsByType struct {
+	StickyNotes []ItemSummary `json:"sticky_notes,omitempty"`
+	Shapes      []ItemSummary `json:"shapes,omitempty"`
+	Text        []ItemSummary `json:"text,omitempty"`
+	Cards       []ItemSummary `json:"cards,omitempty"`
+	Images      []ItemSummary `json:"images,omitempty"`
+	Documents   []ItemSummary `json:"documents,omitempty"`
+	Embeds      []ItemSummary `json:"embeds,omitempty"`
+	Other       []ItemSummary `json:"other,omitempty"`
+}
+
+// ContentSummary provides extracted text content for analysis.
+type ContentSummary struct {
+	AllText       []string `json:"all_text"`
+	UniqueEntries int      `json:"unique_entries"`
+	TotalChars    int      `json:"total_chars"`
+}
+
+// GetBoardContentResult contains comprehensive board data for AI analysis.
+type GetBoardContentResult struct {
+	// Board metadata
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	ViewLink    string `json:"view_link"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	ModifiedAt  string `json:"modified_at,omitempty"`
+
+	// Item statistics
+	ItemCounts map[string]int `json:"item_counts"`
+	TotalItems int            `json:"total_items"`
+
+	// Structured content
+	ItemsByType ItemsByType        `json:"items_by_type"`
+	Frames      []FrameContext     `json:"frames,omitempty"`
+	Connectors  []ConnectorContext `json:"connectors,omitempty"`
+	Tags        []TagContext       `json:"tags,omitempty"`
+
+	// Content for text analysis
+	ContentSummary ContentSummary `json:"content_summary"`
+
+	// Status
+	Truncated bool   `json:"truncated"`
+	Message   string `json:"message"`
+}

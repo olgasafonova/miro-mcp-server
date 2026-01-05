@@ -1013,6 +1013,34 @@ RETURNS: Board name, description, item counts by type, total items, and 5 recent
 VOICE-FRIENDLY: "Design Sprint has 15 stickies, 8 shapes, and 3 frames - 26 items total"`,
 	},
 	{
+		Name:     "miro_get_board_content",
+		Method:   "GetBoardContent",
+		Title:    "Get Board Content",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get all board content for AI analysis and documentation generation.
+
+USE WHEN: User asks "analyze this board", "generate documentation from board", "describe everything on this board", "what's on this board in detail"
+
+PARAMETERS:
+- board_id: Required
+- include_connectors: Include relationship data (default true)
+- include_tags: Include tag usage data (default true)
+- max_items: Maximum items to fetch (default 500, max 2000)
+
+RETURNS: Rich structured data including:
+- Board metadata (name, description, timestamps)
+- All items organized by type (sticky_notes, shapes, text, cards, etc.)
+- Frame hierarchy with child items
+- Connector relationships showing what connects to what
+- Tags defined on the board
+- Content summary with all text for analysis
+
+This tool provides the data an AI needs to generate board documentation, project summaries, or technical specifications.
+
+VOICE-FRIENDLY: "Retrieved full content for 'Design Sprint': 26 items across 3 frames, 5 connectors, 2 tags"`,
+	},
+	{
 		Name:     "miro_create_sticky_grid",
 		Method:   "CreateStickyGrid",
 		Title:    "Create Sticky Grid",

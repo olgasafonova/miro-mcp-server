@@ -19,6 +19,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o miro-mcp-server .
 # Runtime stage
 FROM alpine:3.20
 
+LABEL io.modelcontextprotocol.server.name="io.github.olgasafonova/miro-mcp-server"
+
 # Install ca-certificates for HTTPS
 RUN apk add --no-cache ca-certificates
 

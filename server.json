@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.olgasafonova/miro-mcp-server",
+  "description": "Control Miro whiteboards with AI. 77 tools for boards, diagrams, mindmaps.",
+  "title": "Miro",
+  "repository": {
+    "url": "https://github.com/olgasafonova/miro-mcp-server",
+    "source": "github"
+  },
+  "version": "1.10.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/olgasafonova/miro-mcp-server:1.10.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MIRO_ACCESS_TOKEN",
+          "description": "Miro API access token with boards:read and boards:write permissions",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

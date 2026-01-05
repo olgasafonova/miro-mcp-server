@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-01-05
+
+### Added
+- **MCP Registry**: Server now listed on official MCP Registry
+- `server.json` metadata for registry integration
+- GitHub Actions workflow for automatic registry publishing on release
+- MCP label in Docker image for OCI validation
+- Support for both Docker/OCI and MCPB binary distribution
+
+### Fixed
+- Release workflow homebrew job syntax error
+
 ## [1.11.0] - 2026-01-05
 
 ### Added

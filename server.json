@@ -7,7 +7,7 @@
     "url": "https://github.com/olgasafonova/miro-mcp-server",
     "source": "github"
   },
-  "version": "1.10.0",
+  "version": "1.11.1",
   "packages": [
     {
       "registryType": "oci",

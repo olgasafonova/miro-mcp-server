@@ -289,7 +289,7 @@ sequenceDiagram
 | **Size** | ~14MB | 100MB+ with node_modules |
 | **Startup** | ~50ms | 500ms-2s |
 | **Memory** | ~10MB idle | ~50MB idle |
-| **Diagram generation** | Built-in Mermaid parser | Not available |
+| **Diagram generation** | Built-in Mermaid parser | AI-based |
 | **Rate limiting** | Automatic with backoff | Manual |
 | **Caching** | 2-minute TTL | None |
 | **Circuit breaker** | Yes | No |
@@ -298,24 +298,24 @@ sequenceDiagram
 
 ## Official vs Community
 
-Miro has released an [official MCP server](https://miro.com/marketplace/miro-mcp-server/) (beta). Here's how they compare:
+Miro has released an [official MCP server](https://miro.com/ai/mcp/) (beta). Here's how they compare:
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 77 | ~10 (beta) |
-| **Diagram generation** | Mermaid → Miro | Not yet |
-| **Bulk operations** | Yes | Not yet |
-| **Mindmaps** | Yes | Not yet |
-| **Tags & Groups** | Yes | Not yet |
-| **Export** | Yes | Not yet |
+| **Tools** | 77 | ~5 (beta) |
+| **Diagram generation** | Mermaid syntax | AI-based |
+| **Bulk operations** | Yes | No |
+| **Mindmaps** | Yes | No |
+| **Tags & Groups** | Yes | No |
+| **Export** | Yes | No |
 | **Runtime** | Single Go binary | Node.js |
 | **Rate limiting** | Adaptive | Basic |
 | **Caching** | Built-in | No |
 | **OAuth flow** | Built-in CLI | Requires setup |
 
-**When to use the official server:** You want Miro-supported tooling and only need basic operations.
+**When to use the official server:** You want Miro-supported tooling and AI-powered diagram generation.
 
-**When to use this server:** You need the full API surface, diagram generation, bulk ops, or want a lightweight binary.
+**When to use this server:** You need the full API surface, bulk ops, mindmaps, tags, or want a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 

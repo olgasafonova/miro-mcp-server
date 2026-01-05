@@ -7,12 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-01-05
+
 ### Added
+- **New Tool**: `miro_get_board_content` - Get comprehensive board data for AI analysis (77 tools total)
+  - Returns structured content with frames, items, connectors, and tags
+  - Designed for AI agents to analyze and document boards
+- **Diagrams**: `output_mode` parameter to return created items for compound diagrams
 - **Diagrams**: `use_stencils` parameter for professional flowchart shapes
   - Uses Miro's flowchart stencil shapes (`flow_chart_terminator`, `flow_chart_decision`, `flow_chart_process`, etc.)
   - Professional color coding with matching border colors
-  - Green for Start/End, yellow for decisions, blue for processes
-  - Leverages v2-experimental API for enhanced visual styling
+- **Responses**: `detail_level` parameter for rich response mode across tools
+- **Responses**: Deep links added to all create operation responses
+- **Developer**: Inline examples in tool descriptions for better LLM understanding
+- **Developer**: CLAUDE.md for Claude Code guidance
+
+### Fixed
+- Lint warning for bool comparisons in GetBoardContent (staticcheck S1002)
+
+### Changed
+- Updated comparison with official Miro MCP server (now has ~5 tools with AI-based diagram generation)
 
 ## [1.8.0] - 2025-12-23
 

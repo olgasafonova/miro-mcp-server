@@ -37,9 +37,11 @@ func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateG
 	}
 
 	return CreateGroupResult{
-		ID:      group.ID,
-		ItemIDs: args.ItemIDs,
-		Message: fmt.Sprintf("Grouped %d items together", len(args.ItemIDs)),
+		ID:       group.ID,
+		ItemURL:  BuildItemURL(args.BoardID, group.ID),
+		ItemIDs:  args.ItemIDs,
+		ItemURLs: BuildItemURLs(args.BoardID, args.ItemIDs),
+		Message:  fmt.Sprintf("Grouped %d items together", len(args.ItemIDs)),
 	}, nil
 }
 

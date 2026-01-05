@@ -18,6 +18,7 @@ type CreateStickyArgs struct {
 // CreateStickyResult contains the created sticky note.
 type CreateStickyResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Content string `json:"content"`
 	Color   string `json:"color"`
 	Message string `json:"message"`
@@ -44,6 +45,7 @@ type CreateShapeArgs struct {
 // CreateShapeResult contains the created shape.
 type CreateShapeResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Shape   string `json:"shape"`
 	Content string `json:"content,omitempty"`
 	Message string `json:"message"`
@@ -68,6 +70,7 @@ type CreateTextArgs struct {
 // CreateTextResult contains the created text item.
 type CreateTextResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Content string `json:"content"`
 	Message string `json:"message"`
 }
@@ -146,6 +149,7 @@ type CreateConnectorArgs struct {
 // CreateConnectorResult contains the created connector.
 type CreateConnectorResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Message string `json:"message"`
 }
 
@@ -207,6 +211,7 @@ type CreateFrameArgs struct {
 // CreateFrameResult contains the created frame.
 type CreateFrameResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title"`
 	Message string `json:"message"`
 }
@@ -230,6 +235,7 @@ type CreateCardArgs struct {
 // CreateCardResult contains the created card.
 type CreateCardResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title"`
 	Message string `json:"message"`
 }
@@ -252,6 +258,7 @@ type CreateImageArgs struct {
 // CreateImageResult contains the created image.
 type CreateImageResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title"`
 	URL     string `json:"url"`
 	Message string `json:"message"`
@@ -275,6 +282,7 @@ type CreateDocumentArgs struct {
 // CreateDocumentResult contains the created document.
 type CreateDocumentResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title"`
 	Message string `json:"message"`
 }
@@ -298,6 +306,7 @@ type CreateEmbedArgs struct {
 // CreateEmbedResult contains the created embed.
 type CreateEmbedResult struct {
 	ID       string `json:"id"`
+	ItemURL  string `json:"item_url,omitempty"`
 	URL      string `json:"url"`
 	Provider string `json:"provider,omitempty"`
 	Message  string `json:"message"`
@@ -321,11 +330,12 @@ type CreateStickyGridArgs struct {
 
 // CreateStickyGridResult contains the result of creating a sticky grid.
 type CreateStickyGridResult struct {
-	Created int      `json:"created"`
-	ItemIDs []string `json:"item_ids"`
-	Rows    int      `json:"rows"`
-	Columns int      `json:"columns"`
-	Message string   `json:"message"`
+	Created  int      `json:"created"`
+	ItemIDs  []string `json:"item_ids"`
+	ItemURLs []string `json:"item_urls,omitempty"`
+	Rows     int      `json:"rows"`
+	Columns  int      `json:"columns"`
+	Message  string   `json:"message"`
 }
 
 // =============================================================================
@@ -496,6 +506,7 @@ type BulkItemError struct {
 type BulkCreateResult struct {
 	Created      int             `json:"created"`
 	ItemIDs      []string        `json:"item_ids"`
+	ItemURLs     []string        `json:"item_urls,omitempty"`
 	Errors       []string        `json:"errors,omitempty"`
 	FailedItems  []BulkItemError `json:"failed_items,omitempty"`  // Detailed failure info
 	RetriableIDs []int           `json:"retriable_ids,omitempty"` // Indices that can be retried

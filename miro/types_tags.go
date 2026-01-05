@@ -25,6 +25,7 @@ type CreateTagArgs struct {
 // CreateTagResult contains the created tag.
 type CreateTagResult struct {
 	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title"`
 	Color   string `json:"color"`
 	Message string `json:"message"`

@@ -101,6 +101,7 @@ func (c *Client) CreateAppCard(ctx context.Context, args CreateAppCardArgs) (Cre
 
 	return CreateAppCardResult{
 		ID:          resp.ID,
+		ItemURL:     BuildItemURL(args.BoardID, resp.ID),
 		Title:       resp.Data.Title,
 		Description: resp.Data.Description,
 		Status:      resp.Data.Status,

@@ -498,6 +498,7 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 	return BulkCreateResult{
 		Created:      len(itemIDs),
 		ItemIDs:      itemIDs,
+		ItemURLs:     BuildItemURLs(args.BoardID, itemIDs),
 		Errors:       errorMsgs,
 		FailedItems:  failedItems,
 		RetriableIDs: retriableIDs,

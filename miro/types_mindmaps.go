@@ -32,6 +32,7 @@ type CreateMindmapNodeArgs struct {
 // CreateMindmapNodeResult contains the created mindmap node.
 type CreateMindmapNodeResult struct {
 	ID       string `json:"id"`
+	ItemURL  string `json:"item_url,omitempty"`
 	Content  string `json:"content"`
 	ParentID string `json:"parent_id,omitempty"`
 	Message  string `json:"message"`

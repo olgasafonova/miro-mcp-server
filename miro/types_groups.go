@@ -22,9 +22,11 @@ type CreateGroupArgs struct {
 
 // CreateGroupResult contains the created group.
 type CreateGroupResult struct {
-	ID      string   `json:"id"`
-	ItemIDs []string `json:"item_ids"`
-	Message string   `json:"message"`
+	ID       string   `json:"id"`
+	ItemURL  string   `json:"item_url,omitempty"`
+	ItemIDs  []string `json:"item_ids"`
+	ItemURLs []string `json:"item_urls,omitempty"`
+	Message  string   `json:"message"`
 }
 
 // =============================================================================

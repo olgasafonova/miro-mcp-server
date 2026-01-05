@@ -20,8 +20,11 @@ type GenerateDiagramResult struct {
 	ConnectorsCreated int      `json:"connectors_created"`
 	FramesCreated     int      `json:"frames_created"`
 	NodeIDs           []string `json:"node_ids"`
+	NodeURLs          []string `json:"node_urls,omitempty"`
 	ConnectorIDs      []string `json:"connector_ids"`
+	ConnectorURLs     []string `json:"connector_urls,omitempty"`
 	FrameIDs          []string `json:"frame_ids,omitempty"`
+	FrameURLs         []string `json:"frame_urls,omitempty"`
 	DiagramWidth      float64  `json:"diagram_width"`
 	DiagramHeight     float64  `json:"diagram_height"`
 	Message           string   `json:"message"`

@@ -72,6 +72,7 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 
 	return CreateStickyResult{
 		ID:      sticky.ID,
+		ItemURL: BuildItemURL(args.BoardID, sticky.ID),
 		Content: sticky.Data.Content,
 		Color:   sticky.Style.FillColor,
 		Message: fmt.Sprintf("Created sticky note '%s'", truncate(args.Content, 30)),
@@ -146,6 +147,7 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 
 	return CreateShapeResult{
 		ID:      shape.ID,
+		ItemURL: BuildItemURL(args.BoardID, shape.ID),
 		Shape:   shape.Data.Shape,
 		Content: shape.Data.Content,
 		Message: fmt.Sprintf("Created %s shape", args.Shape),
@@ -210,6 +212,7 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 
 	return CreateTextResult{
 		ID:      text.ID,
+		ItemURL: BuildItemURL(args.BoardID, text.ID),
 		Content: text.Data.Content,
 		Message: fmt.Sprintf("Created text '%s'", truncate(args.Content, 30)),
 	}, nil
@@ -390,6 +393,7 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 
 	return CreateConnectorResult{
 		ID:      connector.ID,
+		ItemURL: BuildItemURL(args.BoardID, connector.ID),
 		Message: "Created connector between items",
 	}, nil
 }
@@ -546,6 +550,7 @@ func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateF
 
 	return CreateFrameResult{
 		ID:      frame.ID,
+		ItemURL: BuildItemURL(args.BoardID, frame.ID),
 		Title:   frame.Data.Title,
 		Message: fmt.Sprintf("Created frame '%s'", args.Title),
 	}, nil
@@ -611,6 +616,7 @@ func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCar
 
 	return CreateCardResult{
 		ID:      card.ID,
+		ItemURL: BuildItemURL(args.BoardID, card.ID),
 		Title:   card.Data.Title,
 		Message: fmt.Sprintf("Created card '%s'", truncate(args.Title, 30)),
 	}, nil
@@ -673,6 +679,7 @@ func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateI
 
 	return CreateImageResult{
 		ID:      image.ID,
+		ItemURL: BuildItemURL(args.BoardID, image.ID),
 		Title:   title,
 		URL:     image.Data.ImageURL,
 		Message: fmt.Sprintf("Added image '%s'", truncate(title, 30)),
@@ -736,6 +743,7 @@ func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (C
 
 	return CreateDocumentResult{
 		ID:      doc.ID,
+		ItemURL: BuildItemURL(args.BoardID, doc.ID),
 		Title:   title,
 		Message: fmt.Sprintf("Added document '%s'", truncate(title, 30)),
 	}, nil
@@ -801,6 +809,7 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 
 	return CreateEmbedResult{
 		ID:       embed.ID,
+		ItemURL:  BuildItemURL(args.BoardID, embed.ID),
 		URL:      embed.Data.URL,
 		Provider: embed.Data.ProviderName,
 		Message:  fmt.Sprintf("Embedded content from %s", embed.Data.ProviderName),
@@ -873,11 +882,12 @@ func (c *Client) CreateStickyGrid(ctx context.Context, args CreateStickyGridArgs
 	rows := (len(args.Contents) + columns - 1) / columns
 
 	return CreateStickyGridResult{
-		Created: len(allIDs),
-		ItemIDs: allIDs,
-		Rows:    rows,
-		Columns: columns,
-		Message: fmt.Sprintf("Created %d stickies in %dx%d grid", len(allIDs), columns, rows),
+		Created:  len(allIDs),
+		ItemIDs:  allIDs,
+		ItemURLs: BuildItemURLs(args.BoardID, allIDs),
+		Rows:     rows,
+		Columns:  columns,
+		Message:  fmt.Sprintf("Created %d stickies in %dx%d grid", len(allIDs), columns, rows),
 	}, nil
 }
 

@@ -46,6 +46,7 @@ func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagRe
 
 	return CreateTagResult{
 		ID:      tag.ID,
+		ItemURL: BuildItemURL(args.BoardID, tag.ID),
 		Title:   tag.Title,
 		Color:   tag.FillColor,
 		Message: fmt.Sprintf("Created tag '%s'", args.Title),

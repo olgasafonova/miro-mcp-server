@@ -90,6 +90,7 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 
 	result := CreateMindmapNodeResult{
 		ID:      node.ID,
+		ItemURL: BuildItemURL(args.BoardID, node.ID),
 		Content: content,
 		Message: fmt.Sprintf("Created mindmap node '%s'", truncateMindmap(args.Content, 30)),
 	}

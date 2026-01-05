@@ -30,6 +30,7 @@ type CreateAppCardArgs struct {
 // CreateAppCardResult contains the created app card.
 type CreateAppCardResult struct {
 	ID          string `json:"id"`
+	ItemURL     string `json:"item_url,omitempty"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Status      string `json:"status"`

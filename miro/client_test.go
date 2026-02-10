@@ -5239,8 +5239,11 @@ func TestGetFrameItems_Success(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Errorf("expected GET, got %s", r.Method)
 		}
-		if !strings.HasPrefix(r.URL.Path, "/boards/board123/frames/frame456/items") {
-			t.Errorf("expected /boards/board123/frames/frame456/items, got %s", r.URL.Path)
+		if r.URL.Path != "/boards/board123/items" {
+			t.Errorf("expected /boards/board123/items, got %s", r.URL.Path)
+		}
+		if !strings.Contains(r.URL.RawQuery, "parent_item_id=frame456") {
+			t.Errorf("expected parent_item_id=frame456 in query, got %s", r.URL.RawQuery)
 		}
 
 		w.Header().Set("Content-Type", "application/json")

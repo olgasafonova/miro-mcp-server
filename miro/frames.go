@@ -204,8 +204,10 @@ func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (Get
 		limit = 100
 	}
 
-	// Use the specific frame items endpoint
-	path := fmt.Sprintf("/boards/%s/frames/%s/items?limit=%d", args.BoardID, args.FrameID, limit)
+	// Use the items endpoint with parent_item_id filter to get items within a frame.
+	// The /frames/{id}/items path does not exist in Miro API v2 and returns 404.
+	// See: https://developers.miro.com/reference/get-items-within-frame
+	path := fmt.Sprintf("/boards/%s/items?parent_item_id=%s&limit=%d", args.BoardID, args.FrameID, limit)
 	if args.Type != "" {
 		path += "&type=" + args.Type
 	}

@@ -154,11 +154,10 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Mindmaps (4)</b></summary>
+<summary><b>Mindmaps (3)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `miro_create_mindmap_node` | Create mindmap node |
 | `miro_get_mindmap_node` | Get node details |
 | `miro_list_mindmap_nodes` | List all mindmap nodes |
 | `miro_delete_mindmap_node` | Delete a mindmap node |
@@ -181,11 +180,19 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Update & Delete Items (6)</b></summary>
+<summary><b>Update & Delete Items (14)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_update_item` | Update item content/position/color |
+| `miro_update_sticky` | Update sticky note (shape, color) |
+| `miro_update_shape` | Update shape (fill, text color, type) |
+| `miro_update_text` | Update text element |
+| `miro_update_card` | Update card fields |
+| `miro_update_image` | Update image properties |
+| `miro_update_document` | Update document properties |
+| `miro_update_embed` | Update embed properties |
+| `miro_update_group` | Update group properties |
 | `miro_update_app_card` | Update app card fields |
 | `miro_bulk_update` | Update multiple items at once |
 | `miro_delete_item` | Delete an item |
@@ -360,7 +367,7 @@ When running with `-http :8080`:
 {
   "status": "healthy",
   "server": "miro-mcp-server",
-  "version": "1.9.0",
+  "version": "1.11.2",
   "uptime": "2h30m",
   "components": {
     "config": {"status": "healthy"},
@@ -399,9 +406,9 @@ make help
 
 **Quick start:**
 ```bash
-# Using docker-compose
+# Using Docker Compose
 export MIRO_ACCESS_TOKEN=your-token
-docker-compose up -d
+docker compose up -d
 
 # Or build and run manually
 docker build -t miro-mcp-server .

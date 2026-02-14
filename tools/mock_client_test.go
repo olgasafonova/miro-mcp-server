@@ -36,6 +36,9 @@ type MockClient struct {
 	BulkCreateFn   func(ctx context.Context, args miro.BulkCreateArgs) (miro.BulkCreateResult, error)
 	BulkUpdateFn   func(ctx context.Context, args miro.BulkUpdateArgs) (miro.BulkUpdateResult, error)
 	BulkDeleteFn   func(ctx context.Context, args miro.BulkDeleteArgs) (miro.BulkDeleteResult, error)
+	// Type-specific reads
+	GetImageFn    func(ctx context.Context, args miro.GetImageArgs) (miro.GetImageResult, error)
+	GetDocumentFn func(ctx context.Context, args miro.GetDocumentArgs) (miro.GetDocumentResult, error)
 	// Type-specific updates
 	UpdateStickyFn   func(ctx context.Context, args miro.UpdateStickyArgs) (miro.UpdateStickyResult, error)
 	UpdateShapeFn    func(ctx context.Context, args miro.UpdateShapeArgs) (miro.UpdateShapeResult, error)
@@ -269,11 +272,11 @@ func (m *MockClient) GetBoardContent(ctx context.Context, args miro.GetBoardCont
 		return m.GetBoardContentFn(ctx, args)
 	}
 	return miro.GetBoardContentResult{
-		ID:          args.BoardID,
-		Name:        "Test Board",
-		ViewLink:    "https://miro.com/app/board/" + args.BoardID,
-		TotalItems:  10,
-		ItemCounts:  map[string]int{"sticky_note": 5, "shape": 3, "text": 2},
+		ID:         args.BoardID,
+		Name:       "Test Board",
+		ViewLink:   "https://miro.com/app/board/" + args.BoardID,
+		TotalItems: 10,
+		ItemCounts: map[string]int{"sticky_note": 5, "shape": 3, "text": 2},
 		ItemsByType: miro.ItemsByType{
 			StickyNotes: []miro.ItemSummary{{ID: "s1", Type: "sticky_note", Content: "Test"}},
 		},
@@ -329,6 +332,34 @@ func (m *MockClient) GetItem(ctx context.Context, args miro.GetItemArgs) (miro.G
 		ID:      args.ItemID,
 		Type:    "sticky_note",
 		Content: "Test sticky content",
+	}, nil
+}
+
+func (m *MockClient) GetImage(ctx context.Context, args miro.GetImageArgs) (miro.GetImageResult, error) {
+	m.recordCall("GetImage", args)
+	if m.GetImageFn != nil {
+		return m.GetImageFn(ctx, args)
+	}
+	return miro.GetImageResult{
+		ID:       args.ItemID,
+		Title:    "Test Image",
+		ImageURL: "https://miro.com/images/test.png",
+		Width:    800,
+		Height:   600,
+		Message:  "Image retrieved successfully",
+	}, nil
+}
+
+func (m *MockClient) GetDocument(ctx context.Context, args miro.GetDocumentArgs) (miro.GetDocumentResult, error) {
+	m.recordCall("GetDocument", args)
+	if m.GetDocumentFn != nil {
+		return m.GetDocumentFn(ctx, args)
+	}
+	return miro.GetDocumentResult{
+		ID:          args.ItemID,
+		Title:       "Test Document",
+		DocumentURL: "https://miro.com/documents/test.pdf",
+		Message:     "Document retrieved successfully",
 	}, nil
 }
 

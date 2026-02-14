@@ -84,6 +84,8 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		// Read tools
 		"ListItems":    makeHandler(h, h.client.ListItems),
 		"GetItem":      makeHandler(h, h.client.GetItem),
+		"GetImage":     makeHandler(h, h.client.GetImage),
+		"GetDocument":  makeHandler(h, h.client.GetDocument),
 		"SearchBoard":  makeHandler(h, h.client.SearchBoard),
 		"ListAllItems": makeHandler(h, h.client.ListAllItems),
 

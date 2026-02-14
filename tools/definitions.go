@@ -293,11 +293,35 @@ VOICE-FRIENDLY: "Created card 'Review design specs'"`,
 		Description: `Add an image to a Miro board from a URL. URL must be publicly accessible.`,
 	},
 	{
+		Name:     "miro_get_image",
+		Method:   "GetImage",
+		Title:    "Get Image Details",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of an image on a Miro board, including its Miro-hosted URL, title, and dimensions. Use the image_url to download or reference the image.
+
+USE WHEN: "get image URL", "what image is this", "image details"
+
+VOICE-FRIENDLY: "Image 'Logo' is 800x600 at position (100, 200)"`,
+	},
+	{
 		Name:        "miro_create_document",
 		Method:      "CreateDocument",
 		Title:       "Create Document",
 		Category:    "create",
 		Description: `Add a document (PDF, etc.) to a Miro board from a URL. URL must be publicly accessible.`,
+	},
+	{
+		Name:     "miro_get_document",
+		Method:   "GetDocument",
+		Title:    "Get Document Details",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of a document on a Miro board, including its Miro-hosted URL and title.
+
+USE WHEN: "get document details", "what document is this", "document URL"
+
+VOICE-FRIENDLY: "Document 'Q4 Report' hosted at Miro"`,
 	},
 	{
 		Name:        "miro_create_embed",

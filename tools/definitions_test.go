@@ -116,7 +116,8 @@ func TestToolCount(t *testing.T) {
 	// v1.9.0: +5 type-specific update tools (update_sticky, update_shape, update_text, update_card, update_group) = 73
 	// v1.10.0: +3 type-specific update tools (update_image, update_document, update_embed) = 76
 	// v1.11.0: +1 board content tool (get_board_content for AI analysis) = 77
-	expectedCount := 77
+	// v1.12.0: +2 read tools (get_image, get_document) = 79
+	expectedCount := 79
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

@@ -1358,6 +1358,130 @@ func createSnippet(content, query string, contextLen int) string {
 	return snippet
 }
 
+// GetImage retrieves details of a specific image item.
+func (c *Client) GetImage(ctx context.Context, args GetImageArgs) (GetImageResult, error) {
+	if args.BoardID == "" {
+		return GetImageResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ItemID == "" {
+		return GetImageResult{}, fmt.Errorf("item_id is required")
+	}
+
+	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)
+	if cached, ok := c.cache.Get(cacheKey); ok {
+		if result, ok := cached.(GetImageResult); ok {
+			return result, nil
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodGet, "/boards/"+args.BoardID+"/images/"+args.ItemID, nil)
+	if err != nil {
+		return GetImageResult{}, err
+	}
+
+	var resp struct {
+		ID       string `json:"id"`
+		Position *struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		} `json:"position"`
+		Geometry *struct {
+			Width  float64 `json:"width"`
+			Height float64 `json:"height"`
+		} `json:"geometry"`
+		Data struct {
+			Title    string `json:"title"`
+			ImageURL string `json:"imageUrl"`
+		} `json:"data"`
+		ParentID string `json:"parentId"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return GetImageResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	result := GetImageResult{
+		ID:       resp.ID,
+		Title:    resp.Data.Title,
+		ImageURL: resp.Data.ImageURL,
+		ParentID: resp.ParentID,
+		Message:  "Image retrieved successfully",
+	}
+	if resp.Position != nil {
+		result.X = resp.Position.X
+		result.Y = resp.Position.Y
+	}
+	if resp.Geometry != nil {
+		result.Width = resp.Geometry.Width
+		result.Height = resp.Geometry.Height
+	}
+
+	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
+
+	return result, nil
+}
+
+// GetDocument retrieves details of a specific document item.
+func (c *Client) GetDocument(ctx context.Context, args GetDocumentArgs) (GetDocumentResult, error) {
+	if args.BoardID == "" {
+		return GetDocumentResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ItemID == "" {
+		return GetDocumentResult{}, fmt.Errorf("item_id is required")
+	}
+
+	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)
+	if cached, ok := c.cache.Get(cacheKey); ok {
+		if result, ok := cached.(GetDocumentResult); ok {
+			return result, nil
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodGet, "/boards/"+args.BoardID+"/documents/"+args.ItemID, nil)
+	if err != nil {
+		return GetDocumentResult{}, err
+	}
+
+	var resp struct {
+		ID       string `json:"id"`
+		Position *struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		} `json:"position"`
+		Geometry *struct {
+			Width  float64 `json:"width"`
+			Height float64 `json:"height"`
+		} `json:"geometry"`
+		Data struct {
+			Title       string `json:"title"`
+			DocumentURL string `json:"documentUrl"`
+		} `json:"data"`
+		ParentID string `json:"parentId"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return GetDocumentResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	result := GetDocumentResult{
+		ID:          resp.ID,
+		Title:       resp.Data.Title,
+		DocumentURL: resp.Data.DocumentURL,
+		ParentID:    resp.ParentID,
+		Message:     "Document retrieved successfully",
+	}
+	if resp.Position != nil {
+		result.X = resp.Position.X
+		result.Y = resp.Position.Y
+	}
+	if resp.Geometry != nil {
+		result.Width = resp.Geometry.Width
+		result.Height = resp.Geometry.Height
+	}
+
+	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
+
+	return result, nil
+}
+
 // UpdateImage updates an image using the dedicated images endpoint.
 func (c *Client) UpdateImage(ctx context.Context, args UpdateImageArgs) (UpdateImageResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {

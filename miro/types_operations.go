@@ -265,6 +265,29 @@ type CreateImageResult struct {
 }
 
 // =============================================================================
+// Get Image
+// =============================================================================
+
+// GetImageArgs contains parameters for retrieving an image item.
+type GetImageArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"Image item ID"`
+}
+
+// GetImageResult contains the image details.
+type GetImageResult struct {
+	ID       string  `json:"id"`
+	Title    string  `json:"title,omitempty"`
+	ImageURL string  `json:"image_url"`
+	Width    float64 `json:"width,omitempty"`
+	Height   float64 `json:"height,omitempty"`
+	X        float64 `json:"x,omitempty"`
+	Y        float64 `json:"y,omitempty"`
+	ParentID string  `json:"parent_id,omitempty"`
+	Message  string  `json:"message"`
+}
+
+// =============================================================================
 // Create Document
 // =============================================================================
 
@@ -285,6 +308,29 @@ type CreateDocumentResult struct {
 	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title"`
 	Message string `json:"message"`
+}
+
+// =============================================================================
+// Get Document
+// =============================================================================
+
+// GetDocumentArgs contains parameters for retrieving a document item.
+type GetDocumentArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"Document item ID"`
+}
+
+// GetDocumentResult contains the document details.
+type GetDocumentResult struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title,omitempty"`
+	DocumentURL string  `json:"document_url,omitempty"`
+	Width       float64 `json:"width,omitempty"`
+	Height      float64 `json:"height,omitempty"`
+	X           float64 `json:"x,omitempty"`
+	Y           float64 `json:"y,omitempty"`
+	ParentID    string  `json:"parent_id,omitempty"`
+	Message     string  `json:"message"`
 }
 
 // =============================================================================

@@ -2865,6 +2865,183 @@ func TestCreateImage_ValidationErrors(t *testing.T) {
 	}
 }
 
+func TestGetImage_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/boards/board123/images/img456") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "img456",
+			"type": "image",
+			"data": map[string]interface{}{
+				"title":    "Logo",
+				"imageUrl": "https://miro.com/images/img456.png",
+			},
+			"position": map[string]interface{}{
+				"x": 100.0,
+				"y": 200.0,
+			},
+			"geometry": map[string]interface{}{
+				"width":  800.0,
+				"height": 600.0,
+			},
+			"parentId": "frame1",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetImage(context.Background(), GetImageArgs{
+		BoardID: "board123",
+		ItemID:  "img456",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "img456" {
+		t.Errorf("ID = %q, want 'img456'", result.ID)
+	}
+	if result.Title != "Logo" {
+		t.Errorf("Title = %q, want 'Logo'", result.Title)
+	}
+	if result.ImageURL != "https://miro.com/images/img456.png" {
+		t.Errorf("ImageURL = %q, want 'https://miro.com/images/img456.png'", result.ImageURL)
+	}
+	if result.Width != 800.0 {
+		t.Errorf("Width = %f, want 800", result.Width)
+	}
+	if result.Height != 600.0 {
+		t.Errorf("Height = %f, want 600", result.Height)
+	}
+	if result.ParentID != "frame1" {
+		t.Errorf("ParentID = %q, want 'frame1'", result.ParentID)
+	}
+}
+
+func TestGetImage_ValidationErrors(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+
+	tests := []struct {
+		name    string
+		args    GetImageArgs
+		errText string
+	}{
+		{
+			name:    "empty board_id",
+			args:    GetImageArgs{ItemID: "img456"},
+			errText: "board_id is required",
+		},
+		{
+			name:    "empty item_id",
+			args:    GetImageArgs{BoardID: "board123"},
+			errText: "item_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetImage(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.errText) {
+				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			}
+		})
+	}
+}
+
+func TestGetDocument_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/boards/board123/documents/doc789") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "doc789",
+			"type": "document",
+			"data": map[string]interface{}{
+				"title":       "Q4 Report",
+				"documentUrl": "https://miro.com/documents/doc789.pdf",
+			},
+			"position": map[string]interface{}{
+				"x": 300.0,
+				"y": 400.0,
+			},
+			"geometry": map[string]interface{}{
+				"width":  400.0,
+				"height": 300.0,
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GetDocument(context.Background(), GetDocumentArgs{
+		BoardID: "board123",
+		ItemID:  "doc789",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "doc789" {
+		t.Errorf("ID = %q, want 'doc789'", result.ID)
+	}
+	if result.Title != "Q4 Report" {
+		t.Errorf("Title = %q, want 'Q4 Report'", result.Title)
+	}
+	if result.DocumentURL != "https://miro.com/documents/doc789.pdf" {
+		t.Errorf("DocumentURL = %q, want 'https://miro.com/documents/doc789.pdf'", result.DocumentURL)
+	}
+	if result.Width != 400.0 {
+		t.Errorf("Width = %f, want 400", result.Width)
+	}
+}
+
+func TestGetDocument_ValidationErrors(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+
+	tests := []struct {
+		name    string
+		args    GetDocumentArgs
+		errText string
+	}{
+		{
+			name:    "empty board_id",
+			args:    GetDocumentArgs{ItemID: "doc789"},
+			errText: "board_id is required",
+		},
+		{
+			name:    "empty item_id",
+			args:    GetDocumentArgs{BoardID: "board123"},
+			errText: "item_id is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetDocument(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.errText) {
+				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			}
+		})
+	}
+}
+
 func TestListConnectors_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

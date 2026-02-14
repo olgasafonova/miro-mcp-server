@@ -4,7 +4,7 @@ Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**77 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**79 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -68,7 +68,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | Category | Examples |
 |----------|----------|
 | **Boards** | Create, copy, delete, update, share, list members |
-| **Items** | Sticky notes, shapes, text, cards, app cards, frames |
+| **Items** | Sticky notes, shapes, text, cards, app cards, images, documents, frames |
 | **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid |
 | **Mindmaps** | Create mindmap nodes with parent-child relationships |
 | **Bulk Ops** | Create multiple items at once, sticky grids |
@@ -87,7 +87,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 77 Tools
+## All 79 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -166,13 +166,15 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Read Items (5)</b></summary>
+<summary><b>Read Items (7)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_list_items` | List items on a board |
 | `miro_list_all_items` | Get ALL items with auto-pagination |
 | `miro_get_item` | Get item details |
+| `miro_get_image` | Get image details and Miro-hosted URL |
+| `miro_get_document` | Get document details and Miro-hosted URL |
 | `miro_get_app_card` | Get app card details |
 | `miro_search_board` | Search items by content |
 
@@ -298,24 +300,32 @@ sequenceDiagram
 
 ## Official vs Community
 
-Miro has released an [official MCP server](https://miro.com/ai/mcp/) (beta). Here's how they compare:
+Miro has released an [official MCP server](https://miro.com/ai/mcp/) (beta, Dec 2025). Here's how they compare:
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 77 | ~5 (beta) |
-| **Diagram generation** | Mermaid syntax | AI-based |
+| **Tools** | 79 | 14 |
+| **Transport** | stdio + HTTP | HTTPS only (hosted) |
+| **Self-hosting** | Yes | No |
+| **Offline mode** | Yes | No |
+| **Auth** | Token + OAuth2 | OAuth 2.1 (admin approval) |
+| **Diagram generation** | Mermaid syntax | Proprietary DSL |
 | **Bulk operations** | Yes | No |
 | **Mindmaps** | Yes | No |
 | **Tags & Groups** | Yes | No |
-| **Export** | Yes | No |
-| **Runtime** | Single Go binary | Node.js |
-| **Rate limiting** | Adaptive | Basic |
-| **Caching** | Built-in | No |
-| **OAuth flow** | Built-in CLI | Requires setup |
+| **Connectors CRUD** | Yes | No |
+| **Export** | Yes (PDF/SVG) | No |
+| **MCP Resources** | 3 | No |
+| **MCP Prompts** | 5 workflows | No |
+| **Runtime** | Single Go binary | TypeScript (hosted) |
+| **Rate limiting** | Adaptive | N/A (hosted) |
+| **Caching** | Built-in (2min TTL) | N/A |
+| **Metrics** | Prometheus | No |
+| **AI context** | No | Yes (costs credits) |
 
-**When to use the official server:** You want Miro-supported tooling and AI-powered diagram generation.
+**When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, or AI-powered board context extraction.
 
-**When to use this server:** You need the full API surface, bulk ops, mindmaps, tags, or want a lightweight binary.
+**When to use this server:** You need full API coverage (79 tools vs 14), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 
@@ -418,7 +428,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 77 tools with their schemas
+- Browse all 79 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -460,9 +470,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 77 tools |
-| Team | Full access to all 77 tools |
-| Business | Full access to all 77 tools |
+| Free | Full access to all 79 tools |
+| Team | Full access to all 79 tools |
+| Business | Full access to all 79 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

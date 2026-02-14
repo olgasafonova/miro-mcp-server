@@ -33,6 +33,9 @@ type ItemService interface {
 	BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error)
 	BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdateResult, error)
 	BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDeleteResult, error)
+	// Type-specific reads
+	GetImage(ctx context.Context, args GetImageArgs) (GetImageResult, error)
+	GetDocument(ctx context.Context, args GetDocumentArgs) (GetDocumentResult, error)
 	// Type-specific updates
 	UpdateSticky(ctx context.Context, args UpdateStickyArgs) (UpdateStickyResult, error)
 	UpdateShape(ctx context.Context, args UpdateShapeArgs) (UpdateShapeResult, error)

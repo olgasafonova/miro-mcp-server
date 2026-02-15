@@ -58,13 +58,16 @@ func (e *APIError) IsServerError() bool {
 	return e.StatusCode >= 500
 }
 
+// feedbackURL is the pre-filled issue link shown on setup/auth errors.
+const feedbackURL = "https://github.com/olgasafonova/miro-mcp-server/issues/new?template=bug_report.yml"
+
 // Suggestion returns actionable guidance for resolving the error.
 func (e *APIError) Suggestion() string {
 	switch e.StatusCode {
 	case http.StatusUnauthorized:
-		return "Check that MIRO_ACCESS_TOKEN is set and valid. Get a token at https://miro.com/app/settings/user-profile/apps"
+		return "Check that MIRO_ACCESS_TOKEN is set and valid. Get a token at https://miro.com/app/settings/user-profile/apps — Still stuck? " + feedbackURL
 	case http.StatusForbidden:
-		return "Your token may lack the required scopes. Check board sharing permissions or regenerate your token with correct scopes."
+		return "Your token may lack the required scopes. Check board sharing permissions or regenerate your token with correct scopes. Still stuck? " + feedbackURL
 	case http.StatusNotFound:
 		return "The board or item may have been deleted, or the ID may be incorrect. Verify the ID exists."
 	case http.StatusTooManyRequests:

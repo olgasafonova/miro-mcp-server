@@ -24,7 +24,7 @@ const (
 func LoadConfigFromEnv() (*Config, error) {
 	token := os.Getenv("MIRO_ACCESS_TOKEN")
 	if token == "" {
-		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN environment variable is required. Get one at https://miro.com/app/settings/user-profile/apps")
+		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN environment variable is required. Get one at https://miro.com/app/settings/user-profile/apps — Still stuck? https://github.com/olgasafonova/miro-mcp-server/issues/new?template=bug_report.yml")
 	}
 
 	timeout := DefaultTimeout

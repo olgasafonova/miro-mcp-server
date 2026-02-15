@@ -1,6 +1,6 @@
 # Miro MCP Server
 
-Control [Miro](https://miro.com) whiteboards with AI. Built in Go for speed and simplicity.
+Run your [Miro](https://miro.com) workshops, retros, and planning sessions from the command line. Read boards, create stickies, organize frames, and generate diagrams through Claude, Cursor, or any MCP client.
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
@@ -60,6 +60,8 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 ```
 
 **Claude Desktop / Cursor / VS Code:** See [SETUP.md](SETUP.md)
+
+> **Not working?** [Tell us what made it hard](https://github.com/olgasafonova/miro-mcp-server/issues/new?template=bug_report.yml) — even one sentence helps.
 
 ---
 

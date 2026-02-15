@@ -1,0 +1,30 @@
+name: Feature Request
+description: Something you wish this tool could do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what-made-you-want-this
+    attributes:
+      label: What made you want this feature?
+      description: |
+        Describe the situation you were in when you thought
+        "I wish this tool could..."
+      placeholder: |
+        I was working on [context] and needed to [goal]
+        but the tool couldn't [gap]
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: What would the ideal solution look like?
+      placeholder: |
+        I'd expect to be able to... / A tool called X that does Y...
+  - type: dropdown
+    id: workaround
+    attributes:
+      label: Do you have a workaround right now?
+      options:
+        - No, this is blocking me
+        - Yes, but it's painful
+        - Yes, it's fine for now

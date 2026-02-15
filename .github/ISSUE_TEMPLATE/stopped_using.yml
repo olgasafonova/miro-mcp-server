@@ -1,0 +1,34 @@
+name: I stopped using this
+description: Help us understand what made you move on
+labels: [churn-feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We're not trying to win you back. We genuinely want to understand
+        what moment or experience caused you to stop. Even one sentence helps.
+  - type: textarea
+    id: what-made-you-stop
+    attributes:
+      label: What made you stop using this?
+      placeholder: |
+        I stopped when... / The moment I realized... / I switched to X because...
+    validations:
+      required: true
+  - type: dropdown
+    id: how-far
+    attributes:
+      label: How far did you get?
+      options:
+        - Read the README but didn't install
+        - Installed but couldn't configure
+        - Configured but first use didn't work
+        - Used it for a while, then stopped
+        - Still using it, just less
+    validations:
+      required: true
+  - type: textarea
+    id: switched-to
+    attributes:
+      label: What are you using instead? (optional)
+      placeholder: Switched to... / Went back to... / Built my own...

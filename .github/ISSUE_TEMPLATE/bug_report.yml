@@ -1,0 +1,44 @@
+name: Bug Report
+description: Something broke or didn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What made this break?
+      description: |
+        Describe the specific action or step that caused the problem.
+        What were you trying to do when it happened?
+      placeholder: |
+        I was trying to [goal] by [action], and then [what went wrong]
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: how-far
+    attributes:
+      label: How far did you get?
+      options:
+        - Couldn't install or build
+        - Installed but couldn't configure (token, env vars)
+        - Configured but first tool call failed
+        - Was working, then broke
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Environment
+      description: MCP client, OS, server version
+      placeholder: "Claude Desktop on macOS, miro-mcp-server v0.x.x"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output (if any)
+      description: Paste the error message or relevant log output
+      render: shell

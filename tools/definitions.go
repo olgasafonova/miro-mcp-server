@@ -823,6 +823,16 @@ VOICE-FRIENDLY: "Got preview image for the board"`,
 		ReadOnly:    true,
 		Description: `Query local audit log for MCP tool executions (this session only). Filter by time range, tool, board, action type, or success/failure.`,
 	},
+	{
+		Name:     "miro_get_desire_paths",
+		Method:   "GetDesirePathReport",
+		Title:    "Get Desire Path Report",
+		Category: "audit",
+		ReadOnly: true,
+		Description: `Query desire path normalizations. Shows what agents tried to send and how it was auto-corrected (URLs in ID fields, camelCase keys, string numbers, etc.). USE WHEN reviewing tool usage patterns to improve descriptions or schemas.
+
+Filter by tool name or normalizer rule. Returns top patterns and recent events.`,
+	},
 
 	// ==========================================================================
 	// Webhook Tools - REMOVED (Miro sunset Dec 5, 2025)

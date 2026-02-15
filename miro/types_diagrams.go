@@ -31,11 +31,11 @@ type GenerateDiagramResult struct {
 	DiagramHeight     float64  `json:"diagram_height"`
 	Message           string   `json:"message"`
 	// Compound output mode fields
-	OutputMode   string `json:"output_mode,omitempty"`
-	DiagramID    string `json:"diagram_id,omitempty"`
-	DiagramURL   string `json:"diagram_url,omitempty"`
-	DiagramType  string `json:"diagram_type,omitempty"` // "group" or "frame"
-	TotalItems   int    `json:"total_items,omitempty"`
+	OutputMode  string `json:"output_mode,omitempty"`
+	DiagramID   string `json:"diagram_id,omitempty"`
+	DiagramURL  string `json:"diagram_url,omitempty"`
+	DiagramType string `json:"diagram_type,omitempty"` // "group" or "frame"
+	TotalItems  int    `json:"total_items,omitempty"`
 }
 
 // DiagramNode represents a node in the generated diagram (for response details).

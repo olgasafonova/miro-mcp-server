@@ -18,6 +18,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
+	"github.com/olgasafonova/miro-mcp-server/miro/desirepath"
 	"github.com/olgasafonova/miro-mcp-server/miro/oauth"
 	"github.com/olgasafonova/miro-mcp-server/prompts"
 	"github.com/olgasafonova/miro-mcp-server/resources"
@@ -26,7 +27,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.10.0"
+	ServerVersion = "1.13.0"
 )
 
 func main() {
@@ -93,9 +94,26 @@ func main() {
 		Instructions: serverInstructions,
 	})
 
-	// Register all Miro tools with audit logging
+	// Initialize desire path logger for agent behavior normalization
+	dpConfig := desirepath.LoadConfigFromEnv()
+	dpLogger := desirepath.NewLogger(dpConfig, logger)
+
+	normalizers := []desirepath.Normalizer{
+		&desirepath.WhitespaceNormalizer{},
+		desirepath.NewURLToIDNormalizer(desirepath.MiroURLPatterns()),
+		&desirepath.CamelToSnakeNormalizer{},
+		desirepath.NewStringToNumericNormalizer(nil),
+		desirepath.NewBooleanCoercionNormalizer(nil),
+	}
+
+	if dpConfig.Enabled {
+		logger.Info("Desire path normalization enabled", "max_events", dpConfig.MaxEvents)
+	}
+
+	// Register all Miro tools with audit logging and desire path normalization
 	registry := tools.NewHandlerRegistry(client, logger).
 		WithAuditLogger(auditLogger).
+		WithDesirePathLogger(dpLogger, normalizers).
 		WithUser(user.ID, user.Email)
 	registry.RegisterAll(server)
 

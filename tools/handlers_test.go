@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
+	"github.com/olgasafonova/miro-mcp-server/miro/desirepath"
 )
 
 // =============================================================================
@@ -74,6 +76,8 @@ func TestHandlerRegistryBuildHandlerMap(t *testing.T) {
 		"ListBoardMembers", "ShareBoard",
 		// Mindmap tools
 		"CreateMindmapNode",
+		// Audit/observability tools
+		"GetAuditLog", "GetDesirePathReport",
 	}
 
 	for _, method := range expectedMethods {
@@ -2366,4 +2370,213 @@ func TestMCPToolExecution_WithAuditLogging(t *testing.T) {
 
 	cancel()
 	<-serverDone
+}
+
+// =============================================================================
+// Desire Path Tests
+// =============================================================================
+
+func TestWithDesirePathLogger(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	dpLogger := desirepath.NewLogger(desirepath.Config{Enabled: true, MaxEvents: 10}, testLogger())
+	normalizers := []desirepath.Normalizer{
+		&desirepath.WhitespaceNormalizer{},
+	}
+
+	result := registry.WithDesirePathLogger(dpLogger, normalizers)
+	if result != registry {
+		t.Error("WithDesirePathLogger should return the same registry for chaining")
+	}
+	if registry.desireLogger == nil {
+		t.Error("desireLogger should be set")
+	}
+	if len(registry.normalizers) != 1 {
+		t.Errorf("normalizers len = %d, want 1", len(registry.normalizers))
+	}
+}
+
+func TestGetDesirePathReport_NoLogger(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	ctx := context.Background()
+	result, err := registry.GetDesirePathReport(ctx, miro.GetDesirePathReportArgs{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Message != "Desire path logging is not enabled" {
+		t.Errorf("message = %q, want disabled message", result.Message)
+	}
+}
+
+func TestGetDesirePathReport_WithEvents(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	dpLogger := desirepath.NewLogger(desirepath.Config{Enabled: true, MaxEvents: 100}, testLogger())
+	registry.WithDesirePathLogger(dpLogger, nil)
+
+	// Log some events directly
+	dpLogger.Log(desirepath.Event{
+		Tool:         "miro_get_board",
+		Parameter:    "board_id",
+		Rule:         "url_to_id",
+		RawValue:     "https://miro.com/app/board/uXjVN123=/",
+		NormalizedTo: "uXjVN123=",
+	})
+	dpLogger.Log(desirepath.Event{
+		Tool:         "miro_list_items",
+		Parameter:    "limit",
+		Rule:         "string_to_numeric",
+		RawValue:     `"10"`,
+		NormalizedTo: "10",
+	})
+
+	ctx := context.Background()
+	result, err := registry.GetDesirePathReport(ctx, miro.GetDesirePathReportArgs{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.TotalNormalizations != 2 {
+		t.Errorf("total = %d, want 2", result.TotalNormalizations)
+	}
+	if len(result.RecentEvents) != 2 {
+		t.Errorf("recent events = %d, want 2", len(result.RecentEvents))
+	}
+	if result.ByRule["url_to_id"] != 1 {
+		t.Errorf("by_rule[url_to_id] = %d, want 1", result.ByRule["url_to_id"])
+	}
+}
+
+func TestGetDesirePathReport_FilterByTool(t *testing.T) {
+	mock := &MockClient{}
+	registry := newTestRegistry(mock)
+
+	dpLogger := desirepath.NewLogger(desirepath.Config{Enabled: true, MaxEvents: 100}, testLogger())
+	registry.WithDesirePathLogger(dpLogger, nil)
+
+	dpLogger.Log(desirepath.Event{Tool: "miro_get_board", Rule: "url_to_id"})
+	dpLogger.Log(desirepath.Event{Tool: "miro_list_items", Rule: "string_to_numeric"})
+
+	ctx := context.Background()
+	result, err := registry.GetDesirePathReport(ctx, miro.GetDesirePathReportArgs{
+		Tool: "miro_get_board",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, e := range result.RecentEvents {
+		if e.Tool != "miro_get_board" {
+			t.Errorf("filtered event has wrong tool: %q", e.Tool)
+		}
+	}
+}
+
+func TestNormalizeArgs_URLInBoardID(t *testing.T) {
+	mock := &MockClient{
+		GetBoardFn: func(ctx context.Context, args miro.GetBoardArgs) (miro.GetBoardResult, error) {
+			return miro.GetBoardResult{
+				Board: miro.Board{ID: args.BoardID, Name: "Test"},
+			}, nil
+		},
+	}
+
+	dpLogger := desirepath.NewLogger(desirepath.Config{Enabled: true, MaxEvents: 100}, testLogger())
+	normalizers := []desirepath.Normalizer{
+		&desirepath.WhitespaceNormalizer{},
+		desirepath.NewURLToIDNormalizer(desirepath.MiroURLPatterns()),
+		&desirepath.CamelToSnakeNormalizer{},
+		desirepath.NewStringToNumericNormalizer(nil),
+		desirepath.NewBooleanCoercionNormalizer(nil),
+	}
+
+	registry := NewHandlerRegistry(mock, testLogger()).
+		WithDesirePathLogger(dpLogger, normalizers)
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "1.0"}, nil)
+	registry.RegisterAll(server)
+
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	serverDone := make(chan error, 1)
+	go func() {
+		serverDone <- server.Run(ctx, serverTransport)
+	}()
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "1.0"}, nil)
+	session, err := mcpClient.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	defer session.Close()
+
+	// Send a full URL in board_id - should be normalized to just the ID
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "miro_get_board",
+		Arguments: map[string]interface{}{
+			"board_id": "https://miro.com/app/board/uXjVN123=/",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool failed: %v", err)
+	}
+	if result.IsError {
+		t.Errorf("Tool returned error: %v", result.Content)
+	}
+
+	// Verify the URL normalization was logged
+	if dpLogger.Count() == 0 {
+		t.Error("Expected desire path event for URL normalization")
+	}
+	events := dpLogger.Query(desirepath.QueryOptions{Rule: "url_to_id"})
+	if len(events) == 0 {
+		t.Error("Expected url_to_id event")
+	} else if events[0].NormalizedTo != "uXjVN123=" {
+		t.Errorf("normalized to %q, want %q", events[0].NormalizedTo, "uXjVN123=")
+	}
+
+	cancel()
+	<-serverDone
+}
+
+// Note: CamelCase key normalization cannot be tested via full MCP integration because
+// the go-sdk validates arguments against the JSON schema BEFORE calling the handler.
+// Sending "boardId" instead of "board_id" is rejected by schema validation.
+// CamelCase normalization would require transport-level middleware to intercept
+// requests before schema validation. The normalizer logic is tested in desirepath_test.go.
+func TestNormalizeArgs_CamelCaseKeys_Unit(t *testing.T) {
+	dpLogger := desirepath.NewLogger(desirepath.Config{Enabled: true, MaxEvents: 100}, testLogger())
+	normalizers := []desirepath.Normalizer{
+		&desirepath.CamelToSnakeNormalizer{},
+	}
+
+	mock := &MockClient{}
+	registry := NewHandlerRegistry(mock, testLogger()).
+		WithDesirePathLogger(dpLogger, normalizers)
+
+	// Simulate what normalizeArgs would receive: raw JSON with camelCase keys
+	rawJSON := json.RawMessage(`{"boardId": "uXjVN123="}`)
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Arguments: rawJSON,
+		},
+	}
+
+	args := miro.GetBoardArgs{BoardID: ""}
+	result := normalizeArgs(registry, "miro_get_board", req, args)
+
+	// The normalizer should have remapped boardId -> board_id
+	if result.BoardID != "uXjVN123=" {
+		t.Errorf("Expected BoardID 'uXjVN123=', got %q", result.BoardID)
+	}
+
+	// Verify camel_to_snake event was logged
+	events := dpLogger.Query(desirepath.QueryOptions{Rule: "camel_to_snake"})
+	if len(events) == 0 {
+		t.Error("Expected camel_to_snake event for boardId -> board_id")
+	}
 }

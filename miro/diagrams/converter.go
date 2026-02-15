@@ -2,14 +2,14 @@ package diagrams
 
 // MiroShape represents a shape to be created in Miro.
 type MiroShape struct {
-	Shape      string  // Miro shape type
-	Content    string  // Text content
-	X          float64 // Center X position
-	Y          float64 // Center Y position
-	Width      float64
-	Height     float64
-	Color      string // Fill color (optional)
-	IsStencil  bool   // True if this is a flowchart stencil shape (requires experimental API)
+	Shape       string  // Miro shape type
+	Content     string  // Text content
+	X           float64 // Center X position
+	Y           float64 // Center Y position
+	Width       float64
+	Height      float64
+	Color       string // Fill color (optional)
+	IsStencil   bool   // True if this is a flowchart stencil shape (requires experimental API)
 	BorderColor string // Border color (optional, for stencil styling)
 }
 

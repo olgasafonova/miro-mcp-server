@@ -75,6 +75,9 @@ fmt: ## Format code
 fmt-check: ## Check code formatting
 	@test -z "$$($(GOFMT) -l .)" || (echo "Code not formatted. Run 'make fmt'" && exit 1)
 
+.PHONY: check
+check: fmt-check vet lint test ## Run all quality checks
+
 .PHONY: tidy
 tidy: ## Tidy go modules
 	$(GOMOD) tidy

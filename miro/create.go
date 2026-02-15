@@ -157,7 +157,7 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 // CreateShapeExperimentalArgs contains arguments for creating a shape via experimental API.
 type CreateShapeExperimentalArgs struct {
 	BoardID     string  `json:"board_id"`
-	Shape       string  `json:"shape"`       // Flowchart stencil shape type
+	Shape       string  `json:"shape"` // Flowchart stencil shape type
 	Content     string  `json:"content"`
 	X           float64 `json:"x"`
 	Y           float64 `json:"y"`

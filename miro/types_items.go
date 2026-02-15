@@ -17,13 +17,13 @@ type ItemSummary struct {
 	ParentID string  `json:"parent_id,omitempty"`
 
 	// Extended fields (populated when detail_level=full)
-	Width      float64          `json:"width,omitempty"`
-	Height     float64          `json:"height,omitempty"`
-	Style      *ItemStyleInfo   `json:"style,omitempty"`
-	CreatedAt  string           `json:"created_at,omitempty"`
-	ModifiedAt string           `json:"modified_at,omitempty"`
-	CreatedBy  *UserInfo        `json:"created_by,omitempty"`
-	ModifiedBy *UserInfo        `json:"modified_by,omitempty"`
+	Width      float64        `json:"width,omitempty"`
+	Height     float64        `json:"height,omitempty"`
+	Style      *ItemStyleInfo `json:"style,omitempty"`
+	CreatedAt  string         `json:"created_at,omitempty"`
+	ModifiedAt string         `json:"modified_at,omitempty"`
+	CreatedBy  *UserInfo      `json:"created_by,omitempty"`
+	ModifiedBy *UserInfo      `json:"modified_by,omitempty"`
 }
 
 // ItemStyleInfo contains style information for items (used in full mode).

@@ -11,16 +11,19 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
+	"github.com/olgasafonova/miro-mcp-server/miro/desirepath"
 )
 
 // HandlerRegistry provides type-safe tool registration.
 type HandlerRegistry struct {
-	client      miro.MiroClient
-	logger      *slog.Logger
-	auditLogger audit.Logger
-	userID      string // Miro user ID from token validation
-	userEmail   string // Miro user email from token validation
-	handlers    map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
+	client       miro.MiroClient
+	logger       *slog.Logger
+	auditLogger  audit.Logger
+	desireLogger *desirepath.Logger
+	normalizers  []desirepath.Normalizer
+	userID       string // Miro user ID from token validation
+	userEmail    string // Miro user email from token validation
+	handlers     map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
 }
 
 // NewHandlerRegistry creates a new handler registry.
@@ -44,6 +47,15 @@ func (h *HandlerRegistry) WithAuditLogger(auditLogger audit.Logger) *HandlerRegi
 func (h *HandlerRegistry) WithUser(userID, userEmail string) *HandlerRegistry {
 	h.userID = userID
 	h.userEmail = userEmail
+	return h
+}
+
+// WithDesirePathLogger enables desire path normalization and logging.
+// Normalizers are applied in order to raw request arguments before
+// they reach the typed handler, silently fixing common agent mistakes.
+func (h *HandlerRegistry) WithDesirePathLogger(dpLogger *desirepath.Logger, normalizers []desirepath.Normalizer) *HandlerRegistry {
+	h.desireLogger = dpLogger
+	h.normalizers = normalizers
 	return h
 }
 
@@ -160,7 +172,8 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"GetExportJobResults": makeHandler(h, h.client.GetExportJobResults),
 
 		// Audit tools (local, not Miro API)
-		"GetAuditLog": makeHandler(h, h.GetAuditLog),
+		"GetAuditLog":         makeHandler(h, h.GetAuditLog),
+		"GetDesirePathReport": makeHandler(h, h.GetDesirePathReport),
 
 		// App card tools
 		"CreateAppCard": makeHandler(h, h.client.CreateAppCard),
@@ -242,6 +255,69 @@ func (h *HandlerRegistry) GetAuditLog(ctx context.Context, args miro.GetAuditLog
 	}, nil
 }
 
+// GetDesirePathReport queries the local desire path log.
+func (h *HandlerRegistry) GetDesirePathReport(_ context.Context, args miro.GetDesirePathReportArgs) (miro.GetDesirePathReportResult, error) {
+	if h.desireLogger == nil {
+		return miro.GetDesirePathReportResult{
+			Message: "Desire path logging is not enabled",
+		}, nil
+	}
+
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	report := h.desireLogger.Report()
+
+	// Convert recent events
+	recentEvents := make([]miro.DesirePathEvent, 0, len(report.RecentOnes))
+	for _, e := range report.RecentOnes {
+		if args.Tool != "" && e.Tool != args.Tool {
+			continue
+		}
+		if args.Rule != "" && e.Rule != args.Rule {
+			continue
+		}
+		if len(recentEvents) >= limit {
+			break
+		}
+		recentEvents = append(recentEvents, miro.DesirePathEvent{
+			Timestamp:    e.Timestamp.Format(time.RFC3339),
+			Tool:         e.Tool,
+			Parameter:    e.Parameter,
+			Rule:         e.Rule,
+			RawValue:     e.RawValue,
+			NormalizedTo: e.NormalizedTo,
+		})
+	}
+
+	// Convert top patterns
+	patterns := make([]miro.DesirePathPattern, len(report.TopPatterns))
+	for i, p := range report.TopPatterns {
+		patterns[i] = miro.DesirePathPattern{
+			Rule:      p.Rule,
+			Tool:      p.Tool,
+			Parameter: p.Parameter,
+			Example:   p.Example,
+			Count:     p.Count,
+		}
+	}
+
+	return miro.GetDesirePathReportResult{
+		TotalNormalizations: report.TotalEvents,
+		ByRule:              report.ByRule,
+		ByTool:              report.ByTool,
+		ByParam:             report.ByParam,
+		TopPatterns:         patterns,
+		RecentEvents:        recentEvents,
+		Message:             fmt.Sprintf("Recorded %d normalizations across %d patterns", report.TotalEvents, len(report.TopPatterns)),
+	}, nil
+}
+
 // makeHandler creates a registration function for a typed client method.
 func makeHandler[Args, Result any](
 	h *HandlerRegistry,
@@ -288,8 +364,11 @@ func registerTool[Args, Result any](
 	spec ToolSpec,
 	method func(context.Context, Args) (Result, error),
 ) {
-	mcp.AddTool(server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, args Args) (*mcp.CallToolResult, Result, error) {
+	mcp.AddTool(server, tool, func(ctx context.Context, req *mcp.CallToolRequest, args Args) (*mcp.CallToolResult, Result, error) {
 		defer h.recoverPanic(spec.Name)
+
+		// Apply desire path normalization to raw arguments
+		args = normalizeArgs(h, spec.Name, req, args)
 
 		start := time.Now()
 		result, err := method(ctx, args)
@@ -309,6 +388,101 @@ func registerTool[Args, Result any](
 		h.logExecution(spec, args, result)
 		return nil, result, nil
 	})
+}
+
+// normalizeArgs applies desire path normalizers to raw request arguments.
+// Operates on the raw JSON map, then re-marshals into the typed Args struct.
+// Falls back to the original args if re-marshaling fails.
+func normalizeArgs[Args any](h *HandlerRegistry, toolName string, req *mcp.CallToolRequest, args Args) Args {
+	if h.desireLogger == nil || len(h.normalizers) == 0 || req == nil || req.Params == nil {
+		return args
+	}
+
+	rawArgs := req.Params.Arguments
+	if len(rawArgs) == 0 {
+		return args
+	}
+
+	// Parse raw arguments into a map
+	var argMap map[string]any
+	if err := json.Unmarshal(rawArgs, &argMap); err != nil {
+		return args
+	}
+
+	changed := false
+
+	// Phase 1: Check for camelCase keys and remap them
+	var camelNormalizer *desirepath.CamelToSnakeNormalizer
+	for _, n := range h.normalizers {
+		if cn, ok := n.(*desirepath.CamelToSnakeNormalizer); ok {
+			camelNormalizer = cn
+			break
+		}
+	}
+
+	if camelNormalizer != nil {
+		remapped := make(map[string]any, len(argMap))
+		for key, val := range argMap {
+			newKey, converted := camelNormalizer.ConvertKey(key)
+			if converted {
+				changed = true
+				h.desireLogger.Log(desirepath.Event{
+					Timestamp:    time.Now().UTC(),
+					Tool:         toolName,
+					Parameter:    key,
+					Rule:         "camel_to_snake",
+					RawValue:     key,
+					NormalizedTo: newKey,
+				})
+			}
+			remapped[newKey] = val
+		}
+		argMap = remapped
+	}
+
+	// Phase 2: Apply value normalizers to each parameter
+	for key, val := range argMap {
+		for _, n := range h.normalizers {
+			// Skip camel normalizer (handled above at the key level)
+			if _, ok := n.(*desirepath.CamelToSnakeNormalizer); ok {
+				continue
+			}
+
+			newVal, result := n.Normalize(key, val)
+			if result.Changed {
+				argMap[key] = newVal
+				val = newVal // Chain normalizers
+				changed = true
+				h.desireLogger.Log(desirepath.Event{
+					Timestamp:    time.Now().UTC(),
+					Tool:         toolName,
+					Parameter:    key,
+					Rule:         result.Rule,
+					RawValue:     result.Original,
+					NormalizedTo: result.New,
+				})
+			}
+		}
+	}
+
+	if !changed {
+		return args
+	}
+
+	// Re-marshal the normalized map into the typed Args struct
+	normalized, err := json.Marshal(argMap)
+	if err != nil {
+		h.logger.Debug("Desire path: failed to marshal normalized args", "error", err)
+		return args
+	}
+
+	var newArgs Args
+	if err := json.Unmarshal(normalized, &newArgs); err != nil {
+		h.logger.Debug("Desire path: failed to unmarshal into typed args", "error", err)
+		return args
+	}
+
+	return newArgs
 }
 
 // createAuditEvent creates an audit event from tool execution details.

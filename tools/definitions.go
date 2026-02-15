@@ -61,7 +61,7 @@ var AllTools = []ToolSpec{
 		Title:    "List Boards",
 		Category: "boards",
 		ReadOnly: true,
-		Description: `List Miro boards accessible to the user. Use board ID for subsequent operations.
+		Description: `List Miro boards accessible to the user. Use board ID for subsequent operations. For a specific board by name, use ` + "`miro_find_board`" + ` instead.
 
 VOICE-FRIENDLY: "Found 5 boards: Design Sprint, Product Roadmap, Team Retro..."`,
 	},
@@ -162,7 +162,7 @@ SHAPES: rectangle, round_rectangle, circle, triangle, rhombus, parallelogram, tr
 		Title:    "Get Frame Details",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get full details of a specific frame by ID.
+		Description: `Get full details of a specific frame by ID. To get items inside the frame, use ` + "`miro_get_frame_items`" + `.
 
 VOICE-FRIENDLY: "Frame 'Sprint Planning' is 800x600 with 12 items inside"`,
 	},
@@ -254,7 +254,7 @@ USE WHEN: "what's on the board", "show all stickies", "list shapes"`,
 		Title:    "Get Item Details",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get full details of a specific item by ID.
+		Description: `Get full details of a specific item by ID. If you don't have the item ID, use ` + "`miro_search_board`" + ` to find it or ` + "`miro_list_items`" + ` to browse.
 
 VOICE-FRIENDLY: "That sticky says 'Review Q4 goals' and was created by John yesterday"`,
 	},
@@ -298,7 +298,7 @@ VOICE-FRIENDLY: "Created card 'Review design specs'"`,
 		Title:    "Get Image Details",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get details of an image on a Miro board, including its Miro-hosted URL, title, and dimensions. Use the image_url to download or reference the image.
+		Description: `Get details of an image on a Miro board, including its Miro-hosted URL, title, and dimensions. Use the image_url to download or reference the image. For document items, use ` + "`miro_get_document`" + ` instead.
 
 USE WHEN: "get image URL", "what image is this", "image details"
 
@@ -317,7 +317,7 @@ VOICE-FRIENDLY: "Image 'Logo' is 800x600 at position (100, 200)"`,
 		Title:    "Get Document Details",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get details of a document on a Miro board, including its Miro-hosted URL and title.
+		Description: `Get details of a document on a Miro board, including its Miro-hosted URL and title. For image items, use ` + "`miro_get_image`" + ` instead.
 
 USE WHEN: "get document details", "what document is this", "document URL"
 
@@ -431,7 +431,7 @@ VOICE-FRIENDLY: "Retrieved 847 items in 9 pages"`,
 		Title:      "Update Item",
 		Category:   "update",
 		Idempotent: true,
-		Description: `Update any item's content, position, or style. For type-specific options (sticky shape/color, card due date), use the dedicated update tools instead.
+		Description: `Update any item's content, position, or style. For sticky-specific options (color, shape), use ` + "`miro_update_sticky`" + `. For card fields, use ` + "`miro_update_card`" + `. For shape styling, use ` + "`miro_update_shape`" + `.
 
 USE WHEN: "change sticky text", "move this item", "update the color"`,
 	},

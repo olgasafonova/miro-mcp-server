@@ -154,7 +154,7 @@ SHAPES: rectangle, round_rectangle, circle, triangle, rhombus, parallelogram, tr
 		Method:      "CreateFrame",
 		Title:       "Create Frame",
 		Category:    "create",
-		Description: `Create a frame container to group items visually.`,
+		Description: `Create a frame container to group items visually. For logical grouping without a visual border, use miro_create_group.`,
 	},
 	{
 		Name:     "miro_get_frame",
@@ -194,7 +194,7 @@ VOICE-FRIENDLY: "Frame deleted successfully"`,
 		Title:    "Get Frame Items",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get all items contained within a specific frame. Filterable by type.
+		Description: `Get all items contained within a specific frame. Filterable by type. For items in a logical group, use miro_get_group_items.
 
 VOICE-FRIENDLY: "Frame has 8 items: 5 stickies, 2 shapes, 1 text"`,
 	},
@@ -617,7 +617,7 @@ VOICE-FRIENDLY: "Created 9 stickies in a 3x3 grid"`,
 		Method:   "CreateGroup",
 		Title:    "Group Items",
 		Category: "create",
-		Description: `Group multiple items together (minimum 2). Grouped items move and resize together.
+		Description: `Group multiple items together logically (minimum 2). Grouped items move and resize together. For a visible container with a border and title, use miro_create_frame.
 
 VOICE-FRIENDLY: "Grouped 4 items together"`,
 	},
@@ -656,7 +656,7 @@ VOICE-FRIENDLY: "This group contains 4 items"`,
 		Title:    "Get Group Items",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Get items in a group with their details.
+		Description: `Get items in a group with their details. For items inside a visual frame, use miro_get_frame_items.
 
 VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
 	},

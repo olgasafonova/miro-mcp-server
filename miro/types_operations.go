@@ -778,3 +778,118 @@ type UpdateEmbedResult struct {
 	Provider string `json:"provider,omitempty"`
 	Message  string `json:"message"`
 }
+
+// =============================================================================
+// Doc Format (Markdown Documents)
+// =============================================================================
+
+// CreateDocFormatArgs contains parameters for creating a doc format item from Markdown.
+type CreateDocFormatArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Content  string  `json:"content" jsonschema:"required" jsonschema_description:"Markdown content for the document"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place document in"`
+}
+
+// CreateDocFormatResult contains the created doc format item.
+type CreateDocFormatResult struct {
+	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
+	Message string `json:"message"`
+}
+
+// GetDocFormatArgs contains parameters for getting a doc format item.
+type GetDocFormatArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"Doc format item ID"`
+}
+
+// GetDocFormatResult contains the doc format item details.
+type GetDocFormatResult struct {
+	ID         string  `json:"id"`
+	Content    string  `json:"content,omitempty"`
+	X          float64 `json:"x"`
+	Y          float64 `json:"y"`
+	CreatedAt  string  `json:"created_at,omitempty"`
+	ModifiedAt string  `json:"modified_at,omitempty"`
+	CreatedBy  string  `json:"created_by,omitempty"`
+	ModifiedBy string  `json:"modified_by,omitempty"`
+	Message    string  `json:"message"`
+}
+
+// DeleteDocFormatArgs contains parameters for deleting a doc format item.
+type DeleteDocFormatArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"Doc format item ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+}
+
+// DeleteDocFormatResult confirms doc format deletion.
+type DeleteDocFormatResult struct {
+	Success bool   `json:"success"`
+	ItemID  string `json:"item_id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Get Items By Tag
+// =============================================================================
+
+// GetItemsByTagArgs contains parameters for getting items filtered by tag.
+type GetItemsByTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"Tag ID to filter by"`
+	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50, max 50)"`
+	Offset  int    `json:"offset,omitempty" jsonschema_description:"Offset for pagination"`
+}
+
+// GetItemsByTagResult contains items matching the tag filter.
+type GetItemsByTagResult struct {
+	Items   []ItemSummary `json:"items"`
+	Count   int           `json:"count"`
+	HasMore bool          `json:"has_more"`
+	TagID   string        `json:"tag_id"`
+	Message string        `json:"message"`
+}
+
+// =============================================================================
+// Upload Image (File Upload)
+// =============================================================================
+
+// UploadImageArgs contains parameters for uploading a local image file.
+type UploadImageArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	FilePath string  `json:"file_path" jsonschema:"required" jsonschema_description:"Absolute path to the image file on disk"`
+	Title    string  `json:"title,omitempty" jsonschema_description:"Image title/alt text"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place image in"`
+}
+
+// UploadImageResult contains the uploaded image details.
+type UploadImageResult struct {
+	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Create Flowchart Shape (Experimental)
+// =============================================================================
+
+// CreateFlowchartShapeArgs contains parameters for creating a flowchart shape
+// via the experimental API. Supports additional stencil shapes beyond the standard API.
+type CreateFlowchartShapeArgs struct {
+	BoardID     string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	Shape       string  `json:"shape" jsonschema:"required" jsonschema_description:"Flowchart shape type: rectangle, round_rectangle, circle, rhombus, parallelogram, trapezoid, pentagon, hexagon, star, flow_chart_predefined_process, wedge_round_rectangle_callout, etc."`
+	Content     string  `json:"content,omitempty" jsonschema_description:"Text inside the shape"`
+	X           float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y           float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	Width       float64 `json:"width,omitempty" jsonschema_description:"Width in pixels (default 200)"`
+	Height      float64 `json:"height,omitempty" jsonschema_description:"Height in pixels (default 200)"`
+	FillColor   string  `json:"fill_color,omitempty" jsonschema_description:"Fill/background color (hex like #006400)"`
+	BorderColor string  `json:"border_color,omitempty" jsonschema_description:"Border color (hex like #000000)"`
+	ParentID    string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place shape in"`
+}

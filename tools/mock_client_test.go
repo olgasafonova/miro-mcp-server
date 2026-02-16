@@ -49,26 +49,29 @@ type MockClient struct {
 	UpdateEmbedFn    func(ctx context.Context, args miro.UpdateEmbedArgs) (miro.UpdateEmbedResult, error)
 
 	// Create operations
-	CreateStickyFn     func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error)
-	CreateShapeFn      func(ctx context.Context, args miro.CreateShapeArgs) (miro.CreateShapeResult, error)
-	CreateTextFn       func(ctx context.Context, args miro.CreateTextArgs) (miro.CreateTextResult, error)
-	CreateConnectorFn  func(ctx context.Context, args miro.CreateConnectorArgs) (miro.CreateConnectorResult, error)
-	CreateFrameFn      func(ctx context.Context, args miro.CreateFrameArgs) (miro.CreateFrameResult, error)
-	CreateCardFn       func(ctx context.Context, args miro.CreateCardArgs) (miro.CreateCardResult, error)
-	CreateImageFn      func(ctx context.Context, args miro.CreateImageArgs) (miro.CreateImageResult, error)
-	CreateDocumentFn   func(ctx context.Context, args miro.CreateDocumentArgs) (miro.CreateDocumentResult, error)
-	CreateEmbedFn      func(ctx context.Context, args miro.CreateEmbedArgs) (miro.CreateEmbedResult, error)
-	CreateStickyGridFn func(ctx context.Context, args miro.CreateStickyGridArgs) (miro.CreateStickyGridResult, error)
+	CreateStickyFn            func(ctx context.Context, args miro.CreateStickyArgs) (miro.CreateStickyResult, error)
+	CreateShapeFn             func(ctx context.Context, args miro.CreateShapeArgs) (miro.CreateShapeResult, error)
+	CreateShapeExperimentalFn func(ctx context.Context, args miro.CreateShapeExperimentalArgs) (miro.CreateShapeResult, error)
+	CreateFlowchartShapeFn    func(ctx context.Context, args miro.CreateFlowchartShapeArgs) (miro.CreateShapeResult, error)
+	CreateTextFn              func(ctx context.Context, args miro.CreateTextArgs) (miro.CreateTextResult, error)
+	CreateConnectorFn         func(ctx context.Context, args miro.CreateConnectorArgs) (miro.CreateConnectorResult, error)
+	CreateFrameFn             func(ctx context.Context, args miro.CreateFrameArgs) (miro.CreateFrameResult, error)
+	CreateCardFn              func(ctx context.Context, args miro.CreateCardArgs) (miro.CreateCardResult, error)
+	CreateImageFn             func(ctx context.Context, args miro.CreateImageArgs) (miro.CreateImageResult, error)
+	CreateDocumentFn          func(ctx context.Context, args miro.CreateDocumentArgs) (miro.CreateDocumentResult, error)
+	CreateEmbedFn             func(ctx context.Context, args miro.CreateEmbedArgs) (miro.CreateEmbedResult, error)
+	CreateStickyGridFn        func(ctx context.Context, args miro.CreateStickyGridArgs) (miro.CreateStickyGridResult, error)
 
 	// Tag operations
-	CreateTagFn   func(ctx context.Context, args miro.CreateTagArgs) (miro.CreateTagResult, error)
-	ListTagsFn    func(ctx context.Context, args miro.ListTagsArgs) (miro.ListTagsResult, error)
-	AttachTagFn   func(ctx context.Context, args miro.AttachTagArgs) (miro.AttachTagResult, error)
-	DetachTagFn   func(ctx context.Context, args miro.DetachTagArgs) (miro.DetachTagResult, error)
-	GetItemTagsFn func(ctx context.Context, args miro.GetItemTagsArgs) (miro.GetItemTagsResult, error)
-	GetTagFn      func(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error)
-	UpdateTagFn   func(ctx context.Context, args miro.UpdateTagArgs) (miro.UpdateTagResult, error)
-	DeleteTagFn   func(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error)
+	CreateTagFn     func(ctx context.Context, args miro.CreateTagArgs) (miro.CreateTagResult, error)
+	ListTagsFn      func(ctx context.Context, args miro.ListTagsArgs) (miro.ListTagsResult, error)
+	AttachTagFn     func(ctx context.Context, args miro.AttachTagArgs) (miro.AttachTagResult, error)
+	DetachTagFn     func(ctx context.Context, args miro.DetachTagArgs) (miro.DetachTagResult, error)
+	GetItemTagsFn   func(ctx context.Context, args miro.GetItemTagsArgs) (miro.GetItemTagsResult, error)
+	GetItemsByTagFn func(ctx context.Context, args miro.GetItemsByTagArgs) (miro.GetItemsByTagResult, error)
+	GetTagFn        func(ctx context.Context, args miro.GetTagArgs) (miro.GetTagResult, error)
+	UpdateTagFn     func(ctx context.Context, args miro.UpdateTagArgs) (miro.UpdateTagResult, error)
+	DeleteTagFn     func(ctx context.Context, args miro.DeleteTagArgs) (miro.DeleteTagResult, error)
 
 	// Connector operations
 	ListConnectorsFn  func(ctx context.Context, args miro.ListConnectorsArgs) (miro.ListConnectorsResult, error)
@@ -121,6 +124,14 @@ type MockClient struct {
 	GetAppCardFn    func(ctx context.Context, args miro.GetAppCardArgs) (miro.GetAppCardResult, error)
 	UpdateAppCardFn func(ctx context.Context, args miro.UpdateAppCardArgs) (miro.UpdateAppCardResult, error)
 	DeleteAppCardFn func(ctx context.Context, args miro.DeleteAppCardArgs) (miro.DeleteAppCardResult, error)
+
+	// Doc format operations
+	CreateDocFormatFn func(ctx context.Context, args miro.CreateDocFormatArgs) (miro.CreateDocFormatResult, error)
+	GetDocFormatFn    func(ctx context.Context, args miro.GetDocFormatArgs) (miro.GetDocFormatResult, error)
+	DeleteDocFormatFn func(ctx context.Context, args miro.DeleteDocFormatArgs) (miro.DeleteDocFormatResult, error)
+
+	// Upload operations
+	UploadImageFn func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
 
 	// Call tracking
 	Calls []MockCall
@@ -556,6 +567,32 @@ func (m *MockClient) CreateShape(ctx context.Context, args miro.CreateShapeArgs)
 	}, nil
 }
 
+func (m *MockClient) CreateShapeExperimental(ctx context.Context, args miro.CreateShapeExperimentalArgs) (miro.CreateShapeResult, error) {
+	m.recordCall("CreateShapeExperimental", args)
+	if m.CreateShapeExperimentalFn != nil {
+		return m.CreateShapeExperimentalFn(ctx, args)
+	}
+	return miro.CreateShapeResult{
+		ID:      "shape-exp-123",
+		Shape:   args.Shape,
+		Content: args.Content,
+		Message: fmt.Sprintf("Created experimental %s shape", args.Shape),
+	}, nil
+}
+
+func (m *MockClient) CreateFlowchartShape(ctx context.Context, args miro.CreateFlowchartShapeArgs) (miro.CreateShapeResult, error) {
+	m.recordCall("CreateFlowchartShape", args)
+	if m.CreateFlowchartShapeFn != nil {
+		return m.CreateFlowchartShapeFn(ctx, args)
+	}
+	return miro.CreateShapeResult{
+		ID:      "flowchart-shape-123",
+		Shape:   args.Shape,
+		Content: args.Content,
+		Message: fmt.Sprintf("Created flowchart %s shape", args.Shape),
+	}, nil
+}
+
 func (m *MockClient) CreateText(ctx context.Context, args miro.CreateTextArgs) (miro.CreateTextResult, error) {
 	m.recordCall("CreateText", args)
 	if m.CreateTextFn != nil {
@@ -731,6 +768,22 @@ func (m *MockClient) GetItemTags(ctx context.Context, args miro.GetItemTagsArgs)
 		},
 		Count:  1,
 		ItemID: args.ItemID,
+	}, nil
+}
+
+func (m *MockClient) GetItemsByTag(ctx context.Context, args miro.GetItemsByTagArgs) (miro.GetItemsByTagResult, error) {
+	m.recordCall("GetItemsByTag", args)
+	if m.GetItemsByTagFn != nil {
+		return m.GetItemsByTagFn(ctx, args)
+	}
+	return miro.GetItemsByTagResult{
+		Items: []miro.ItemSummary{
+			{ID: "item-1", Type: "sticky_note", Content: "Tagged item"},
+		},
+		Count:   1,
+		HasMore: false,
+		TagID:   args.TagID,
+		Message: fmt.Sprintf("Found 1 items with tag %s", args.TagID),
 	}, nil
 }
 
@@ -1289,6 +1342,68 @@ func (m *MockClient) DeleteAppCard(ctx context.Context, args miro.DeleteAppCardA
 		Success: true,
 		ItemID:  args.ItemID,
 		Message: "App card deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// DocFormatService Implementation
+// =============================================================================
+
+func (m *MockClient) CreateDocFormat(ctx context.Context, args miro.CreateDocFormatArgs) (miro.CreateDocFormatResult, error) {
+	m.recordCall("CreateDocFormat", args)
+	if m.CreateDocFormatFn != nil {
+		return m.CreateDocFormatFn(ctx, args)
+	}
+	return miro.CreateDocFormatResult{
+		ID:      "doc-format-123",
+		Message: "Created Markdown document",
+	}, nil
+}
+
+func (m *MockClient) GetDocFormat(ctx context.Context, args miro.GetDocFormatArgs) (miro.GetDocFormatResult, error) {
+	m.recordCall("GetDocFormat", args)
+	if m.GetDocFormatFn != nil {
+		return m.GetDocFormatFn(ctx, args)
+	}
+	return miro.GetDocFormatResult{
+		ID:      args.ItemID,
+		Content: "# Test Document\n\nSample content",
+		Message: "Retrieved doc format item",
+	}, nil
+}
+
+func (m *MockClient) DeleteDocFormat(ctx context.Context, args miro.DeleteDocFormatArgs) (miro.DeleteDocFormatResult, error) {
+	m.recordCall("DeleteDocFormat", args)
+	if m.DeleteDocFormatFn != nil {
+		return m.DeleteDocFormatFn(ctx, args)
+	}
+	if args.DryRun {
+		return miro.DeleteDocFormatResult{
+			Success: false,
+			ItemID:  args.ItemID,
+			Message: fmt.Sprintf("Dry run: would delete doc format item %s", args.ItemID),
+		}, nil
+	}
+	return miro.DeleteDocFormatResult{
+		Success: true,
+		ItemID:  args.ItemID,
+		Message: "Doc format item deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// UploadService Implementation
+// =============================================================================
+
+func (m *MockClient) UploadImage(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error) {
+	m.recordCall("UploadImage", args)
+	if m.UploadImageFn != nil {
+		return m.UploadImageFn(ctx, args)
+	}
+	return miro.UploadImageResult{
+		ID:      "uploaded-image-123",
+		Title:   args.Title,
+		Message: "Uploaded image from file",
 	}, nil
 }
 

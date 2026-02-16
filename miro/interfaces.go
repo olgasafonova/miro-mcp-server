@@ -50,6 +50,8 @@ type ItemService interface {
 type CreateService interface {
 	CreateSticky(ctx context.Context, args CreateStickyArgs) (CreateStickyResult, error)
 	CreateShape(ctx context.Context, args CreateShapeArgs) (CreateShapeResult, error)
+	CreateShapeExperimental(ctx context.Context, args CreateShapeExperimentalArgs) (CreateShapeResult, error)
+	CreateFlowchartShape(ctx context.Context, args CreateFlowchartShapeArgs) (CreateShapeResult, error)
 	CreateText(ctx context.Context, args CreateTextArgs) (CreateTextResult, error)
 	CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateFrameResult, error)
 	CreateCard(ctx context.Context, args CreateCardArgs) (CreateCardResult, error)
@@ -67,6 +69,7 @@ type TagService interface {
 	AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error)
 	DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error)
 	GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error)
+	GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (GetItemsByTagResult, error)
 	UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagResult, error)
 	DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagResult, error)
 }
@@ -142,6 +145,18 @@ type AppCardService interface {
 	DeleteAppCard(ctx context.Context, args DeleteAppCardArgs) (DeleteAppCardResult, error)
 }
 
+// DocFormatService handles doc format (Markdown document) operations.
+type DocFormatService interface {
+	CreateDocFormat(ctx context.Context, args CreateDocFormatArgs) (CreateDocFormatResult, error)
+	GetDocFormat(ctx context.Context, args GetDocFormatArgs) (GetDocFormatResult, error)
+	DeleteDocFormat(ctx context.Context, args DeleteDocFormatArgs) (DeleteDocFormatResult, error)
+}
+
+// UploadService handles file upload operations.
+type UploadService interface {
+	UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error)
+}
+
 // =============================================================================
 // Composite Interface
 // =============================================================================
@@ -162,6 +177,8 @@ type MiroClient interface {
 	DiagramService
 	ConnectorService
 	AppCardService
+	DocFormatService
+	UploadService
 }
 
 // Verify that Client implements MiroClient at compile time.

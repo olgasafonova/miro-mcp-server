@@ -981,6 +981,12 @@ func (c *Client) CreateStickyGrid(ctx context.Context, args CreateStickyGridArgs
 	}, nil
 }
 
+// CreateFlowchartShape creates a flowchart shape using the v2-experimental API.
+// Wraps CreateShapeExperimental with tool-friendly argument types.
+func (c *Client) CreateFlowchartShape(ctx context.Context, args CreateFlowchartShapeArgs) (CreateShapeResult, error) {
+	return c.CreateShapeExperimental(ctx, CreateShapeExperimentalArgs(args))
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================

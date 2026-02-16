@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**79 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**86 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -70,8 +70,10 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | Category | Examples |
 |----------|----------|
 | **Boards** | Create, copy, delete, update, share, list members |
-| **Items** | Sticky notes, shapes, text, cards, app cards, images, documents, frames |
+| **Items** | Sticky notes, shapes, text, cards, app cards, images, documents, frames, docs |
 | **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid |
+| **Docs** | Create and manage Markdown documents on boards |
+| **Upload** | Upload local image files to boards |
 | **Mindmaps** | Create mindmap nodes with parent-child relationships |
 | **Bulk Ops** | Create multiple items at once, sticky grids |
 | **Tags** | Create, attach, update, and organize with tags |
@@ -89,7 +91,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 79 Tools
+## All 86 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -122,18 +124,21 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Create Items (14)</b></summary>
+<summary><b>Create Items (17)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_create_sticky` | Create a sticky note |
 | `miro_create_sticky_grid` | Create stickies in a grid layout |
 | `miro_create_shape` | Create a shape (rectangle, circle, etc.) |
+| `miro_create_flowchart_shape` | Create flowchart shape (experimental API) |
 | `miro_create_text` | Create text element |
 | `miro_create_frame` | Create a frame container |
 | `miro_create_card` | Create a card with due date |
 | `miro_create_app_card` | Create app card with custom fields |
 | `miro_create_image` | Add image from URL |
+| `miro_upload_image` | Upload local image file |
+| `miro_create_doc` | Create Markdown document |
 | `miro_create_document` | Add document from URL |
 | `miro_create_embed` | Embed YouTube, Figma, etc. |
 | `miro_create_connector` | Connect two items with arrow |
@@ -167,7 +172,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Read Items (7)</b></summary>
+<summary><b>Read Items (8)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -177,12 +182,13 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_get_image` | Get image details and Miro-hosted URL |
 | `miro_get_document` | Get document details and Miro-hosted URL |
 | `miro_get_app_card` | Get app card details |
+| `miro_get_doc` | Get Markdown document content |
 | `miro_search_board` | Search items by content |
 
 </details>
 
 <details>
-<summary><b>Update & Delete Items (14)</b></summary>
+<summary><b>Update & Delete Items (15)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -199,12 +205,13 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_bulk_update` | Update multiple items at once |
 | `miro_delete_item` | Delete an item |
 | `miro_delete_app_card` | Delete an app card |
+| `miro_delete_doc` | Delete a Markdown document |
 | `miro_bulk_delete` | Delete multiple items at once |
 
 </details>
 
 <details>
-<summary><b>Tags (8)</b></summary>
+<summary><b>Tags (9)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -214,6 +221,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_attach_tag` | Attach tag to item |
 | `miro_detach_tag` | Remove tag from item |
 | `miro_get_item_tags` | Get tags on an item |
+| `miro_get_items_by_tag` | Get all items with a specific tag |
 | `miro_update_tag` | Update tag name/color |
 | `miro_delete_tag` | Delete a tag |
 
@@ -313,7 +321,7 @@ Miro has released an [official MCP server](https://miro.com/ai/mcp/) (beta, Dec 
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 79 | 14 |
+| **Tools** | 86 | 14 |
 | **Transport** | stdio + HTTP | HTTPS only (hosted) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
@@ -334,7 +342,7 @@ Miro has released an [official MCP server](https://miro.com/ai/mcp/) (beta, Dec 
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, or AI-powered board context extraction.
 
-**When to use this server:** You need full API coverage (79 tools vs 14), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
+**When to use this server:** You need full API coverage (86 tools vs 14), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 
@@ -437,7 +445,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 79 tools with their schemas
+- Browse all 86 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -479,9 +487,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 79 tools |
-| Team | Full access to all 79 tools |
-| Business | Full access to all 79 tools |
+| Free | Full access to all 86 tools |
+| Team | Full access to all 86 tools |
+| Business | Full access to all 86 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

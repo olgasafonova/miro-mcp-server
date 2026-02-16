@@ -562,6 +562,76 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	return nil, fmt.Errorf("max retries exceeded: %w", lastErr)
 }
 
+// requestMultipart makes a multipart form request to the Miro API.
+// Used for file upload endpoints that require multipart/form-data.
+func (c *Client) requestMultipart(ctx context.Context, method, path, contentType string, body io.Reader) ([]byte, error) {
+	// Check circuit breaker
+	endpoint := extractEndpoint(path)
+	cb := c.circuitBreakers.Get(endpoint)
+	if err := cb.Allow(); err != nil {
+		return nil, fmt.Errorf("circuit breaker open for %s: %w", endpoint, err)
+	}
+
+	// Acquire semaphore slot
+	select {
+	case c.semaphore <- struct{}{}:
+		defer func() { <-c.semaphore }()
+	case <-ctx.Done():
+		return nil, fmt.Errorf("context cancelled while waiting for rate limiter: %w", ctx.Err())
+	}
+
+	// Apply adaptive rate limiting
+	if delay, err := c.rateLimiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("context cancelled during rate limit wait: %w", err)
+	} else if delay > 0 {
+		c.logger.Debug("Adaptive rate limiter applied delay", "delay", delay)
+	}
+
+	// Get access token
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		cb.RecordFailure()
+		return nil, fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	reqURL := c.baseURL + path
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", c.config.UserAgent)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		cb.RecordFailure()
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		cb.RecordFailure()
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	c.rateLimiter.UpdateFromResponse(resp)
+
+	if resp.StatusCode >= 400 {
+		apiErr := ParseAPIError(resp, respBody)
+		if resp.StatusCode >= 500 {
+			cb.RecordFailure()
+		}
+		return nil, apiErr
+	}
+
+	cb.RecordSuccess()
+	return respBody, nil
+}
+
 // requestExperimental makes a request to the v2-experimental API endpoints.
 // Used for features that are not yet in the stable v2 API (e.g., mindmaps).
 func (c *Client) requestExperimental(ctx context.Context, method, path string, body interface{}) ([]byte, error) {

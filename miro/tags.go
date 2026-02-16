@@ -330,6 +330,59 @@ func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagRe
 	}, nil
 }
 
+// GetItemsByTag returns items on a board filtered by tag ID.
+func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (GetItemsByTagResult, error) {
+	if args.BoardID == "" {
+		return GetItemsByTagResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.TagID == "" {
+		return GetItemsByTagResult{}, fmt.Errorf("tag_id is required")
+	}
+
+	limit := args.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("tag_id", args.TagID)
+	if args.Offset > 0 {
+		params.Set("offset", strconv.Itoa(args.Offset))
+	}
+
+	path := "/boards/" + args.BoardID + "/items?" + params.Encode()
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return GetItemsByTagResult{}, err
+	}
+
+	var resp struct {
+		Data []json.RawMessage `json:"data"`
+		Size int               `json:"size"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return GetItemsByTagResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	items := make([]ItemSummary, 0, len(resp.Data))
+	for _, raw := range resp.Data {
+		item := parseItemSummary(raw, false)
+		items = append(items, item)
+	}
+
+	return GetItemsByTagResult{
+		Items:   items,
+		Count:   len(items),
+		HasMore: len(items) >= limit,
+		TagID:   args.TagID,
+		Message: fmt.Sprintf("Found %d items with tag %s", len(items), args.TagID),
+	}, nil
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================

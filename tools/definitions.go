@@ -842,6 +842,139 @@ Filter by tool name or normalizer rule. Returns top patterns and recent events.`
 	// See: https://community.miro.com/developer-platform-and-apis-57/miro-webhooks-4281
 
 	// ==========================================================================
+	// Doc Format Tools (Markdown Documents)
+	// ==========================================================================
+	{
+		Name:     "miro_create_doc",
+		Method:   "CreateDocFormat",
+		Title:    "Create Doc Format Item",
+		Category: "create",
+		Description: `Create a rich text document on a Miro board from Markdown content.
+
+USE WHEN: User says "add a document", "create a doc from markdown", "put markdown on the board"
+
+PARAMETERS:
+- board_id: Required
+- content: Markdown text (required). Supports headings, lists, bold, italic, links, code blocks.
+- x, y: Position
+- parent_id: Frame ID to place doc in
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "content": "# Sprint Goals\n- Ship v2.0\n- Fix critical bugs"}
+
+VOICE-FRIENDLY: "Created doc format item on board"`,
+	},
+	{
+		Name:     "miro_get_doc",
+		Method:   "GetDocFormat",
+		Title:    "Get Doc Format Item",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get details of a doc format item by ID.
+
+USE WHEN: User asks "show me that document", "what's in this doc", "read the document"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Doc format item ID (required)
+
+RETURNS: Document content (Markdown), position, timestamps.`,
+	},
+	{
+		Name:        "miro_delete_doc",
+		Method:      "DeleteDocFormat",
+		Title:       "Delete Doc Format Item",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete a doc format item from a Miro board.
+
+USE WHEN: User says "remove the document", "delete that doc"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Doc format item ID to delete (required)
+- dry_run: If true, returns preview without deleting (optional)
+
+WARNING: This action cannot be undone.
+Use dry_run=true to preview what will be deleted before executing.`,
+	},
+
+	// ==========================================================================
+	// Get Items By Tag
+	// ==========================================================================
+	{
+		Name:     "miro_get_items_by_tag",
+		Method:   "GetItemsByTag",
+		Title:    "Get Items By Tag",
+		Category: "tags",
+		ReadOnly: true,
+		Description: `Get all items on a board that have a specific tag attached.
+
+USE WHEN: User asks "show items tagged Urgent", "what's labeled Done", "find all items with this tag"
+
+PARAMETERS:
+- board_id: Required
+- tag_id: Tag ID to filter by (required). Get tag IDs from list_tags.
+- limit: Max items (default 50, max 50)
+- offset: Pagination offset
+
+RETURNS: List of items with IDs, types, and content that have the specified tag.
+
+VOICE-FRIENDLY: "Found 7 items tagged 'Urgent'"`,
+	},
+
+	// ==========================================================================
+	// Upload Tools (File Upload)
+	// ==========================================================================
+	{
+		Name:     "miro_upload_image",
+		Method:   "UploadImage",
+		Title:    "Upload Image from File",
+		Category: "create",
+		Description: `Upload a local image file to a Miro board.
+
+USE WHEN: User says "upload this image", "add screenshot to board", "put this file on the board"
+
+PARAMETERS:
+- board_id: Required
+- file_path: Absolute path to the image file (required). Supports: png, jpg, jpeg, gif, webp, svg.
+- title: Image title/alt text
+- x, y: Position
+- parent_id: Frame ID to place image in
+
+NOTE: The file must exist on the local filesystem. For remote images, use miro_create_image with a URL instead.
+
+VOICE-FRIENDLY: "Uploaded image 'screenshot.png' to board"`,
+	},
+
+	// ==========================================================================
+	// Flowchart Shape Tools (Experimental)
+	// ==========================================================================
+	{
+		Name:     "miro_create_flowchart_shape",
+		Method:   "CreateFlowchartShape",
+		Title:    "Create Flowchart Shape",
+		Category: "create",
+		Description: `Create a flowchart shape using the experimental API. Supports additional stencil shapes beyond the standard shape tool.
+
+USE WHEN: User says "create a flowchart shape", "add a process box", "draw a decision diamond for flowchart"
+
+For standard shapes, use miro_create_shape instead. This tool uses the v2-experimental API for flowchart-specific stencil shapes.
+
+PARAMETERS:
+- board_id: Required
+- shape: Shape type (required). Supports: rectangle, round_rectangle, circle, rhombus, parallelogram, trapezoid, pentagon, hexagon, star, flow_chart_predefined_process, wedge_round_rectangle_callout, etc.
+- content: Text inside the shape
+- x, y: Position
+- width, height: Size (default 200x200)
+- fill_color: Fill color (hex like #006400)
+- border_color: Border color (hex like #000000)
+- parent_id: Frame ID
+
+NOTE: Uses v2-experimental API. Shape types may change when this moves to GA.`,
+	},
+
+	// ==========================================================================
 	// Diagram Generation Tools (AI-Powered)
 	// ==========================================================================
 	{

@@ -181,8 +181,19 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"UpdateAppCard": makeHandler(h, h.client.UpdateAppCard),
 		"DeleteAppCard": makeHandler(h, h.client.DeleteAppCard),
 
-		// Webhook tools - REMOVED (Miro sunset Dec 5, 2025)
-		// The /v2-experimental/webhooks/board_subscriptions endpoints no longer work.
+		// Doc format tools
+		"CreateDocFormat": makeHandler(h, h.client.CreateDocFormat),
+		"GetDocFormat":    makeHandler(h, h.client.GetDocFormat),
+		"DeleteDocFormat": makeHandler(h, h.client.DeleteDocFormat),
+
+		// Tag query tools
+		"GetItemsByTag": makeHandler(h, h.client.GetItemsByTag),
+
+		// Upload tools
+		"UploadImage": makeHandler(h, h.client.UploadImage),
+
+		// Flowchart shape tools (experimental)
+		"CreateFlowchartShape": makeHandler(h, h.client.CreateFlowchartShape),
 	}
 }
 

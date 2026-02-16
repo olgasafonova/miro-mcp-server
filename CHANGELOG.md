@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-02-16
+
+### Fixed
+- Release workflow: eliminated race condition where 5 parallel `softprops/action-gh-release` calls collided during release finalization
+- Release workflow: separated build matrix (upload-artifact) from release upload (single `gh release upload` job)
+- Release workflow: added `fail-fast: false` so one build failure doesn't cancel all platforms
+- MCP Registry: republished with correct SHA256 hashes (v1.14.0 hashes were stale from failed builds)
+
 ## [1.14.0] - 2026-02-16
 
 ### Added

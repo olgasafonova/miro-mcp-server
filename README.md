@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**86 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**87 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -138,6 +138,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_create_app_card` | Create app card with custom fields |
 | `miro_create_image` | Add image from URL |
 | `miro_upload_image` | Upload local image file |
+| `miro_upload_document` | Upload local document file (PDF, DOCX, etc.) |
 | `miro_create_doc` | Create Markdown document |
 | `miro_create_document` | Add document from URL |
 | `miro_create_embed` | Embed YouTube, Figma, etc. |
@@ -446,7 +447,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 86 tools with their schemas
+- Browse all 87 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -488,9 +489,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 86 tools |
-| Team | Full access to all 86 tools |
-| Business | Full access to all 86 tools |
+| Free | Full access to all 87 tools |
+| Team | Full access to all 87 tools |
+| Business | Full access to all 87 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

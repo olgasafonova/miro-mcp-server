@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-02-16
+
+### Added
+- **New Tools (6)**: 86 tools total (up from 80)
+  - `miro_create_doc` - Create Markdown documents on boards (Doc Format API)
+  - `miro_get_doc` - Get doc format item content
+  - `miro_delete_doc` - Delete doc format items (with dry_run support)
+  - `miro_get_items_by_tag` - Get all items with a specific tag
+  - `miro_upload_image` - Upload local image files via multipart form
+  - `miro_create_flowchart_shape` - Create flowchart shapes (experimental API)
+- **API Tracking**: Weekly GitHub Action to diff Miro's OpenAPI spec and open issues on changes
+  - `api-tracking/diff-spec.py` - Python script to diff two OpenAPI specs
+  - `api-tracking/spec-baseline.json` - Pinned baseline spec
+  - `.github/workflows/api-tracking.yml` - Runs every Monday 09:00 UTC
+- **Tool Descriptions**: Added RELATED cross-references between tools for better LLM tool selection
+- **Multipart Upload**: New `requestMultipart` client method for file-based endpoints
+
+### Changed
+- Updated official Miro MCP comparison table with February 2026 data (15 tools, DSL diagrams, AI context)
+
 ## [1.11.1] - 2026-01-05
 
 ### Added

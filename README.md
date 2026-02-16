@@ -73,7 +73,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | **Items** | Sticky notes, shapes, text, cards, app cards, images, documents, frames, docs |
 | **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid |
 | **Docs** | Create and manage Markdown documents on boards |
-| **Upload** | Upload local image files to boards |
+| **Upload** | Upload and replace local image and document files on boards |
 | **Mindmaps** | Create mindmap nodes with parent-child relationships |
 | **Bulk Ops** | Create multiple items at once, sticky grids |
 | **Tags** | Create, attach, update, and organize with tags |
@@ -124,7 +124,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Create Items (17)</b></summary>
+<summary><b>Create Items (18)</b></summary>
 
 | Tool | Description |
 |------|-------------|

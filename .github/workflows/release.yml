@@ -67,10 +67,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.event.release.tag_name }}"
+          REPO="${{ github.repository }}"
           for dir in artifacts/miro-mcp-server-*/; do
             for file in "$dir"miro-mcp-server-*; do
               echo "Uploading $file..."
-              gh release upload "$TAG" "$file" --clobber
+              gh release upload "$TAG" "$file" --clobber --repo "$REPO"
             done
           done
 

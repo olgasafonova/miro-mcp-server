@@ -39,6 +39,9 @@ tokens.json
 .env
 .env.local
 
+# Gap analysis (private, lives in Obsidian)
+api-tracking/gap-analysis.md
+
 # Claude Code
 .mcp.json
 .mcpregistry_*

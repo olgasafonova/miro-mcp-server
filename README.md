@@ -381,7 +381,7 @@ When running with `-http :8080`:
 {
   "status": "healthy",
   "server": "miro-mcp-server",
-  "version": "1.14.0",
+  "version": "1.14.1",
   "uptime": "2h30m",
   "components": {
     "config": {"status": "healthy"},

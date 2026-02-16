@@ -1,69 +1,52 @@
 # Miro API Gap Analysis
 
-**Date:** 2026-02-16
+**Date:** 2026-02-16 (updated after v1.14.0 release)
 **Spec source:** [miroapp/api-clients](https://github.com/miroapp/api-clients) `packages/generator/spec.json`
 **Spec version:** v2.0 (last updated 2026-02-16)
-**Our version:** 77 tools (v1.11.1)
+**Our version:** 86 tools (v1.14.0)
 
 ## Summary
 
 | Category | Miro API Endpoints | Our Tools | Coverage |
 |----------|-------------------|-----------|----------|
-| Standard (all plans) | 85 | 77 tools | ~90% |
-| Experimental | 13 | 4 (mindmap) | ~30% |
+| Standard (all plans) | 85 | 83 tools | ~97% |
+| Experimental | 13 | 5 (mindmap + flowchart) | ~38% |
 | Enterprise | 92 | 4 (export) | ~4% |
 
 ## Gaps: Standard API (High Priority)
 
 These endpoints exist in the stable v2 API, are available to all plans, and we don't cover them.
 
-### 1. Doc Formats API (NEW - ~2 months old)
+### 1. ~~Doc Formats API~~ DONE in v1.14.0
 
 Rich text documents created from Markdown. This is a new item type on Miro boards.
 
-| Endpoint | What it does |
-|----------|-------------|
-| `POST /v2/boards/{board_id}/docs` | Create doc from Markdown |
-| `GET /v2/boards/{board_id}/docs/{item_id}` | Get doc item |
-| `DELETE /v2/boards/{board_id}/docs/{item_id}` | Delete doc item |
+| Endpoint | Tool | Status |
+|----------|------|--------|
+| `POST /v2/boards/{board_id}/docs` | `miro_create_doc` | Implemented |
+| `GET /v2/boards/{board_id}/docs/{item_id}` | `miro_get_doc` | Implemented |
+| `DELETE /v2/boards/{board_id}/docs/{item_id}` | `miro_delete_doc` | Implemented |
 
-**Schema:** Takes `{ data: { contentType: "markdown", content: "# Hello" }, position, parent }`
+### 2. ~~Get Items By Tag~~ DONE in v1.14.0
 
-**Impact:** High. This is a brand new item type. LLMs sending Markdown to Miro is a natural fit.
+| Endpoint | Tool | Status |
+|----------|------|--------|
+| `GET /v2/boards/{board_id}/items?tag_id=...` | `miro_get_items_by_tag` | Implemented |
 
-**Missing tools to add:**
-- `miro_create_doc` - Create a doc format item from Markdown
-- `miro_get_doc` - Get doc format item details
-- `miro_delete_doc` - Delete a doc format item
+### 3. File Upload Endpoints (partially done)
 
-### 2. Get Items By Tag
+| Endpoint | Tool | Status |
+|----------|------|--------|
+| `POST /v2/boards/{board_id}/images` (multipart) | `miro_upload_image` | Implemented in v1.14.0 |
+| `PATCH /v2/boards/{board_id}/images/{item_id}` (multipart) | - | Not implemented |
+| `POST /v2/boards/{board_id}/documents` (multipart) | - | Not implemented |
+| `PATCH /v2/boards/{board_id}/documents/{item_id}` (multipart) | - | Not implemented |
+| `POST /v2/boards/{board_id}/items/bulk` (multipart) | - | Not implemented |
 
-| Endpoint | What it does |
-|----------|-------------|
-| `GET /v2/boards/{board_id}/items?tag_id=...` | Filter items by tag ID |
-
-**Impact:** Medium. We have tag CRUD and attach/detach, but can't query "show me all items tagged Urgent". Useful for board analysis workflows.
-
-**Missing tool:**
-- `miro_get_items_by_tag` - List all items with a specific tag
-
-### 3. File Upload Endpoints
-
-| Endpoint | What it does |
-|----------|-------------|
-| `POST /v2/boards/{board_id}/images` (multipart) | Upload image from local file |
-| `PATCH /v2/boards/{board_id}/images/{item_id}` (multipart) | Update image from local file |
-| `POST /v2/boards/{board_id}/documents` (multipart) | Upload document from local file |
-| `PATCH /v2/boards/{board_id}/documents/{item_id}` (multipart) | Update document from local file |
-| `POST /v2/boards/{board_id}/items/bulk` (multipart) | Bulk create from local files |
-
-**Impact:** Medium. We only support URL-based image/document creation. File upload would enable local screenshot uploads, generated images, etc.
-
-**Note:** MCP protocol has limited binary file support via stdio. This would primarily benefit HTTP mode users. Consider implementing for images first (most common use case).
-
-**Missing tools (stretch):**
-- `miro_upload_image` - Upload image from local file
+**Remaining gaps:**
 - `miro_upload_document` - Upload document from local file
+- Update image/document from local file (PATCH multipart)
+- Bulk create from local files (multipart)
 
 ### 4. Type-Specific Delete Endpoints
 
@@ -104,23 +87,19 @@ Similar to deletes, the API has type-specific GET endpoints (GET .../sticky_note
 
 ## Gaps: Experimental API (Medium Priority)
 
-### 7. Flowchart Shapes (Experimental)
+### 7. Flowchart Shapes (Experimental) - partially done
 
-New experimental endpoints for flowchart-specific shapes with richer properties.
+| Endpoint | Tool | Status |
+|----------|------|--------|
+| `POST /v2-experimental/boards/{board_id}/shapes` | `miro_create_flowchart_shape` | Implemented in v1.14.0 |
+| `GET /v2-experimental/boards/{board_id}/shapes/{item_id}` | - | Not implemented |
+| `PATCH /v2-experimental/boards/{board_id}/shapes/{item_id}` | - | Not implemented |
+| `DELETE /v2-experimental/boards/{board_id}/shapes/{item_id}` | - | Not implemented (generic delete works) |
+| `GET /v2-experimental/boards/{board_id}/items` | - | Not implemented |
+| `GET /v2-experimental/boards/{board_id}/items/{item_id}` | - | Not implemented |
+| `DELETE /v2-experimental/boards/{board_id}/items/{item_id}` | - | Not implemented |
 
-| Endpoint | What it does |
-|----------|-------------|
-| `POST /v2-experimental/boards/{board_id}/shapes` | Create flowchart shape |
-| `GET /v2-experimental/boards/{board_id}/shapes/{item_id}` | Get flowchart shape |
-| `PATCH /v2-experimental/boards/{board_id}/shapes/{item_id}` | Update flowchart shape |
-| `DELETE /v2-experimental/boards/{board_id}/shapes/{item_id}` | Delete flowchart shape |
-| `GET /v2-experimental/boards/{board_id}/items` | Get items (experimental) |
-| `GET /v2-experimental/boards/{board_id}/items/{item_id}` | Get specific item (experimental) |
-| `DELETE /v2-experimental/boards/{board_id}/items/{item_id}` | Delete item (experimental) |
-
-**Impact:** Medium. We already have `CreateShapeExperimental` in our client code but don't expose it as a tool. These may offer improved flowchart shape types for our diagram generation feature.
-
-**Action:** Monitor. Expose when/if it moves to GA. We already have the client method.
+**Remaining gaps:** Get, update, and delete for experimental shapes. Low priority; generic endpoints work for get/delete.
 
 ### 8. App Metrics (Experimental)
 
@@ -169,22 +148,29 @@ Our MCP server adds value-add tools not in the raw API:
 | `miro_search_board` | Text search across board items (composite) |
 | `miro_generate_diagram` | Mermaid-to-Miro diagram generation (custom) |
 | `miro_get_audit_log` | Local execution audit trail (custom) |
+| `miro_desire_path_report` | Agent behavior normalization insights (custom) |
 | `miro_bulk_create/update/delete` | Batched operations with dry_run (enhanced) |
+| Type-specific updates (8) | `update_sticky`, `update_shape`, `update_text`, `update_card`, `update_image`, `update_document`, `update_embed`, `update_group` (enhanced) |
+| Type-specific reads (2) | `get_image`, `get_document` (enhanced with richer fields) |
 
-## Recommended Priorities
+## Recommended Priorities (updated post v1.14.0)
 
-### P0 - Do Now (high value, low effort)
-1. **Doc Formats API** (3 new tools) - New item type, Markdown input is perfect for LLMs
-2. **Get Items By Tag** (1 new tool) - Completes tag workflow
+### Completed in v1.14.0
+- ~~**Doc Formats API** (3 new tools)~~ `miro_create_doc`, `miro_get_doc`, `miro_delete_doc`
+- ~~**Get Items By Tag** (1 new tool)~~ `miro_get_items_by_tag`
+- ~~**File Upload (images)** (1 new tool)~~ `miro_upload_image`
+- ~~**Flowchart Shapes (experimental)** (1 new tool)~~ `miro_create_flowchart_shape`
 
 ### P1 - Do Soon (medium value, medium effort)
-3. **File Upload (images)** - Enable local screenshot/generated image uploads
+1. **Upload document from file** - Complete the multipart upload set
+2. **Update image/document from file** - PATCH multipart for existing items
 
 ### P2 - Monitor
-4. **Flowchart Shapes (experimental)** - Already have client code; expose when GA
-5. **OAuth Token Revoke v2** - Minor utility
+3. **Experimental flowchart get/update/delete** - Generic endpoints cover most cases
+4. **OAuth Token Revoke v2** - Minor utility
+5. **Type-specific get endpoints** - Richer fields for power users
 
 ### P3 - Skip
 6. Enterprise APIs - Not our target audience
 7. App Metrics - Maintainer-only value
-8. Type-specific get/delete - Generic endpoints work fine
+8. Type-specific delete endpoints - Generic delete works fine

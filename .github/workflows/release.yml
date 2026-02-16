@@ -11,6 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - goos: darwin
@@ -46,15 +47,30 @@ jobs:
         run: |
           go build -ldflags="-s -w" -o miro-mcp-server-${{ matrix.suffix }} .
 
-      - name: Upload release asset
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: miro-mcp-server-${{ matrix.suffix }}
+          path: miro-mcp-server-${{ matrix.suffix }}
+
+  upload-release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: miro-mcp-server-${{ matrix.suffix }}
+          files: artifacts/miro-mcp-server-*/miro-mcp-server-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   update-homebrew:
-    needs: build
+    needs: upload-release
     runs-on: ubuntu-latest
     # This job will fail checkout step if HOMEBREW_TAP_TOKEN is not set, which is expected
     continue-on-error: true

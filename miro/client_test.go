@@ -10025,3 +10025,262 @@ func TestUploadDocument_Directory(t *testing.T) {
 		t.Errorf("error = %q, want containing 'directory'", err.Error())
 	}
 }
+
+// =============================================================================
+// UpdateImageFromFile Tests
+// =============================================================================
+
+func TestUpdateImageFromFile_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/images/img-456") {
+			t.Errorf("expected images/img-456 in path, got %s", r.URL.Path)
+		}
+		ct := r.Header.Get("Content-Type")
+		if !strings.HasPrefix(ct, "multipart/form-data") {
+			t.Errorf("expected multipart/form-data, got %s", ct)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "img-456",
+			"data": map[string]interface{}{
+				"title": "updated-logo.png",
+			},
+		})
+	}))
+	defer server.Close()
+
+	tmpFile, err := os.CreateTemp("", "test-*.png")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Write([]byte("PNG fake content"))
+	tmpFile.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateImageFromFile(context.Background(), UpdateImageFromFileArgs{
+		BoardID:  "board123",
+		ItemID:   "img-456",
+		FilePath: tmpFile.Name(),
+		Title:    "updated-logo.png",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "img-456" {
+		t.Errorf("ID = %q, want 'img-456'", result.ID)
+	}
+	if !strings.Contains(result.Message, "Updated image") {
+		t.Errorf("Message = %q, want containing 'Updated image'", result.Message)
+	}
+}
+
+func TestUpdateImageFromFile_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    UpdateImageFromFileArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    UpdateImageFromFileArgs{ItemID: "img-1", FilePath: "/tmp/test.png"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty item ID",
+			args:    UpdateImageFromFileArgs{BoardID: "board123", FilePath: "/tmp/test.png"},
+			wantErr: "item_id is required",
+		},
+		{
+			name:    "empty file path",
+			args:    UpdateImageFromFileArgs{BoardID: "board123", ItemID: "img-1"},
+			wantErr: "file_path is required",
+		},
+		{
+			name:    "nonexistent file",
+			args:    UpdateImageFromFileArgs{BoardID: "board123", ItemID: "img-1", FilePath: "/nonexistent/file.png"},
+			wantErr: "cannot access file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.UpdateImageFromFile(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdateImageFromFile_UnsupportedFormat(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test-*.pdf")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Write([]byte("not an image"))
+	tmpFile.Close()
+
+	client := newTestClientWithServer("http://localhost")
+	_, err = client.UpdateImageFromFile(context.Background(), UpdateImageFromFileArgs{
+		BoardID:  "board123",
+		ItemID:   "img-1",
+		FilePath: tmpFile.Name(),
+	})
+	if err == nil {
+		t.Fatal("expected error for unsupported format")
+	}
+	if !strings.Contains(err.Error(), "unsupported image format") {
+		t.Errorf("error = %q, want containing 'unsupported image format'", err.Error())
+	}
+}
+
+// =============================================================================
+// UpdateDocumentFromFile Tests
+// =============================================================================
+
+func TestUpdateDocumentFromFile_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/documents/doc-789") {
+			t.Errorf("expected documents/doc-789 in path, got %s", r.URL.Path)
+		}
+		ct := r.Header.Get("Content-Type")
+		if !strings.HasPrefix(ct, "multipart/form-data") {
+			t.Errorf("expected multipart/form-data, got %s", ct)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "doc-789",
+			"data": map[string]interface{}{
+				"title": "updated-report.pdf",
+			},
+		})
+	}))
+	defer server.Close()
+
+	tmpFile, err := os.CreateTemp("", "test-*.pdf")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Write([]byte("%PDF-1.4 updated content"))
+	tmpFile.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateDocumentFromFile(context.Background(), UpdateDocumentFromFileArgs{
+		BoardID:  "board123",
+		ItemID:   "doc-789",
+		FilePath: tmpFile.Name(),
+		Title:    "updated-report.pdf",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "doc-789" {
+		t.Errorf("ID = %q, want 'doc-789'", result.ID)
+	}
+	if !strings.Contains(result.Message, "Updated document") {
+		t.Errorf("Message = %q, want containing 'Updated document'", result.Message)
+	}
+}
+
+func TestUpdateDocumentFromFile_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    UpdateDocumentFromFileArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    UpdateDocumentFromFileArgs{ItemID: "doc-1", FilePath: "/tmp/test.pdf"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty item ID",
+			args:    UpdateDocumentFromFileArgs{BoardID: "board123", FilePath: "/tmp/test.pdf"},
+			wantErr: "item_id is required",
+		},
+		{
+			name:    "empty file path",
+			args:    UpdateDocumentFromFileArgs{BoardID: "board123", ItemID: "doc-1"},
+			wantErr: "file_path is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.UpdateDocumentFromFile(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdateDocumentFromFile_UnsupportedFormat(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test-*.exe")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Write([]byte("not a document"))
+	tmpFile.Close()
+
+	client := newTestClientWithServer("http://localhost")
+	_, err = client.UpdateDocumentFromFile(context.Background(), UpdateDocumentFromFileArgs{
+		BoardID:  "board123",
+		ItemID:   "doc-1",
+		FilePath: tmpFile.Name(),
+	})
+	if err == nil {
+		t.Fatal("expected error for unsupported format")
+	}
+	if !strings.Contains(err.Error(), "unsupported document format") {
+		t.Errorf("error = %q, want containing 'unsupported document format'", err.Error())
+	}
+}
+
+func TestUpdateDocumentFromFile_FileSizeExceeded(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test-*.pdf")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	data := make([]byte, 6*1024*1024+1)
+	tmpFile.Write(data)
+	tmpFile.Close()
+
+	client := newTestClientWithServer("http://localhost")
+	_, err = client.UpdateDocumentFromFile(context.Background(), UpdateDocumentFromFileArgs{
+		BoardID:  "board123",
+		ItemID:   "doc-1",
+		FilePath: tmpFile.Name(),
+	})
+	if err == nil {
+		t.Fatal("expected error for file too large")
+	}
+	if !strings.Contains(err.Error(), "exceeds 6 MB limit") {
+		t.Errorf("error = %q, want containing 'exceeds 6 MB limit'", err.Error())
+	}
+}

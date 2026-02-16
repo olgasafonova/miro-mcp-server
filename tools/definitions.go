@@ -1026,6 +1026,56 @@ VOICE-FRIENDLY: "Uploaded document 'report.pdf' to board"`,
 	},
 
 	// ==========================================================================
+	// Update from File Tools (PATCH multipart)
+	// ==========================================================================
+	{
+		Name:     "miro_update_image_from_file",
+		Method:   "UpdateImageFromFile",
+		Title:    "Replace Image File",
+		Category: "update",
+		Description: `Replace the file on an existing image item with a new local image file.
+
+USE WHEN: User says "replace this image", "swap the screenshot", "update the image file". Use this to change the file on an existing image item without creating a new one. For updating metadata only (title, position), use miro_update_image instead.
+
+PARAMETERS:
+- board_id: Required
+- item_id: Required. The existing image item to update.
+- file_path: Absolute path to the new image file (required). Supports: png, jpg, jpeg, gif, webp, svg.
+- title: New image title/alt text
+- x, y: New position
+- parent_id: Frame ID to move image into
+
+NOTE: The item must already exist as an image. The file must exist on the local filesystem.
+
+RELATED: To create a new image from file, use miro_upload_image. To update metadata only, use miro_update_image.
+
+VOICE-FRIENDLY: "Replaced image file on item"`,
+	},
+	{
+		Name:     "miro_update_document_from_file",
+		Method:   "UpdateDocumentFromFile",
+		Title:    "Replace Document File",
+		Category: "update",
+		Description: `Replace the file on an existing document item with a new local document file.
+
+USE WHEN: User says "replace this document", "update the PDF", "swap the file on this document". Use this to change the file on an existing document item without creating a new one. For updating metadata only (title, position), use miro_update_document instead.
+
+PARAMETERS:
+- board_id: Required
+- item_id: Required. The existing document item to update.
+- file_path: Absolute path to the new document file (required). Supports: pdf, doc, docx, ppt, pptx, xls, xlsx, txt, rtf, csv. Max 6 MB.
+- title: New document title
+- x, y: New position
+- parent_id: Frame ID to move document into
+
+NOTE: The item must already exist as a document. The file must exist on the local filesystem.
+
+RELATED: To create a new document from file, use miro_upload_document. To update metadata only, use miro_update_document.
+
+VOICE-FRIENDLY: "Replaced document file on item"`,
+	},
+
+	// ==========================================================================
 	// Flowchart Shape Tools (Experimental)
 	// ==========================================================================
 	{

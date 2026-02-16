@@ -190,8 +190,10 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"GetItemsByTag": makeHandler(h, h.client.GetItemsByTag),
 
 		// Upload tools
-		"UploadImage":    makeHandler(h, h.client.UploadImage),
-		"UploadDocument": makeHandler(h, h.client.UploadDocument),
+		"UploadImage":            makeHandler(h, h.client.UploadImage),
+		"UploadDocument":         makeHandler(h, h.client.UploadDocument),
+		"UpdateImageFromFile":    makeHandler(h, h.client.UpdateImageFromFile),
+		"UpdateDocumentFromFile": makeHandler(h, h.client.UpdateDocumentFromFile),
 
 		// Flowchart shape tools (experimental)
 		"CreateFlowchartShape": makeHandler(h, h.client.CreateFlowchartShape),

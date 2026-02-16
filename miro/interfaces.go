@@ -156,6 +156,8 @@ type DocFormatService interface {
 type UploadService interface {
 	UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error)
 	UploadDocument(ctx context.Context, args UploadDocumentArgs) (UploadDocumentResult, error)
+	UpdateImageFromFile(ctx context.Context, args UpdateImageFromFileArgs) (UpdateImageFromFileResult, error)
+	UpdateDocumentFromFile(ctx context.Context, args UpdateDocumentFromFileArgs) (UpdateDocumentFromFileResult, error)
 }
 
 // =============================================================================

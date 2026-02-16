@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**87 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**89 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -189,7 +189,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Update & Delete Items (15)</b></summary>
+<summary><b>Update & Delete Items (17)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -199,7 +199,9 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_update_text` | Update text element |
 | `miro_update_card` | Update card fields |
 | `miro_update_image` | Update image properties |
+| `miro_update_image_from_file` | Replace image file on existing item |
 | `miro_update_document` | Update document properties |
+| `miro_update_document_from_file` | Replace document file on existing item |
 | `miro_update_embed` | Update embed properties |
 | `miro_update_group` | Update group properties |
 | `miro_update_app_card` | Update app card fields |
@@ -447,7 +449,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 87 tools with their schemas
+- Browse all 89 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -489,9 +491,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 87 tools |
-| Team | Full access to all 87 tools |
-| Business | Full access to all 87 tools |
+| Free | Full access to all 89 tools |
+| Team | Full access to all 89 tools |
+| Business | Full access to all 89 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

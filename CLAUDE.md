@@ -1,7 +1,7 @@
 # Miro MCP Server
 
 ## Project
-Go MCP server for Miro REST API v2. 87 tools across boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
+Go MCP server for Miro REST API v2. 89 tools across boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
 
 ## Architecture
 - `main.go` — entry point, dual stdio/HTTP transport, health/metrics endpoints, token validation
@@ -26,7 +26,7 @@ Go MCP server for Miro REST API v2. 87 tools across boards, items, diagrams, min
 - All API methods live on the `MiroClient` interface for testability (mock in `tools/mock_client_test.go`)
 - Mermaid diagrams parsed locally (no external service), supporting flowchart + sequenceDiagram
 
-## Tool Categories (87 total)
+## Tool Categories (89 total)
 - **Board Management** (9): list, find, get, create, copy, update, delete, summary, content
 - **Board Members** (5): list, get, share, update, remove
 - **Create Items** (15): sticky, shape, flowchart shape, text, connector, frame, card, app card, image, document, embed, bulk create/update/delete, sticky grid
@@ -38,7 +38,7 @@ Go MCP server for Miro REST API v2. 87 tools across boards, items, diagrams, min
 - **Mindmaps** (4): create, get, list, delete
 - **Frames** (4): get, update, delete, get items
 - **Doc Formats** (3): create, get, delete (Markdown input)
-- **Upload** (2): upload image, upload document (multipart file upload)
+- **Upload** (4): upload image, upload document, update image from file, update document from file (multipart)
 - **App Cards** (2): update, delete (create and get counted above)
 - **Export** (4): board picture, create job, status, results
 - **Diagrams** (1): generate from Mermaid

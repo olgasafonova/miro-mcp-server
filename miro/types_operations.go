@@ -898,6 +898,52 @@ type UploadDocumentResult struct {
 }
 
 // =============================================================================
+// Update Image from File (PATCH multipart)
+// =============================================================================
+
+// UpdateImageFromFileArgs contains parameters for replacing the file on an existing image item.
+type UpdateImageFromFileArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID   string  `json:"item_id" jsonschema:"required" jsonschema_description:"Image item ID to update"`
+	FilePath string  `json:"file_path" jsonschema:"required" jsonschema_description:"Absolute path to the new image file on disk"`
+	Title    string  `json:"title,omitempty" jsonschema_description:"New image title/alt text"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to move image into"`
+}
+
+// UpdateImageFromFileResult contains the updated image details.
+type UpdateImageFromFileResult struct {
+	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Update Document from File (PATCH multipart)
+// =============================================================================
+
+// UpdateDocumentFromFileArgs contains parameters for replacing the file on an existing document item.
+type UpdateDocumentFromFileArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	ItemID   string  `json:"item_id" jsonschema:"required" jsonschema_description:"Document item ID to update"`
+	FilePath string  `json:"file_path" jsonschema:"required" jsonschema_description:"Absolute path to the new document file on disk"`
+	Title    string  `json:"title,omitempty" jsonschema_description:"New document title"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"New X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to move document into"`
+}
+
+// UpdateDocumentFromFileResult contains the updated document details.
+type UpdateDocumentFromFileResult struct {
+	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
 // Create Flowchart Shape (Experimental)
 // =============================================================================
 

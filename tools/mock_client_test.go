@@ -131,8 +131,10 @@ type MockClient struct {
 	DeleteDocFormatFn func(ctx context.Context, args miro.DeleteDocFormatArgs) (miro.DeleteDocFormatResult, error)
 
 	// Upload operations
-	UploadImageFn    func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
-	UploadDocumentFn func(ctx context.Context, args miro.UploadDocumentArgs) (miro.UploadDocumentResult, error)
+	UploadImageFn            func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
+	UploadDocumentFn         func(ctx context.Context, args miro.UploadDocumentArgs) (miro.UploadDocumentResult, error)
+	UpdateImageFromFileFn    func(ctx context.Context, args miro.UpdateImageFromFileArgs) (miro.UpdateImageFromFileResult, error)
+	UpdateDocumentFromFileFn func(ctx context.Context, args miro.UpdateDocumentFromFileArgs) (miro.UpdateDocumentFromFileResult, error)
 
 	// Call tracking
 	Calls []MockCall
@@ -1417,6 +1419,30 @@ func (m *MockClient) UploadDocument(ctx context.Context, args miro.UploadDocumen
 		ID:      "uploaded-doc-123",
 		Title:   args.Title,
 		Message: "Uploaded document from file",
+	}, nil
+}
+
+func (m *MockClient) UpdateImageFromFile(ctx context.Context, args miro.UpdateImageFromFileArgs) (miro.UpdateImageFromFileResult, error) {
+	m.recordCall("UpdateImageFromFile", args)
+	if m.UpdateImageFromFileFn != nil {
+		return m.UpdateImageFromFileFn(ctx, args)
+	}
+	return miro.UpdateImageFromFileResult{
+		ID:      args.ItemID,
+		Title:   args.Title,
+		Message: "Updated image with new file",
+	}, nil
+}
+
+func (m *MockClient) UpdateDocumentFromFile(ctx context.Context, args miro.UpdateDocumentFromFileArgs) (miro.UpdateDocumentFromFileResult, error) {
+	m.recordCall("UpdateDocumentFromFile", args)
+	if m.UpdateDocumentFromFileFn != nil {
+		return m.UpdateDocumentFromFileFn(ctx, args)
+	}
+	return miro.UpdateDocumentFromFileResult{
+		ID:      args.ItemID,
+		Title:   args.Title,
+		Message: "Updated document with new file",
 	}, nil
 }
 

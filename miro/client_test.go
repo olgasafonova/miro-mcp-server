@@ -9868,3 +9868,160 @@ func TestUpdateEmbed_WithAllFields(t *testing.T) {
 		t.Errorf("ID = %q, want 'embed123'", result.ID)
 	}
 }
+
+// =============================================================================
+// UploadDocument Tests
+// =============================================================================
+
+func TestUploadDocument_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/documents") {
+			t.Errorf("expected documents path, got %s", r.URL.Path)
+		}
+		ct := r.Header.Get("Content-Type")
+		if !strings.HasPrefix(ct, "multipart/form-data") {
+			t.Errorf("expected multipart/form-data, got %s", ct)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "doc-upload-123",
+			"data": map[string]interface{}{
+				"title": "report.pdf",
+			},
+		})
+	}))
+	defer server.Close()
+
+	// Create a temp PDF file
+	tmpFile, err := os.CreateTemp("", "test-*.pdf")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Write([]byte("%PDF-1.4 test content"))
+	tmpFile.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UploadDocument(context.Background(), UploadDocumentArgs{
+		BoardID:  "board123",
+		FilePath: tmpFile.Name(),
+		Title:    "report.pdf",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "doc-upload-123" {
+		t.Errorf("ID = %q, want 'doc-upload-123'", result.ID)
+	}
+	if !strings.Contains(result.Message, "report.pdf") {
+		t.Errorf("Message = %q, want containing 'report.pdf'", result.Message)
+	}
+}
+
+func TestUploadDocument_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://localhost")
+
+	tests := []struct {
+		name    string
+		args    UploadDocumentArgs
+		wantErr string
+	}{
+		{
+			name:    "empty board ID",
+			args:    UploadDocumentArgs{FilePath: "/tmp/test.pdf"},
+			wantErr: "board_id is required",
+		},
+		{
+			name:    "empty file path",
+			args:    UploadDocumentArgs{BoardID: "board123"},
+			wantErr: "file_path is required",
+		},
+		{
+			name:    "nonexistent file",
+			args:    UploadDocumentArgs{BoardID: "board123", FilePath: "/nonexistent/file.pdf"},
+			wantErr: "cannot access file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.UploadDocument(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUploadDocument_UnsupportedFormat(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test-*.exe")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Write([]byte("not a doc"))
+	tmpFile.Close()
+
+	client := newTestClientWithServer("http://localhost")
+	_, err = client.UploadDocument(context.Background(), UploadDocumentArgs{
+		BoardID:  "board123",
+		FilePath: tmpFile.Name(),
+	})
+	if err == nil {
+		t.Fatal("expected error for unsupported format")
+	}
+	if !strings.Contains(err.Error(), "unsupported document format") {
+		t.Errorf("error = %q, want containing 'unsupported document format'", err.Error())
+	}
+}
+
+func TestUploadDocument_FileSizeExceeded(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "test-*.pdf")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	data := make([]byte, 6*1024*1024+1)
+	tmpFile.Write(data)
+	tmpFile.Close()
+
+	client := newTestClientWithServer("http://localhost")
+	_, err = client.UploadDocument(context.Background(), UploadDocumentArgs{
+		BoardID:  "board123",
+		FilePath: tmpFile.Name(),
+	})
+	if err == nil {
+		t.Fatal("expected error for file too large")
+	}
+	if !strings.Contains(err.Error(), "exceeds 6 MB limit") {
+		t.Errorf("error = %q, want containing 'exceeds 6 MB limit'", err.Error())
+	}
+}
+
+func TestUploadDocument_Directory(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "test-dir")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	client := newTestClientWithServer("http://localhost")
+	_, err = client.UploadDocument(context.Background(), UploadDocumentArgs{
+		BoardID:  "board123",
+		FilePath: tmpDir,
+	})
+	if err == nil {
+		t.Fatal("expected error for directory")
+	}
+	if !strings.Contains(err.Error(), "directory") {
+		t.Errorf("error = %q, want containing 'directory'", err.Error())
+	}
+}

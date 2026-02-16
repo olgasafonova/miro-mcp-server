@@ -338,11 +338,13 @@ USE WHEN: "get image URL", "what image is this", "image details"
 VOICE-FRIENDLY: "Image 'Logo' is 800x600 at position (100, 200)"`,
 	},
 	{
-		Name:        "miro_create_document",
-		Method:      "CreateDocument",
-		Title:       "Create Document",
-		Category:    "create",
-		Description: `Add a document (PDF, etc.) to a Miro board from a URL. URL must be publicly accessible.`,
+		Name:     "miro_create_document",
+		Method:   "CreateDocument",
+		Title:    "Create Document",
+		Category: "create",
+		Description: `Add a document (PDF, etc.) to a Miro board from a URL. URL must be publicly accessible.
+
+RELATED: To upload a local file instead, use miro_upload_document.`,
 	},
 	{
 		Name:     "miro_get_document",
@@ -984,7 +986,7 @@ VOICE-FRIENDLY: "Found 7 items tagged 'Urgent'"`,
 		Category: "create",
 		Description: `Upload a local image file to a Miro board.
 
-USE WHEN: User says "upload this image", "add screenshot to board", "put this file on the board"
+USE WHEN: User says "upload this image", "add screenshot to board", "upload png/jpg/gif/svg file". Use this for image files (png, jpg, gif, webp, svg). For documents (pdf, docx, pptx), use miro_upload_document instead.
 
 PARAMETERS:
 - board_id: Required
@@ -995,7 +997,32 @@ PARAMETERS:
 
 NOTE: The file must exist on the local filesystem. For remote images, use miro_create_image with a URL instead.
 
+RELATED: To upload a document file (pdf, docx, etc.), use miro_upload_document.
+
 VOICE-FRIENDLY: "Uploaded image 'screenshot.png' to board"`,
+	},
+
+	{
+		Name:     "miro_upload_document",
+		Method:   "UploadDocument",
+		Title:    "Upload Document from File",
+		Category: "create",
+		Description: `Upload a local document file to a Miro board.
+
+USE WHEN: User says "upload this document", "add PDF to board", "upload spreadsheet/presentation file". Use this for document files (pdf, doc, docx, ppt, pptx, xls, xlsx, txt, rtf, csv). For images (png, jpg, gif), use miro_upload_image instead.
+
+PARAMETERS:
+- board_id: Required
+- file_path: Absolute path to the document file (required). Supports: pdf, doc, docx, ppt, pptx, xls, xlsx, txt, rtf, csv. Max 6 MB.
+- title: Document title
+- x, y: Position
+- parent_id: Frame ID to place document in
+
+NOTE: The file must exist on the local filesystem. For remote documents, use miro_create_document with a URL instead.
+
+RELATED: To upload a local image instead, use miro_upload_image.
+
+VOICE-FRIENDLY: "Uploaded document 'report.pdf' to board"`,
 	},
 
 	// ==========================================================================

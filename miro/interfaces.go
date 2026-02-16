@@ -155,6 +155,7 @@ type DocFormatService interface {
 // UploadService handles file upload operations.
 type UploadService interface {
 	UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error)
+	UploadDocument(ctx context.Context, args UploadDocumentArgs) (UploadDocumentResult, error)
 }
 
 // =============================================================================

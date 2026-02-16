@@ -876,6 +876,28 @@ type UploadImageResult struct {
 }
 
 // =============================================================================
+// Upload Document (File Upload)
+// =============================================================================
+
+// UploadDocumentArgs contains parameters for uploading a local document file.
+type UploadDocumentArgs struct {
+	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
+	FilePath string  `json:"file_path" jsonschema:"required" jsonschema_description:"Absolute path to the document file on disk"`
+	Title    string  `json:"title,omitempty" jsonschema_description:"Document title"`
+	X        float64 `json:"x,omitempty" jsonschema_description:"X position"`
+	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place document in"`
+}
+
+// UploadDocumentResult contains the uploaded document details.
+type UploadDocumentResult struct {
+	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
 // Create Flowchart Shape (Experimental)
 // =============================================================================
 

@@ -120,7 +120,8 @@ func TestToolCount(t *testing.T) {
 	// desire paths: +1 desire path report tool = 80
 	// v1.13.0: +3 doc format tools (create, get, delete) + 1 get_items_by_tag
 	//          +1 upload_image + 1 create_flowchart_shape = 86
-	expectedCount := 86
+	// v1.14.0: +1 upload_document = 87
+	expectedCount := 87
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

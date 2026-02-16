@@ -131,7 +131,8 @@ type MockClient struct {
 	DeleteDocFormatFn func(ctx context.Context, args miro.DeleteDocFormatArgs) (miro.DeleteDocFormatResult, error)
 
 	// Upload operations
-	UploadImageFn func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
+	UploadImageFn    func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
+	UploadDocumentFn func(ctx context.Context, args miro.UploadDocumentArgs) (miro.UploadDocumentResult, error)
 
 	// Call tracking
 	Calls []MockCall
@@ -1404,6 +1405,18 @@ func (m *MockClient) UploadImage(ctx context.Context, args miro.UploadImageArgs)
 		ID:      "uploaded-image-123",
 		Title:   args.Title,
 		Message: "Uploaded image from file",
+	}, nil
+}
+
+func (m *MockClient) UploadDocument(ctx context.Context, args miro.UploadDocumentArgs) (miro.UploadDocumentResult, error) {
+	m.recordCall("UploadDocument", args)
+	if m.UploadDocumentFn != nil {
+		return m.UploadDocumentFn(ctx, args)
+	}
+	return miro.UploadDocumentResult{
+		ID:      "uploaded-doc-123",
+		Title:   args.Title,
+		Message: "Uploaded document from file",
 	}, nil
 }
 

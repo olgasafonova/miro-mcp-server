@@ -133,7 +133,27 @@ VOICE-FRIENDLY: "Created yellow sticky 'Action item: Review design'"`,
 		Category: "create",
 		Description: `Create a shape on a Miro board.
 
-SHAPES: rectangle, round_rectangle, circle, triangle, rhombus, parallelogram, trapezoid, pentagon, hexagon, star, flow_chart_predefined_process, wedge_round_rectangle_callout`,
+USE WHEN: User says "add a rectangle", "draw a circle", "create a box for X"
+
+SHAPE TYPES:
+- Basic: rectangle, round_rectangle, circle, triangle, rhombus
+- Flow: parallelogram, trapezoid, pentagon, hexagon, star
+- Flowchart: flow_chart_predefined_process, wedge_round_rectangle_callout
+
+PARAMETERS:
+- board_id: Required. Get from list_boards or find_board
+- shape: Shape type (required, default: rectangle)
+- content: Text inside shape
+- color: Fill color (e.g., "#FF5733" or color name)
+- x, y: Position (default: 0, 0)
+- width, height: Size (default: 200, 200)
+
+RETURNS: Item ID, shape type, position, size, and view link.
+
+RELATED: For flowchart-specific stencil shapes (experimental API), use miro_create_flowchart_shape instead.
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "shape": "circle", "content": "Start", "color": "green", "x": 0, "y": 0}`,
 	},
 	{
 		Name:        "miro_create_text",
@@ -286,11 +306,24 @@ USE WHEN: "add a card", "create a task card", "card with due date"
 VOICE-FRIENDLY: "Created card 'Review design specs'"`,
 	},
 	{
-		Name:        "miro_create_image",
-		Method:      "CreateImage",
-		Title:       "Create Image",
-		Category:    "create",
-		Description: `Add an image to a Miro board from a URL. URL must be publicly accessible.`,
+		Name:     "miro_create_image",
+		Method:   "CreateImage",
+		Title:    "Create Image",
+		Category: "create",
+		Description: `Add an image to a Miro board from a URL.
+
+USE WHEN: User says "add an image", "insert picture from URL", "put this image on the board"
+
+PARAMETERS:
+- board_id: Required
+- url: Image URL (must be publicly accessible, required)
+- title: Alt text / title
+- width: Image width (preserves aspect ratio)
+- x, y: Position
+
+NOTE: The image URL must be publicly accessible. Private URLs won't work.
+
+RELATED: To upload a local file instead, use miro_upload_image.`,
 	},
 	{
 		Name:     "miro_get_image",
@@ -366,12 +399,22 @@ VOICE-FRIENDLY: "Created red tag 'Urgent'"`,
 		Description: `Remove a tag from a sticky note or card.`,
 	},
 	{
-		Name:        "miro_get_item_tags",
-		Method:      "GetItemTags",
-		Title:       "Get Item Tags",
-		Category:    "tags",
-		ReadOnly:    true,
-		Description: `List tags attached to a specific item.`,
+		Name:     "miro_get_item_tags",
+		Method:   "GetItemTags",
+		Title:    "Get Item Tags",
+		Category: "tags",
+		ReadOnly: true,
+		Description: `List tags attached to a specific item.
+
+USE WHEN: User asks "what tags are on this sticky", "show labels for this item"
+
+PARAMETERS:
+- board_id: Required
+- item_id: Item ID (required)
+
+RETURNS: List of tags attached to the item.
+
+RELATED: For the reverse lookup (all items with a specific tag), use miro_get_items_by_tag.`,
 	},
 	{
 		Name:     "miro_get_tag",
@@ -862,6 +905,8 @@ PARAMETERS:
 EXAMPLE:
 {"board_id": "uXjVN1234", "content": "# Sprint Goals\n- Ship v2.0\n- Fix critical bugs"}
 
+RELATED: Use miro_get_doc to read doc content. Use miro_delete_doc to remove. For URL-based documents, use miro_create_document instead.
+
 VOICE-FRIENDLY: "Created doc format item on board"`,
 	},
 	{
@@ -878,7 +923,9 @@ PARAMETERS:
 - board_id: Required
 - item_id: Doc format item ID (required)
 
-RETURNS: Document content (Markdown), position, timestamps.`,
+RETURNS: Document content (Markdown), position, timestamps.
+
+RELATED: Use miro_create_doc to create new documents. Use miro_delete_doc to remove.`,
 	},
 	{
 		Name:        "miro_delete_doc",
@@ -896,7 +943,9 @@ PARAMETERS:
 - dry_run: If true, returns preview without deleting (optional)
 
 WARNING: This action cannot be undone.
-Use dry_run=true to preview what will be deleted before executing.`,
+Use dry_run=true to preview what will be deleted before executing.
+
+RELATED: Use miro_get_doc to inspect before deleting. Use miro_create_doc to create new documents.`,
 	},
 
 	// ==========================================================================
@@ -919,6 +968,8 @@ PARAMETERS:
 - offset: Pagination offset
 
 RETURNS: List of items with IDs, types, and content that have the specified tag.
+
+RELATED: Use miro_list_tags to get tag IDs. Use miro_get_item_tags for the reverse lookup (tags on a specific item). Use miro_attach_tag / miro_detach_tag to manage tag assignments.
 
 VOICE-FRIENDLY: "Found 7 items tagged 'Urgent'"`,
 	},

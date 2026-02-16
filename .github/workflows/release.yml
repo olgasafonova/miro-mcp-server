@@ -63,11 +63,16 @@ jobs:
           path: artifacts
 
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: artifacts/miro-mcp-server-*/miro-mcp-server-*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          for dir in artifacts/miro-mcp-server-*/; do
+            for file in "$dir"miro-mcp-server-*; do
+              echo "Uploading $file..."
+              gh release upload "$TAG" "$file" --clobber
+            done
+          done
 
   update-homebrew:
     needs: upload-release

@@ -13,7 +13,7 @@ Go MCP server for Miro REST API v2. 89 tools across boards, items, diagrams, min
 - `miro/diagrams/` — Mermaid parser for flowchart/sequence diagram generation
 - `miro/audit/` — local execution audit log (JSON file-based)
 - `miro/oauth/` — OAuth2 authentication flow
-- `tools/definitions.go` — 79 ToolSpec declarations with annotations (ReadOnly, Destructive, Idempotent)
+- `tools/definitions.go` — ToolSpec declarations with annotations (ReadOnly, Destructive, Idempotent)
 - `tools/handlers.go` — HandlerRegistry with generic makeHandler[Args, Result] + panic recovery + audit logging
 - `prompts/prompts.go` — MCP workflow prompts (sprint board, retro, brainstorm, story map, kanban)
 - `resources/resources.go` — MCP resource URIs (board summary, items, frames)

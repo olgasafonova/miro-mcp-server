@@ -91,7 +91,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 86 Tools
+## All 89 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>

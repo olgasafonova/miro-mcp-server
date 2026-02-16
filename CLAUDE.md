@@ -53,6 +53,9 @@ make lint      # golangci-lint run
 make build     # build binary
 ```
 
+## Decision Log
+`~/Documents/remote-v/Projects/Miro MCP Server - Decision Log.md` — rationale for API tracking, release workflow design, and other architectural choices. Check before making operational decisions.
+
 ## Cross-References (sister MCP servers)
 - ToolSpec "USE WHEN" descriptions: ~/Projects/gleif-mcp-server/tools/definitions.go
 - LRU cache with TTL: ~/Projects/productplan-mcp-server/pkg/productplan/cache.go

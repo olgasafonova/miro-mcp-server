@@ -61,6 +61,11 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 **Claude Desktop / Cursor / VS Code:** See [SETUP.md](SETUP.md)
 
+**Cursor Marketplace:**
+```bash
+/add-plugin miro
+```
+
 > **Not working?** [Tell us what made it hard](https://github.com/olgasafonova/miro-mcp-server/issues/new?template=bug_report.yml) — even one sentence helps.
 
 ---

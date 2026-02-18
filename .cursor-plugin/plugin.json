@@ -1,0 +1,27 @@
+{
+  "name": "miro",
+  "displayName": "Miro",
+  "version": "1.14.1",
+  "description": "Control Miro whiteboards with AI. Create stickies, shapes, connectors, diagrams, and mindmaps. 89 tools for board management, bulk operations, and Mermaid diagram generation.",
+  "author": {
+    "name": "Olga Safonova"
+  },
+  "homepage": "https://github.com/olgasafonova/miro-mcp-server",
+  "repository": "https://github.com/olgasafonova/miro-mcp-server",
+  "license": "MIT",
+  "logo": "assets/logo.png",
+  "keywords": [
+    "miro",
+    "whiteboard",
+    "diagrams",
+    "collaboration",
+    "mermaid",
+    "mindmap"
+  ],
+  "category": "productivity",
+  "tags": [
+    "whiteboard",
+    "collaboration",
+    "design"
+  ]
+}

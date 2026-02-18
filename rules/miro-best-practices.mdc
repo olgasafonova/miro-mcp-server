@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+
+# Miro tool usage guardrails
+
+1. Always call `miro_list_boards` first to discover board IDs before any board operation.
+2. Save item IDs returned from creation tools; you need them for connectors and updates.
+3. Use `miro_bulk_create` when adding 3 or more items instead of multiple individual create calls.
+4. Give short confirmations after actions: "Added 5 stickies to Design Board" not verbose summaries.
+5. Use `miro_search_board` to find existing content before creating duplicates.
+6. When generating diagrams, use `miro_generate_diagram` with Mermaid syntax (flowchart or sequenceDiagram).
+7. Sticky colors: yellow, green, blue, pink, orange, red, gray, cyan, purple, dark_green, dark_blue, black.
+8. Common shapes: rectangle, round_rectangle, circle, triangle, rhombus, star, hexagon, pentagon.

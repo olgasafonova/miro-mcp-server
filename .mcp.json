@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "miro": {
+      "command": "miro-mcp-server",
+      "env": {
+        "MIRO_ACCESS_TOKEN": ""
+      }
+    }
+  }
+}

@@ -10,7 +10,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<video src="https://raw.githubusercontent.com/olgasafonova/miro-mcp-server/main/assets/demo.mp4" width="100%" autoplay loop muted playsinline></video>
+![Demo](assets/demo.mp4)
 
 ---
 

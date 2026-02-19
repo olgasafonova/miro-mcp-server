@@ -10,7 +10,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-https://github.com/olgasafonova/miro-mcp-server/releases/download/v1.14.1/demo.mp4
+https://raw.githubusercontent.com/olgasafonova/miro-mcp-server/main/assets/demo.mp4
 
 ---
 

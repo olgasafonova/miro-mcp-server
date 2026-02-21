@@ -7,14 +7,25 @@ linters:
   default: none
   enable:
     - govet
+    - gosec
     - ineffassign
     - staticcheck
     - unused
+  settings:
+    gosec:
+      excludes:
+        - G104  # Covered by errcheck or intentionally ignored (audit log writes)
+        - G101  # False positives on URL constants and test fixtures
+        - G115  # Integer overflow: bounded by MaxRetries constant
+        - G304  # File paths from config/env, not user input
   exclusions:
     generated: lax
     presets:
       - comments
       - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
     paths:
-      - ".*_test\\.go$"
       - vendor

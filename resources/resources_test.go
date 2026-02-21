@@ -183,7 +183,7 @@ func TestNewRegistry(t *testing.T) {
 	registry := NewRegistry(mock)
 
 	if registry == nil {
-		t.Error("NewRegistry() returned nil")
+		t.Fatal("NewRegistry() returned nil")
 	}
 
 	if registry.client != mock {

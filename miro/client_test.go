@@ -32,9 +32,6 @@ func testConfig() *Config {
 // ptrString returns a pointer to the given string.
 func ptrString(s string) *string { return &s }
 
-// ptrFloat64 returns a pointer to the given float64.
-func ptrFloat64(f float64) *float64 { return &f }
-
 // =============================================================================
 // Input Validation Tests
 // =============================================================================
@@ -6420,10 +6417,6 @@ func TestJoinPath_AdditionalCases(t *testing.T) {
 
 func strPtr(s string) *string {
 	return &s
-}
-
-func floatPtr(f float64) *float64 {
-	return &f
 }
 
 func TestUpdateSticky_Success(t *testing.T) {

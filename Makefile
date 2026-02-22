@@ -86,6 +86,10 @@ tidy: ## Tidy go modules
 deps: ## Download dependencies
 	$(GOMOD) download
 
+.PHONY: token-badge
+token-badge: ## Generate MCP token count badge
+	go run ./cmd/token-count/
+
 .PHONY: clean
 clean: ## Clean build artifacts
 	rm -f $(BINARY_NAME)

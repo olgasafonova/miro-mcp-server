@@ -9,6 +9,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![MCP Context](badges/mcp-tokens.svg)](#tools)
 
 <video src="https://github.com/user-attachments/assets/a27c535e-f3b5-4a3a-ac3c-bea5fe7ebd0b" width="100%" autoplay loop muted playsinline></video>
 

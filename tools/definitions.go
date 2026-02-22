@@ -66,12 +66,23 @@ var AllTools = []ToolSpec{
 VOICE-FRIENDLY: "Found 5 boards: Design Sprint, Product Roadmap, Team Retro..."`,
 	},
 	{
-		Name:        "miro_get_board",
-		Method:      "GetBoard",
-		Title:       "Get Board Details",
-		Category:    "boards",
-		ReadOnly:    true,
-		Description: `Get details of a specific Miro board (name, description, owner, creation date).`,
+		Name:     "miro_get_board",
+		Method:   "GetBoard",
+		Title:    "Get Board Details",
+		Category: "boards",
+		ReadOnly: true,
+		Description: `Get board metadata: name, description, owner, creation date, and sharing policy.
+
+USE WHEN: "who owns this board?", "when was this board created?", "board settings", "tell me about this board"
+
+NOT FOR: Board content overview with item counts (use ` + "`miro_get_board_summary`" + `). Full content export for AI analysis (use ` + "`miro_get_board_content`" + `).
+
+PARAMETERS:
+- board_id: Required. Get from miro_list_boards or miro_find_board.
+
+RETURNS: Board name, description, owner info, creation/modification timestamps, sharing policy, and view link.
+
+VOICE-FRIENDLY: "Board 'Sprint Planning' owned by Jane, created Jan 15"`,
 	},
 	{
 		Name:     "miro_create_board",
@@ -156,11 +167,13 @@ EXAMPLE:
 {"board_id": "uXjVN1234", "shape": "circle", "content": "Start", "color": "green", "x": 0, "y": 0}`,
 	},
 	{
-		Name:        "miro_create_text",
-		Method:      "CreateText",
-		Title:       "Create Text",
-		Category:    "create",
-		Description: `Create a text element on a Miro board.`,
+		Name:     "miro_create_text",
+		Method:   "CreateText",
+		Title:    "Create Text",
+		Category: "create",
+		Description: `Add free-floating text to a Miro board with no background or border. For notes with colored backgrounds, use miro_create_sticky. For rich Markdown documents, use miro_create_doc.
+
+USE WHEN: "add a title", "put heading text", "write a label", "add text saying X"`,
 	},
 	{
 		Name:        "miro_create_connector",
@@ -359,11 +372,13 @@ USE WHEN: "get document details", "what document is this", "document URL"
 VOICE-FRIENDLY: "Document 'Q4 Report' hosted at Miro"`,
 	},
 	{
-		Name:        "miro_create_embed",
-		Method:      "CreateEmbed",
-		Title:       "Create Embed",
-		Category:    "create",
-		Description: `Embed external content on a Miro board. Supports YouTube, Vimeo, Figma, Google Docs, Loom, and more.`,
+		Name:     "miro_create_embed",
+		Method:   "CreateEmbed",
+		Title:    "Create Embed",
+		Category: "create",
+		Description: `Embed external content as a live preview on a Miro board. Supports YouTube, Vimeo, Figma, Google Docs, Loom, and other oEmbed providers. For static images from URL, use miro_create_image. For document references from URL, use miro_create_document.
+
+USE WHEN: "embed this YouTube video", "add a Figma link", "embed Google Doc", "put a Loom video on the board"`,
 	},
 
 	// ==========================================================================
@@ -379,26 +394,38 @@ VOICE-FRIENDLY: "Document 'Q4 Report' hosted at Miro"`,
 VOICE-FRIENDLY: "Created red tag 'Urgent'"`,
 	},
 	{
-		Name:        "miro_list_tags",
-		Method:      "ListTags",
-		Title:       "List Tags",
-		Category:    "tags",
-		ReadOnly:    true,
-		Description: `List all tags on a Miro board.`,
+		Name:     "miro_list_tags",
+		Method:   "ListTags",
+		Title:    "List Tags",
+		Category: "tags",
+		ReadOnly: true,
+		Description: `List all tag definitions on a board with IDs, titles, and colors. Use tag IDs from this response with miro_attach_tag, miro_detach_tag, and miro_get_items_by_tag.
+
+USE WHEN: "show all tags", "what tags exist", "list labels", or before attaching a tag to get its ID
+
+VOICE-FRIENDLY: "Board has 8 tags: Urgent (red), Done (green), Review (blue)..."`,
 	},
 	{
-		Name:        "miro_attach_tag",
-		Method:      "AttachTag",
-		Title:       "Attach Tag",
-		Category:    "tags",
-		Description: `Attach a tag to a sticky note or card. Tags only work on sticky_note and card items.`,
+		Name:     "miro_attach_tag",
+		Method:   "AttachTag",
+		Title:    "Attach Tag",
+		Category: "tags",
+		Description: `Attach an existing tag to a sticky note or card. The tag must already exist; create it first with miro_create_tag if needed. Only sticky_note and card items support tags.
+
+USE WHEN: "tag this sticky as Urgent", "add the Done label", "mark this card with Priority"
+
+FAILS WHEN: tag_id doesn't exist on this board (list with miro_list_tags), item is not a sticky_note or card.
+
+VOICE-FRIENDLY: "Tagged sticky with 'Urgent'"`,
 	},
 	{
-		Name:        "miro_detach_tag",
-		Method:      "DetachTag",
-		Title:       "Remove Tag",
-		Category:    "tags",
-		Description: `Remove a tag from a sticky note or card.`,
+		Name:     "miro_detach_tag",
+		Method:   "DetachTag",
+		Title:    "Remove Tag",
+		Category: "tags",
+		Description: `Remove a tag from a sticky note or card. The tag stays on the board for reuse; to delete it entirely, use miro_delete_tag.
+
+USE WHEN: "remove the Urgent tag", "untag this card", "take off the Done label"`,
 	},
 	{
 		Name:     "miro_get_item_tags",

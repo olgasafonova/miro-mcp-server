@@ -288,6 +288,84 @@
           "rationale": "Custom fields require app card"
         }
       ]
+    },
+    {
+      "tools": ["miro_create_text", "miro_create_sticky", "miro_create_doc"],
+      "distinction": "create_text is bare canvas text; create_sticky has colored background; create_doc is rich Markdown",
+      "tests": [
+        {
+          "prompt": "Add a heading that says Sprint Goals",
+          "expected_tool": "miro_create_text",
+          "rationale": "Heading implies free-floating text, not a sticky note"
+        },
+        {
+          "prompt": "Create a yellow note with an action item",
+          "expected_tool": "miro_create_sticky",
+          "rationale": "Yellow note implies sticky with background color"
+        },
+        {
+          "prompt": "Add a markdown document with bullet points and headings",
+          "expected_tool": "miro_create_doc",
+          "rationale": "Markdown with formatting implies doc format item"
+        },
+        {
+          "prompt": "Write a label next to the diagram",
+          "expected_tool": "miro_create_text",
+          "rationale": "Label implies bare text annotation"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_create_embed", "miro_create_image", "miro_create_document"],
+      "distinction": "create_embed is live preview (video, Figma); create_image is static image from URL; create_document is document file from URL",
+      "tests": [
+        {
+          "prompt": "Embed this YouTube video on the board",
+          "expected_tool": "miro_create_embed",
+          "rationale": "YouTube video needs live embed, not static image"
+        },
+        {
+          "prompt": "Add a PNG image from this URL",
+          "expected_tool": "miro_create_image",
+          "rationale": "PNG is a static image"
+        },
+        {
+          "prompt": "Add a PDF document from this URL",
+          "expected_tool": "miro_create_document",
+          "rationale": "PDF is a document, not an embed or image"
+        },
+        {
+          "prompt": "Put this Figma design link on the board",
+          "expected_tool": "miro_create_embed",
+          "rationale": "Figma link renders as live embed"
+        }
+      ]
+    },
+    {
+      "tools": ["miro_detach_tag", "miro_delete_tag"],
+      "distinction": "detach_tag removes association from one item; delete_tag removes the tag definition from the board entirely",
+      "tests": [
+        {
+          "prompt": "Remove the Urgent tag from this sticky",
+          "expected_tool": "miro_detach_tag",
+          "rationale": "Removing from one item, not deleting the tag"
+        },
+        {
+          "prompt": "Delete the Urgent tag from the board",
+          "expected_tool": "miro_delete_tag",
+          "rationale": "Deleting the tag definition entirely"
+        },
+        {
+          "prompt": "Untag this card",
+          "expected_tool": "miro_detach_tag",
+          "rationale": "Removing tag from a specific item"
+        },
+        {
+          "prompt": "Get rid of the Done tag completely",
+          "expected_tool": "miro_delete_tag",
+          "rationale": "Completely removing implies board-level deletion"
+        }
+      ]
     }
   ]
 }

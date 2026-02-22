@@ -352,6 +352,41 @@
       "expected_tool": "miro_create_app_card",
       "category": "create",
       "difficulty": "hard"
+    },
+    {
+      "id": "text-create-2",
+      "prompt": "Put a heading 'Sprint Goals' at the top of the board",
+      "expected_tool": "miro_create_text",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "text-create-3",
+      "prompt": "Add a label next to the diagram",
+      "expected_tool": "miro_create_text",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "tag-list-2",
+      "prompt": "What labels does this board use?",
+      "expected_tool": "miro_list_tags",
+      "category": "tags",
+      "difficulty": "medium"
+    },
+    {
+      "id": "embed-create-2",
+      "prompt": "Add a Figma design link to the board",
+      "expected_tool": "miro_create_embed",
+      "category": "create",
+      "difficulty": "medium"
+    },
+    {
+      "id": "board-get-2",
+      "prompt": "Who owns this board?",
+      "expected_tool": "miro_get_board",
+      "category": "boards",
+      "difficulty": "medium"
     }
   ]
 }

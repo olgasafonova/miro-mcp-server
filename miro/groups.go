@@ -45,31 +45,6 @@ func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateG
 	}, nil
 }
 
-// Ungroup removes a group, releasing its items.
-func (c *Client) Ungroup(ctx context.Context, args UngroupArgs) (UngroupResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UngroupResult{}, err
-	}
-	if err := ValidateItemID(args.GroupID); err != nil {
-		return UngroupResult{}, fmt.Errorf("invalid group_id: %w", err)
-	}
-
-	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID+"/groups/"+args.GroupID, nil)
-	if err != nil {
-		return UngroupResult{
-			Success: false,
-			GroupID: args.GroupID,
-			Message: fmt.Sprintf("Failed to ungroup: %v", err),
-		}, err
-	}
-
-	return UngroupResult{
-		Success: true,
-		GroupID: args.GroupID,
-		Message: "Items ungrouped successfully",
-	}, nil
-}
-
 // ListGroups retrieves all groups on a board.
 func (c *Client) ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroupsResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {

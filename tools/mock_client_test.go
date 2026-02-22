@@ -81,7 +81,6 @@ type MockClient struct {
 
 	// Group operations
 	CreateGroupFn   func(ctx context.Context, args miro.CreateGroupArgs) (miro.CreateGroupResult, error)
-	UngroupFn       func(ctx context.Context, args miro.UngroupArgs) (miro.UngroupResult, error)
 	ListGroupsFn    func(ctx context.Context, args miro.ListGroupsArgs) (miro.ListGroupsResult, error)
 	GetGroupFn      func(ctx context.Context, args miro.GetGroupArgs) (miro.GetGroupResult, error)
 	GetGroupItemsFn func(ctx context.Context, args miro.GetGroupItemsArgs) (miro.GetGroupItemsResult, error)
@@ -909,18 +908,6 @@ func (m *MockClient) CreateGroup(ctx context.Context, args miro.CreateGroupArgs)
 		ID:      "group-123",
 		ItemIDs: args.ItemIDs,
 		Message: fmt.Sprintf("Grouped %d items", len(args.ItemIDs)),
-	}, nil
-}
-
-func (m *MockClient) Ungroup(ctx context.Context, args miro.UngroupArgs) (miro.UngroupResult, error) {
-	m.recordCall("Ungroup", args)
-	if m.UngroupFn != nil {
-		return m.UngroupFn(ctx, args)
-	}
-	return miro.UngroupResult{
-		Success: true,
-		GroupID: args.GroupID,
-		Message: "Items ungrouped successfully",
 	}, nil
 }
 

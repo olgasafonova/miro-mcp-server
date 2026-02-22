@@ -321,7 +321,6 @@ func TestDetectAction(t *testing.T) {
 		{"FindBoardByName", ActionRead},
 		{"UpdateItem", ActionUpdate},
 		{"DeleteItem", ActionDelete},
-		{"Ungroup", ActionDelete},
 		{"DetachTag", ActionDelete},
 		{"ExportBoard", ActionExport},
 		{"ValidateToken", ActionAuth},

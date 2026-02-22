@@ -122,7 +122,8 @@ func TestToolCount(t *testing.T) {
 	//          +1 upload_image + 1 create_flowchart_shape = 86
 	// v1.14.0: +1 upload_document = 87
 	//          +2 update_image_from_file, update_document_from_file = 89
-	expectedCount := 89
+	// v1.15.0: -1 miro_ungroup (merged into miro_delete_group) = 88
+	expectedCount := 88
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

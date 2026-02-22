@@ -136,7 +136,6 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 
 		// Group tools
 		"CreateGroup":   makeHandler(h, h.client.CreateGroup),
-		"Ungroup":       makeHandler(h, h.client.Ungroup),
 		"ListGroups":    makeHandler(h, h.client.ListGroups),
 		"GetGroup":      makeHandler(h, h.client.GetGroup),
 		"GetGroupItems": makeHandler(h, h.client.GetGroupItems),

@@ -300,8 +300,8 @@
     {
       "id": "group-ungroup-1",
       "prompt": "Ungroup these items",
-      "expected_tool": "miro_ungroup",
-      "category": "update",
+      "expected_tool": "miro_delete_group",
+      "category": "delete",
       "difficulty": "easy"
     },
     {

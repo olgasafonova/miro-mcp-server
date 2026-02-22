@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**89 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**88 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -85,7 +85,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | **Mindmaps** | Create mindmap nodes with parent-child relationships |
 | **Bulk Ops** | Create multiple items at once, sticky grids |
 | **Tags** | Create, attach, update, and organize with tags |
-| **Groups** | Group, ungroup, list, and manage item groups |
+| **Groups** | Group, list, and manage item groups |
 | **Connectors** | Connect items with styled arrows |
 | **Export** | Board thumbnails, PDF/SVG export (Enterprise) |
 
@@ -99,7 +99,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 89 Tools
+## All 88 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -251,15 +251,14 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Groups (5)</b></summary>
+<summary><b>Groups (4)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_list_groups` | List all groups on board |
 | `miro_get_group` | Get group details |
 | `miro_get_group_items` | List items in a group |
-| `miro_ungroup` | Ungroup items |
-| `miro_delete_group` | Delete a group |
+| `miro_delete_group` | Delete or ungroup a group |
 
 </details>
 
@@ -457,7 +456,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 89 tools with their schemas
+- Browse all 88 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -499,9 +498,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 89 tools |
-| Team | Full access to all 89 tools |
-| Business | Full access to all 89 tools |
+| Free | Full access to all 88 tools |
+| Team | Full access to all 88 tools |
+| Business | Full access to all 88 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

@@ -30,23 +30,6 @@ type CreateGroupResult struct {
 }
 
 // =============================================================================
-// Ungroup
-// =============================================================================
-
-// UngroupArgs contains parameters for ungrouping items.
-type UngroupArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	GroupID string `json:"group_id" jsonschema:"required" jsonschema_description:"ID of the group to ungroup"`
-}
-
-// UngroupResult confirms ungrouping.
-type UngroupResult struct {
-	Success bool   `json:"success"`
-	GroupID string `json:"group_id"`
-	Message string `json:"message"`
-}
-
-// =============================================================================
 // List Groups
 // =============================================================================
 

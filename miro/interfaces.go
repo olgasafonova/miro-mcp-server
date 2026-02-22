@@ -86,7 +86,6 @@ type ConnectorService interface {
 // GroupService handles item grouping.
 type GroupService interface {
 	CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateGroupResult, error)
-	Ungroup(ctx context.Context, args UngroupArgs) (UngroupResult, error)
 	ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroupsResult, error)
 	GetGroup(ctx context.Context, args GetGroupArgs) (GetGroupResult, error)
 	GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (GetGroupItemsResult, error)

@@ -71,7 +71,7 @@ func TestHandlerRegistryBuildHandlerMap(t *testing.T) {
 		// Tag tools
 		"CreateTag", "ListTags", "AttachTag", "DetachTag", "GetItemTags",
 		// Group tools
-		"CreateGroup", "Ungroup",
+		"CreateGroup",
 		// Member tools
 		"ListBoardMembers", "ShareBoard",
 		// Mindmap tools
@@ -682,23 +682,6 @@ func TestCreateGroupHandler(t *testing.T) {
 	}
 	if len(result.ItemIDs) != 3 {
 		t.Errorf("ItemIDs count = %d, want 3", len(result.ItemIDs))
-	}
-}
-
-func TestUngroupHandler(t *testing.T) {
-	mock := &MockClient{}
-
-	ctx := context.Background()
-	result, err := mock.Ungroup(ctx, miro.UngroupArgs{
-		BoardID: "board123",
-		GroupID: "group456",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Success {
-		t.Error("Success should be true")
 	}
 }
 

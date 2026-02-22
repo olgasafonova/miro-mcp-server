@@ -3564,69 +3564,6 @@ func TestCreateGroup_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestUngroup_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/groups/group456" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.Ungroup(context.Background(), UngroupArgs{
-		BoardID: "board123",
-		GroupID: "group456",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Success {
-		t.Error("expected Success to be true")
-	}
-	if result.GroupID != "group456" {
-		t.Errorf("GroupID = %q, want 'group456'", result.GroupID)
-	}
-}
-
-func TestUngroup_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    UngroupArgs
-		errText string
-	}{
-		{
-			name:    "empty board_id",
-			args:    UngroupArgs{GroupID: "group123"},
-			errText: "board_id",
-		},
-		{
-			name:    "empty group_id",
-			args:    UngroupArgs{BoardID: "board123"},
-			errText: "group_id",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.Ungroup(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
-}
-
 // =============================================================================
 // Member Operations Tests
 // =============================================================================

@@ -694,15 +694,6 @@ VOICE-FRIENDLY: "Created 9 stickies in a 3x3 grid"`,
 VOICE-FRIENDLY: "Grouped 4 items together"`,
 	},
 	{
-		Name:     "miro_ungroup",
-		Method:   "Ungroup",
-		Title:    "Ungroup Items",
-		Category: "update",
-		Description: `Remove a group, releasing items to move independently.
-
-VOICE-FRIENDLY: "Items ungrouped successfully"`,
-	},
-	{
 		Name:     "miro_list_groups",
 		Method:   "ListGroups",
 		Title:    "List Groups",
@@ -748,9 +739,11 @@ VOICE-FRIENDLY: "Updated group with 5 items"`,
 		Title:       "Delete Group",
 		Category:    "delete",
 		Destructive: true,
-		Description: `Delete a group. Set delete_items=true to also delete items (default: items are ungrouped).
+		Description: `Delete a group. Set delete_items=true to also delete items (default: items are released to move independently).
 
-WARNING: Deleting items cannot be undone. Use dry_run=true to preview first.
+USE WHEN: deleting a group OR ungrouping items. With delete_items=false (default), items are ungrouped and remain on the board. With delete_items=true, both the group and its items are permanently deleted.
+
+WARNING: Deleting items (delete_items=true) cannot be undone. Use dry_run=true to preview first.
 
 VOICE-FRIENDLY: "Group deleted, items ungrouped"`,
 	},

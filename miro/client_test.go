@@ -9804,6 +9804,8 @@ func TestUpdateEmbed_WithAllFields(t *testing.T) {
 // =============================================================================
 
 func TestUploadDocument_Success(t *testing.T) {
+	t.Setenv("MIRO_UPLOAD_ALLOWED_DIRS", os.TempDir())
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -9961,6 +9963,8 @@ func TestUploadDocument_Directory(t *testing.T) {
 // =============================================================================
 
 func TestUpdateImageFromFile_Success(t *testing.T) {
+	t.Setenv("MIRO_UPLOAD_ALLOWED_DIRS", os.TempDir())
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("expected PATCH, got %s", r.Method)
@@ -10081,6 +10085,8 @@ func TestUpdateImageFromFile_UnsupportedFormat(t *testing.T) {
 // =============================================================================
 
 func TestUpdateDocumentFromFile_Success(t *testing.T) {
+	t.Setenv("MIRO_UPLOAD_ALLOWED_DIRS", os.TempDir())
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("expected PATCH, got %s", r.Method)

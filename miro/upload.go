@@ -13,6 +13,63 @@ import (
 	"strings"
 )
 
+// ValidateUploadPath checks that the given file path is under an allowed directory.
+// Allowed directories are the current working directory and any directories listed
+// in the MIRO_UPLOAD_ALLOWED_DIRS environment variable (comma-separated).
+// Symlinks are resolved before checking.
+func ValidateUploadPath(filePath string) (string, error) {
+	// Normalize the path
+	cleaned := filepath.Clean(filePath)
+	abs, err := filepath.Abs(cleaned)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	// Resolve symlinks to prevent symlink-based traversal
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
+	}
+
+	// Build list of allowed directories
+	var allowed []string
+
+	cwd, err := os.Getwd()
+	if err == nil {
+		cwdResolved, err2 := filepath.EvalSymlinks(cwd)
+		if err2 == nil {
+			allowed = append(allowed, cwdResolved)
+		}
+	}
+
+	if envDirs := os.Getenv("MIRO_UPLOAD_ALLOWED_DIRS"); envDirs != "" {
+		for _, dir := range strings.Split(envDirs, ",") {
+			dir = strings.TrimSpace(dir)
+			if dir == "" {
+				continue
+			}
+			dirAbs, err := filepath.Abs(dir)
+			if err != nil {
+				continue
+			}
+			dirResolved, err := filepath.EvalSymlinks(dirAbs)
+			if err != nil {
+				continue
+			}
+			allowed = append(allowed, dirResolved)
+		}
+	}
+
+	// Check resolved path is under an allowed directory
+	for _, dir := range allowed {
+		if strings.HasPrefix(resolved, dir+string(filepath.Separator)) || resolved == dir {
+			return resolved, nil
+		}
+	}
+
+	return "", fmt.Errorf("file path %q is outside allowed directories", filePath)
+}
+
 // UploadImage uploads a local image file to a Miro board.
 func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error) {
 	if args.BoardID == "" {
@@ -38,8 +95,14 @@ func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadI
 		return UploadImageResult{}, fmt.Errorf("unsupported image format %q (supported: png, jpg, jpeg, gif, webp, svg)", ext)
 	}
 
+	// Validate path is within allowed directories
+	resolvedPath, err := ValidateUploadPath(args.FilePath)
+	if err != nil {
+		return UploadImageResult{}, err
+	}
+
 	// Open file
-	file, err := os.Open(args.FilePath)
+	file, err := os.Open(resolvedPath)
 	if err != nil {
 		return UploadImageResult{}, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -115,8 +178,14 @@ func (c *Client) UploadDocument(ctx context.Context, args UploadDocumentArgs) (U
 		return UploadDocumentResult{}, fmt.Errorf("unsupported document format %q (supported: pdf, doc, docx, ppt, pptx, xls, xlsx, txt, rtf, csv)", ext)
 	}
 
+	// Validate path is within allowed directories
+	resolvedPath, err := ValidateUploadPath(args.FilePath)
+	if err != nil {
+		return UploadDocumentResult{}, err
+	}
+
 	// Open file
-	file, err := os.Open(args.FilePath)
+	file, err := os.Open(resolvedPath)
 	if err != nil {
 		return UploadDocumentResult{}, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -187,7 +256,13 @@ func (c *Client) UpdateImageFromFile(ctx context.Context, args UpdateImageFromFi
 		return UpdateImageFromFileResult{}, fmt.Errorf("unsupported image format %q (supported: png, jpg, jpeg, gif, webp, svg)", ext)
 	}
 
-	file, err := os.Open(args.FilePath)
+	// Validate path is within allowed directories
+	resolvedPath, err := ValidateUploadPath(args.FilePath)
+	if err != nil {
+		return UpdateImageFromFileResult{}, err
+	}
+
+	file, err := os.Open(resolvedPath)
 	if err != nil {
 		return UpdateImageFromFileResult{}, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -261,7 +336,13 @@ func (c *Client) UpdateDocumentFromFile(ctx context.Context, args UpdateDocument
 		return UpdateDocumentFromFileResult{}, fmt.Errorf("unsupported document format %q (supported: pdf, doc, docx, ppt, pptx, xls, xlsx, txt, rtf, csv)", ext)
 	}
 
-	file, err := os.Open(args.FilePath)
+	// Validate path is within allowed directories
+	resolvedPath, err := ValidateUploadPath(args.FilePath)
+	if err != nil {
+		return UpdateDocumentFromFileResult{}, err
+	}
+
+	file, err := os.Open(resolvedPath)
 	if err != nil {
 		return UpdateDocumentFromFileResult{}, fmt.Errorf("failed to open file: %w", err)
 	}

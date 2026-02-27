@@ -27,7 +27,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.14.0"
+	ServerVersion = "1.14.1"
 )
 
 func main() {
@@ -39,6 +39,7 @@ func main() {
 
 	// Parse command-line flags
 	httpAddr := flag.String("http", "", "HTTP address to listen on (e.g., :8080). If empty, uses stdio transport.")
+	bearerToken := flag.String("bearer-token", "", "Bearer token for HTTP mode authentication. If empty, HTTP endpoints are unauthenticated.")
 	verbose := flag.Bool("verbose", false, "Enable verbose debug logging")
 	flag.Parse()
 
@@ -137,7 +138,7 @@ func main() {
 
 	// Choose transport based on flags
 	if *httpAddr != "" {
-		runHTTPServer(server, logger, *httpAddr, *verbose, healthChecker, metricsCollector)
+		runHTTPServer(server, logger, *httpAddr, *bearerToken, *verbose, healthChecker, metricsCollector)
 	} else {
 		// stdio transport mode (default)
 		logger.Info("Starting Miro MCP Server (stdio mode)",
@@ -152,8 +153,23 @@ func main() {
 	}
 }
 
+// bearerTokenMiddleware returns middleware that validates Bearer token authentication.
+func bearerTokenMiddleware(token string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := r.Header.Get("Authorization")
+			if auth == "" || auth != "Bearer "+token {
+				w.Header().Set("WWW-Authenticate", `Bearer`)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // runHTTPServer starts the MCP server with HTTP transport and graceful shutdown
-func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose bool, healthChecker *miro.HealthChecker, metrics *miro.MetricsCollector) {
+func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr, bearerToken string, verbose bool, healthChecker *miro.HealthChecker, metrics *miro.MetricsCollector) {
 	// Create the Streamable HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
@@ -191,13 +207,23 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose
 	})
 
 	// Prometheus metrics endpoint
-	mux.HandleFunc("/metrics", metrics.PrometheusHandler())
+	var metricsHandler http.Handler = http.HandlerFunc(metrics.PrometheusHandler())
 
 	// MCP endpoint with cache control
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var mcpRootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		mcpHandler.ServeHTTP(w, r)
-	}))
+	})
+
+	// Wrap protected endpoints with bearer token middleware if configured
+	if bearerToken != "" {
+		authMiddleware := bearerTokenMiddleware(bearerToken)
+		metricsHandler = authMiddleware(metricsHandler)
+		mcpRootHandler = authMiddleware(mcpRootHandler)
+	}
+
+	mux.Handle("/metrics", metricsHandler)
+	mux.Handle("/", mcpRootHandler)
 
 	// Create HTTP server with timeouts
 	httpServer := &http.Server{
@@ -215,7 +241,10 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr string, verbose
 		"verbose", verbose,
 	)
 
-	// Security warning
+	// Security warnings
+	if bearerToken == "" {
+		logger.Warn("HTTP mode without --bearer-token. All tools accessible without authentication.")
+	}
 	if !strings.HasPrefix(addr, "127.0.0.1") && !strings.HasPrefix(addr, "localhost") {
 		logger.Warn("Server binding to external interface. Ensure you're behind HTTPS proxy in production.")
 	}

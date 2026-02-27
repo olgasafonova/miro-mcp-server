@@ -681,22 +681,22 @@ func TestGetCallbackPort(t *testing.T) {
 		{
 			name:        "with explicit port",
 			redirectURI: "http://localhost:8089/callback",
-			expected:    ":8089",
+			expected:    "127.0.0.1:8089",
 		},
 		{
 			name:        "without port (http)",
 			redirectURI: "http://localhost/callback",
-			expected:    ":80",
+			expected:    "127.0.0.1:80",
 		},
 		{
 			name:        "without port (https)",
 			redirectURI: "https://localhost/callback",
-			expected:    ":443",
+			expected:    "127.0.0.1:443",
 		},
 		{
 			name:        "custom port",
 			redirectURI: "http://127.0.0.1:9999/oauth",
-			expected:    ":9999",
+			expected:    "127.0.0.1:9999",
 		},
 	}
 
@@ -1162,6 +1162,66 @@ func TestOpenBrowser(t *testing.T) {
 		// The function should return nil or an error, but not panic
 		// We can't really test this without opening a browser
 		t.Skip("skipping browser test in CI/automated environment")
+	}
+}
+
+// =============================================================================
+// XSS Prevention Tests
+// =============================================================================
+
+func TestWriteErrorPage_XSSPrevention(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	server, err := NewCallbackServer("127.0.0.1:0", logger)
+	if err != nil {
+		t.Fatalf("NewCallbackServer() error = %v", err)
+	}
+	defer server.Stop(context.Background())
+
+	server.Start()
+
+	// Send a callback with XSS payload in error params
+	addr := "http://" + server.Addr()
+	xssPayload := `<script>alert('xss')</script>`
+	resp, err := http.Get(addr + "/callback?error=" + xssPayload + "&error_description=" + xssPayload)
+	if err != nil {
+		t.Fatalf("HTTP request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	// The raw script tag should NOT appear in the response
+	if strings.Contains(bodyStr, "<script>") {
+		t.Error("response contains unescaped <script> tag; XSS vulnerability present")
+	}
+
+	// The escaped version should appear
+	if !strings.Contains(bodyStr, "&lt;script&gt;") {
+		t.Error("response should contain HTML-escaped script tag")
+	}
+}
+
+func TestGetCallbackPort_BindsToLocalhost(t *testing.T) {
+	tests := []struct {
+		name        string
+		redirectURI string
+	}{
+		{"http with port", "http://localhost:8089/callback"},
+		{"https without port", "https://example.com/callback"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, err := GetCallbackPort(tt.redirectURI)
+			if err != nil {
+				t.Fatalf("GetCallbackPort() error = %v", err)
+			}
+			if !strings.HasPrefix(addr, "127.0.0.1:") {
+				t.Errorf("GetCallbackPort() = %q, should start with '127.0.0.1:'", addr)
+			}
+		})
 	}
 }
 

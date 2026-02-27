@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"fmt"
+	"html"
 	"log/slog"
 	"net"
 	"net/http"
@@ -186,7 +187,7 @@ func (s *CallbackServer) writeErrorPage(w http.ResponseWriter, code, description
     <p class="error">%s: %s</p>
     <p>Please try again or check your Miro app settings.</p>
 </body>
-</html>`, code, description)
+</html>`, html.EscapeString(code), html.EscapeString(description))
 }
 
 // GetCallbackPort extracts the port from a redirect URI.
@@ -205,5 +206,5 @@ func GetCallbackPort(redirectURI string) (string, error) {
 		}
 	}
 
-	return ":" + port, nil
+	return "127.0.0.1:" + port, nil
 }

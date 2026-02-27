@@ -14,14 +14,11 @@ linters:
   settings:
     gosec:
       excludes:
-        - G104  # Covered by errcheck or intentionally ignored (audit log writes)
         - G101  # False positives on URL constants and test fixtures
+        - G104  # Covered by errcheck or intentionally ignored (audit log writes)
         - G115  # Integer overflow: bounded by MaxRetries constant
-        - G117  # Struct fields named AccessToken/RefreshToken/ClientSecret are not hardcoded secrets
         - G204  # Subprocess launch for browser open (oauth login flow, user-initiated)
         - G304  # File paths from config/env, not user input
-        - G704  # SSRF: httpClient.Do calls go to Miro API base URL, not arbitrary targets
-        - G705  # XSS: all user-facing values are html.EscapeString'd or JSON-marshaled
     staticcheck:
       checks:
         - "all"
@@ -33,6 +30,18 @@ linters:
       - std-error-handling
     rules:
       - path: _test\.go
+        linters:
+          - gosec
+      # G117: struct fields named AccessToken/RefreshToken/ClientSecret are not hardcoded secrets
+      - text: "G117"
+        linters:
+          - gosec
+      # G704: httpClient.Do calls go to Miro API base URL, not arbitrary targets
+      - text: "G704"
+        linters:
+          - gosec
+      # G705: all user-facing values are html.EscapeString'd or JSON-marshaled
+      - text: "G705"
         linters:
           - gosec
     paths:

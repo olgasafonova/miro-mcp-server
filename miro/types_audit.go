@@ -9,25 +9,25 @@ import "time"
 // GetAuditLogArgs specifies the filter options for querying audit logs.
 type GetAuditLogArgs struct {
 	// Since returns events after this time (ISO 8601 format)
-	Since string `json:"since,omitempty" jsonschema_description:"Return events after this time (ISO 8601, e.g., 2024-01-01T00:00:00Z)"`
+	Since string `json:"since,omitempty" jsonschema:"Return events after this time (ISO 8601, e.g., 2024-01-01T00:00:00Z)"`
 
 	// Until returns events before this time (ISO 8601 format)
-	Until string `json:"until,omitempty" jsonschema_description:"Return events before this time (ISO 8601, e.g., 2024-01-02T00:00:00Z)"`
+	Until string `json:"until,omitempty" jsonschema:"Return events before this time (ISO 8601, e.g., 2024-01-02T00:00:00Z)"`
 
 	// Tool filters by tool name (e.g., "miro_create_sticky")
-	Tool string `json:"tool,omitempty" jsonschema_description:"Filter by tool name (e.g., miro_create_sticky)"`
+	Tool string `json:"tool,omitempty" jsonschema:"Filter by tool name (e.g., miro_create_sticky)"`
 
 	// BoardID filters by board ID
-	BoardID string `json:"board_id,omitempty" jsonschema_description:"Filter by board ID"`
+	BoardID string `json:"board_id,omitempty" jsonschema:"Filter by board ID"`
 
 	// Action filters by action type: create, read, update, delete, export, auth
-	Action string `json:"action,omitempty" jsonschema_description:"Filter by action type: create, read, update, delete, export, auth"`
+	Action string `json:"action,omitempty" jsonschema:"Filter by action type: create, read, update, delete, export, auth"`
 
 	// Success filters by success status
-	Success *bool `json:"success,omitempty" jsonschema_description:"Filter by success status (true/false)"`
+	Success *bool `json:"success,omitempty" jsonschema:"Filter by success status (true/false)"`
 
 	// Limit is the maximum number of events to return (default 50, max 500)
-	Limit int `json:"limit,omitempty" jsonschema_description:"Maximum events to return (default 50, max 500)"`
+	Limit int `json:"limit,omitempty" jsonschema:"Maximum events to return (default 50, max 500)"`
 }
 
 // AuditLogEvent represents a single audit event in the query result.

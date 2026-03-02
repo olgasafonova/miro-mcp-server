@@ -16,15 +16,15 @@ type AppCardField struct {
 
 // CreateAppCardArgs contains parameters for creating an app card.
 type CreateAppCardArgs struct {
-	BoardID     string         `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Title       string         `json:"title" jsonschema:"required" jsonschema_description:"App card title"`
-	Description string         `json:"description,omitempty" jsonschema_description:"App card description"`
-	Status      string         `json:"status,omitempty" jsonschema_description:"Status indicator: connected, disconnected, disabled"`
-	Fields      []AppCardField `json:"fields,omitempty" jsonschema_description:"Custom fields (max 5)"`
-	X           float64        `json:"x,omitempty" jsonschema_description:"X position"`
-	Y           float64        `json:"y,omitempty" jsonschema_description:"Y position"`
-	Width       float64        `json:"width,omitempty" jsonschema_description:"Card width (default 320)"`
-	ParentID    string         `json:"parent_id,omitempty" jsonschema_description:"Frame ID to place card in"`
+	BoardID     string         `json:"board_id" jsonschema:"Board ID"`
+	Title       string         `json:"title" jsonschema:"App card title"`
+	Description string         `json:"description,omitempty" jsonschema:"App card description"`
+	Status      string         `json:"status,omitempty" jsonschema:"Status indicator: connected, disconnected, disabled"`
+	Fields      []AppCardField `json:"fields,omitempty" jsonschema:"Custom fields (max 5)"`
+	X           float64        `json:"x,omitempty" jsonschema:"X position"`
+	Y           float64        `json:"y,omitempty" jsonschema:"Y position"`
+	Width       float64        `json:"width,omitempty" jsonschema:"Card width (default 320)"`
+	ParentID    string         `json:"parent_id,omitempty" jsonschema:"Frame ID to place card in"`
 }
 
 // CreateAppCardResult contains the created app card.
@@ -39,8 +39,8 @@ type CreateAppCardResult struct {
 
 // GetAppCardArgs contains parameters for getting an app card.
 type GetAppCardArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"App card item ID"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"App card item ID"`
 }
 
 // GetAppCardResult contains the app card details.
@@ -59,15 +59,15 @@ type GetAppCardResult struct {
 
 // UpdateAppCardArgs contains parameters for updating an app card.
 type UpdateAppCardArgs struct {
-	BoardID     string         `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemID      string         `json:"item_id" jsonschema:"required" jsonschema_description:"App card item ID"`
-	Title       string         `json:"title,omitempty" jsonschema_description:"New title"`
-	Description string         `json:"description,omitempty" jsonschema_description:"New description"`
-	Status      string         `json:"status,omitempty" jsonschema_description:"Status: connected, disconnected, disabled"`
-	Fields      []AppCardField `json:"fields,omitempty" jsonschema_description:"Updated custom fields (max 5)"`
-	X           *float64       `json:"x,omitempty" jsonschema_description:"New X position"`
-	Y           *float64       `json:"y,omitempty" jsonschema_description:"New Y position"`
-	Width       *float64       `json:"width,omitempty" jsonschema_description:"New width"`
+	BoardID     string         `json:"board_id" jsonschema:"Board ID"`
+	ItemID      string         `json:"item_id" jsonschema:"App card item ID"`
+	Title       string         `json:"title,omitempty" jsonschema:"New title"`
+	Description string         `json:"description,omitempty" jsonschema:"New description"`
+	Status      string         `json:"status,omitempty" jsonschema:"Status: connected, disconnected, disabled"`
+	Fields      []AppCardField `json:"fields,omitempty" jsonschema:"Updated custom fields (max 5)"`
+	X           *float64       `json:"x,omitempty" jsonschema:"New X position"`
+	Y           *float64       `json:"y,omitempty" jsonschema:"New Y position"`
+	Width       *float64       `json:"width,omitempty" jsonschema:"New width"`
 }
 
 // UpdateAppCardResult contains the update result.
@@ -80,9 +80,9 @@ type UpdateAppCardResult struct {
 
 // DeleteAppCardArgs contains parameters for deleting an app card.
 type DeleteAppCardArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"App card item ID to delete"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"App card item ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
 }
 
 // DeleteAppCardResult contains the deletion result.

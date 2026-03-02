@@ -19,10 +19,10 @@ type BoardSummary struct {
 
 // ListBoardsArgs contains parameters for listing boards.
 type ListBoardsArgs struct {
-	TeamID string `json:"team_id,omitempty" jsonschema_description:"Filter by team ID"`
-	Query  string `json:"query,omitempty" jsonschema_description:"Search boards by name"`
-	Limit  int    `json:"limit,omitempty" jsonschema_description:"Max boards to return (default 20, max 50)"`
-	Offset string `json:"offset,omitempty" jsonschema_description:"Pagination cursor"`
+	TeamID string `json:"team_id,omitempty" jsonschema:"Filter by team ID"`
+	Query  string `json:"query,omitempty" jsonschema:"Search boards by name"`
+	Limit  int    `json:"limit,omitempty" jsonschema:"Max boards to return (default 20, max 50)"`
+	Offset string `json:"offset,omitempty" jsonschema:"Pagination cursor"`
 }
 
 // ListBoardsResult contains the list of boards.
@@ -39,7 +39,7 @@ type ListBoardsResult struct {
 
 // GetBoardArgs contains parameters for getting a board.
 type GetBoardArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to retrieve"`
+	BoardID string `json:"board_id" jsonschema:"Board ID to retrieve"`
 }
 
 // GetBoardResult contains the board details.
@@ -54,9 +54,9 @@ type GetBoardResult struct {
 
 // CreateBoardArgs contains parameters for creating a new board.
 type CreateBoardArgs struct {
-	Name        string `json:"name" jsonschema:"required" jsonschema_description:"Name for the new board"`
-	Description string `json:"description,omitempty" jsonschema_description:"Board description"`
-	TeamID      string `json:"team_id,omitempty" jsonschema_description:"Team ID to create board in"`
+	Name        string `json:"name" jsonschema:"Name for the new board"`
+	Description string `json:"description,omitempty" jsonschema:"Board description"`
+	TeamID      string `json:"team_id,omitempty" jsonschema:"Team ID to create board in"`
 }
 
 // CreateBoardResult contains the created board details.
@@ -73,10 +73,10 @@ type CreateBoardResult struct {
 
 // CopyBoardArgs contains parameters for copying a board.
 type CopyBoardArgs struct {
-	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"ID of the board to copy"`
-	Name        string `json:"name,omitempty" jsonschema_description:"Name for the copy (defaults to 'Copy of {original}')"`
-	Description string `json:"description,omitempty" jsonschema_description:"Description for the copy"`
-	TeamID      string `json:"team_id,omitempty" jsonschema_description:"Team ID to copy board to"`
+	BoardID     string `json:"board_id" jsonschema:"ID of the board to copy"`
+	Name        string `json:"name,omitempty" jsonschema:"Name for the copy (defaults to 'Copy of {original}')"`
+	Description string `json:"description,omitempty" jsonschema:"Description for the copy"`
+	TeamID      string `json:"team_id,omitempty" jsonschema:"Team ID to copy board to"`
 }
 
 // CopyBoardResult contains the copied board details.
@@ -93,8 +93,8 @@ type CopyBoardResult struct {
 
 // DeleteBoardArgs contains parameters for deleting a board.
 type DeleteBoardArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"ID of the board to delete"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+	BoardID string `json:"board_id" jsonschema:"ID of the board to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
 }
 
 // DeleteBoardResult confirms board deletion.
@@ -110,7 +110,7 @@ type DeleteBoardResult struct {
 
 // FindBoardByNameArgs contains parameters for finding a board by name.
 type FindBoardByNameArgs struct {
-	Name string `json:"name" jsonschema:"required" jsonschema_description:"Board name to search for (case-insensitive, supports partial matching)"`
+	Name string `json:"name" jsonschema:"Board name to search for (case-insensitive, supports partial matching)"`
 }
 
 // FindBoardByNameResult contains the found board.
@@ -128,7 +128,7 @@ type FindBoardByNameResult struct {
 
 // GetBoardSummaryArgs contains parameters for getting a board summary.
 type GetBoardSummaryArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to summarize"`
+	BoardID string `json:"board_id" jsonschema:"Board ID to summarize"`
 }
 
 // GetBoardSummaryResult contains the board summary with item counts.
@@ -149,9 +149,9 @@ type GetBoardSummaryResult struct {
 
 // UpdateBoardArgs contains parameters for updating a board.
 type UpdateBoardArgs struct {
-	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to update"`
-	Name        string `json:"name,omitempty" jsonschema_description:"New name for the board"`
-	Description string `json:"description,omitempty" jsonschema_description:"New description for the board"`
+	BoardID     string `json:"board_id" jsonschema:"Board ID to update"`
+	Name        string `json:"name,omitempty" jsonschema:"New name for the board"`
+	Description string `json:"description,omitempty" jsonschema:"New description for the board"`
 }
 
 // UpdateBoardResult contains the updated board details.
@@ -169,10 +169,10 @@ type UpdateBoardResult struct {
 
 // GetBoardContentArgs contains parameters for getting comprehensive board content.
 type GetBoardContentArgs struct {
-	BoardID           string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to analyze"`
-	IncludeConnectors bool   `json:"include_connectors,omitempty" jsonschema_description:"Include connector relationships (default true)"`
-	IncludeTags       bool   `json:"include_tags,omitempty" jsonschema_description:"Include tag data and usage (default true)"`
-	MaxItems          int    `json:"max_items,omitempty" jsonschema_description:"Maximum items to fetch (default 500, max 2000)"`
+	BoardID           string `json:"board_id" jsonschema:"Board ID to analyze"`
+	IncludeConnectors bool   `json:"include_connectors,omitempty" jsonschema:"Include connector relationships (default true)"`
+	IncludeTags       bool   `json:"include_tags,omitempty" jsonschema:"Include tag data and usage (default true)"`
+	MaxItems          int    `json:"max_items,omitempty" jsonschema:"Maximum items to fetch (default 500, max 2000)"`
 }
 
 // FrameContext represents a frame with its child items.

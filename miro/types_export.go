@@ -14,7 +14,7 @@ type Picture struct {
 
 // GetBoardPictureArgs contains parameters for getting a board's picture.
 type GetBoardPictureArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to get picture for"`
+	BoardID string `json:"board_id" jsonschema:"Board ID to get picture for"`
 }
 
 // GetBoardPictureResult contains the board picture URL.
@@ -30,10 +30,10 @@ type GetBoardPictureResult struct {
 
 // CreateExportJobArgs contains parameters for creating a board export job.
 type CreateExportJobArgs struct {
-	OrgID     string   `json:"org_id" jsonschema:"required" jsonschema_description:"Organization ID (Enterprise only)"`
-	BoardIDs  []string `json:"board_ids" jsonschema:"required" jsonschema_description:"Board IDs to export (max 50)"`
-	RequestID string   `json:"request_id,omitempty" jsonschema_description:"Unique request ID for idempotency (auto-generated if empty)"`
-	Format    string   `json:"format,omitempty" jsonschema_description:"Export format: pdf, svg, or html (default: pdf)"`
+	OrgID     string   `json:"org_id" jsonschema:"Organization ID (Enterprise only)"`
+	BoardIDs  []string `json:"board_ids" jsonschema:"Board IDs to export (max 50)"`
+	RequestID string   `json:"request_id,omitempty" jsonschema:"Unique request ID for idempotency (auto-generated if empty)"`
+	Format    string   `json:"format,omitempty" jsonschema:"Export format: pdf, svg, or html (default: pdf)"`
 }
 
 // CreateExportJobResult contains the created export job details.
@@ -46,8 +46,8 @@ type CreateExportJobResult struct {
 
 // GetExportJobStatusArgs contains parameters for getting export job status.
 type GetExportJobStatusArgs struct {
-	OrgID string `json:"org_id" jsonschema:"required" jsonschema_description:"Organization ID"`
-	JobID string `json:"job_id" jsonschema:"required" jsonschema_description:"Export job ID"`
+	OrgID string `json:"org_id" jsonschema:"Organization ID"`
+	JobID string `json:"job_id" jsonschema:"Export job ID"`
 }
 
 // GetExportJobStatusResult contains the export job status.
@@ -64,8 +64,8 @@ type GetExportJobStatusResult struct {
 
 // GetExportJobResultsArgs contains parameters for getting export job results.
 type GetExportJobResultsArgs struct {
-	OrgID string `json:"org_id" jsonschema:"required" jsonschema_description:"Organization ID"`
-	JobID string `json:"job_id" jsonschema:"required" jsonschema_description:"Export job ID"`
+	OrgID string `json:"org_id" jsonschema:"Organization ID"`
+	JobID string `json:"job_id" jsonschema:"Export job ID"`
 }
 
 // ExportedBoard contains export data for a single board.

@@ -16,8 +16,8 @@ type Group struct {
 
 // CreateGroupArgs contains parameters for creating a group.
 type CreateGroupArgs struct {
-	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemIDs []string `json:"item_ids" jsonschema:"required" jsonschema_description:"IDs of items to group together (minimum 2)"`
+	BoardID string   `json:"board_id" jsonschema:"Board ID"`
+	ItemIDs []string `json:"item_ids" jsonschema:"IDs of items to group together (minimum 2)"`
 }
 
 // CreateGroupResult contains the created group.
@@ -35,9 +35,9 @@ type CreateGroupResult struct {
 
 // ListGroupsArgs contains parameters for listing groups on a board.
 type ListGroupsArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max groups to return (default 50)"`
-	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max groups to return (default 50)"`
+	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 }
 
 // ListGroupsResult contains the list of groups.
@@ -55,8 +55,8 @@ type ListGroupsResult struct {
 
 // GetGroupArgs contains parameters for getting a specific group.
 type GetGroupArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	GroupID string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to retrieve"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	GroupID string `json:"group_id" jsonschema:"Group ID to retrieve"`
 }
 
 // GetGroupResult contains the group details.
@@ -72,10 +72,10 @@ type GetGroupResult struct {
 
 // GetGroupItemsArgs contains parameters for getting items in a group.
 type GetGroupItemsArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	GroupID string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50)"`
-	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	GroupID string `json:"group_id" jsonschema:"Group ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50)"`
+	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 }
 
 // GetGroupItemsResult contains the items in a group.
@@ -92,9 +92,9 @@ type GetGroupItemsResult struct {
 
 // UpdateGroupArgs contains parameters for updating a group's items.
 type UpdateGroupArgs struct {
-	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	GroupID string   `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to update"`
-	ItemIDs []string `json:"item_ids" jsonschema:"required" jsonschema_description:"New list of item IDs for the group (replaces current items)"`
+	BoardID string   `json:"board_id" jsonschema:"Board ID"`
+	GroupID string   `json:"group_id" jsonschema:"Group ID to update"`
+	ItemIDs []string `json:"item_ids" jsonschema:"New list of item IDs for the group (replaces current items)"`
 }
 
 // UpdateGroupResult contains the updated group details.
@@ -110,10 +110,10 @@ type UpdateGroupResult struct {
 
 // DeleteGroupArgs contains parameters for deleting a group.
 type DeleteGroupArgs struct {
-	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	GroupID     string `json:"group_id" jsonschema:"required" jsonschema_description:"Group ID to delete"`
-	DeleteItems bool   `json:"delete_items,omitempty" jsonschema_description:"Also delete the items in the group (default: false, items are ungrouped)"`
-	DryRun      bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+	BoardID     string `json:"board_id" jsonschema:"Board ID"`
+	GroupID     string `json:"group_id" jsonschema:"Group ID to delete"`
+	DeleteItems bool   `json:"delete_items,omitempty" jsonschema:"Also delete the items in the group (default: false, items are ungrouped)"`
+	DryRun      bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
 }
 
 // DeleteGroupResult confirms group deletion.

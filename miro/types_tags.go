@@ -17,9 +17,9 @@ type Tag struct {
 
 // CreateTagArgs contains parameters for creating a tag.
 type CreateTagArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Title   string `json:"title" jsonschema:"required" jsonschema_description:"Tag text (e.g., 'Urgent', 'Done', 'Review')"`
-	Color   string `json:"color,omitempty" jsonschema_description:"Tag color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	Title   string `json:"title" jsonschema:"Tag text (e.g., 'Urgent', 'Done', 'Review')"`
+	Color   string `json:"color,omitempty" jsonschema:"Tag color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black"`
 }
 
 // CreateTagResult contains the created tag.
@@ -37,8 +37,8 @@ type CreateTagResult struct {
 
 // ListTagsArgs contains parameters for listing tags on a board.
 type ListTagsArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max tags to return (default 50)"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max tags to return (default 50)"`
 }
 
 // ListTagsResult contains the list of tags.
@@ -54,9 +54,9 @@ type ListTagsResult struct {
 
 // AttachTagArgs contains parameters for attaching a tag to an item.
 type AttachTagArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item to tag (sticky note only)"`
-	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to attach"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"ID of the item to tag (sticky note only)"`
+	TagID   string `json:"tag_id" jsonschema:"ID of the tag to attach"`
 }
 
 // AttachTagResult confirms tag attachment.
@@ -73,9 +73,9 @@ type AttachTagResult struct {
 
 // DetachTagArgs contains parameters for removing a tag from an item.
 type DetachTagArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item to untag"`
-	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to remove"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"ID of the item to untag"`
+	TagID   string `json:"tag_id" jsonschema:"ID of the tag to remove"`
 }
 
 // DetachTagResult confirms tag removal.
@@ -92,8 +92,8 @@ type DetachTagResult struct {
 
 // GetItemTagsArgs contains parameters for listing tags on an item.
 type GetItemTagsArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	ItemID  string `json:"item_id" jsonschema:"required" jsonschema_description:"ID of the item"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"ID of the item"`
 }
 
 // GetItemTagsResult contains tags attached to an item.
@@ -110,8 +110,8 @@ type GetItemTagsResult struct {
 
 // GetTagArgs contains parameters for getting a single tag.
 type GetTagArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to retrieve"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"ID of the tag to retrieve"`
 }
 
 // GetTagResult contains the tag details.
@@ -128,10 +128,10 @@ type GetTagResult struct {
 
 // UpdateTagArgs contains parameters for updating a tag.
 type UpdateTagArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to update"`
-	Title   string `json:"title,omitempty" jsonschema_description:"New tag text"`
-	Color   string `json:"color,omitempty" jsonschema_description:"New tag color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"ID of the tag to update"`
+	Title   string `json:"title,omitempty" jsonschema:"New tag text"`
+	Color   string `json:"color,omitempty" jsonschema:"New tag color: red, magenta, violet, blue, cyan, green, yellow, gray, light_green, dark_green, dark_blue, dark_gray, black"`
 }
 
 // UpdateTagResult confirms tag update.
@@ -149,9 +149,9 @@ type UpdateTagResult struct {
 
 // DeleteTagArgs contains parameters for deleting a tag.
 type DeleteTagArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	TagID   string `json:"tag_id" jsonschema:"required" jsonschema_description:"ID of the tag to delete"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"ID of the tag to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
 }
 
 // DeleteTagResult confirms tag deletion.

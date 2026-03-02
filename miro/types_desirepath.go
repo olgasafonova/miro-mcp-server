@@ -7,13 +7,13 @@ package miro
 // GetDesirePathReportArgs specifies options for querying the desire path report.
 type GetDesirePathReportArgs struct {
 	// Tool filters events by tool name (e.g., "miro_get_board")
-	Tool string `json:"tool,omitempty" jsonschema_description:"Filter by tool name (e.g., miro_get_board)"`
+	Tool string `json:"tool,omitempty" jsonschema:"Filter by tool name (e.g., miro_get_board)"`
 
 	// Rule filters events by normalizer rule (e.g., "url_to_id")
-	Rule string `json:"rule,omitempty" jsonschema_description:"Filter by normalizer rule: url_to_id, camel_to_snake, string_to_numeric, whitespace, boolean_coercion"`
+	Rule string `json:"rule,omitempty" jsonschema:"Filter by normalizer rule: url_to_id, camel_to_snake, string_to_numeric, whitespace, boolean_coercion"`
 
 	// Limit is the maximum number of recent events to include (default 20, max 100)
-	Limit int `json:"limit,omitempty" jsonschema_description:"Maximum recent events to return (default 20, max 100)"`
+	Limit int `json:"limit,omitempty" jsonschema:"Maximum recent events to return (default 20, max 100)"`
 }
 
 // DesirePathEvent represents a single normalization event in the response.

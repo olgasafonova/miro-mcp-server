@@ -6,8 +6,8 @@ package miro
 
 // GetFrameArgs contains parameters for getting a specific frame.
 type GetFrameArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	FrameID string `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to retrieve"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	FrameID string `json:"frame_id" jsonschema:"Frame ID to retrieve"`
 }
 
 // GetFrameResult contains the full frame details.
@@ -33,14 +33,14 @@ type GetFrameResult struct {
 
 // UpdateFrameArgs contains parameters for updating a frame.
 type UpdateFrameArgs struct {
-	BoardID string   `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	FrameID string   `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to update"`
-	Title   *string  `json:"title,omitempty" jsonschema_description:"New frame title"`
-	X       *float64 `json:"x,omitempty" jsonschema_description:"New X position"`
-	Y       *float64 `json:"y,omitempty" jsonschema_description:"New Y position"`
-	Width   *float64 `json:"width,omitempty" jsonschema_description:"New width"`
-	Height  *float64 `json:"height,omitempty" jsonschema_description:"New height"`
-	Color   *string  `json:"color,omitempty" jsonschema_description:"New background color"`
+	BoardID string   `json:"board_id" jsonschema:"Board ID"`
+	FrameID string   `json:"frame_id" jsonschema:"Frame ID to update"`
+	Title   *string  `json:"title,omitempty" jsonschema:"New frame title"`
+	X       *float64 `json:"x,omitempty" jsonschema:"New X position"`
+	Y       *float64 `json:"y,omitempty" jsonschema:"New Y position"`
+	Width   *float64 `json:"width,omitempty" jsonschema:"New width"`
+	Height  *float64 `json:"height,omitempty" jsonschema:"New height"`
+	Color   *string  `json:"color,omitempty" jsonschema:"New background color"`
 }
 
 // UpdateFrameResult confirms frame update.
@@ -56,9 +56,9 @@ type UpdateFrameResult struct {
 
 // DeleteFrameArgs contains parameters for deleting a frame.
 type DeleteFrameArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	FrameID string `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to delete"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	FrameID string `json:"frame_id" jsonschema:"Frame ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
 }
 
 // DeleteFrameResult confirms frame deletion.
@@ -74,12 +74,12 @@ type DeleteFrameResult struct {
 
 // GetFrameItemsArgs contains parameters for getting items within a frame.
 type GetFrameItemsArgs struct {
-	BoardID     string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	FrameID     string `json:"frame_id" jsonschema:"required" jsonschema_description:"Frame ID to get items from"`
-	Type        string `json:"type,omitempty" jsonschema_description:"Filter by item type: sticky_note, shape, text, card, image"`
-	Limit       int    `json:"limit,omitempty" jsonschema_description:"Max items to return (default 50, max 100)"`
-	Cursor      string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
-	DetailLevel string `json:"detail_level,omitempty" jsonschema_description:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
+	BoardID     string `json:"board_id" jsonschema:"Board ID"`
+	FrameID     string `json:"frame_id" jsonschema:"Frame ID to get items from"`
+	Type        string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, card, image"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 100)"`
+	Cursor      string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }
 
 // GetFrameItemsResult contains items within a frame.

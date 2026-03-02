@@ -21,12 +21,12 @@ type MindmapNodeData struct {
 
 // CreateMindmapNodeArgs contains parameters for creating a mindmap node.
 type CreateMindmapNodeArgs struct {
-	BoardID  string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Content  string  `json:"content" jsonschema:"required" jsonschema_description:"Text content of the node"`
-	ParentID string  `json:"parent_id,omitempty" jsonschema_description:"ID of the parent node (omit for root node)"`
-	NodeView string  `json:"node_view,omitempty" jsonschema_description:"Node style: text (default) or bubble"`
-	X        float64 `json:"x,omitempty" jsonschema_description:"X position (only for root nodes)"`
-	Y        float64 `json:"y,omitempty" jsonschema_description:"Y position (only for root nodes)"`
+	BoardID  string  `json:"board_id" jsonschema:"Board ID"`
+	Content  string  `json:"content" jsonschema:"Text content of the node"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema:"ID of the parent node (omit for root node)"`
+	NodeView string  `json:"node_view,omitempty" jsonschema:"Node style: text (default) or bubble"`
+	X        float64 `json:"x,omitempty" jsonschema:"X position (only for root nodes)"`
+	Y        float64 `json:"y,omitempty" jsonschema:"Y position (only for root nodes)"`
 }
 
 // CreateMindmapNodeResult contains the created mindmap node.
@@ -44,8 +44,8 @@ type CreateMindmapNodeResult struct {
 
 // GetMindmapNodeArgs contains parameters for getting a mindmap node.
 type GetMindmapNodeArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	NodeID  string `json:"node_id" jsonschema:"required" jsonschema_description:"Mindmap node ID to retrieve"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	NodeID  string `json:"node_id" jsonschema:"Mindmap node ID to retrieve"`
 }
 
 // GetMindmapNodeResult contains the mindmap node details.
@@ -69,9 +69,9 @@ type GetMindmapNodeResult struct {
 
 // ListMindmapNodesArgs contains parameters for listing mindmap nodes.
 type ListMindmapNodesArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max nodes to return (default 50, max 100)"`
-	Cursor  string `json:"cursor,omitempty" jsonschema_description:"Pagination cursor"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max nodes to return (default 50, max 100)"`
+	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 }
 
 // MindmapNodeSummary is a brief summary of a mindmap node.
@@ -97,9 +97,9 @@ type ListMindmapNodesResult struct {
 
 // DeleteMindmapNodeArgs contains parameters for deleting a mindmap node.
 type DeleteMindmapNodeArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	NodeID  string `json:"node_id" jsonschema:"required" jsonschema_description:"Mindmap node ID to delete"`
-	DryRun  bool   `json:"dry_run,omitempty" jsonschema_description:"If true, returns preview without deleting"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	NodeID  string `json:"node_id" jsonschema:"Mindmap node ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
 }
 
 // DeleteMindmapNodeResult confirms the deletion.

@@ -6,14 +6,14 @@ package miro
 
 // GenerateDiagramArgs contains arguments for generating a diagram.
 type GenerateDiagramArgs struct {
-	BoardID     string  `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to create the diagram on"`
-	Diagram     string  `json:"diagram" jsonschema:"required" jsonschema_description:"Diagram code in Mermaid format (flowchart/graph syntax)"`
-	StartX      float64 `json:"start_x,omitempty" jsonschema_description:"Starting X position (default: 0)"`
-	StartY      float64 `json:"start_y,omitempty" jsonschema_description:"Starting Y position (default: 0)"`
-	NodeWidth   float64 `json:"node_width,omitempty" jsonschema_description:"Width of each node (default: 180)"`
-	ParentID    string  `json:"parent_id,omitempty" jsonschema_description:"Parent frame ID to create diagram inside"`
-	UseStencils bool    `json:"use_stencils,omitempty" jsonschema_description:"Use professional flowchart stencils instead of basic shapes. Provides better visual styling with proper flowchart symbols (terminator, process, decision, I/O)."`
-	OutputMode  string  `json:"output_mode,omitempty" jsonschema_description:"Output mode: 'discrete' (default) returns individual items, 'grouped' groups all items together for easy move/delete, 'framed' creates a frame containing all items"`
+	BoardID     string  `json:"board_id" jsonschema:"Board ID to create the diagram on"`
+	Diagram     string  `json:"diagram" jsonschema:"Diagram code in Mermaid format (flowchart/graph syntax)"`
+	StartX      float64 `json:"start_x,omitempty" jsonschema:"Starting X position (default: 0)"`
+	StartY      float64 `json:"start_y,omitempty" jsonschema:"Starting Y position (default: 0)"`
+	NodeWidth   float64 `json:"node_width,omitempty" jsonschema:"Width of each node (default: 180)"`
+	ParentID    string  `json:"parent_id,omitempty" jsonschema:"Parent frame ID to create diagram inside"`
+	UseStencils bool    `json:"use_stencils,omitempty" jsonschema:"Use professional flowchart stencils instead of basic shapes. Provides better visual styling with proper flowchart symbols (terminator, process, decision, I/O)."`
+	OutputMode  string  `json:"output_mode,omitempty" jsonschema:"Output mode: 'discrete' (default) returns individual items, 'grouped' groups all items together for easy move/delete, 'framed' creates a frame containing all items"`
 }
 
 // GenerateDiagramResult contains the result of diagram generation.

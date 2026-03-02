@@ -18,9 +18,9 @@ type BoardMember struct {
 
 // ListBoardMembersArgs contains parameters for listing board members.
 type ListBoardMembersArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema_description:"Max members to return (default 50)"`
-	Offset  string `json:"offset,omitempty" jsonschema_description:"Pagination cursor"`
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max members to return (default 50)"`
+	Offset  string `json:"offset,omitempty" jsonschema:"Pagination cursor"`
 }
 
 // ListBoardMembersResult contains the list of board members.
@@ -37,10 +37,10 @@ type ListBoardMembersResult struct {
 
 // ShareBoardArgs contains parameters for sharing a board with a user.
 type ShareBoardArgs struct {
-	BoardID string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID to share"`
-	Email   string `json:"email" jsonschema:"required" jsonschema_description:"Email address of the user to invite"`
-	Role    string `json:"role,omitempty" jsonschema_description:"Access role: viewer, commenter, editor (default: viewer)"`
-	Message string `json:"message,omitempty" jsonschema_description:"Optional message to include in the invitation"`
+	BoardID string `json:"board_id" jsonschema:"Board ID to share"`
+	Email   string `json:"email" jsonschema:"Email address of the user to invite"`
+	Role    string `json:"role,omitempty" jsonschema:"Access role: viewer, commenter, editor (default: viewer)"`
+	Message string `json:"message,omitempty" jsonschema:"Optional message to include in the invitation"`
 }
 
 // ShareBoardResult confirms board sharing.
@@ -57,8 +57,8 @@ type ShareBoardResult struct {
 
 // GetBoardMemberArgs contains parameters for getting a specific board member.
 type GetBoardMemberArgs struct {
-	BoardID  string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	MemberID string `json:"member_id" jsonschema:"required" jsonschema_description:"Member ID to retrieve"`
+	BoardID  string `json:"board_id" jsonschema:"Board ID"`
+	MemberID string `json:"member_id" jsonschema:"Member ID to retrieve"`
 }
 
 // GetBoardMemberResult contains the board member details.
@@ -76,8 +76,8 @@ type GetBoardMemberResult struct {
 
 // RemoveBoardMemberArgs contains parameters for removing a board member.
 type RemoveBoardMemberArgs struct {
-	BoardID  string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	MemberID string `json:"member_id" jsonschema:"required" jsonschema_description:"Member ID to remove"`
+	BoardID  string `json:"board_id" jsonschema:"Board ID"`
+	MemberID string `json:"member_id" jsonschema:"Member ID to remove"`
 }
 
 // RemoveBoardMemberResult confirms member removal.
@@ -93,9 +93,9 @@ type RemoveBoardMemberResult struct {
 
 // UpdateBoardMemberArgs contains parameters for updating a board member's role.
 type UpdateBoardMemberArgs struct {
-	BoardID  string `json:"board_id" jsonschema:"required" jsonschema_description:"Board ID"`
-	MemberID string `json:"member_id" jsonschema:"required" jsonschema_description:"Member ID to update"`
-	Role     string `json:"role" jsonschema:"required" jsonschema_description:"New role: viewer, commenter, or editor"`
+	BoardID  string `json:"board_id" jsonschema:"Board ID"`
+	MemberID string `json:"member_id" jsonschema:"Member ID to update"`
+	Role     string `json:"role" jsonschema:"New role: viewer, commenter, or editor"`
 }
 
 // UpdateBoardMemberResult contains the updated member details.

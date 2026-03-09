@@ -66,12 +66,15 @@ func main() {
 	// Create Miro client
 	client := miro.NewClient(config, logger)
 
-	// Validate token on startup
+	// Validate token on startup (non-fatal to support containerized deployments)
 	user, err := client.ValidateToken(context.Background())
 	if err != nil {
-		log.Fatalf("Token validation failed: %v\nGet a valid token at https://miro.com/app/settings/user-profile/apps", err)
+		logger.Warn("Token validation failed; tools will return errors until a valid token is provided",
+			"error", err,
+			"help", "https://miro.com/app/settings/user-profile/apps")
+	} else {
+		logger.Info("Token validated successfully", "user", user.Name, "email", user.Email)
 	}
-	logger.Info("Token validated successfully", "user", user.Name, "email", user.Email)
 
 	// Initialize audit logger
 	auditConfig := audit.LoadConfigFromEnv()

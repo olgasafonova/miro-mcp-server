@@ -121,8 +121,10 @@ func main() {
 	// Register all Miro tools with audit logging and desire path normalization
 	registry := tools.NewHandlerRegistry(client, logger).
 		WithAuditLogger(auditLogger).
-		WithDesirePathLogger(dpLogger, normalizers).
-		WithUser(user.ID, user.Email)
+		WithDesirePathLogger(dpLogger, normalizers)
+	if user != nil {
+		registry = registry.WithUser(user.ID, user.Email)
+	}
 	registry.RegisterAll(server)
 
 	// Register MCP Resources (miro://board/{id} URIs)

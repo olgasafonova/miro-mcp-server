@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**88 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**91 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
@@ -82,6 +82,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid |
 | **Docs** | Create and manage Markdown documents on boards |
 | **Upload** | Upload and replace local image and document files on boards |
+| **Tables** | Discover and inspect tables on boards |
 | **Mindmaps** | Create mindmap nodes with parent-child relationships |
 | **Bulk Ops** | Create multiple items at once, sticky grids |
 | **Tags** | Create, attach, update, and organize with tags |
@@ -99,7 +100,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
-## All 88 Tools
+## All 91 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -197,7 +198,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 </details>
 
 <details>
-<summary><b>Update & Delete Items (17)</b></summary>
+<summary><b>Update & Delete Items (18)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -216,6 +217,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_bulk_update` | Update multiple items at once |
 | `miro_delete_item` | Delete an item |
 | `miro_delete_app_card` | Delete an app card |
+| `miro_update_doc` | Update document content (full or find-and-replace) |
 | `miro_delete_doc` | Delete a Markdown document |
 | `miro_bulk_delete` | Delete multiple items at once |
 
@@ -271,6 +273,16 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 | `miro_create_export_job` | Export to PDF/SVG (Enterprise) |
 | `miro_get_export_job_status` | Check export progress |
 | `miro_get_export_job_results` | Get download links |
+
+</details>
+
+<details>
+<summary><b>Tables (2)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_list_tables` | List tables (data_table_format) on a board |
+| `miro_get_table` | Get table metadata by ID |
 
 </details>
 
@@ -332,7 +344,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in February 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
 | **Last updated** | February 2026 | February 2026 |
-| **Tools** | 88 | 15 (13 tools + 2 prompts) |
+| **Tools** | 91 | 15 (13 tools + 2 prompts) |
 | **Transport** | stdio + HTTP | HTTPS only (hosted) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
@@ -456,7 +468,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 88 tools with their schemas
+- Browse all 91 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -498,9 +510,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 88 tools |
-| Team | Full access to all 88 tools |
-| Business | Full access to all 88 tools |
+| Free | Full access to all 91 tools |
+| Team | Full access to all 91 tools |
+| Business | Full access to all 91 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 ---

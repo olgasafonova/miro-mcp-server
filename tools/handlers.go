@@ -183,7 +183,12 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		// Doc format tools
 		"CreateDocFormat": makeHandler(h, h.client.CreateDocFormat),
 		"GetDocFormat":    makeHandler(h, h.client.GetDocFormat),
+		"UpdateDocFormat": makeHandler(h, h.client.UpdateDocFormat),
 		"DeleteDocFormat": makeHandler(h, h.client.DeleteDocFormat),
+
+		// Table tools
+		"ListTables": makeHandler(h, h.client.ListTables),
+		"GetTable":   makeHandler(h, h.client.GetTable),
 
 		// Tag query tools
 		"GetItemsByTag": makeHandler(h, h.client.GetItemsByTag),

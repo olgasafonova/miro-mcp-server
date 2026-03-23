@@ -833,6 +833,32 @@ type DeleteDocFormatResult struct {
 }
 
 // =============================================================================
+// Update Doc Format
+// =============================================================================
+
+// UpdateDocFormatArgs contains parameters for updating a doc format item's content.
+// The Miro REST API does not support PATCH on docs, so this operation deletes the
+// original and recreates it with the new content at the same position.
+type UpdateDocFormatArgs struct {
+	BoardID    string `json:"board_id" jsonschema:"Board ID"`
+	ItemID     string `json:"item_id" jsonschema:"Doc format item ID to update"`
+	Content    string `json:"content" jsonschema:"New Markdown content for the document"`
+	OldContent string `json:"old_content,omitempty" jsonschema:"Text to find (for find-and-replace mode). If empty, replaces entire content."`
+	NewContent string `json:"new_content,omitempty" jsonschema:"Replacement text (for find-and-replace mode)"`
+	ReplaceAll bool   `json:"replace_all,omitempty" jsonschema:"Replace all occurrences (default: first only)"`
+}
+
+// UpdateDocFormatResult contains the updated doc format item.
+type UpdateDocFormatResult struct {
+	ID       string `json:"id"`
+	OldID    string `json:"old_id,omitempty"`
+	Content  string `json:"content,omitempty"`
+	ItemURL  string `json:"item_url,omitempty"`
+	Replaced int    `json:"replaced,omitempty"`
+	Message  string `json:"message"`
+}
+
+// =============================================================================
 // Get Items By Tag
 // =============================================================================
 

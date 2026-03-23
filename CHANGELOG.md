@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **New Tools (3)**: 91 tools total (up from 88)
+  - `miro_update_doc` - Update doc format item content (full replacement or find-and-replace)
+  - `miro_list_tables` - List tables (data_table_format) on a board
+  - `miro_get_table` - Get table metadata by ID
+
+### Notes
+- Doc update uses delete+recreate internally (Miro REST API does not support PATCH on doc_format). Item ID changes after update; position is preserved.
+- Table tools return metadata only (ID, position, size, timestamps). The Miro REST API does not expose table column definitions or row data; full table content requires the Miro UI or Miro's hosted MCP server.
+
 ## [1.15.2] - 2026-03-03
 
 ### Fixed

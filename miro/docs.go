@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // CreateDocFormat creates a doc format item from Markdown content on a board.
@@ -139,5 +140,103 @@ func (c *Client) DeleteDocFormat(ctx context.Context, args DeleteDocFormatArgs) 
 		Success: true,
 		ItemID:  args.ItemID,
 		Message: "Doc format item deleted successfully",
+	}, nil
+}
+
+// UpdateDocFormat updates a doc format item's content.
+// The Miro REST API does not support PATCH on doc_format items, so this
+// reads the current doc, applies changes, deletes the original, and
+// recreates it at the same position with the new content.
+func (c *Client) UpdateDocFormat(ctx context.Context, args UpdateDocFormatArgs) (UpdateDocFormatResult, error) {
+	if args.BoardID == "" {
+		return UpdateDocFormatResult{}, fmt.Errorf("board_id is required")
+	}
+	if args.ItemID == "" {
+		return UpdateDocFormatResult{}, fmt.Errorf("item_id is required")
+	}
+
+	// Step 1: Read current doc
+	getResult, err := c.GetDocFormat(ctx, GetDocFormatArgs{
+		BoardID: args.BoardID,
+		ItemID:  args.ItemID,
+	})
+	if err != nil {
+		return UpdateDocFormatResult{}, fmt.Errorf("failed to read current doc: %w", err)
+	}
+
+	// Step 2: Determine new content
+	var newContent string
+	var replaced int
+
+	if args.OldContent != "" {
+		// Find-and-replace mode
+		if args.ReplaceAll {
+			replaced = strings.Count(getResult.Content, args.OldContent)
+			newContent = strings.ReplaceAll(getResult.Content, args.OldContent, args.NewContent)
+		} else {
+			if strings.Contains(getResult.Content, args.OldContent) {
+				replaced = 1
+				newContent = strings.Replace(getResult.Content, args.OldContent, args.NewContent, 1)
+			} else {
+				return UpdateDocFormatResult{}, fmt.Errorf("old_content not found in document")
+			}
+		}
+		if replaced == 0 {
+			return UpdateDocFormatResult{}, fmt.Errorf("old_content not found in document")
+		}
+	} else if args.Content != "" {
+		// Full content replacement mode
+		newContent = args.Content
+		replaced = 0
+	} else {
+		return UpdateDocFormatResult{}, fmt.Errorf("either content (full replace) or old_content+new_content (find-and-replace) is required")
+	}
+
+	// Step 3: Delete original
+	_, err = c.request(ctx, http.MethodDelete, fmt.Sprintf("/boards/%s/items/%s", args.BoardID, args.ItemID), nil)
+	if err != nil {
+		return UpdateDocFormatResult{}, fmt.Errorf("failed to delete original doc: %w", err)
+	}
+
+	// Step 4: Recreate at same position with new content
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"contentType": "markdown",
+			"content":     newContent,
+		},
+		"position": map[string]interface{}{
+			"x":      getResult.X,
+			"y":      getResult.Y,
+			"origin": "center",
+		},
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/docs", reqBody)
+	if err != nil {
+		return UpdateDocFormatResult{}, fmt.Errorf("failed to recreate doc with updated content: %w", err)
+	}
+
+	var resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return UpdateDocFormatResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Invalidate cache
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
+
+	msg := "Updated doc format item"
+	if replaced > 0 {
+		msg = fmt.Sprintf("Replaced %d occurrence(s) in doc format item", replaced)
+	}
+
+	return UpdateDocFormatResult{
+		ID:       resp.ID,
+		OldID:    args.ItemID,
+		Content:  newContent,
+		ItemURL:  BuildItemURL(args.BoardID, resp.ID),
+		Replaced: replaced,
+		Message:  msg,
 	}, nil
 }

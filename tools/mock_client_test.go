@@ -127,7 +127,12 @@ type MockClient struct {
 	// Doc format operations
 	CreateDocFormatFn func(ctx context.Context, args miro.CreateDocFormatArgs) (miro.CreateDocFormatResult, error)
 	GetDocFormatFn    func(ctx context.Context, args miro.GetDocFormatArgs) (miro.GetDocFormatResult, error)
+	UpdateDocFormatFn func(ctx context.Context, args miro.UpdateDocFormatArgs) (miro.UpdateDocFormatResult, error)
 	DeleteDocFormatFn func(ctx context.Context, args miro.DeleteDocFormatArgs) (miro.DeleteDocFormatResult, error)
+
+	// Table operations
+	ListTablesFn func(ctx context.Context, args miro.ListTablesArgs) (miro.ListTablesResult, error)
+	GetTableFn   func(ctx context.Context, args miro.GetTableArgs) (miro.GetTableResult, error)
 
 	// Upload operations
 	UploadImageFn            func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
@@ -1378,6 +1383,74 @@ func (m *MockClient) DeleteDocFormat(ctx context.Context, args miro.DeleteDocFor
 		Success: true,
 		ItemID:  args.ItemID,
 		Message: "Doc format item deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// UpdateDocFormat Implementation
+// =============================================================================
+
+func (m *MockClient) UpdateDocFormat(ctx context.Context, args miro.UpdateDocFormatArgs) (miro.UpdateDocFormatResult, error) {
+	m.recordCall("UpdateDocFormat", args)
+	if m.UpdateDocFormatFn != nil {
+		return m.UpdateDocFormatFn(ctx, args)
+	}
+	content := args.Content
+	if content == "" {
+		content = "# Updated Document"
+	}
+	return miro.UpdateDocFormatResult{
+		ID:      "doc-format-456",
+		OldID:   args.ItemID,
+		Content: content,
+		ItemURL: "https://miro.com/app/board/" + args.BoardID + "/?moveToWidget=doc-format-456",
+		Message: "Updated doc format item",
+	}, nil
+}
+
+// =============================================================================
+// TableService Implementation
+// =============================================================================
+
+func (m *MockClient) ListTables(ctx context.Context, args miro.ListTablesArgs) (miro.ListTablesResult, error) {
+	m.recordCall("ListTables", args)
+	if m.ListTablesFn != nil {
+		return m.ListTablesFn(ctx, args)
+	}
+	return miro.ListTablesResult{
+		Tables: []miro.TableItem{
+			{
+				ID:         "table-123",
+				Type:       "data_table_format",
+				X:          100,
+				Y:          200,
+				Width:      400,
+				Height:     300,
+				CreatedAt:  "2026-03-23T10:00:00Z",
+				ModifiedAt: "2026-03-23T10:00:00Z",
+			},
+		},
+		Count:   1,
+		Total:   1,
+		Message: "Found 1 tables on board",
+	}, nil
+}
+
+func (m *MockClient) GetTable(ctx context.Context, args miro.GetTableArgs) (miro.GetTableResult, error) {
+	m.recordCall("GetTable", args)
+	if m.GetTableFn != nil {
+		return m.GetTableFn(ctx, args)
+	}
+	return miro.GetTableResult{
+		ID:         args.ItemID,
+		Type:       "data_table_format",
+		X:          100,
+		Y:          200,
+		Width:      400,
+		Height:     300,
+		CreatedAt:  "2026-03-23T10:00:00Z",
+		ModifiedAt: "2026-03-23T10:00:00Z",
+		Message:    "Retrieved table metadata",
 	}, nil
 }
 

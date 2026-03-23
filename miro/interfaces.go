@@ -148,7 +148,14 @@ type AppCardService interface {
 type DocFormatService interface {
 	CreateDocFormat(ctx context.Context, args CreateDocFormatArgs) (CreateDocFormatResult, error)
 	GetDocFormat(ctx context.Context, args GetDocFormatArgs) (GetDocFormatResult, error)
+	UpdateDocFormat(ctx context.Context, args UpdateDocFormatArgs) (UpdateDocFormatResult, error)
 	DeleteDocFormat(ctx context.Context, args DeleteDocFormatArgs) (DeleteDocFormatResult, error)
+}
+
+// TableService handles data table format operations.
+type TableService interface {
+	ListTables(ctx context.Context, args ListTablesArgs) (ListTablesResult, error)
+	GetTable(ctx context.Context, args GetTableArgs) (GetTableResult, error)
 }
 
 // UploadService handles file upload operations.
@@ -181,6 +188,7 @@ type MiroClient interface {
 	AppCardService
 	DocFormatService
 	UploadService
+	TableService
 }
 
 // Verify that Client implements MiroClient at compile time.

@@ -123,7 +123,8 @@ func TestToolCount(t *testing.T) {
 	// v1.14.0: +1 upload_document = 87
 	//          +2 update_image_from_file, update_document_from_file = 89
 	// v1.15.0: -1 miro_ungroup (merged into miro_delete_group) = 88
-	expectedCount := 88
+	// v1.16.0: +1 update_doc + 2 table tools (list_tables, get_table) = 91
+	expectedCount := 91
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

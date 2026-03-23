@@ -969,6 +969,87 @@ Use dry_run=true to preview what will be deleted before executing.
 
 RELATED: Use miro_get_doc to inspect before deleting. Use miro_create_doc to create new documents.`,
 	},
+	{
+		Name:       "miro_update_doc",
+		Method:     "UpdateDocFormat",
+		Title:      "Update Doc Format Item",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a doc format item's Markdown content. Supports two modes: full content replacement or find-and-replace.
+
+USE WHEN: "edit the document", "update doc content", "change the text in that doc", "replace X with Y in the document"
+
+NOT FOR: Creating new documents (use ` + "`miro_create_doc`" + `). Updating position only (use ` + "`miro_update_item`" + `).
+
+PARAMETERS:
+- board_id: Required
+- item_id: Doc format item ID (required). Get from miro_get_doc or miro_list_items.
+- content: New Markdown content (for full replacement mode)
+- old_content: Text to find (for find-and-replace mode)
+- new_content: Replacement text (for find-and-replace mode)
+- replace_all: Replace all occurrences (default: first only)
+
+MODE 1 - Full replacement:
+{"board_id": "uXjVN1234", "item_id": "345876...", "content": "# New Title\n\nNew content"}
+
+MODE 2 - Find and replace:
+{"board_id": "uXjVN1234", "item_id": "345876...", "old_content": "Draft", "new_content": "Final", "replace_all": true}
+
+NOTE: The item ID changes after update because Miro's API requires delete+recreate. The new ID is returned. Position is preserved.
+
+RETURNS: New item ID, old item ID, updated content, view link.
+
+RELATED: Use miro_get_doc to read before editing. Use miro_create_doc to create new documents.
+
+VOICE-FRIENDLY: "Updated document content"`,
+	},
+
+	// ==========================================================================
+	// Table Tools (data_table_format)
+	// ==========================================================================
+	{
+		Name:     "miro_list_tables",
+		Method:   "ListTables",
+		Title:    "List Tables",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List tables (data_table_format items) on a Miro board. Returns table metadata: ID, position, size, and timestamps. Use the table ID with miro_get_table for details.
+
+USE WHEN: "find tables on this board", "list all tables", "does this board have tables", "show me the tables"
+
+NOT FOR: Reading table row data or column definitions. The Miro REST API provides table metadata only. For full table content, open the board in Miro.
+
+PARAMETERS:
+- board_id: Required
+- limit: Max tables to return (default 10, max 50)
+- cursor: Pagination cursor from previous response
+
+RETURNS: Table items with IDs, positions, sizes, and timestamps.
+
+VOICE-FRIENDLY: "Found 3 tables on the board"`,
+	},
+	{
+		Name:     "miro_get_table",
+		Method:   "GetTable",
+		Title:    "Get Table Details",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get metadata for a specific table (data_table_format item) by ID. Returns position, size, parent frame, and timestamps.
+
+USE WHEN: "get table details", "where is that table", "table info"
+
+NOT FOR: Reading table row data or column definitions. The Miro REST API provides table metadata only.
+
+PARAMETERS:
+- board_id: Required
+- item_id: Table item ID (required). Get from miro_list_tables or miro_list_items with type filter.
+
+RETURNS: Table ID, position, size, parent frame ID, timestamps, and view link.
+
+RELATED: Use miro_list_tables to discover tables. Use miro_list_items with type "data_table_format" as an alternative.
+
+VOICE-FRIENDLY: "Table is at position (100, 200), size 400x300"`,
+	},
 
 	// ==========================================================================
 	// Get Items By Tag

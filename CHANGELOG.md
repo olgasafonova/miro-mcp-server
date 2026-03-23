@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-03-23
+
 ### Added
 - **New Tools (3)**: 91 tools total (up from 88)
   - `miro_update_doc` - Update doc format item content (full replacement or find-and-replace)

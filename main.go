@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/olgasafonova/mcp-otel-go/mcpotel"
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
 	"github.com/olgasafonova/miro-mcp-server/miro/desirepath"
@@ -101,6 +102,12 @@ func main() {
 		// the initialize handshake, causing intermittent connection failures.
 		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}},
 	})
+
+	// Add OpenTelemetry instrumentation middleware
+	server.AddReceivingMiddleware(mcpotel.Middleware(mcpotel.Config{
+		ServiceName:    ServerName,
+		ServiceVersion: ServerVersion,
+	}))
 
 	// Initialize desire path logger for agent behavior normalization
 	dpConfig := desirepath.LoadConfigFromEnv()

@@ -44,3 +44,8 @@ api-tracking/gap-analysis.md
 
 # Claude Code
 .mcpregistry_*
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

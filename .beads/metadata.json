@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "miro_mcp_server",
+  "project_id": "7345094d-4863-4b1b-8f54-7c4bceb9377f"
+}

@@ -343,7 +343,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Last updated** | April 2026 | January 2026 |
+| **Last changelog entry** | April 2026 | January 2026 |
 | **Tools** | 91 | 15 (13 tools + 2 prompts) |
 | **Transport** | stdio + HTTP | HTTPS only (hosted) |
 | **Self-hosting** | Yes | No |

@@ -339,7 +339,7 @@ sequenceDiagram
 
 ## Official vs Community
 
-Miro released their [official MCP server](https://miro.com/ai/mcp/) in February 2026. Here's how they compare:
+Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025. Here's how they compare:
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|

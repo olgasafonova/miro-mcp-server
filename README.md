@@ -343,7 +343,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in February 
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Last updated** | February 2026 | February 2026 |
+| **Last updated** | April 2026 | January 2026 |
 | **Tools** | 91 | 15 (13 tools + 2 prompts) |
 | **Transport** | stdio + HTTP | HTTPS only (hosted) |
 | **Self-hosting** | Yes | No |
@@ -358,14 +358,14 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in February 
 | **Export** | Yes (PDF/SVG) | No |
 | **MCP Resources** | 3 | No |
 | **MCP Prompts** | 5 workflows | 2 (code-focused) |
-| **Runtime** | Single Go binary | TypeScript (hosted) |
+| **Runtime** | Single Go binary | Hosted (closed-source) |
 | **Rate limiting** | Adaptive | N/A (hosted) |
 | **Caching** | Built-in (2min TTL) | N/A |
 | **Metrics** | Prometheus | No |
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, AI-powered board context extraction, or code-to-board workflows.
 
-**When to use this server:** You need full API coverage (88 vs 15 tools), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
+**When to use this server:** You need full API coverage (91 vs 15 tools), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 

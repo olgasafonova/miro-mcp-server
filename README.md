@@ -362,7 +362,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in February 
 | **Rate limiting** | Adaptive | N/A (hosted) |
 | **Caching** | Built-in (2min TTL) | N/A |
 | **Metrics** | Prometheus | No |
-| **OpenTelemetry** | Built-in ([mcp-otel-go](https://github.com/olgasafonova/mcp-otel-go)) | No |
+| **OpenTelemetry** | Built-in ([mcp-otel-go](https://github.com/olgasafonova/mcp-otel-go), [OTel Registry](https://opentelemetry.io/ecosystem/registry/?language=go&search=mcp)) | No |
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, AI-powered board context extraction, or code-to-board workflows.
 
@@ -380,7 +380,7 @@ Both can coexist — use different MCP server names in your config.
 - **Parallel bulk ops:** Creates items concurrently
 - **Token validation:** Fails fast on startup with clear error
 - **Transient error retry:** Auto-retries 502/503/504 with backoff
-- **OpenTelemetry:** Built-in tracing and metrics via [mcp-otel-go](https://github.com/olgasafonova/mcp-otel-go)
+- **OpenTelemetry:** Built-in tracing and metrics via [mcp-otel-go](https://github.com/olgasafonova/mcp-otel-go) ([OTel Registry](https://opentelemetry.io/ecosystem/registry/?language=go&search=mcp))
 
 See [PERFORMANCE.md](PERFORMANCE.md) for optimization tips and benchmarks.
 

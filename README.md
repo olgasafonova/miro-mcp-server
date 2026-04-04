@@ -396,7 +396,7 @@ When running with `-http :8080`:
 | `/health` | Health check (JSON) |
 | `/health?deep=true` | Deep health check (tests Miro API) |
 | `/metrics` | Prometheus metrics |
-| `/.well-known/mcp-server-card` | SEP-2127 Server Card (JSON) |
+| `/.well-known/mcp-server-card` | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2127) Server Card (JSON) via [mcp-servercard-go](https://github.com/olgasafonova/mcp-servercard-go) |
 
 **Health check response:**
 ```json

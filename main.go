@@ -29,7 +29,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.15.2"
+	ServerVersion = "1.16.1"
 )
 
 func main() {
@@ -54,28 +54,38 @@ func main() {
 		Level: logLevel,
 	}))
 
-	// Load configuration from environment
-	config, err := miro.LoadConfigFromEnv()
+	// Load configuration from environment.
+	// Uses LoadConfigOrUnconfigured so the server starts even without MIRO_ACCESS_TOKEN,
+	// allowing MCP registries (Glama, Smithery) to inspect tool definitions.
+	// Tool calls will return a clear error if the token is not configured.
+	config, err := miro.LoadConfigOrUnconfigured()
 	if err != nil {
 		log.Fatalf("Configuration error: %v", err)
 	}
 
-	// Validate config
-	if err := miro.ValidateConfig(config); err != nil {
-		log.Fatalf("Invalid configuration: %v", err)
+	if config.IsConfigured() {
+		// Validate config only when token is present
+		if err := miro.ValidateConfig(config); err != nil {
+			log.Fatalf("Invalid configuration: %v", err)
+		}
+	} else {
+		logger.Warn("MIRO_ACCESS_TOKEN not set. Server will start in inspection mode: tools are listed but calls will fail until configured.")
 	}
 
 	// Create Miro client
 	client := miro.NewClient(config, logger)
 
 	// Validate token on startup (non-fatal to support containerized deployments)
-	user, err := client.ValidateToken(context.Background())
-	if err != nil {
-		logger.Warn("Token validation failed; tools will return errors until a valid token is provided",
-			"error", err,
-			"help", "https://miro.com/app/settings/user-profile/apps")
-	} else {
-		logger.Info("Token validated successfully", "user", user.Name, "email", user.Email)
+	var user *miro.UserInfo
+	if config.IsConfigured() {
+		user, err = client.ValidateToken(context.Background())
+		if err != nil {
+			logger.Warn("Token validation failed; tools will return errors until a valid token is provided",
+				"error", err,
+				"help", "https://miro.com/app/settings/user-profile/apps")
+		} else {
+			logger.Info("Token validated successfully", "user", user.Name, "email", user.Email)
+		}
 	}
 
 	// Initialize audit logger

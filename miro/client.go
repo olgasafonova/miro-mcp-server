@@ -405,6 +405,10 @@ func calculateRetryDelay(attempt int, retryAfter time.Duration) time.Duration {
 
 // request makes an authenticated request to the Miro API with retry support.
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	if !c.config.IsConfigured() {
+		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN is not configured. Set the MIRO_ACCESS_TOKEN environment variable. Get one at https://miro.com/app/settings/user-profile/apps")
+	}
+
 	// Check circuit breaker
 	endpoint := extractEndpoint(path)
 	cb := c.circuitBreakers.Get(endpoint)

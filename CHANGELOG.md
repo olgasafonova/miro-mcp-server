@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-04-04
+
+### Fixed
+- Server now starts in inspection mode when `MIRO_ACCESS_TOKEN` is not set, allowing MCP registries (Glama, Smithery) to enumerate tool definitions. Tool calls return a clear configuration error instead of crashing at startup.
+
 ## [1.16.0] - 2026-03-23
 
 ### Added

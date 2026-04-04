@@ -53,6 +53,34 @@ func LoadConfigFromEnv() (*Config, error) {
 	}, nil
 }
 
+// LoadConfigOrUnconfigured loads configuration from environment variables.
+// Unlike LoadConfigFromEnv, it does not fail when MIRO_ACCESS_TOKEN is missing;
+// instead it returns an unconfigured Config that allows tool registration but
+// rejects tool calls. This enables MCP registries (Glama, Smithery) to inspect
+// tool definitions without a valid token.
+func LoadConfigOrUnconfigured() (*Config, error) {
+	config, err := LoadConfigFromEnv()
+	if err == nil {
+		return config, nil
+	}
+
+	// If the only problem is a missing token, return an unconfigured config
+	if strings.Contains(err.Error(), "MIRO_ACCESS_TOKEN environment variable is required") {
+		return &Config{
+			Timeout:   DefaultTimeout,
+			UserAgent: "miro-mcp-server/1.0",
+		}, nil
+	}
+
+	return nil, err
+}
+
+// IsConfigured returns true if the access token is set and the server can make API calls.
+// When false, tool listing works but tool calls return an error prompting the user to configure MIRO_ACCESS_TOKEN.
+func (c *Config) IsConfigured() bool {
+	return c.AccessToken != ""
+}
+
 // loadTeamIDFromTokensFile attempts to read the team_id from the OAuth tokens file.
 func loadTeamIDFromTokensFile() string {
 	home, err := os.UserHomeDir()

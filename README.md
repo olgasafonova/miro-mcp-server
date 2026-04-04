@@ -396,13 +396,14 @@ When running with `-http :8080`:
 | `/health` | Health check (JSON) |
 | `/health?deep=true` | Deep health check (tests Miro API) |
 | `/metrics` | Prometheus metrics |
+| `/.well-known/mcp-server-card` | SEP-2127 Server Card (JSON) |
 
 **Health check response:**
 ```json
 {
   "status": "healthy",
   "server": "miro-mcp-server",
-  "version": "1.14.1",
+  "version": "1.15.2",
   "uptime": "2h30m",
   "components": {
     "config": {"status": "healthy"},
@@ -535,6 +536,7 @@ Check out my other MCP servers:
 | [mediawiki-mcp-server](https://github.com/olgasafonova/mediawiki-mcp-server) | Connect AI to any MediaWiki wiki. Search, read, edit wiki content. | ![GitHub stars](https://img.shields.io/github/stars/olgasafonova/mediawiki-mcp-server?style=flat&v=2) |
 | [nordic-registry-mcp-server](https://github.com/olgasafonova/nordic-registry-mcp-server) | Access Nordic business registries. Look up companies across Norway, Denmark, Finland, Sweden. | ![GitHub stars](https://img.shields.io/github/stars/olgasafonova/nordic-registry-mcp-server?style=flat) |
 | [productplan-mcp-server](https://github.com/olgasafonova/productplan-mcp-server) | Talk to your ProductPlan roadmaps. Query OKRs, ideas, launches. | ![GitHub stars](https://img.shields.io/github/stars/olgasafonova/productplan-mcp-server?style=flat) |
+| [mcp-servercard-go](https://github.com/olgasafonova/mcp-servercard-go) | Go library for SEP-2127 Server Cards. Pre-connect discovery for MCP servers. | ![GitHub stars](https://img.shields.io/github/stars/olgasafonova/mcp-servercard-go?style=flat) |
 
 ---
 

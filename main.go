@@ -17,6 +17,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/mcp-otel-go/mcpotel"
+	"github.com/olgasafonova/mcp-servercard-go/servercard"
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
 	"github.com/olgasafonova/miro-mcp-server/miro/desirepath"
@@ -144,6 +145,32 @@ func main() {
 	promptRegistry.RegisterAll(server)
 	logger.Debug("Registered MCP prompts", "count", 5)
 
+	// Register SEP-2127 Server Card as MCP resource
+	cardOpts := servercard.Options{
+		Name:        "io.github.olgasafonova/miro-mcp-server",
+		Version:     ServerVersion,
+		Description: "MCP server for Miro whiteboards. 91 tools for boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit. Voice-friendly.",
+		Title:       "Miro MCP Server",
+		WebsiteURL:  "https://github.com/olgasafonova/miro-mcp-server",
+		Repository: &servercard.Repository{
+			URL:    "https://github.com/olgasafonova/miro-mcp-server",
+			Source: "github",
+		},
+		Capabilities: &servercard.Capabilities{
+			Tools:     &servercard.ToolsCap{},
+			Prompts:   &servercard.PromptsCap{},
+			Resources: &servercard.ResourcesCap{},
+			Logging:   &servercard.LoggingCap{},
+		},
+		Provider: &servercard.Provider{
+			Name: "Olga Safonova",
+			URL:  "https://github.com/olgasafonova",
+		},
+	}
+	serverCard := servercard.Build(cardOpts)
+	servercard.RegisterResource(server, serverCard)
+	logger.Debug("Registered Server Card resource", "uri", servercard.ResourceURI)
+
 	ctx := context.Background()
 
 	// Create health checker for HTTP mode
@@ -154,7 +181,7 @@ func main() {
 
 	// Choose transport based on flags
 	if *httpAddr != "" {
-		runHTTPServer(server, logger, *httpAddr, *bearerToken, *verbose, healthChecker, metricsCollector)
+		runHTTPServer(server, logger, *httpAddr, *bearerToken, *verbose, healthChecker, metricsCollector, serverCard)
 	} else {
 		// stdio transport mode (default)
 		logger.Info("Starting Miro MCP Server (stdio mode)",
@@ -167,6 +194,14 @@ func main() {
 			log.Fatalf("Server error: %v", err)
 		}
 	}
+}
+
+// bearerAuthSchemes returns the auth schemes list for the Server Card.
+func bearerAuthSchemes(token string) []string {
+	if token != "" {
+		return []string{"bearer"}
+	}
+	return []string{}
 }
 
 // bearerTokenMiddleware returns middleware that validates Bearer token authentication.
@@ -185,7 +220,7 @@ func bearerTokenMiddleware(token string) func(http.Handler) http.Handler {
 }
 
 // runHTTPServer starts the MCP server with HTTP transport and graceful shutdown
-func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr, bearerToken string, verbose bool, healthChecker *miro.HealthChecker, metrics *miro.MetricsCollector) {
+func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr, bearerToken string, verbose bool, healthChecker *miro.HealthChecker, metrics *miro.MetricsCollector, card *servercard.ServerCard) {
 	// Create the Streamable HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
@@ -221,6 +256,16 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr, bearerToken st
 		}
 		w.Write(jsonBytes)
 	})
+
+	// SEP-2127 Server Card endpoint (unauthenticated, for pre-connect discovery)
+	// Add remote transport info now that we know the HTTP address.
+	card.Remotes = []servercard.Remote{{
+		Type:                      "streamable-http",
+		URL:                       "/",
+		SupportedProtocolVersions: []string{"2025-06-18"},
+		Authentication:            &servercard.Auth{Required: bearerToken != "", Schemes: bearerAuthSchemes(bearerToken)},
+	}}
+	mux.Handle(servercard.WellKnownPath, servercard.Handler(card))
 
 	// Prometheus metrics endpoint
 	var metricsHandler http.Handler = http.HandlerFunc(metrics.PrometheusHandler())

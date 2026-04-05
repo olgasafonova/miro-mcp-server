@@ -1024,9 +1024,24 @@ RETURNS: Export job ID and initial status. Poll with miro_get_export_job_status.
 		Title:    "Get Export Job Status",
 		Category: "export",
 		ReadOnly: true,
-		Description: `Check export job progress. ENTERPRISE ONLY.
+		Description: `Check the progress of a board export job. Call after miro_create_export_job. ENTERPRISE ONLY.
 
-RETURNS: Job ID, status (pending, in_progress, completed, failed), and progress percentage.`,
+USE WHEN: Polling an export job started with miro_create_export_job. Call repeatedly until status is "completed" or "failed".
+
+PARAMETERS:
+- org_id: Required. Same organization ID used in miro_create_export_job.
+- job_id: Required. Job ID returned by miro_create_export_job.
+
+RETURNS: Job ID, status (in_progress, completed, failed), progress percentage, and boards exported/total count.
+
+NEXT STEPS BY STATUS:
+- in_progress: Wait a few seconds, then poll again
+- completed: Call miro_get_export_job_results to get download links
+- failed: Export failed; check board IDs and permissions
+
+FAILS WHEN: Not on Enterprise plan. Invalid org_id or job_id.
+
+VOICE-FRIENDLY: "Export 50% complete: 5 of 10 boards exported"`,
 	},
 	{
 		Name:        "miro_get_export_job_results",
@@ -1375,13 +1390,34 @@ NOTE: Uses v2-experimental API. Shape types may change when this moves to GA.`,
 		Method:   "GenerateDiagram",
 		Title:    "Generate Diagram from Code",
 		Category: "diagrams",
-		Description: `Generate diagram on Miro from Mermaid code. Creates shapes and connectors with auto-layout.
+		Description: `Generate a diagram on a Miro board from Mermaid code. Parses locally (no external service), creates shapes and connectors with auto-layout.
 
-USE WHEN: "create flowchart", "generate diagram", "draw process flow", "sequence diagram"
+USE WHEN: "create a flowchart", "generate diagram from code", "draw a process flow", "make a sequence diagram"
 
-TYPES: flowchart/graph, sequenceDiagram
-FLOWCHART: A[rect] --> B{diamond} -->|label| C((circle))
-SEQUENCE: participant A; A->>B: sync; A-->>B: async`,
+NOT FOR: Freeform shape placement (use miro_create_shape). Mindmaps (use miro_create_mindmap_node).
+
+SUPPORTED SYNTAX:
+- flowchart/graph (directions: TB, BT, LR, RL): A[rect] --> B{diamond} -->|label| C((circle))
+- sequenceDiagram: participant A; A->>B: sync; A-->>B: async
+
+OUTPUT MODES:
+- discrete (default): Individual shapes and connectors, no container
+- grouped: All items in a logical group for easy move/delete
+- framed: All items inside a titled frame
+
+PARAMETERS:
+- board_id: Required
+- diagram: Mermaid code (required). Must start with "flowchart TB", "graph LR", or "sequenceDiagram".
+- output_mode: "discrete" (default), "grouped", or "framed"
+- use_stencils: true for professional flowchart symbols (terminator, process, decision, I/O)
+- start_x, start_y: Position offset (default: 0, 0)
+- parent_id: Frame ID to place diagram inside
+
+RETURNS: Counts of created nodes/connectors/frames, all item IDs and view links, diagram dimensions. In grouped/framed mode, also returns container ID.
+
+FAILS WHEN: Invalid Mermaid syntax (returns line number and fix suggestion). Missing header (must start with flowchart/graph/sequenceDiagram). Input exceeds 50KB or 500 lines.
+
+VOICE-FRIENDLY: "Created flowchart with 6 shapes and 5 connectors"`,
 	},
 
 	// ==========================================================================

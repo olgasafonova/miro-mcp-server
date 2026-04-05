@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.2] - 2026-04-05
+
+### Changed
+- Tool description quality audit: added RETURNS to 55 tools, USE WHEN to 30 tools, FAILS WHEN to 10 tools
+- Rewrote `miro_generate_diagram` and `miro_get_export_job_status` descriptions with full USE WHEN / RETURNS / FAILS WHEN / PARAMETERS sections
+
 ## [1.16.1] - 2026-04-04
 
 ### Fixed

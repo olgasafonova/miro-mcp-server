@@ -91,6 +91,8 @@ VOICE-FRIENDLY: "Board 'Sprint Planning' owned by Jane, created Jan 15"`,
 		Category: "boards",
 		Description: `Create a new Miro board.
 
+RETURNS: Board ID, name, and view link.
+
 VOICE-FRIENDLY: "Created board 'Sprint Planning'"`,
 	},
 	{
@@ -99,6 +101,8 @@ VOICE-FRIENDLY: "Created board 'Sprint Planning'"`,
 		Title:    "Copy Board",
 		Category: "boards",
 		Description: `Copy an existing Miro board.
+
+RETURNS: New board ID, name, and view link.
 
 VOICE-FRIENDLY: "Copied board to 'Sprint Planning Copy'"`,
 	},
@@ -110,7 +114,9 @@ VOICE-FRIENDLY: "Copied board to 'Sprint Planning Copy'"`,
 		Destructive: true,
 		Description: `Delete a Miro board permanently.
 
-WARNING: Cannot be undone. Use dry_run=true to preview first.`,
+WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted board ID.`,
 	},
 	{
 		Name:       "miro_update_board",
@@ -119,6 +125,8 @@ WARNING: Cannot be undone. Use dry_run=true to preview first.`,
 		Category:   "boards",
 		Idempotent: true,
 		Description: `Update a Miro board's name or description. At least one field must be provided.
+
+RETURNS: Board ID, updated name, description, and view link.
 
 VOICE-FRIENDLY: "Updated board name to 'Sprint Planning Q1'"`,
 	},
@@ -134,6 +142,8 @@ VOICE-FRIENDLY: "Updated board name to 'Sprint Planning Q1'"`,
 		Description: `Create a sticky note on a Miro board. For multiple stickies in a grid, use miro_create_sticky_grid. For batch creation of mixed items, use miro_bulk_create.
 
 USE WHEN: "add a sticky", "create note saying X", "put a yellow sticky"
+
+RETURNS: Item ID, content, color, and view link.
 
 VOICE-FRIENDLY: "Created yellow sticky 'Action item: Review design'"`,
 	},
@@ -173,21 +183,27 @@ EXAMPLE:
 		Category: "create",
 		Description: `Add free-floating text to a Miro board with no background or border. For notes with colored backgrounds, use miro_create_sticky. For rich Markdown documents, use miro_create_doc.
 
-USE WHEN: "add a title", "put heading text", "write a label", "add text saying X"`,
+USE WHEN: "add a title", "put heading text", "write a label", "add text saying X"
+
+RETURNS: Item ID, content, and view link.`,
 	},
 	{
-		Name:        "miro_create_connector",
-		Method:      "CreateConnector",
-		Title:       "Create Connector",
-		Category:    "create",
-		Description: `Create a connector line between two items. Styles: straight, elbowed (default), curved. Caps: none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle.`,
+		Name:     "miro_create_connector",
+		Method:   "CreateConnector",
+		Title:    "Create Connector",
+		Category: "create",
+		Description: `Create a connector line between two items. Styles: straight, elbowed (default), curved. Caps: none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle.
+
+RETURNS: Connector ID and view link.`,
 	},
 	{
-		Name:        "miro_create_frame",
-		Method:      "CreateFrame",
-		Title:       "Create Frame",
-		Category:    "create",
-		Description: `Create a frame container to group items visually. For logical grouping without a visual border, use miro_create_group.`,
+		Name:     "miro_create_frame",
+		Method:   "CreateFrame",
+		Title:    "Create Frame",
+		Category: "create",
+		Description: `Create a frame container to group items visually. For logical grouping without a visual border, use miro_create_group.
+
+RETURNS: Frame ID, title, and view link.`,
 	},
 	{
 		Name:     "miro_get_frame",
@@ -207,6 +223,8 @@ VOICE-FRIENDLY: "Frame 'Sprint Planning' is 800x600 with 12 items inside"`,
 		Idempotent: true,
 		Description: `Update a frame's title, position, size, or color. At least one field must be provided.
 
+RETURNS: Confirmation with frame ID.
+
 VOICE-FRIENDLY: "Updated frame title to 'Q1 Goals'"`,
 	},
 	{
@@ -218,6 +236,8 @@ VOICE-FRIENDLY: "Updated frame title to 'Q1 Goals'"`,
 		Description: `Delete a frame from a Miro board. Items inside are NOT deleted; they become ungrouped.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted frame ID.
 
 VOICE-FRIENDLY: "Frame deleted successfully"`,
 	},
@@ -244,6 +264,8 @@ VOICE-FRIENDLY: "Frame has 8 items: 5 stickies, 2 shapes, 1 text"`,
 
 USE WHEN: "add these 5 stickies", "create items for each of these", "batch add"
 
+RETURNS: Count of created items and their IDs.
+
 VOICE-FRIENDLY: "Created 5 items on the board"`,
 	},
 	{
@@ -252,6 +274,8 @@ VOICE-FRIENDLY: "Created 5 items on the board"`,
 		Title:    "Bulk Update Items",
 		Category: "update",
 		Description: `Update multiple items at once (max 20). Only provide fields you want to change.
+
+RETURNS: Count of updated items and their IDs.
 
 VOICE-FRIENDLY: "Updated 5 items on the board"`,
 	},
@@ -264,6 +288,8 @@ VOICE-FRIENDLY: "Updated 5 items on the board"`,
 		Description: `Delete multiple items at once (max 20).
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Count of deleted items and their IDs.
 
 VOICE-FRIENDLY: "Deleted 5 items from the board"`,
 	},
@@ -316,6 +342,8 @@ VOICE-FRIENDLY: "Found 3 stickies mentioning 'budget'"`,
 
 USE WHEN: "add a card", "create a task card", "card with due date"
 
+RETURNS: Card ID, title, and view link.
+
 VOICE-FRIENDLY: "Created card 'Review design specs'"`,
 	},
 	{
@@ -357,6 +385,8 @@ VOICE-FRIENDLY: "Image 'Logo' is 800x600 at position (100, 200)"`,
 		Category: "create",
 		Description: `Add a document (PDF, etc.) to a Miro board from a URL. URL must be publicly accessible.
 
+RETURNS: Document ID, title, and view link.
+
 RELATED: To upload a local file instead, use miro_upload_document.`,
 	},
 	{
@@ -378,7 +408,9 @@ VOICE-FRIENDLY: "Document 'Q4 Report' hosted at Miro"`,
 		Category: "create",
 		Description: `Embed external content as a live preview on a Miro board. Supports YouTube, Vimeo, Figma, Google Docs, Loom, and other oEmbed providers. For static images from URL, use miro_create_image. For document references from URL, use miro_create_document.
 
-USE WHEN: "embed this YouTube video", "add a Figma link", "embed Google Doc", "put a Loom video on the board"`,
+USE WHEN: "embed this YouTube video", "add a Figma link", "embed Google Doc", "put a Loom video on the board"
+
+RETURNS: Embed ID, URL, provider name, and view link.`,
 	},
 
 	// ==========================================================================
@@ -453,6 +485,8 @@ RELATED: For the reverse lookup (all items with a specific tag), use miro_get_it
 		ReadOnly: true,
 		Description: `Get details of a specific tag by ID.
 
+RETURNS: Tag ID, title, and color.
+
 VOICE-FRIENDLY: "Tag 'Urgent' is red"`,
 	},
 	{
@@ -462,6 +496,8 @@ VOICE-FRIENDLY: "Tag 'Urgent' is red"`,
 		Category:   "tags",
 		Idempotent: true,
 		Description: `Update a tag's title or color. At least one must be provided.
+
+RETURNS: Confirmation with tag ID, updated title, and color.
 
 VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
 	},
@@ -474,6 +510,8 @@ VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
 		Description: `Delete a tag from a board. Removes the tag from all items.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted tag ID.
 
 VOICE-FRIENDLY: "Tag deleted successfully"`,
 	},
@@ -505,7 +543,9 @@ VOICE-FRIENDLY: "Retrieved 847 items in 9 pages"`,
 		Idempotent: true,
 		Description: `Update any item's content, position, or style. For sticky-specific options (color, shape), use ` + "`miro_update_sticky`" + `. For card fields, use ` + "`miro_update_card`" + `. For shape styling, use ` + "`miro_update_shape`" + `.
 
-USE WHEN: "change sticky text", "move this item", "update the color"`,
+USE WHEN: "change sticky text", "move this item", "update the color"
+
+RETURNS: Confirmation with item ID.`,
 	},
 	{
 		Name:       "miro_update_sticky",
@@ -517,6 +557,8 @@ USE WHEN: "change sticky text", "move this item", "update the color"`,
 
 USE WHEN: "change sticky color", "update sticky to square", "resize sticky note"
 
+RETURNS: Confirmation with item ID.
+
 VOICE-FRIENDLY: "Updated sticky to yellow square"`,
 	},
 	{
@@ -526,6 +568,8 @@ VOICE-FRIENDLY: "Updated sticky to yellow square"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a shape with type-specific options (fill_color, text_color, shape type). For generic updates, use miro_update_item.
+
+RETURNS: Confirmation with item ID.
 
 VOICE-FRIENDLY: "Updated shape to blue circle"`,
 	},
@@ -537,6 +581,8 @@ VOICE-FRIENDLY: "Updated shape to blue circle"`,
 		Idempotent: true,
 		Description: `Update a text element (content, font_size, color, position).
 
+RETURNS: Confirmation with item ID.
+
 VOICE-FRIENDLY: "Updated text to 'New Title'"`,
 	},
 	{
@@ -546,6 +592,8 @@ VOICE-FRIENDLY: "Updated text to 'New Title'"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a card (title, description, due_date, position).
+
+RETURNS: Confirmation with item ID.
 
 VOICE-FRIENDLY: "Updated card title to 'Review PR'"`,
 	},
@@ -557,6 +605,8 @@ VOICE-FRIENDLY: "Updated card title to 'Review PR'"`,
 		Idempotent: true,
 		Description: `Update an image (title, url, position, width).
 
+RETURNS: Confirmation with item ID.
+
 VOICE-FRIENDLY: "Updated image title to 'Logo'"`,
 	},
 	{
@@ -566,6 +616,8 @@ VOICE-FRIENDLY: "Updated image title to 'Logo'"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a document (title, url, position, width).
+
+RETURNS: Confirmation with item ID.
 
 VOICE-FRIENDLY: "Updated document title"`,
 	},
@@ -577,6 +629,8 @@ VOICE-FRIENDLY: "Updated document title"`,
 		Idempotent: true,
 		Description: `Update an embed (url, mode: inline/modal, dimensions, position).
 
+RETURNS: Confirmation with item ID.
+
 VOICE-FRIENDLY: "Updated embed settings"`,
 	},
 	{
@@ -587,15 +641,19 @@ VOICE-FRIENDLY: "Updated embed settings"`,
 		Destructive: true,
 		Description: `Delete an item from a Miro board.
 
-WARNING: Cannot be undone. Use dry_run=true to preview first.`,
+WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted item ID.`,
 	},
 	{
-		Name:        "miro_update_connector",
-		Method:      "UpdateConnector",
-		Title:       "Update Connector",
-		Category:    "update",
-		Idempotent:  true,
-		Description: `Update a connector's style (straight/elbowed/curved), caps, caption, or color.`,
+		Name:       "miro_update_connector",
+		Method:     "UpdateConnector",
+		Title:      "Update Connector",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a connector's style (straight/elbowed/curved), caps, caption, or color.
+
+RETURNS: Confirmation with connector ID.`,
 	},
 	{
 		Name:        "miro_delete_connector",
@@ -607,6 +665,8 @@ WARNING: Cannot be undone. Use dry_run=true to preview first.`,
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
+RETURNS: Confirmation with deleted connector ID.
+
 VOICE-FRIENDLY: "Connector deleted successfully"`,
 	},
 	{
@@ -617,6 +677,8 @@ VOICE-FRIENDLY: "Connector deleted successfully"`,
 		ReadOnly: true,
 		Description: `List all connectors (lines/arrows) on a Miro board.
 
+RETURNS: Array of connectors with IDs, start/end item IDs, style, and captions. Paginated via cursor.
+
 VOICE-FRIENDLY: "Found 12 connectors on the board"`,
 	},
 	{
@@ -626,6 +688,8 @@ VOICE-FRIENDLY: "Found 12 connectors on the board"`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `Get full details of a specific connector by ID.
+
+RETURNS: Connector ID, start/end item IDs, style, caps, caption, color, and timestamps.
 
 VOICE-FRIENDLY: "This connector links Item A to Item B with a curved arrow"`,
 	},
@@ -691,6 +755,8 @@ VOICE-FRIENDLY: "Created 9 stickies in a 3x3 grid"`,
 		Category: "create",
 		Description: `Group multiple items together logically (minimum 2). Grouped items move and resize together. For a visible container with a border and title, use miro_create_frame.
 
+RETURNS: Group ID and member item IDs.
+
 VOICE-FRIENDLY: "Grouped 4 items together"`,
 	},
 	{
@@ -700,6 +766,8 @@ VOICE-FRIENDLY: "Grouped 4 items together"`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `List all groups on a Miro board.
+
+RETURNS: Array of group IDs. Paginated via cursor.
 
 VOICE-FRIENDLY: "Found 3 groups on the board"`,
 	},
@@ -711,6 +779,8 @@ VOICE-FRIENDLY: "Found 3 groups on the board"`,
 		ReadOnly: true,
 		Description: `Get details of a specific group by ID.
 
+RETURNS: Group ID and member item IDs.
+
 VOICE-FRIENDLY: "This group contains 4 items"`,
 	},
 	{
@@ -721,6 +791,8 @@ VOICE-FRIENDLY: "This group contains 4 items"`,
 		ReadOnly: true,
 		Description: `Get items in a group with their details. For items inside a visual frame, use miro_get_frame_items.
 
+RETURNS: Array of items with IDs, types, and content.
+
 VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
 	},
 	{
@@ -730,6 +802,8 @@ VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a group's member items. Replaces all members; include existing IDs to keep them. Minimum 2 items.
+
+RETURNS: Group ID and updated member item IDs.
 
 VOICE-FRIENDLY: "Updated group with 5 items"`,
 	},
@@ -745,6 +819,8 @@ USE WHEN: deleting a group OR ungrouping items. With delete_items=false (default
 
 WARNING: Deleting items (delete_items=true) cannot be undone. Use dry_run=true to preview first.
 
+RETURNS: Confirmation with deleted group ID.
+
 VOICE-FRIENDLY: "Group deleted, items ungrouped"`,
 	},
 
@@ -759,6 +835,8 @@ VOICE-FRIENDLY: "Group deleted, items ungrouped"`,
 		ReadOnly: true,
 		Description: `List all users who have access to a board.
 
+RETURNS: Array of members with IDs, names, and roles.
+
 VOICE-FRIENDLY: "This board has 5 members: 2 editors, 3 viewers"`,
 	},
 	{
@@ -767,6 +845,8 @@ VOICE-FRIENDLY: "This board has 5 members: 2 editors, 3 viewers"`,
 		Title:    "Share Board",
 		Category: "boards",
 		Description: `Share a board with someone by email. Roles: viewer (default), commenter, editor.
+
+RETURNS: Confirmation with email and assigned role.
 
 VOICE-FRIENDLY: "Shared board with jane@example.com as editor"`,
 	},
@@ -777,6 +857,8 @@ VOICE-FRIENDLY: "Shared board with jane@example.com as editor"`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `Get details of a specific board member.
+
+RETURNS: Member ID, name, and role.
 
 VOICE-FRIENDLY: "John Smith has editor access"`,
 	},
@@ -790,6 +872,8 @@ VOICE-FRIENDLY: "John Smith has editor access"`,
 
 WARNING: This revokes the member's access to the board.
 
+RETURNS: Confirmation with removed member ID.
+
 VOICE-FRIENDLY: "Removed member from board"`,
 	},
 	{
@@ -800,6 +884,8 @@ VOICE-FRIENDLY: "Removed member from board"`,
 		Idempotent: true,
 		Description: `Update a board member's role (viewer, commenter, or editor).
 
+RETURNS: Member ID, name, and updated role.
+
 VOICE-FRIENDLY: "Updated John's role to editor"`,
 	},
 
@@ -807,27 +893,33 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 	// Mindmap Tools
 	// ==========================================================================
 	{
-		Name:        "miro_create_mindmap_node",
-		Method:      "CreateMindmapNode",
-		Title:       "Create Mindmap Node",
-		Category:    "create",
-		Description: `Create a mindmap node. Omit parent_id for root; add parent_id for children. node_view: "text" (default) or "bubble".`,
+		Name:     "miro_create_mindmap_node",
+		Method:   "CreateMindmapNode",
+		Title:    "Create Mindmap Node",
+		Category: "create",
+		Description: `Create a mindmap node. Omit parent_id for root; add parent_id for children. node_view: "text" (default) or "bubble".
+
+RETURNS: Node ID, parent node ID, and view link.`,
 	},
 	{
-		Name:        "miro_get_mindmap_node",
-		Method:      "GetMindmapNode",
-		Title:       "Get Mindmap Node",
-		Category:    "read",
-		ReadOnly:    true,
-		Description: `Get mindmap node details including content, hierarchy, and position. Uses v2-experimental API.`,
+		Name:     "miro_get_mindmap_node",
+		Method:   "GetMindmapNode",
+		Title:    "Get Mindmap Node",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get mindmap node details including content, hierarchy, and position. Uses v2-experimental API.
+
+RETURNS: Node ID, content, parent/child IDs, position, and root flag.`,
 	},
 	{
-		Name:        "miro_list_mindmap_nodes",
-		Method:      "ListMindmapNodes",
-		Title:       "List Mindmap Nodes",
-		Category:    "read",
-		ReadOnly:    true,
-		Description: `List all mindmap nodes on a board. Returns flat list; use parent_id to reconstruct hierarchy. Uses v2-experimental API.`,
+		Name:     "miro_list_mindmap_nodes",
+		Method:   "ListMindmapNodes",
+		Title:    "List Mindmap Nodes",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List all mindmap nodes on a board. Returns flat list; use parent_id to reconstruct hierarchy. Uses v2-experimental API.
+
+RETURNS: Array of nodes with IDs, content, and parent IDs. Use parent_id to reconstruct hierarchy.`,
 	},
 	{
 		Name:        "miro_delete_mindmap_node",
@@ -837,7 +929,9 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 		Destructive: true,
 		Description: `Delete a mindmap node. Deleting a parent may affect children. Uses v2-experimental API.
 
-WARNING: Cannot be undone. Use dry_run=true to preview first.`,
+WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted node ID.`,
 	},
 
 	// ==========================================================================
@@ -851,22 +945,28 @@ WARNING: Cannot be undone. Use dry_run=true to preview first.`,
 		ReadOnly: true,
 		Description: `Get the preview image URL for a board. Works for all Miro plans. For full PDF/SVG exports, use the Enterprise export tools.
 
+RETURNS: Preview image URL for the board.
+
 VOICE-FRIENDLY: "Got preview image for the board"`,
 	},
 	{
-		Name:        "miro_create_export_job",
-		Method:      "CreateExportJob",
-		Title:       "Create Export Job",
-		Category:    "export",
-		Description: `Export boards to PDF, SVG, or HTML. ENTERPRISE ONLY. Returns job ID; use miro_get_export_job_status to monitor.`,
+		Name:     "miro_create_export_job",
+		Method:   "CreateExportJob",
+		Title:    "Create Export Job",
+		Category: "export",
+		Description: `Export boards to PDF, SVG, or HTML. ENTERPRISE ONLY.
+
+RETURNS: Export job ID and initial status. Poll with miro_get_export_job_status.`,
 	},
 	{
-		Name:        "miro_get_export_job_status",
-		Method:      "GetExportJobStatus",
-		Title:       "Get Export Job Status",
-		Category:    "export",
-		ReadOnly:    true,
-		Description: `Check export job progress. ENTERPRISE ONLY.`,
+		Name:     "miro_get_export_job_status",
+		Method:   "GetExportJobStatus",
+		Title:    "Get Export Job Status",
+		Category: "export",
+		ReadOnly: true,
+		Description: `Check export job progress. ENTERPRISE ONLY.
+
+RETURNS: Job ID, status (pending, in_progress, completed, failed), and progress percentage.`,
 	},
 	{
 		Name:        "miro_get_export_job_results",
@@ -881,12 +981,14 @@ VOICE-FRIENDLY: "Got preview image for the board"`,
 	// Audit Tools (Local Operations)
 	// ==========================================================================
 	{
-		Name:        "miro_get_audit_log",
-		Method:      "GetAuditLog",
-		Title:       "Get Audit Log",
-		Category:    "audit",
-		ReadOnly:    true,
-		Description: `Query local audit log for MCP tool executions (this session only). Filter by time range, tool, board, action type, or success/failure.`,
+		Name:     "miro_get_audit_log",
+		Method:   "GetAuditLog",
+		Title:    "Get Audit Log",
+		Category: "audit",
+		ReadOnly: true,
+		Description: `Query local audit log for MCP tool executions (this session only). Filter by time range, tool, board, action type, or success/failure.
+
+RETURNS: Array of audit entries with timestamps, tool names, board IDs, and outcomes. Paginated via cursor.`,
 	},
 	{
 		Name:     "miro_get_desire_paths",
@@ -1200,6 +1302,8 @@ PARAMETERS:
 - border_color: Border color (hex like #000000)
 - parent_id: Frame ID
 
+RETURNS: Item ID, shape type, content, and view link.
+
 NOTE: Uses v2-experimental API. Shape types may change when this moves to GA.`,
 	},
 
@@ -1232,6 +1336,8 @@ SEQUENCE: participant A; A->>B: sync; A-->>B: async`,
 
 USE WHEN: "create an app card", "add a card with fields", "create a custom card"
 
+RETURNS: App card ID and view link.
+
 VOICE-FRIENDLY: "Created app card 'Integration Status'"`,
 	},
 	{
@@ -1242,6 +1348,8 @@ VOICE-FRIENDLY: "Created app card 'Integration Status'"`,
 		ReadOnly: true,
 		Description: `Get details of a specific app card by ID.
 
+RETURNS: App card ID, title, description, status, custom fields, and view link.
+
 VOICE-FRIENDLY: "App card 'API Status' shows 3 custom fields"`,
 	},
 	{
@@ -1250,6 +1358,8 @@ VOICE-FRIENDLY: "App card 'API Status' shows 3 custom fields"`,
 		Title:    "Update App Card",
 		Category: "update",
 		Description: `Update an app card's title, description, status, or custom fields.
+
+RETURNS: Confirmation with app card ID.
 
 VOICE-FRIENDLY: "Updated app card status to 'connected'"`,
 	},
@@ -1262,6 +1372,8 @@ VOICE-FRIENDLY: "Updated app card status to 'connected'"`,
 		Description: `Delete an app card from a Miro board.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted app card ID.
 
 VOICE-FRIENDLY: "App card deleted successfully"`,
 	},

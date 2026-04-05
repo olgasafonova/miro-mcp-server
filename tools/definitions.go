@@ -91,6 +91,8 @@ VOICE-FRIENDLY: "Board 'Sprint Planning' owned by Jane, created Jan 15"`,
 		Category: "boards",
 		Description: `Create a new Miro board.
 
+USE WHEN: "create a board", "new board", "make a board for X"
+
 RETURNS: Board ID, name, and view link.
 
 VOICE-FRIENDLY: "Created board 'Sprint Planning'"`,
@@ -101,6 +103,8 @@ VOICE-FRIENDLY: "Created board 'Sprint Planning'"`,
 		Title:    "Copy Board",
 		Category: "boards",
 		Description: `Copy an existing Miro board.
+
+USE WHEN: "copy this board", "duplicate board", "make a copy of X board"
 
 RETURNS: New board ID, name, and view link.
 
@@ -114,6 +118,8 @@ VOICE-FRIENDLY: "Copied board to 'Sprint Planning Copy'"`,
 		Destructive: true,
 		Description: `Delete a Miro board permanently.
 
+USE WHEN: "delete this board", "remove the board", "get rid of board X"
+
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
 RETURNS: Confirmation with deleted board ID.`,
@@ -125,6 +131,8 @@ RETURNS: Confirmation with deleted board ID.`,
 		Category:   "boards",
 		Idempotent: true,
 		Description: `Update a Miro board's name or description. At least one field must be provided.
+
+USE WHEN: "rename the board", "change board description", "update board name to X"
 
 RETURNS: Board ID, updated name, description, and view link.
 
@@ -194,6 +202,8 @@ RETURNS: Item ID, content, and view link.`,
 		Category: "create",
 		Description: `Create a connector line between two items. Styles: straight, elbowed (default), curved. Caps: none, arrow, stealth, diamond, filled_diamond, oval, filled_oval, triangle, filled_triangle.
 
+USE WHEN: "connect these items", "draw a line from A to B", "link items together", "add an arrow"
+
 RETURNS: Connector ID and view link.`,
 	},
 	{
@@ -202,6 +212,8 @@ RETURNS: Connector ID and view link.`,
 		Title:    "Create Frame",
 		Category: "create",
 		Description: `Create a frame container to group items visually. For logical grouping without a visual border, use miro_create_group.
+
+USE WHEN: "create a frame", "add a container", "make a section for X"
 
 RETURNS: Frame ID, title, and view link.`,
 	},
@@ -385,6 +397,8 @@ VOICE-FRIENDLY: "Image 'Logo' is 800x600 at position (100, 200)"`,
 		Category: "create",
 		Description: `Add a document (PDF, etc.) to a Miro board from a URL. URL must be publicly accessible.
 
+USE WHEN: "add a document from URL", "put a PDF on the board", "add a reference document"
+
 RETURNS: Document ID, title, and view link.
 
 RELATED: To upload a local file instead, use miro_upload_document.`,
@@ -485,6 +499,8 @@ RELATED: For the reverse lookup (all items with a specific tag), use miro_get_it
 		ReadOnly: true,
 		Description: `Get details of a specific tag by ID.
 
+USE WHEN: "tag details", "what color is this tag", "show tag info"
+
 RETURNS: Tag ID, title, and color.
 
 VOICE-FRIENDLY: "Tag 'Urgent' is red"`,
@@ -497,6 +513,8 @@ VOICE-FRIENDLY: "Tag 'Urgent' is red"`,
 		Idempotent: true,
 		Description: `Update a tag's title or color. At least one must be provided.
 
+USE WHEN: "rename this tag", "change tag color", "update tag to green"
+
 RETURNS: Confirmation with tag ID, updated title, and color.
 
 VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
@@ -508,6 +526,8 @@ VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
 		Category:    "tags",
 		Destructive: true,
 		Description: `Delete a tag from a board. Removes the tag from all items.
+
+USE WHEN: "delete this tag", "remove tag from board", "get rid of tag X"
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
@@ -569,6 +589,8 @@ VOICE-FRIENDLY: "Updated sticky to yellow square"`,
 		Idempotent: true,
 		Description: `Update a shape with type-specific options (fill_color, text_color, shape type). For generic updates, use miro_update_item.
 
+USE WHEN: "change shape color", "update shape to circle", "resize this shape"
+
 RETURNS: Confirmation with item ID.
 
 VOICE-FRIENDLY: "Updated shape to blue circle"`,
@@ -580,6 +602,8 @@ VOICE-FRIENDLY: "Updated shape to blue circle"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a text element (content, font_size, color, position).
+
+USE WHEN: "change the text", "update heading", "edit this text element"
 
 RETURNS: Confirmation with item ID.
 
@@ -593,6 +617,8 @@ VOICE-FRIENDLY: "Updated text to 'New Title'"`,
 		Idempotent: true,
 		Description: `Update a card (title, description, due_date, position).
 
+USE WHEN: "update card title", "change due date", "edit this card"
+
 RETURNS: Confirmation with item ID.
 
 VOICE-FRIENDLY: "Updated card title to 'Review PR'"`,
@@ -604,6 +630,8 @@ VOICE-FRIENDLY: "Updated card title to 'Review PR'"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update an image (title, url, position, width).
+
+USE WHEN: "rename this image", "move the image", "change image URL"
 
 RETURNS: Confirmation with item ID.
 
@@ -617,6 +645,8 @@ VOICE-FRIENDLY: "Updated image title to 'Logo'"`,
 		Idempotent: true,
 		Description: `Update a document (title, url, position, width).
 
+USE WHEN: "rename this document", "move the document", "change document URL"
+
 RETURNS: Confirmation with item ID.
 
 VOICE-FRIENDLY: "Updated document title"`,
@@ -628,6 +658,8 @@ VOICE-FRIENDLY: "Updated document title"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update an embed (url, mode: inline/modal, dimensions, position).
+
+USE WHEN: "change embed URL", "switch embed to modal", "move this embed"
 
 RETURNS: Confirmation with item ID.
 
@@ -641,6 +673,8 @@ VOICE-FRIENDLY: "Updated embed settings"`,
 		Destructive: true,
 		Description: `Delete an item from a Miro board.
 
+USE WHEN: "delete this item", "remove this sticky", "get rid of this shape"
+
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
 RETURNS: Confirmation with deleted item ID.`,
@@ -653,6 +687,8 @@ RETURNS: Confirmation with deleted item ID.`,
 		Idempotent: true,
 		Description: `Update a connector's style (straight/elbowed/curved), caps, caption, or color.
 
+USE WHEN: "change connector style", "update arrow caption", "restyle this line"
+
 RETURNS: Confirmation with connector ID.`,
 	},
 	{
@@ -662,6 +698,8 @@ RETURNS: Confirmation with connector ID.`,
 		Category:    "delete",
 		Destructive: true,
 		Description: `Delete a connector from a Miro board.
+
+USE WHEN: "delete this connector", "remove this line", "disconnect these items"
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
@@ -677,6 +715,8 @@ VOICE-FRIENDLY: "Connector deleted successfully"`,
 		ReadOnly: true,
 		Description: `List all connectors (lines/arrows) on a Miro board.
 
+USE WHEN: "show all connectors", "list arrows on board", "what's connected"
+
 RETURNS: Array of connectors with IDs, start/end item IDs, style, and captions. Paginated via cursor.
 
 VOICE-FRIENDLY: "Found 12 connectors on the board"`,
@@ -688,6 +728,8 @@ VOICE-FRIENDLY: "Found 12 connectors on the board"`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `Get full details of a specific connector by ID.
+
+USE WHEN: "connector details", "what does this connector link", "show this arrow"
 
 RETURNS: Connector ID, start/end item IDs, style, caps, caption, color, and timestamps.
 
@@ -755,6 +797,8 @@ VOICE-FRIENDLY: "Created 9 stickies in a 3x3 grid"`,
 		Category: "create",
 		Description: `Group multiple items together logically (minimum 2). Grouped items move and resize together. For a visible container with a border and title, use miro_create_frame.
 
+USE WHEN: "group these items", "bundle items together", "make a group"
+
 RETURNS: Group ID and member item IDs.
 
 VOICE-FRIENDLY: "Grouped 4 items together"`,
@@ -766,6 +810,8 @@ VOICE-FRIENDLY: "Grouped 4 items together"`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `List all groups on a Miro board.
+
+USE WHEN: "show all groups", "list groups on board", "what groups exist"
 
 RETURNS: Array of group IDs. Paginated via cursor.
 
@@ -779,6 +825,8 @@ VOICE-FRIENDLY: "Found 3 groups on the board"`,
 		ReadOnly: true,
 		Description: `Get details of a specific group by ID.
 
+USE WHEN: "group details", "what's in this group", "show group info"
+
 RETURNS: Group ID and member item IDs.
 
 VOICE-FRIENDLY: "This group contains 4 items"`,
@@ -791,6 +839,8 @@ VOICE-FRIENDLY: "This group contains 4 items"`,
 		ReadOnly: true,
 		Description: `Get items in a group with their details. For items inside a visual frame, use miro_get_frame_items.
 
+USE WHEN: "list items in this group", "what items are grouped together", "show group members"
+
 RETURNS: Array of items with IDs, types, and content.
 
 VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
@@ -802,6 +852,8 @@ VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a group's member items. Replaces all members; include existing IDs to keep them. Minimum 2 items.
+
+USE WHEN: "add item to group", "remove item from group", "change group members"
 
 RETURNS: Group ID and updated member item IDs.
 
@@ -835,6 +887,8 @@ VOICE-FRIENDLY: "Group deleted, items ungrouped"`,
 		ReadOnly: true,
 		Description: `List all users who have access to a board.
 
+USE WHEN: "who has access", "list board collaborators", "show board members"
+
 RETURNS: Array of members with IDs, names, and roles.
 
 VOICE-FRIENDLY: "This board has 5 members: 2 editors, 3 viewers"`,
@@ -857,6 +911,8 @@ VOICE-FRIENDLY: "Shared board with jane@example.com as editor"`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `Get details of a specific board member.
+
+USE WHEN: "what role does X have", "member details", "check someone's access"
 
 RETURNS: Member ID, name, and role.
 
@@ -899,6 +955,8 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 		Category: "create",
 		Description: `Create a mindmap node. Omit parent_id for root; add parent_id for children. node_view: "text" (default) or "bubble".
 
+USE WHEN: "add a mindmap node", "create root node", "add child to mindmap"
+
 RETURNS: Node ID, parent node ID, and view link.`,
 	},
 	{
@@ -908,6 +966,8 @@ RETURNS: Node ID, parent node ID, and view link.`,
 		Category: "read",
 		ReadOnly: true,
 		Description: `Get mindmap node details including content, hierarchy, and position. Uses v2-experimental API.
+
+USE WHEN: "mindmap node details", "what's in this node", "show node content"
 
 RETURNS: Node ID, content, parent/child IDs, position, and root flag.`,
 	},

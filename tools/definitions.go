@@ -153,6 +153,8 @@ USE WHEN: "add a sticky", "create note saying X", "put a yellow sticky"
 
 RETURNS: Item ID, content, color, and view link.
 
+FAILS WHEN: Content is empty. board_id not found.
+
 VOICE-FRIENDLY: "Created yellow sticky 'Action item: Review design'"`,
 	},
 	{
@@ -204,7 +206,9 @@ RETURNS: Item ID, content, and view link.`,
 
 USE WHEN: "connect these items", "draw a line from A to B", "link items together", "add an arrow"
 
-RETURNS: Connector ID and view link.`,
+RETURNS: Connector ID and view link.
+
+FAILS WHEN: start_item_id or end_item_id don't exist on the board. Both endpoints are required.`,
 	},
 	{
 		Name:     "miro_create_frame",
@@ -278,6 +282,8 @@ USE WHEN: "add these 5 stickies", "create items for each of these", "batch add"
 
 RETURNS: Count of created items and their IDs.
 
+FAILS WHEN: More than 20 items. Empty items list. Individual items may fail while others succeed; check errors in response.
+
 VOICE-FRIENDLY: "Created 5 items on the board"`,
 	},
 	{
@@ -288,6 +294,8 @@ VOICE-FRIENDLY: "Created 5 items on the board"`,
 		Description: `Update multiple items at once (max 20). Only provide fields you want to change.
 
 RETURNS: Count of updated items and their IDs.
+
+FAILS WHEN: More than 20 items. Empty items list. Individual items may fail while others succeed; check errors in response.
 
 VOICE-FRIENDLY: "Updated 5 items on the board"`,
 	},
@@ -302,6 +310,8 @@ VOICE-FRIENDLY: "Updated 5 items on the board"`,
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
 RETURNS: Count of deleted items and their IDs.
+
+FAILS WHEN: More than 20 items. Empty items list. Individual items may fail while others succeed; check errors in response.
 
 VOICE-FRIENDLY: "Deleted 5 items from the board"`,
 	},
@@ -375,6 +385,8 @@ PARAMETERS:
 - x, y: Position
 
 NOTE: The image URL must be publicly accessible. Private URLs won't work.
+
+FAILS WHEN: URL is not publicly accessible or returns 404. board_id not found.
 
 RELATED: To upload a local file instead, use miro_upload_image.`,
 	},
@@ -857,6 +869,8 @@ USE WHEN: "add item to group", "remove item from group", "change group members"
 
 RETURNS: Group ID and updated member item IDs.
 
+FAILS WHEN: Fewer than 2 item IDs provided. Item IDs not found on the board.
+
 VOICE-FRIENDLY: "Updated group with 5 items"`,
 	},
 	{
@@ -901,6 +915,8 @@ VOICE-FRIENDLY: "This board has 5 members: 2 editors, 3 viewers"`,
 		Description: `Share a board with someone by email. Roles: viewer (default), commenter, editor.
 
 RETURNS: Confirmation with email and assigned role.
+
+FAILS WHEN: Invalid email. Invalid role (must be viewer, commenter, or editor).
 
 VOICE-FRIENDLY: "Shared board with jane@example.com as editor"`,
 	},
@@ -957,7 +973,9 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 
 USE WHEN: "add a mindmap node", "create root node", "add child to mindmap"
 
-RETURNS: Node ID, parent node ID, and view link.`,
+RETURNS: Node ID, parent node ID, and view link.
+
+FAILS WHEN: parent_id references a non-existent node on the board. board_id not found.`,
 	},
 	{
 		Name:     "miro_get_mindmap_node",
@@ -1016,7 +1034,9 @@ VOICE-FRIENDLY: "Got preview image for the board"`,
 		Category: "export",
 		Description: `Export boards to PDF, SVG, or HTML. ENTERPRISE ONLY.
 
-RETURNS: Export job ID and initial status. Poll with miro_get_export_job_status.`,
+RETURNS: Export job ID and initial status. Poll with miro_get_export_job_status.
+
+FAILS WHEN: Not on Enterprise plan. No board_ids provided. More than 50 boards. Invalid format (must be pdf, svg, or html).`,
 	},
 	{
 		Name:     "miro_get_export_job_status",

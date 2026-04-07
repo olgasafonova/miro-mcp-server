@@ -8,11 +8,11 @@ package miro
 type CreateStickyArgs struct {
 	BoardID  string  `json:"board_id" jsonschema:"Board ID"`
 	Content  string  `json:"content" jsonschema:"Text content of the sticky note"`
-	X        float64 `json:"x,omitempty" jsonschema:"X position (default 0)"`
-	Y        float64 `json:"y,omitempty" jsonschema:"Y position (default 0)"`
+	X        float64 `json:"x,omitempty" jsonschema:"X position on board, or relative to parent frame center if parent_id is set (default 0)"`
+	Y        float64 `json:"y,omitempty" jsonschema:"Y position on board, or relative to parent frame center if parent_id is set (default 0)"`
 	Color    string  `json:"color,omitempty" jsonschema:"Sticky color: yellow, green, blue, pink, orange, etc."`
 	Width    float64 `json:"width,omitempty" jsonschema:"Width in pixels"`
-	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place sticky in"`
+	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place sticky in. When set, use small x/y offsets (e.g. -200 to 200) to stay within frame bounds. Query miro_get_frame first to check frame dimensions."`
 }
 
 // CreateStickyResult contains the created sticky note.
@@ -33,13 +33,13 @@ type CreateShapeArgs struct {
 	BoardID   string  `json:"board_id" jsonschema:"Board ID"`
 	Shape     string  `json:"shape" jsonschema:"Shape type: rectangle, circle, triangle, rhombus, round_rectangle, etc."`
 	Content   string  `json:"content,omitempty" jsonschema:"Text inside the shape"`
-	X         float64 `json:"x,omitempty" jsonschema:"X position"`
-	Y         float64 `json:"y,omitempty" jsonschema:"Y position"`
+	X         float64 `json:"x,omitempty" jsonschema:"X position on board, or relative to parent frame center if parent_id is set"`
+	Y         float64 `json:"y,omitempty" jsonschema:"Y position on board, or relative to parent frame center if parent_id is set"`
 	Width     float64 `json:"width,omitempty" jsonschema:"Width in pixels (default 200)"`
 	Height    float64 `json:"height,omitempty" jsonschema:"Height in pixels (default 200)"`
 	Color     string  `json:"color,omitempty" jsonschema:"Fill/background color (hex like #006400)"`
 	TextColor string  `json:"text_color,omitempty" jsonschema:"Text color (hex like #ffffff for white)"`
-	ParentID  string  `json:"parent_id,omitempty" jsonschema:"Frame ID"`
+	ParentID  string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place shape in. When set, use small x/y offsets to stay within frame bounds."`
 }
 
 // CreateShapeResult contains the created shape.

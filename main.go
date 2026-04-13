@@ -166,12 +166,6 @@ func main() {
 			URL:    "https://github.com/olgasafonova/miro-mcp-server",
 			Source: "github",
 		},
-		Capabilities: &servercard.Capabilities{
-			Tools:     &servercard.ToolsCap{},
-			Prompts:   &servercard.PromptsCap{},
-			Resources: &servercard.ResourcesCap{},
-			Logging:   &servercard.LoggingCap{},
-		},
 		Provider: &servercard.Provider{
 			Name: "Olga Safonova",
 			URL:  "https://github.com/olgasafonova",
@@ -207,14 +201,6 @@ func main() {
 			log.Fatalf("Server error: %v", err)
 		}
 	}
-}
-
-// bearerAuthSchemes returns the auth schemes list for the Server Card.
-func bearerAuthSchemes(token string) []string {
-	if token != "" {
-		return []string{"bearer"}
-	}
-	return []string{}
 }
 
 // bearerTokenMiddleware returns middleware that validates Bearer token authentication.
@@ -276,7 +262,6 @@ func runHTTPServer(server *mcp.Server, logger *slog.Logger, addr, bearerToken st
 		Type:                      "streamable-http",
 		URL:                       "/",
 		SupportedProtocolVersions: []string{"2025-06-18"},
-		Authentication:            &servercard.Auth{Required: bearerToken != "", Schemes: bearerAuthSchemes(bearerToken)},
 	}}
 	mux.Handle(servercard.WellKnownPath, servercard.Handler(card))
 

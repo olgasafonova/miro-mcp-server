@@ -136,9 +136,31 @@ func main() {
 		logger.Info("Desire path normalization enabled", "max_events", dpConfig.MaxEvents)
 	}
 
+	// Build the miro_share_board domain allowlist. Operators set
+	// MIRO_SHARE_ALLOWED_DOMAINS to an explicit comma-separated list. When the
+	// env var is not set, the allowlist falls back to the authenticated user's
+	// own email domain (fail-safe default for single-user deployments). If
+	// neither is available, every share invitation is rejected with a clear
+	// error. See tools/share_allowlist.go for details.
+	fallbackEmail := ""
+	if user != nil {
+		fallbackEmail = user.Email
+	}
+	shareAllowlist := tools.LoadShareAllowlistFromEnv(fallbackEmail)
+	if shareAllowlist.IsEmpty() {
+		logger.Warn("miro_share_board allowlist is empty; all share invitations will be rejected",
+			"fix", "set MIRO_SHARE_ALLOWED_DOMAINS to a comma-separated list of permitted domains",
+			"source", shareAllowlist.Source())
+	} else {
+		logger.Info("miro_share_board allowlist configured",
+			"domains", shareAllowlist.Domains(),
+			"source", shareAllowlist.Source())
+	}
+
 	// Register all Miro tools with audit logging and desire path normalization
 	registry := tools.NewHandlerRegistry(client, logger).
 		WithAuditLogger(auditLogger).
+		WithShareAllowlist(shareAllowlist).
 		WithDesirePathLogger(dpLogger, normalizers)
 	if user != nil {
 		registry = registry.WithUser(user.ID, user.Email)

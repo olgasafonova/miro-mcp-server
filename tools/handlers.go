@@ -16,14 +16,15 @@ import (
 
 // HandlerRegistry provides type-safe tool registration.
 type HandlerRegistry struct {
-	client       miro.MiroClient
-	logger       *slog.Logger
-	auditLogger  audit.Logger
-	desireLogger *desirepath.Logger
-	normalizers  []desirepath.Normalizer
-	userID       string // Miro user ID from token validation
-	userEmail    string // Miro user email from token validation
-	handlers     map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
+	client         miro.MiroClient
+	logger         *slog.Logger
+	auditLogger    audit.Logger
+	desireLogger   *desirepath.Logger
+	normalizers    []desirepath.Normalizer
+	userID         string          // Miro user ID from token validation
+	userEmail      string          // Miro user email from token validation
+	shareAllowlist *ShareAllowlist // Domain allowlist for miro_share_board
+	handlers       map[string]func(server *mcp.Server, tool *mcp.Tool, spec ToolSpec)
 }
 
 // NewHandlerRegistry creates a new handler registry.
@@ -48,6 +49,37 @@ func (h *HandlerRegistry) WithUser(userID, userEmail string) *HandlerRegistry {
 	h.userID = userID
 	h.userEmail = userEmail
 	return h
+}
+
+// WithShareAllowlist sets the email-domain allowlist enforced by the
+// miro_share_board handler. When nil or empty, every share invitation is
+// rejected with a clear error instructing the operator to set
+// MIRO_SHARE_ALLOWED_DOMAINS.
+func (h *HandlerRegistry) WithShareAllowlist(allowlist *ShareAllowlist) *HandlerRegistry {
+	h.shareAllowlist = allowlist
+	return h
+}
+
+// ShareBoard validates the invitation target against the configured domain
+// allowlist before delegating to the underlying Miro client. The allowlist is
+// the server-side guardrail against prompt-injection-driven exfiltration:
+// board content (stickies, cards, documents) must not be able to trick the
+// agent into inviting arbitrary external parties.
+func (h *HandlerRegistry) ShareBoard(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error) {
+	allowlist := h.shareAllowlist
+	if allowlist == nil {
+		// Defensive: if no allowlist was wired, behave as if empty (fail closed).
+		allowlist = NewShareAllowlist(nil, "not configured")
+	}
+	if err := allowlist.Validate(args.Email); err != nil {
+		return miro.ShareBoardResult{
+			Success: false,
+			Email:   args.Email,
+			Role:    args.Role,
+			Message: err.Error(),
+		}, err
+	}
+	return h.client.ShareBoard(ctx, args)
 }
 
 // WithDesirePathLogger enables desire path normalization and logging.
@@ -143,8 +175,10 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"DeleteGroup":   makeHandler(h, h.client.DeleteGroup),
 
 		// Board member tools
-		"ListBoardMembers":  makeHandler(h, h.client.ListBoardMembers),
-		"ShareBoard":        makeHandler(h, h.client.ShareBoard),
+		"ListBoardMembers": makeHandler(h, h.client.ListBoardMembers),
+		// ShareBoard routes through h.ShareBoard (not h.client.ShareBoard) so
+		// the domain allowlist is enforced before the Miro API call.
+		"ShareBoard":        makeHandler(h, h.ShareBoard),
 		"GetBoardMember":    makeHandler(h, h.client.GetBoardMember),
 		"RemoveBoardMember": makeHandler(h, h.client.RemoveBoardMember),
 		"UpdateBoardMember": makeHandler(h, h.client.UpdateBoardMember),

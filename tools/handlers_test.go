@@ -2563,3 +2563,134 @@ func TestNormalizeArgs_CamelCaseKeys_Unit(t *testing.T) {
 		t.Error("Expected camel_to_snake event for boardId -> board_id")
 	}
 }
+
+// =============================================================================
+// miro_share_board security tests
+// Covers bead miro-mcp-server-jyu: Destructive annotation + domain allowlist.
+// =============================================================================
+
+// TestShareBoardToolIsMarkedDestructive verifies that the miro_share_board
+// ToolSpec carries Destructive: true so MCP clients prompt for confirmation
+// before granting board access to a third party.
+func TestShareBoardToolIsMarkedDestructive(t *testing.T) {
+	var spec *ToolSpec
+	for i := range AllTools {
+		if AllTools[i].Name == "miro_share_board" {
+			spec = &AllTools[i]
+			break
+		}
+	}
+	if spec == nil {
+		t.Fatal("miro_share_board tool not found in AllTools")
+	}
+	if !spec.Destructive {
+		t.Error("miro_share_board must be marked Destructive: true — board sharing grants durable third-party access")
+	}
+	if !strings.Contains(spec.Description, "USE WHEN") {
+		t.Error("miro_share_board description must include a USE WHEN clause to constrain agent triggering")
+	}
+}
+
+// TestShareBoardHandler_RejectsDisallowedDomain verifies that the registry
+// ShareBoard wrapper rejects invitations to domains outside the configured
+// allowlist and does NOT call through to the underlying Miro client.
+func TestShareBoardHandler_RejectsDisallowedDomain(t *testing.T) {
+	called := false
+	mock := &MockClient{
+		ShareBoardFn: func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error) {
+			called = true
+			return miro.ShareBoardResult{Success: true, Email: args.Email, Role: args.Role}, nil
+		},
+	}
+	registry := NewHandlerRegistry(mock, testLogger()).
+		WithShareAllowlist(NewShareAllowlist([]string{"tietoevry.com"}, "test"))
+
+	result, err := registry.ShareBoard(context.Background(), miro.ShareBoardArgs{
+		BoardID: "uXjVN123=",
+		Email:   "attacker@evil.example",
+		Role:    "editor",
+	})
+
+	if err == nil {
+		t.Fatal("expected allowlist rejection error, got nil")
+	}
+	if called {
+		t.Fatal("mock client ShareBoard must not be called when allowlist rejects; an attacker invitation leaked through to the Miro API")
+	}
+	if result.Success {
+		t.Error("result.Success should be false on rejection")
+	}
+	if !strings.Contains(err.Error(), "evil.example") {
+		t.Errorf("error should name the rejected domain; got %v", err)
+	}
+}
+
+// TestShareBoardHandler_AllowsConfiguredDomain verifies the happy path: an
+// invitee on an allowed domain flows through to the Miro client.
+func TestShareBoardHandler_AllowsConfiguredDomain(t *testing.T) {
+	var gotArgs miro.ShareBoardArgs
+	mock := &MockClient{
+		ShareBoardFn: func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error) {
+			gotArgs = args
+			return miro.ShareBoardResult{
+				Success: true,
+				Email:   args.Email,
+				Role:    args.Role,
+				Message: "ok",
+			}, nil
+		},
+	}
+	registry := NewHandlerRegistry(mock, testLogger()).
+		WithShareAllowlist(NewShareAllowlist([]string{"tietoevry.com"}, "test"))
+
+	result, err := registry.ShareBoard(context.Background(), miro.ShareBoardArgs{
+		BoardID: "uXjVN123=",
+		Email:   "jane@tietoevry.com",
+		Role:    "editor",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error for allowed domain: %v", err)
+	}
+	if !result.Success {
+		t.Error("result.Success should be true for allowed domain")
+	}
+	if gotArgs.Email != "jane@tietoevry.com" {
+		t.Errorf("client received Email=%q, want jane@tietoevry.com", gotArgs.Email)
+	}
+	if gotArgs.Role != "editor" {
+		t.Errorf("client received Role=%q, want editor", gotArgs.Role)
+	}
+}
+
+// TestShareBoardHandler_EmptyAllowlistBlocksEverything verifies the
+// fail-closed default: if no allowlist is configured, all share invitations
+// are rejected (including those on the user's own domain). This protects
+// deployments that forget to set MIRO_SHARE_ALLOWED_DOMAINS.
+func TestShareBoardHandler_EmptyAllowlistBlocksEverything(t *testing.T) {
+	called := false
+	mock := &MockClient{
+		ShareBoardFn: func(ctx context.Context, args miro.ShareBoardArgs) (miro.ShareBoardResult, error) {
+			called = true
+			return miro.ShareBoardResult{Success: true}, nil
+		},
+	}
+	// No WithShareAllowlist — the defensive default in ShareBoard should fail closed.
+	registry := NewHandlerRegistry(mock, testLogger())
+
+	_, err := registry.ShareBoard(context.Background(), miro.ShareBoardArgs{
+		BoardID: "uXjVN123=",
+		Email:   "jane@tietoevry.com",
+		Role:    "editor",
+	})
+
+	if err == nil {
+		t.Fatal("expected rejection when allowlist is not configured; got nil")
+	}
+	if called {
+		t.Error("mock client ShareBoard must not be called when allowlist is unconfigured")
+	}
+	if !strings.Contains(err.Error(), "MIRO_SHARE_ALLOWED_DOMAINS") {
+		t.Errorf("error should name the env var for the operator to fix; got %v", err)
+	}
+}

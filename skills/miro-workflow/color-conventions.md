@@ -2,7 +2,7 @@
 
 Sticky-note and frame colors carry meaning. The conventions below match the values in `prompts/prompts.go` so the skill produces boards that look identical to those from the MCP prompts.
 
-## Two color vocabularies — pick the right one
+## Two color vocabularies
 
 The Miro API uses **different color formats** for stickies vs. frames. Mixing them up causes silent rendering bugs (stickies) or hard API errors (frames):
 
@@ -104,6 +104,6 @@ These conventions are defaults, not rules. Deviate when:
 
 - The user explicitly asks for different colors ("make all stickies blue").
 - The board is for a brand-themed event and a specific palette is required.
-- A workflow not in the canonical 5 needs its own scheme; pick role-based colors from the palette table above and document the choice in the response.
+- A workflow not in the 5 listed needs its own scheme; pick role-based colors from the palette table above and document the choice in the response.
 
 Otherwise, match the conventions. Consistency between the skill, the MCP prompts, and the wider Miro community matters more than local creativity.

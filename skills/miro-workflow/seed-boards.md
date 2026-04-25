@@ -9,10 +9,10 @@ This is an **optional** path. The skill works without seed boards; it falls back
 | Situation | Recommended path |
 |-----------|------------------|
 | User installs the MCP fresh, no setup | from-scratch (default 5 workflows) |
-| User wants polished, designer-quality output | seed boards |
+| User wants more polished output with template branding | seed boards |
 | Workflow has no good Miroverse template | from-scratch |
 | User asks for "the Design Sprint" or named template | seed boards |
-| Skill ships in Anthropic directory cohort | from-scratch primary, seed boards documented as power-user |
+| Distributing the skill broadly | from-scratch primary, seed boards documented as power-user (avoids one-time setup dependency) |
 
 ## How seed boards work at runtime
 
@@ -42,7 +42,7 @@ The current registry has 1 entry. Expand as templates are validated.
 
 - **Miroverse:** https://miro.com/templates/the-2024-design-sprint/
 - **Canonical name:** `Design Sprint Template`
-- **Maps to:** none of the 5 canonical workflows. This is a **standalone seed**, invoked when the user explicitly asks for "the Design Sprint" or a 5-day product validation workshop.
+- **Maps to:** none of the 5 documented workflows. This is a **standalone seed**, invoked when the user explicitly asks for "the Design Sprint" or a 5-day product validation workshop.
 - **Reference board ID:** supplied by the user after they import the template. Use `miro_find_board(name="Design Sprint Template")` to resolve, or read the ID from the URL when the user copies it.
 - **Personalization points:**
   - Day 1 / 2 / 3 / 4 / 5 frame titles (typically left as-is)
@@ -72,6 +72,6 @@ Don't add an entry to the registry above until the template has been imported, r
 
 ## Why this stays optional
 
-For the cohort skill (Anthropic directory alongside Canva/Notion/Sentry), requiring per-user setup breaks the "drop-in skill" promise. The from-scratch workflows in `workflows/` are the primary path because they need zero setup and work for any user who installs the miro-mcp-server.
+Requiring per-user setup breaks the "drop-in skill" promise for anyone who just installs the MCP and expects things to work. The from-scratch workflows in `workflows/` are the primary path because they need zero setup and work for any user who installs the miro-mcp-server.
 
 Seed boards are a power-user optimization. Document them; don't gate the skill on them.

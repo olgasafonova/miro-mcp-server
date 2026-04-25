@@ -97,8 +97,8 @@ When `parent_id` is set on a sticky:
 |------------|--------------|----------------|
 | 800×600 | 1 | `(400, 300)` |
 | 800×600 | 2 | `(400, 175)`, `(400, 425)` |
-| 800×600 | 3 | `(400, 140)`, `(400, 300)`, `(400, 460)` — set sticky `width=160` |
-| 400×800 | 3 | `(200, 140)`, `(200, 400)`, `(200, 660)` — set sticky `width=160` |
+| 800×600 | 3 | `(400, 140)`, `(400, 300)`, `(400, 460)`; set sticky `width=160` |
+| 400×800 | 3 | `(200, 140)`, `(200, 400)`, `(200, 660)`; set sticky `width=160` |
 
 For grids inside a frame, prefer `miro_create_sticky_grid` over manual placement; it handles spacing.
 

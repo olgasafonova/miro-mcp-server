@@ -23,7 +23,7 @@ Use this workflow when the user says:
    See [../color-conventions.md](../color-conventions.md) for the hex palette.
    Collect all 4 frame IDs from the response.
 5. **`miro_bulk_create`** for starter stickies (or individual `miro_create_sticky` calls). Sticky `color` accepts named values:
-   - Backlog frame: 3 `yellow` stickies with placeholder tasks at `(x=400, y=140)`, `(x=400, y=300)`, `(x=400, y=460)` — frame-relative, item-center placement, fits 3 stickies vertically in 600px height (use `width=160` on stickies to keep them from overlapping).
+   - Backlog frame: 3 `yellow` stickies with placeholder tasks at `(x=400, y=140)`, `(x=400, y=300)`, `(x=400, y=460)`; frame-relative, item-center placement, fits 3 stickies vertically in 600px height (use `width=160` on stickies to keep them from overlapping).
    - In Progress frame: 1 `light_blue` sticky "Current work" at `(x=400, y=300)`.
    - In Review frame: 1 `light_pink` sticky "Awaiting review" at `(x=400, y=300)`.
    - Done frame: 1 `light_green` sticky "Completed items" at `(x=400, y=300)`.

@@ -24,7 +24,7 @@ Use this workflow when the user says:
 6. **`miro_create_text`** for each column header at `(x = i * 450 + 100, y = -50, font_size = 24)` with the column name. Headers sit just above each frame.
 7. **`miro_bulk_create`** for sample stickies in the FIRST column only:
    - 2-3 `yellow` stickies, parented to the first frame
-   - Frame-relative coords (frame top-left is `(0, 0)`; sticky CENTER is placed at the given coord). For a 400×800 frame: `(x=200, y=140)`, `(x=200, y=400)`, `(x=200, y=660)` — centered horizontally, evenly distributed vertically. Set sticky `width=160` to keep them from overlapping.
+   - Frame-relative coords (frame top-left is `(0, 0)`; sticky CENTER is placed at the given coord). For a 400×800 frame: `(x=200, y=140)`, `(x=200, y=400)`, `(x=200, y=660)`; centered horizontally, evenly distributed vertically. Set sticky `width=160` to keep them from overlapping.
    - Sample text: "Sample task 1", "Sample task 2", "Sample task 3"
 8. **Return** the board URL.
 

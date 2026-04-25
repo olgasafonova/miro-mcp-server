@@ -20,7 +20,7 @@ Use this workflow when the user says:
    - Onboarding: `(x=450, y=0, ..., color="#A6CCF5")`
    - Core Usage: `(x=900, y=0, ..., color="#A6CCF5")`
    - Growth: `(x=1350, y=0, ..., color="#A6CCF5")`
-   Collect frame IDs (mainly for reference; user-task stickies in this workflow are placed at canvas-absolute coords because activity frames are too short — 100px — to parent stickies into).
+   Collect frame IDs (mainly for reference; user-task stickies in this workflow are placed at canvas-absolute coords because activity frames are only 100px tall, too short to parent stickies into).
 5. **`miro_bulk_create`** for user-task stickies (`yellow`, **canvas-absolute** coords, no `parent_id` here because the 100px-tall activity headers can't fit them):
    - 2-3 `yellow` stickies under each activity at `y=150`, then `y=270`, then `y=390` (canvas-absolute).
    - X-align with the activity column: Discovery stickies at `x=200` (frame center is `(0+400)/2=200`), Onboarding at `x=650`, Core Usage at `x=1100`, Growth at `x=1550`.

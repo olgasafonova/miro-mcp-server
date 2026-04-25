@@ -42,24 +42,15 @@ Compose Miro boards from natural-language requests using the `miro-mcp-server` t
 
 ---
 
-## Trigger examples
+## Scope
 
-Phrases that activate this skill (the routing decision happens via the `description` field; this list illustrates):
-
-- "Set up a retro board for our team of 6"
-- "Create a sprint planning board"
-- "I need a brainstorm board for [topic]"
-- "Build a user story map for [product]"
-- "Make a kanban for our backlog"
-- "Lay out a flowchart on Miro"
-
-If the request is a single-tool call ("create one sticky note"), a question about Miro the product, or read-only inspection ("what's on this board?"), exit and let Claude handle it directly. The skill's job is composition, not single-call wrapping.
+If the request is a single-tool call ("create one sticky note"), a question about Miro the product, or read-only inspection ("what's on this board?"), exit and let Claude handle it directly. The skill's job is composition, not single-call wrapping. Routing happens via the `description` field, not this section.
 
 ---
 
-## The 5 canonical workflows
+## The 5 workflows
 
-Each workflow is a tested composition with proven spatial defaults. Pick one based on intent:
+Each workflow is a documented composition with default spatial values. Pick one based on intent:
 
 | Workflow | Trigger Phrases | Detail File |
 |----------|----------------|-------------|
@@ -73,7 +64,7 @@ If the request doesn't match any of these, fall back to direct tool calls and as
 
 ### Optional: seed boards
 
-Before falling back to from-scratch construction, check if the user has imported a Miroverse template into their account that matches the requested workflow. See [seed-boards.md](seed-boards.md) for the lookup pattern. Seed boards are an optional power-user path; they produce designer-quality output but require one-time setup. The from-scratch workflows below work without any setup.
+Before falling back to from-scratch construction, check if the user has imported a Miroverse template into their account that matches the requested workflow. See [seed-boards.md](seed-boards.md) for the lookup pattern. Seed boards are an optional power-user path; they produce more polished output but require one-time setup. The from-scratch workflows below work without any setup.
 
 ---
 
@@ -189,9 +180,9 @@ Centered above the first frame. Always present.
 
 ### Column frames
 ```
-miro_create_frame(board_id, title="<Column>", x=N*850, y=0, width=800, height=600, fill_color="<color>")
+miro_create_frame(board_id, title="<Column>", x=N*850, y=0, width=800, height=600, color="#A6E5BB")
 ```
-N is the column index (0, 1, 2, ...). 850 = 800 frame + 50 gap.
+N is the column index (0, 1, 2, ...). 850 = 800 frame + 50 gap. Frame `color` is a CSS hex string per anti-pattern #3 above; see [color-conventions.md](color-conventions.md) for the named-to-hex translation table.
 
 ### Stickies inside a frame
 ```
@@ -249,7 +240,7 @@ If the user explicitly fires `/create-retrospective`, defer to the prompt. The s
 
 ## Detailed workflow files
 
-For each canonical workflow (from-scratch construction):
+For each workflow (from-scratch construction):
 
 - [workflows/sprint_board.md](workflows/sprint_board.md): 4-column tracker
 - [workflows/retrospective.md](workflows/retrospective.md): 3-column reflection

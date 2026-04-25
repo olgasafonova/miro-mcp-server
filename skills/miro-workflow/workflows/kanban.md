@@ -43,7 +43,7 @@ y = 800   └────────┴────────┴────�
 
 Column stride: 450px (400 frame + 50 gap). Columns are tall (800px) to fit a stack of stickies.
 
-Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
+Spatial details: see [../references/spatial-defaults.md](../references/spatial-defaults.md).
 
 ## Colors
 
@@ -61,7 +61,7 @@ Sample stickies in the first column: yellow (neutral, since column hue varies). 
 | 5 | orange |
 | 6 | cyan |
 
-Full palette: see [../color-conventions.md](../color-conventions.md).
+Full palette: see [../references/color-conventions.md](../references/color-conventions.md).
 
 ## Personalization
 

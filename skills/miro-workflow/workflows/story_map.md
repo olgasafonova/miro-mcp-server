@@ -49,7 +49,7 @@ y = 750   Future    [gray      ][gray       ][gray     ] ← gray stickies
 
 Activity frames are 400px wide with 50px gaps. Swimlane stickies align horizontally with activity columns.
 
-Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
+Spatial details: see [../references/spatial-defaults.md](../references/spatial-defaults.md).
 
 ## Colors
 
@@ -62,7 +62,7 @@ Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
 | Future swimlane | gray (sticky) | inactive / deferred |
 | Swimlane labels | (text, no fill) | reference only |
 
-Full palette: see [../color-conventions.md](../color-conventions.md).
+Full palette: see [../references/color-conventions.md](../references/color-conventions.md).
 
 ## Personalization
 

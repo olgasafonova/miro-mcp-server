@@ -19,7 +19,7 @@ Use this workflow when the user says:
    - What Went Well: `(x=0, y=0, width=800, height=600, color="#A6E5BB")` (light green)
    - What Could Improve: `(x=850, y=0, ..., color="#F5D0E8")` (light pink)
    - Action Items: `(x=1700, y=0, ..., color="#A6CCF5")` (light blue)
-   Frame `color` parameter takes a CSS hex string (Miro API rejects named colors for frames). See [../color-conventions.md](../color-conventions.md) for the hex palette.
+   Frame `color` parameter takes a CSS hex string (Miro API rejects named colors for frames). See [../references/color-conventions.md](../references/color-conventions.md) for the hex palette.
    Collect frame IDs.
 5. **`miro_bulk_create`** for starter stickies (parented to the matching frame). Sticky `color` accepts named values (`light_green`, `light_pink`, `yellow`).
    - What Went Well: 2 `light_green` stickies, e.g., "Team collaboration was excellent", "Shipped on time".
@@ -39,7 +39,7 @@ y = 0     [Went Well ][Could Improve][Action Items]
             x=0         x=850          x=1700
 ```
 
-Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
+Spatial details: see [../references/spatial-defaults.md](../references/spatial-defaults.md).
 
 ## Colors
 
@@ -54,7 +54,7 @@ Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
 
 Note: Action stickies are yellow, NOT blue. The frame itself is blue (structural cue), but the items inside are tasks and use the neutral task hue.
 
-Full palette: see [../color-conventions.md](../color-conventions.md).
+Full palette: see [../references/color-conventions.md](../references/color-conventions.md).
 
 ## Personalization
 

@@ -1,7 +1,7 @@
 ---
 name: miro-workflow
 version: 0.1.0
-description: Compose Miro boards from natural-language requests by combining tools from miro-mcp-server. Use when the user asks to set up a sprint board, retrospective, brainstorming session, user story map, kanban, or any structured Miro layout. Do NOT use for single-tool calls (create one sticky), questions about Miro the product, or read-only board inspection.
+description: Compose Miro boards from natural-language requests by combining tools from miro-mcp-server. Use when the user asks to set up a sprint board, retrospective, brainstorming session, user story map, kanban, or any structured Miro layout. Do NOT use for single-tool calls (create one sticky), questions about Miro the product, read-only board inspection, generic diagrams not tied to Miro (use /diagram), or sprint scoping and feature documents (use /feature-scoping).
 allowed-tools:
   - mcp__miro__miro_list_boards
   - mcp__miro__miro_create_board
@@ -64,7 +64,7 @@ If the request doesn't match any of these, fall back to direct tool calls and as
 
 ### Optional: seed boards
 
-Before falling back to from-scratch construction, check if the user has imported a Miroverse template into their account that matches the requested workflow. See [seed-boards.md](seed-boards.md) for the lookup pattern. Seed boards are an optional power-user path; they produce more polished output but require one-time setup. The from-scratch workflows below work without any setup.
+Before falling back to from-scratch construction, check if the user has imported a Miroverse template into their account that matches the requested workflow. See [seed-boards.md](references/seed-boards.md) for the lookup pattern. Seed boards are an optional power-user path; they produce more polished output but require one-time setup. The from-scratch workflows below work without any setup.
 
 ---
 
@@ -96,7 +96,7 @@ Do NOT skip pre-flight. Without `board_id`, every other call fails.
 
 ## Spatial defaults (summary)
 
-Full math in [spatial-defaults.md](spatial-defaults.md). Quick reference:
+Full math in [spatial-defaults.md](references/spatial-defaults.md). Quick reference:
 
 | Element | Default size | Default gap |
 |---------|--------------|-------------|
@@ -111,7 +111,7 @@ Origin (0, 0) is top-left in the board; the first frame sits at (0, 0) and succe
 
 ## Color conventions
 
-Full table in [color-conventions.md](color-conventions.md). Quick map:
+Full table in [color-conventions.md](references/color-conventions.md). Quick map:
 
 | Color | Used for |
 |-------|----------|
@@ -131,7 +131,7 @@ These come up often. Avoid them.
 
 1. **Stickies floating outside frames.** Always pass `parent_id` (the frame ID) when creating stickies inside a column. Otherwise the sticky lands at canvas root and looks orphaned.
 2. **Wrong coordinate origin for parented items.** When `parent_id` is set, coordinates are **frame-relative** (NOT canvas-absolute). The frame's **top-left** is `(0, 0)` and the **item's CENTER** is placed at the given `(x, y)`. So for an 800×600 frame, a sticky at `(40, 40)` will overflow the frame's left and top edges by ~half the sticky's size. To stay fully inside an 800×600 frame: `x ∈ [100, 700]`, `y ∈ [114, 486]`. Center horizontally at `x = 400`.
-3. **Frame `color` requires CSS hex, not a named color.** The Miro API returns `2.0703 invalid hex string` for named colors (`"green"`, `"blue"`, etc.) on frames. Pass hex like `"#A6E5BB"`. Stickies, in contrast, accept named values like `"light_green"`, `"yellow"`, `"light_pink"`. See [color-conventions.md](color-conventions.md) for the named→hex translation table.
+3. **Frame `color` requires CSS hex, not a named color.** The Miro API returns `2.0703 invalid hex string` for named colors (`"green"`, `"blue"`, etc.) on frames. Pass hex like `"#A6E5BB"`. Stickies, in contrast, accept named values like `"light_green"`, `"yellow"`, `"light_pink"`. See [color-conventions.md](references/color-conventions.md) for the named→hex translation table.
 4. **Missing `board_id`.** Every create/update call needs it. Re-confirm after `miro_create_board`.
 5. **Sticky text > 280 chars.** Miro truncates. Break into multiple stickies if longer.
 6. **Hand-rolled flowchart connectors with raw shapes.** Use `miro_create_flowchart_shape` (auto-sized for diagrams) instead of `miro_create_shape` when building flowcharts.
@@ -182,7 +182,7 @@ Centered above the first frame. Always present.
 ```
 miro_create_frame(board_id, title="<Column>", x=N*850, y=0, width=800, height=600, color="#A6E5BB")
 ```
-N is the column index (0, 1, 2, ...). 850 = 800 frame + 50 gap. Frame `color` is a CSS hex string per anti-pattern #3 above; see [color-conventions.md](color-conventions.md) for the named-to-hex translation table.
+N is the column index (0, 1, 2, ...). 850 = 800 frame + 50 gap. Frame `color` is a CSS hex string per anti-pattern #3 above; see [color-conventions.md](references/color-conventions.md) for the named-to-hex translation table.
 
 ### Stickies inside a frame
 ```
@@ -250,6 +250,6 @@ For each workflow (from-scratch construction):
 
 Optional power-user path:
 
-- [seed-boards.md](seed-boards.md): copy + personalize Miroverse templates the user has imported
+- [seed-boards.md](references/seed-boards.md): copy + personalize Miroverse templates the user has imported
 
 Read the relevant detail file before composing the tool sequence.

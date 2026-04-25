@@ -20,7 +20,7 @@ Use this workflow when the user says:
    - In Progress: `(x=850, y=0, ..., color="#A6CCF5")` (light blue)
    - In Review: `(x=1700, y=0, ..., color="#FFF8B4")` (light yellow)
    - Done: `(x=2550, y=0, ..., color="#A6E5BB")` (light green)
-   See [../color-conventions.md](../color-conventions.md) for the hex palette.
+   See [../references/color-conventions.md](../references/color-conventions.md) for the hex palette.
    Collect all 4 frame IDs from the response.
 5. **`miro_bulk_create`** for starter stickies (or individual `miro_create_sticky` calls). Sticky `color` accepts named values:
    - Backlog frame: 3 `yellow` stickies with placeholder tasks at `(x=400, y=140)`, `(x=400, y=300)`, `(x=400, y=460)`; frame-relative, item-center placement, fits 3 stickies vertically in 600px height (use `width=160` on stickies to keep them from overlapping).
@@ -41,7 +41,7 @@ y = 0     [Backlog ][ In Prog ][ Review ][ Done ]
             x=0       x=850     x=1700    x=2550
 ```
 
-Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
+Spatial details: see [../references/spatial-defaults.md](../references/spatial-defaults.md).
 
 ## Colors
 
@@ -56,7 +56,7 @@ Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
 | In Review stickies | pink | concern hue |
 | Done stickies | green | match column |
 
-Color rationale: see [../color-conventions.md](../color-conventions.md).
+Color rationale: see [../references/color-conventions.md](../references/color-conventions.md).
 
 ## Personalization
 

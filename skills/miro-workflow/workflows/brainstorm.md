@@ -42,7 +42,7 @@ Use this workflow when the user says:
 
 Total width: 800px. Total height: 600px.
 
-Spatial details: see [../spatial-defaults.md](../spatial-defaults.md).
+Spatial details: see [../references/spatial-defaults.md](../references/spatial-defaults.md).
 
 ## Colors
 
@@ -59,7 +59,7 @@ The 6 stickies use ALL palette colors except gray. The point: visual variety to 
 
 Central shape: diamond, default fill (no color). The shape is structural, not semantic.
 
-Full palette: see [../color-conventions.md](../color-conventions.md).
+Full palette: see [../references/color-conventions.md](../references/color-conventions.md).
 
 ## Personalization
 

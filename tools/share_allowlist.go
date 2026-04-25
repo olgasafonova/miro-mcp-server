@@ -7,6 +7,13 @@
 // guardrail: only emails whose domain matches the allowlist are permitted
 // through to the Miro API, regardless of what the agent was told to do.
 //
+// Scope: the allowlist enforces at the MCP handler boundary
+// (HandlerRegistry.ShareBoard). Direct callers of miro.Client.ShareBoard
+// (library consumers embedding the package) bypass it intentionally; the
+// threat model targets prompt-injected agents reaching the client through
+// the MCP transport, not human library consumers with their own trust
+// assumptions. See miro-mcp-server-032 for the recorded decision.
+//
 // See [miro-mcp-server-jyu] and the 22-04-2026 MCP portfolio security audit.
 package tools
 

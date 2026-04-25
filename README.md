@@ -100,6 +100,28 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ---
 
+## Companion Skill: `miro-workflow`
+
+For Claude clients that support skills (Claude Code, Claude Desktop), this repo ships a [`miro-workflow`](skills/miro-workflow/) skill alongside the MCP server. The skill teaches Claude how to *compose* the 91 atomic tools into common board layouts so you don't have to spell out coordinates and color codes.
+
+Five canonical workflows out of the box:
+
+| Workflow | Trigger phrase examples |
+|----------|------------------------|
+| **Sprint Board** | "set up a sprint board for sprint 42" |
+| **Retrospective** | "create a retro board for our team" |
+| **Brainstorm** | "brainstorm board for [topic]" |
+| **Story Map** | "map the user journey for [product]" |
+| **Kanban** | "kanban for our backlog" |
+
+Each workflow encodes spatial defaults (frame sizes, gap math, sticky placement), color conventions (named→hex translation for frame fills, role-based palette for stickies), and tested tool-call sequences. The skill bows out for single-tool calls and read-only inspection; it activates on composition.
+
+Skill files live under [`skills/miro-workflow/`](skills/miro-workflow/). Claude Code auto-discovers skills from `~/Projects/claude-code-config/skills/`; for other hosts, follow your client's skill installation docs.
+
+This pairs `miro-mcp-server` with the Canva, Notion, and Sentry skills+MCP cohort published in Anthropic's web directory.
+
+---
+
 ## All 91 Tools
 
 <details>

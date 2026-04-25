@@ -102,6 +102,8 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 
 ## Companion Skill: `miro-workflow`
 
+[![Validated by SkillCheck Pro](https://img.shields.io/badge/Validated%20by-SkillCheck%20Pro-047857)](https://getskillcheck.com)
+
 For Claude clients that support skills (Claude Code, Claude Desktop), this repo includes a [`miro-workflow`](skills/miro-workflow/) skill that describes how to assemble a few common board layouts from the atomic create-item tools.
 
 Five layouts are covered:
@@ -117,6 +119,8 @@ Five layouts are covered:
 Each one specifies frame sizes, gap math, sticky placement, color conventions (the Miro API takes hex for frame fills and named values for stickies; two different vocabularies), and the tool-call order to follow. For single-tool calls ("add one sticky") or read-only inspection, the atomic tools are usually enough on their own.
 
 The skill is new and likely needs adjustment as more layouts get exercised against real boards. Files live under [`skills/miro-workflow/`](skills/miro-workflow/). Claude Code auto-discovers skills from `~/Projects/claude-code-config/skills/`; for other hosts, follow your client's skill installation docs.
+
+The badge above is awarded by [SkillCheck Pro](https://getskillcheck.com); this skill currently scores 92/100 with zero Critical issues and zero Warnings. Skills in this repo earn the badge at ≥90/100 with zero Critical and zero Warnings; below that bar, the badge is dropped until the skill passes again.
 
 ---
 

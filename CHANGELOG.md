@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Companion skill**: `skills/miro-workflow/` ships alongside the MCP server. Five canonical workflows (sprint board, retrospective, brainstorm, story map, kanban) compose the 91 atomic tools into common board layouts with tested spatial defaults and color conventions. Pairs `miro-mcp-server` with the Canva/Notion/Sentry skills+MCP cohort. README updated with a Companion Skill section.
+- **Companion skill**: `skills/miro-workflow/` ships alongside the MCP server. Five canonical workflows (sprint board, retrospective, brainstorm, story map, kanban) compose the 91 atomic tools into common board layouts with tested spatial defaults and color conventions. README updated with a Companion Skill section.
 
 ### Fixed
 - **Tool descriptions corrected**: `parent_id`, `x`, `y`, and `color` jsonschema descriptions for `miro_create_sticky`, `miro_create_shape`, and `miro_bulk_create` were misleading. Coordinates are frame-**TOP-LEFT** origin with item-**CENTER** placement (previously documented as "frame center", which produced overflowing layouts). Sticky `color` now enumerates the named-only enum; shape `color` clarifies hex requirement. No behavior change at the API level; only the docs clients see.

@@ -1,0 +1,376 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-25T13:35:36Z",
+  "deslop_version": "2.1.0",
+  "scores": {
+    "file_health": 0.0,
+    "test_coverage": 36.5,
+    "secret_detection": 100.0,
+    "todo_debt": 100.0,
+    "dependency_health": 100.0,
+    "structural_quality": 90.0,
+    "overall": 71.1
+  },
+  "findings": [
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "miro/audit/audit_test.go",
+      "summary": "miro/audit/audit_test.go (1,427 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "miro/client_test.go",
+      "summary": "miro/client_test.go (10,222 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "miro/items.go",
+      "summary": "miro/items.go (1,741 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "miro/oauth/oauth_test.go",
+      "summary": "miro/oauth/oauth_test.go (1,243 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "tools/definitions.go",
+      "summary": "tools/definitions.go (1,508 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "tools/handlers_test.go",
+      "summary": "tools/handlers_test.go (2,696 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "critical",
+      "key": "tools/mock_client_test.go",
+      "summary": "tools/mock_client_test.go (1,522 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "high",
+      "key": "miro/create.go",
+      "summary": "miro/create.go (1,026 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "high",
+      "key": "miro/diagrams_test.go",
+      "summary": "miro/diagrams_test.go (1,007 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "high",
+      "key": "miro/types_operations.go",
+      "summary": "miro/types_operations.go (989 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "evals/runner.go",
+      "summary": "evals/runner.go (538 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "main.go",
+      "summary": "main.go (513 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "miro/appcards_test.go",
+      "summary": "miro/appcards_test.go (661 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "miro/boards.go",
+      "summary": "miro/boards.go (563 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "miro/client.go",
+      "summary": "miro/client.go (762 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "miro/desirepath/desirepath_test.go",
+      "summary": "miro/desirepath/desirepath_test.go (567 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "miro/diagrams/mermaid_test.go",
+      "summary": "miro/diagrams/mermaid_test.go (671 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "miro/errors_test.go",
+      "summary": "miro/errors_test.go (605 LOC)"
+    },
+    {
+      "detector": "file_health",
+      "severity": "warning",
+      "key": "tools/handlers.go",
+      "summary": "tools/handlers.go (647 LOC)"
+    },
+    {
+      "detector": "structural_quality",
+      "severity": "warning",
+      "key": "god_package:miro",
+      "summary": "miro/ has 53 source files"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/audit/factory.go",
+      "summary": "miro/audit/factory.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/audit/file.go",
+      "summary": "miro/audit/file.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/audit/memory.go",
+      "summary": "miro/audit/memory.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/audit/types.go",
+      "summary": "miro/audit/types.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/boards.go",
+      "summary": "miro/boards.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/constants.go",
+      "summary": "miro/constants.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/create.go",
+      "summary": "miro/create.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/desirepath/logger.go",
+      "summary": "miro/desirepath/logger.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/desirepath/normalizers.go",
+      "summary": "miro/desirepath/normalizers.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/diagrams/types.go",
+      "summary": "miro/diagrams/types.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/docs.go",
+      "summary": "miro/docs.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/export.go",
+      "summary": "miro/export.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/frames.go",
+      "summary": "miro/frames.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/groups.go",
+      "summary": "miro/groups.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/interfaces.go",
+      "summary": "miro/interfaces.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/items.go",
+      "summary": "miro/items.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/members.go",
+      "summary": "miro/members.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/mindmaps.go",
+      "summary": "miro/mindmaps.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/oauth/auth.go",
+      "summary": "miro/oauth/auth.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/oauth/provider.go",
+      "summary": "miro/oauth/provider.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/oauth/server.go",
+      "summary": "miro/oauth/server.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/oauth/tokens.go",
+      "summary": "miro/oauth/tokens.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/oauth/types.go",
+      "summary": "miro/oauth/types.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/tables.go",
+      "summary": "miro/tables.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/tags.go",
+      "summary": "miro/tags.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_appcards.go",
+      "summary": "miro/types_appcards.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_audit.go",
+      "summary": "miro/types_audit.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_base.go",
+      "summary": "miro/types_base.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_boards.go",
+      "summary": "miro/types_boards.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_desirepath.go",
+      "summary": "miro/types_desirepath.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_diagrams.go",
+      "summary": "miro/types_diagrams.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_export.go",
+      "summary": "miro/types_export.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_frames.go",
+      "summary": "miro/types_frames.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_groups.go",
+      "summary": "miro/types_groups.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_items.go",
+      "summary": "miro/types_items.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_members.go",
+      "summary": "miro/types_members.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_mindmaps.go",
+      "summary": "miro/types_mindmaps.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_operations.go",
+      "summary": "miro/types_operations.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_tables.go",
+      "summary": "miro/types_tables.go has no test file"
+    },
+    {
+      "detector": "test_coverage",
+      "severity": "warning",
+      "key": "miro/types_tags.go",
+      "summary": "miro/types_tags.go has no test file"
+    }
+  ]
+}

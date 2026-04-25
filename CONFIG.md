@@ -21,6 +21,7 @@ Complete configuration guide for Miro MCP Server.
 | `MIRO_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 | `MIRO_AUDIT_FILE` | - | Path to audit log file (enables file logging) |
 | `MIRO_AUDIT_MAX_SIZE` | `10MB` | Max size before log rotation |
+| `MIRO_SHARE_ALLOWED_DOMAINS` | *(see note)* | Comma-separated email domains permitted to receive `miro_share_board` invitations. Example: `tietoevry.com,tieto.com`. **Fail-closed:** when this var is unset, the server falls back to the authenticated user's own email domain. If neither is available, all sharing is blocked. |
 
 ---
 

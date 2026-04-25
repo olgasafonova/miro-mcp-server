@@ -126,9 +126,11 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 |------|-------------|
 | `miro_list_board_members` | List users with access |
 | `miro_get_board_member` | Get member details |
-| `miro_share_board` | Share board via email |
-| `miro_update_board_member` | Update member role |
+| `miro_share_board` | Share board via email *(requires `MIRO_SHARE_ALLOWED_DOMAINS`; fail-closed by default)* |
+| `miro_update_board_member` | Update member role *(Destructive: prompts before role escalation)* |
 | `miro_remove_board_member` | Remove member from board |
+
+> Sharing and role-change tools are guarded for prompt-injection safety. See [`SECURITY.md`](SECURITY.md#board-sharing-allowlist) and [`CONFIG.md`](CONFIG.md#environment-variables).
 
 </details>
 

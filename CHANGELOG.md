@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-04-25
+
+### Security
+- **Action required for `miro_share_board` users:** the tool now enforces a server-side allowlist via `MIRO_SHARE_ALLOWED_DOMAINS` (comma-separated). When unset, the server falls back to the domain of the authenticated user's email; when neither is available, all sharing is rejected with a clear error. This prevents prompt-injected agents from exfiltrating board access by inviting attacker-controlled emails. See `SECURITY.md` and `CONFIG.md`.
+- `miro_share_board` marked `Destructive: true` so MCP clients prompt before invocation. USE WHEN / DO NOT USE clauses in the tool description constrain agent triggering to direct user instructions.
+- `miro_update_board_member` marked `Destructive: true` to prevent silent role escalation (viewer → editor) from prompt-injected agents processing board content.
+
+### Changed
+- Bumped `go.opentelemetry.io/otel` to v1.43.0.
+- Bumped `github.com/modelcontextprotocol/go-sdk`.
+
+### Documentation
+- Documented `MIRO_SHARE_ALLOWED_DOMAINS` in `CONFIG.md` (env-var table) and `SECURITY.md` (Board Sharing Allowlist section).
+- Footnoted the destructive sharing tools in the README Board Members table.
+- Recorded scope decision: allowlist enforces at the MCP-handler boundary; direct library consumers of `miro.Client.ShareBoard` bypass it intentionally.
+- Improved parent-relative coordinate guidance in schema tags.
+
+### Infrastructure
+- Added deslop baseline for cloud-routine code-health regression detection.
+- Added `CODEOWNERS` to protect workflow files from spam PRs.
+- Added `bd` merge driver for `.beads/issues.jsonl` to prevent JSONL conflicts on concurrent PRs.
+
 ## [1.16.2] - 2026-04-05
 
 ### Changed

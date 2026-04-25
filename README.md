@@ -114,7 +114,7 @@ Five layouts are covered:
 | **Story Map** | "map the user journey for [product]" |
 | **Kanban** | "kanban for our backlog" |
 
-Each one specifies frame sizes, gap math, sticky placement, color conventions (the Miro API takes hex for frame fills and named values for stickies — two different vocabularies), and the tool-call order to follow. For single-tool calls ("add one sticky") or read-only inspection, the atomic tools are usually enough on their own.
+Each one specifies frame sizes, gap math, sticky placement, color conventions (the Miro API takes hex for frame fills and named values for stickies; two different vocabularies), and the tool-call order to follow. For single-tool calls ("add one sticky") or read-only inspection, the atomic tools are usually enough on their own.
 
 The skill is new and likely needs adjustment as more layouts get exercised against real boards. Files live under [`skills/miro-workflow/`](skills/miro-workflow/). Claude Code auto-discovers skills from `~/Projects/claude-code-config/skills/`; for other hosts, follow your client's skill installation docs.
 

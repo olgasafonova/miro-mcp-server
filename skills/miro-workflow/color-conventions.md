@@ -2,6 +2,29 @@
 
 Sticky-note and frame colors carry meaning. The conventions below match the values in `prompts/prompts.go` so the skill produces boards that look identical to those from the MCP prompts.
 
+## Two color vocabularies — pick the right one
+
+The Miro API uses **different color formats** for stickies vs. frames. Mixing them up causes silent rendering bugs (stickies) or hard API errors (frames):
+
+- **Stickies** (`miro_create_sticky`, `miro_bulk_create` with `type: "sticky_note"`): pass a **named** color string. Valid: `yellow`, `light_yellow`, `light_green`, `green`, `dark_green`, `cyan`, `light_pink`, `pink`, `violet`, `red`, `light_blue`, `blue`, `dark_blue`, `gray`, `orange`, `black`.
+- **Frames** (`miro_create_frame`): pass a **CSS hex** string for the `color` parameter (the field is `style.fillColor` in the Miro REST API). Named values are rejected with `2.0703 invalid hex string`.
+
+### Named → hex translation (for frame fills)
+
+Use the light pastel hex when the workflow names a role color for a frame:
+
+| Role color | Hex | Notes |
+|-----------|------|-------|
+| green (positive) | `#A6E5BB` | retro "Went Well", sprint "Done", story-map MVP |
+| pink (concern) | `#F5D0E8` | retro "Could Improve", sprint "In Review" |
+| blue (active) | `#A6CCF5` | retro "Action Items", sprint "In Progress", story-map activity headers |
+| yellow (neutral) | `#FFF8B4` | sprint "In Review" frame fill |
+| gray (inactive) | `#E6E6E6` | sprint "Backlog" frame fill |
+| orange (accent) | `#FFD4A3` | kanban column 6 |
+| cyan (accent) | `#B4E5E5` | kanban column 7 |
+
+These are pastel approximations of Miro's UI palette, picked for legibility against dark sticky-note text.
+
 ## Role-based palette
 
 | Color | Role | Used for |

@@ -15,15 +15,16 @@ Use this workflow when the user says:
 1. **Pre-flight.** `miro_list_boards`; use existing if named, else:
 2. **`miro_create_board`** with `name = "<product> Story Map"`. Save `board_id`.
 3. **`miro_create_text`** at `(x=675, y=-100, font_size=48)` with `content = "<product> Story Map"`. Title.
-4. **`miro_bulk_create`** for 4 activity-header frames (compact, blue):
-   - Discovery: `(x=0, y=0, width=400, height=100, fill_color="blue")`
-   - Onboarding: `(x=450, y=0, ..., fill_color="blue")`
-   - Core Usage: `(x=900, y=0, ..., fill_color="blue")`
-   - Growth: `(x=1350, y=0, ..., fill_color="blue")`
-   Collect frame IDs for downstream parenting.
-5. **`miro_bulk_create`** for user-task stickies (yellow, parented to the activity frame above each):
-   - 2-3 yellow stickies under each activity at `y=150`. Frame-relative coords inside each activity frame, OR canvas-absolute if you don't parent (parenting is preferred).
-   Example: under Discovery, stickies at canvas `(40, 150)`, `(40, 250)` if not parented.
+4. **`miro_bulk_create`** for 4 activity-header frames (compact, blue). Frame `color` is a CSS hex string:
+   - Discovery: `(x=0, y=0, width=400, height=100, color="#A6CCF5")` (light blue)
+   - Onboarding: `(x=450, y=0, ..., color="#A6CCF5")`
+   - Core Usage: `(x=900, y=0, ..., color="#A6CCF5")`
+   - Growth: `(x=1350, y=0, ..., color="#A6CCF5")`
+   Collect frame IDs (mainly for reference; user-task stickies in this workflow are placed at canvas-absolute coords because activity frames are too short — 100px — to parent stickies into).
+5. **`miro_bulk_create`** for user-task stickies (`yellow`, **canvas-absolute** coords, no `parent_id` here because the 100px-tall activity headers can't fit them):
+   - 2-3 `yellow` stickies under each activity at `y=150`, then `y=270`, then `y=390` (canvas-absolute).
+   - X-align with the activity column: Discovery stickies at `x=200` (frame center is `(0+400)/2=200`), Onboarding at `x=650`, Core Usage at `x=1100`, Growth at `x=1550`.
+   Example: under Discovery, stickies at canvas `(200, 150)`, `(200, 270)`.
 6. **`miro_create_text`** for swimlane labels:
    - "MVP" at `(x=-100, y=350, font_size=24)`
    - "v1.0" at `(x=-100, y=550, font_size=24)`

@@ -18,13 +18,13 @@ Use this workflow when the user says:
 4. **`miro_create_text`** for the title at `(x = (N * 450) / 2 - 100, y = -100, font_size = 36)` with `content = "<board_name>"`. Title sits centered above the row.
 5. **`miro_bulk_create`** for N column frames. For each column index `i` (0-based):
    - Position: `(x = i * 450, y = 0, width = 400, height = 800)`
-   - Fill color: cycles through `[gray, blue, yellow, green, pink, orange, cyan]` by `i % 7`
+   - Fill color (`color` parameter, CSS hex): cycles through `["#E6E6E6", "#A6CCF5", "#FFF8B4", "#A6E5BB", "#F5D0E8", "#FFD4A3", "#B4E5E5"]` by `i % 7` (gray → blue → yellow → green → pink → orange → cyan, all light pastels). Miro API rejects named colors for frames.
    - Title: the column name
    Collect frame IDs.
 6. **`miro_create_text`** for each column header at `(x = i * 450 + 100, y = -50, font_size = 24)` with the column name. Headers sit just above each frame.
 7. **`miro_bulk_create`** for sample stickies in the FIRST column only:
-   - 2-3 yellow stickies, parented to the first frame
-   - Frame-relative `(x=40, y=40)`, `(x=40, y=300)`, `(x=40, y=560)` for vertical stacking
+   - 2-3 `yellow` stickies, parented to the first frame
+   - Frame-relative coords (frame top-left is `(0, 0)`; sticky CENTER is placed at the given coord). For a 400×800 frame: `(x=200, y=140)`, `(x=200, y=400)`, `(x=200, y=660)` — centered horizontally, evenly distributed vertically. Set sticky `width=160` to keep them from overlapping.
    - Sample text: "Sample task 1", "Sample task 2", "Sample task 3"
 8. **Return** the board URL.
 

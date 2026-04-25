@@ -15,18 +15,19 @@ Use this workflow when the user says:
 1. **Pre-flight.** `miro_list_boards` to confirm the workspace; if the user named an existing board, get its ID. Otherwise:
 2. **`miro_create_board`** with `name = "<board_name>"`. Save `board_id`.
 3. **`miro_create_text`** at `(x=1275, y=-100, font_size=48)` with `content = "Sprint <N> Planning"`. The title.
-4. **`miro_create_frame`** four times (or one `miro_bulk_create` with 4 frames):
-   - Backlog: `(x=0, y=0, width=800, height=600, fill_color="gray")`
-   - In Progress: `(x=850, y=0, ..., fill_color="blue")`
-   - In Review: `(x=1700, y=0, ..., fill_color="yellow")`
-   - Done: `(x=2550, y=0, ..., fill_color="green")`
+4. **`miro_create_frame`** four times (or one `miro_bulk_create` with 4 frames). Frame `color` is a CSS hex string (Miro API rejects named colors for frames):
+   - Backlog: `(x=0, y=0, width=800, height=600, color="#E6E6E6")` (light gray)
+   - In Progress: `(x=850, y=0, ..., color="#A6CCF5")` (light blue)
+   - In Review: `(x=1700, y=0, ..., color="#FFF8B4")` (light yellow)
+   - Done: `(x=2550, y=0, ..., color="#A6E5BB")` (light green)
+   See [../color-conventions.md](../color-conventions.md) for the hex palette.
    Collect all 4 frame IDs from the response.
-5. **`miro_bulk_create`** for starter stickies (or individual `miro_create_sticky` calls):
-   - Backlog frame: 3 yellow stickies with placeholder tasks.
-   - In Progress frame: 1 blue sticky "Current work".
-   - In Review frame: 1 pink sticky "Awaiting review".
-   - Done frame: 1 green sticky "Completed items".
-   Each sticky must include `parent_id = <frame_id>` for the column it belongs to. Use frame-relative coords (e.g., `x=40, y=40` for the first sticky in a column).
+5. **`miro_bulk_create`** for starter stickies (or individual `miro_create_sticky` calls). Sticky `color` accepts named values:
+   - Backlog frame: 3 `yellow` stickies with placeholder tasks at `(x=400, y=140)`, `(x=400, y=300)`, `(x=400, y=460)` — frame-relative, item-center placement, fits 3 stickies vertically in 600px height (use `width=160` on stickies to keep them from overlapping).
+   - In Progress frame: 1 `light_blue` sticky "Current work" at `(x=400, y=300)`.
+   - In Review frame: 1 `light_pink` sticky "Awaiting review" at `(x=400, y=300)`.
+   - Done frame: 1 `light_green` sticky "Completed items" at `(x=400, y=300)`.
+   Each sticky must include `parent_id = <frame_id>` for the column it belongs to. Frame-relative coords use the frame's top-left as `(0, 0)`; the sticky's CENTER is placed at the given (x, y).
 6. **Return** the board URL: `https://miro.com/app/board/<board_id>/`.
 
 ## Layout

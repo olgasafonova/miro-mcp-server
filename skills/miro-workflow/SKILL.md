@@ -138,13 +138,14 @@ Match the prompt-defined colors in `prompts/prompts.go` for consistency with use
 
 These come up often. Avoid them.
 
-1. **Stickies floating outside frames.** Always pass `parent` (the frame ID) when creating stickies inside a column. Otherwise the sticky lands at canvas root and looks orphaned.
-2. **Overlapping coordinates.** Use the frame-relative position when `parent` is set, NOT canvas-absolute. (Inside a frame, `(0, 0)` is the frame's own origin.)
-3. **Missing `board_id`.** Every create/update call needs it. Re-confirm after `miro_create_board`.
-4. **Sticky text > 280 chars.** Miro truncates. Break into multiple stickies if longer.
-5. **Hand-rolled flowchart connectors with raw shapes.** Use `miro_create_flowchart_shape` (auto-sized for diagrams) instead of `miro_create_shape` when building flowcharts.
-6. **Bulk creates without ordering.** `miro_bulk_create` is fast but doesn't guarantee item order in the response. Don't assume index N = the Nth created item.
-7. **Skipping the title text.** Every workflow board gets a title at the top (font_size: 48). Without it, boards look unfinished.
+1. **Stickies floating outside frames.** Always pass `parent_id` (the frame ID) when creating stickies inside a column. Otherwise the sticky lands at canvas root and looks orphaned.
+2. **Wrong coordinate origin for parented items.** When `parent_id` is set, coordinates are **frame-relative** (NOT canvas-absolute). The frame's **top-left** is `(0, 0)` and the **item's CENTER** is placed at the given `(x, y)`. So for an 800×600 frame, a sticky at `(40, 40)` will overflow the frame's left and top edges by ~half the sticky's size. To stay fully inside an 800×600 frame: `x ∈ [100, 700]`, `y ∈ [114, 486]`. Center horizontally at `x = 400`.
+3. **Frame `color` requires CSS hex, not a named color.** The Miro API returns `2.0703 invalid hex string` for named colors (`"green"`, `"blue"`, etc.) on frames. Pass hex like `"#A6E5BB"`. Stickies, in contrast, accept named values like `"light_green"`, `"yellow"`, `"light_pink"`. See [color-conventions.md](color-conventions.md) for the named→hex translation table.
+4. **Missing `board_id`.** Every create/update call needs it. Re-confirm after `miro_create_board`.
+5. **Sticky text > 280 chars.** Miro truncates. Break into multiple stickies if longer.
+6. **Hand-rolled flowchart connectors with raw shapes.** Use `miro_create_flowchart_shape` (auto-sized for diagrams) instead of `miro_create_shape` when building flowcharts.
+7. **Bulk creates without ordering.** `miro_bulk_create` is fast but doesn't guarantee item order in the response. Don't assume index N = the Nth created item.
+8. **Skipping the title text.** Every workflow board gets a title at the top (font_size: 48). Without it, boards look unfinished.
 
 ---
 

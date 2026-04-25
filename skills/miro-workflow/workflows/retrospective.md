@@ -16,15 +16,16 @@ Use this workflow when the user says:
 2. **`miro_create_board`** with `name = "<team> Retrospective"`. Save `board_id`.
 3. **`miro_create_text`** at `(x=850, y=-100, font_size=48)` with `content = "<team> Retrospective"`. The title spans the center.
 4. **`miro_create_frame`** three times (or `miro_bulk_create`):
-   - What Went Well: `(x=0, y=0, width=800, height=600, fill_color="green")`
-   - What Could Improve: `(x=850, y=0, ..., fill_color="pink")`
-   - Action Items: `(x=1700, y=0, ..., fill_color="blue")`
+   - What Went Well: `(x=0, y=0, width=800, height=600, color="#A6E5BB")` (light green)
+   - What Could Improve: `(x=850, y=0, ..., color="#F5D0E8")` (light pink)
+   - Action Items: `(x=1700, y=0, ..., color="#A6CCF5")` (light blue)
+   Frame `color` parameter takes a CSS hex string (Miro API rejects named colors for frames). See [../color-conventions.md](../color-conventions.md) for the hex palette.
    Collect frame IDs.
-5. **`miro_bulk_create`** for starter stickies (parented to the matching frame):
-   - What Went Well: 2 green stickies, e.g., "Team collaboration was excellent", "Shipped on time".
-   - What Could Improve: 2 pink stickies, e.g., "Code review turnaround", "Mid-sprint scope creep".
-   - Action Items: 2 yellow stickies, e.g., "Schedule weekly sync", "Define WIP limit".
-   Frame-relative coords: `(x=40, y=40)` and `(x=40, y=300)` give a clean 2-sticky stack.
+5. **`miro_bulk_create`** for starter stickies (parented to the matching frame). Sticky `color` accepts named values (`light_green`, `light_pink`, `yellow`).
+   - What Went Well: 2 `light_green` stickies, e.g., "Team collaboration was excellent", "Shipped on time".
+   - What Could Improve: 2 `light_pink` stickies, e.g., "Code review turnaround", "Mid-sprint scope creep".
+   - Action Items: 2 `yellow` stickies, e.g., "Schedule weekly sync", "Define WIP limit".
+   Frame-relative coords (frame top-left is `(0, 0)`; the sticky's CENTER is placed at the given coord): `(x=400, y=175)` and `(x=400, y=425)` give a clean 2-sticky stack inside an 800×600 frame.
 6. **Return** the board URL.
 
 ## Layout

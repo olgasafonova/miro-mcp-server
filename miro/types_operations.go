@@ -8,11 +8,11 @@ package miro
 type CreateStickyArgs struct {
 	BoardID  string  `json:"board_id" jsonschema:"Board ID"`
 	Content  string  `json:"content" jsonschema:"Text content of the sticky note"`
-	X        float64 `json:"x,omitempty" jsonschema:"X position on board, or relative to parent frame center if parent_id is set (default 0)"`
-	Y        float64 `json:"y,omitempty" jsonschema:"Y position on board, or relative to parent frame center if parent_id is set (default 0)"`
-	Color    string  `json:"color,omitempty" jsonschema:"Sticky color: yellow, green, blue, pink, orange, etc."`
-	Width    float64 `json:"width,omitempty" jsonschema:"Width in pixels"`
-	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place sticky in. When set, use small x/y offsets (e.g. -200 to 200) to stay within frame bounds. Query miro_get_frame first to check frame dimensions."`
+	X        float64 `json:"x,omitempty" jsonschema:"X position. On canvas: absolute (0 = canvas left). Inside a frame (parent_id set): relative to frame's TOP-LEFT (0 = frame's left edge), and the sticky's center is placed at this x. To center horizontally in a W-wide frame, use x = W/2."`
+	Y        float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, sticky center is placed at this y. Y increases downward."`
+	Color    string  `json:"color,omitempty" jsonschema:"Sticky color (named only): yellow, light_yellow, light_green, green, dark_green, cyan, light_pink, pink, violet, red, light_blue, blue, dark_blue, gray, orange, black."`
+	Width    float64 `json:"width,omitempty" jsonschema:"Width in pixels (default ~199; height auto-scales). Set width=160 to fit 3 stickies in a 600-tall frame."`
+	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place sticky in. Coords (x, y) are then relative to the frame's TOP-LEFT corner; the sticky's CENTER is placed at (x, y). Default sticky is 199x228, so to keep it fully inside an 800x600 frame use x in [100, 700], y in [114, 486]."`
 }
 
 // CreateStickyResult contains the created sticky note.
@@ -33,13 +33,13 @@ type CreateShapeArgs struct {
 	BoardID   string  `json:"board_id" jsonschema:"Board ID"`
 	Shape     string  `json:"shape" jsonschema:"Shape type: rectangle, circle, triangle, rhombus, round_rectangle, etc."`
 	Content   string  `json:"content,omitempty" jsonschema:"Text inside the shape"`
-	X         float64 `json:"x,omitempty" jsonschema:"X position on board, or relative to parent frame center if parent_id is set"`
-	Y         float64 `json:"y,omitempty" jsonschema:"Y position on board, or relative to parent frame center if parent_id is set"`
+	X         float64 `json:"x,omitempty" jsonschema:"X position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT (0 = frame's left edge), and the shape's center is placed at this x."`
+	Y         float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, shape center is placed at this y. Y increases downward."`
 	Width     float64 `json:"width,omitempty" jsonschema:"Width in pixels (default 200)"`
 	Height    float64 `json:"height,omitempty" jsonschema:"Height in pixels (default 200)"`
 	Color     string  `json:"color,omitempty" jsonschema:"Fill/background color (hex like #006400)"`
 	TextColor string  `json:"text_color,omitempty" jsonschema:"Text color (hex like #ffffff for white)"`
-	ParentID  string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place shape in. When set, use small x/y offsets to stay within frame bounds."`
+	ParentID  string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place shape in. Coords (x, y) are then relative to the frame's TOP-LEFT; the shape's CENTER is placed at (x, y). Account for shape width/height when picking coords to keep it inside the frame."`
 }
 
 // CreateShapeResult contains the created shape.
@@ -526,12 +526,12 @@ type BulkCreateItem struct {
 	Type     string  `json:"type" jsonschema:"Item type: sticky_note, shape, text"`
 	Content  string  `json:"content,omitempty" jsonschema:"Text content"`
 	Shape    string  `json:"shape,omitempty" jsonschema:"Shape type (for shapes)"`
-	X        float64 `json:"x,omitempty" jsonschema:"X position"`
-	Y        float64 `json:"y,omitempty" jsonschema:"Y position"`
+	X        float64 `json:"x,omitempty" jsonschema:"X position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this x."`
+	Y        float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this y."`
 	Width    float64 `json:"width,omitempty" jsonschema:"Width"`
 	Height   float64 `json:"height,omitempty" jsonschema:"Height"`
-	Color    string  `json:"color,omitempty" jsonschema:"Color"`
-	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID"`
+	Color    string  `json:"color,omitempty" jsonschema:"Color. For sticky_note items: named (yellow, light_green, etc.). For shape items: hex (e.g. #006400)."`
+	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place item in. Coords (x, y) are then relative to the frame's TOP-LEFT corner; the item's CENTER is placed at (x, y)."`
 }
 
 // BulkCreateArgs contains parameters for bulk item creation.

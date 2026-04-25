@@ -5,7 +5,8 @@ Shared coordinate, size, and layout math for the Miro workflows. Pulled directly
 ## Coordinate system
 
 - Origin `(0, 0)` is the canvas top-left for items at canvas root.
-- Inside a frame, `(0, 0)` is the **frame's** top-left. Always pass `parent` (the frame ID) when placing an item inside a frame, then use frame-relative coordinates.
+- Inside a frame, `(0, 0)` is the **frame's top-left** corner. Always pass `parent_id` (the frame ID) when placing an item inside a frame, then use frame-relative coordinates.
+- The item's **center** is placed at the given `(x, y)`. So for a 199×228 sticky inside an 800×600 frame, valid placement keeping the item fully inside: `x ∈ [100, 700]`, `y ∈ [114, 486]`. To center horizontally, use `x = W/2`.
 - Y increases downward.
 
 ## Universal sizes
@@ -87,9 +88,19 @@ Title text: font_size 36, centered above the row
 When `parent_id` is set on a sticky:
 
 - Use **frame-relative** coords. `(0, 0)` is the frame's top-left, NOT the canvas root.
-- Leave a 40px margin from the frame edge.
-- Stack stickies vertically: `y = 40 + (i * 240)` for the i-th sticky in a column.
-- For grids inside a frame, prefer `miro_create_sticky_grid` over manual placement; it handles spacing.
+- The **item's CENTER** is placed at the given `(x, y)`. A sticky at `(40, 40)` will hang off the frame's left and top edges. Center the sticky horizontally with `x = W/2` (e.g., `x = 400` for an 800-wide frame, `x = 200` for a 400-wide frame).
+- Default sticky size: ~199×228. Set `width=160` to make stickies smaller for tight stacks (height auto-scales).
+
+### Recommended formulas
+
+| Frame size | Sticky count | Centers (x, y) |
+|------------|--------------|----------------|
+| 800×600 | 1 | `(400, 300)` |
+| 800×600 | 2 | `(400, 175)`, `(400, 425)` |
+| 800×600 | 3 | `(400, 140)`, `(400, 300)`, `(400, 460)` — set sticky `width=160` |
+| 400×800 | 3 | `(200, 140)`, `(200, 400)`, `(200, 660)` — set sticky `width=160` |
+
+For grids inside a frame, prefer `miro_create_sticky_grid` over manual placement; it handles spacing.
 
 ## Connector placement
 

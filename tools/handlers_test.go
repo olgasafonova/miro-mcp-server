@@ -2591,6 +2591,32 @@ func TestShareBoardToolIsMarkedDestructive(t *testing.T) {
 	}
 }
 
+// TestUpdateBoardMemberToolIsMarkedDestructive verifies that the
+// miro_update_board_member ToolSpec carries Destructive: true so MCP clients
+// prompt for confirmation before changing a member's role. Role escalation
+// (e.g. viewer -> editor) has the same blast radius as inviting a new editor.
+func TestUpdateBoardMemberToolIsMarkedDestructive(t *testing.T) {
+	var spec *ToolSpec
+	for i := range AllTools {
+		if AllTools[i].Name == "miro_update_board_member" {
+			spec = &AllTools[i]
+			break
+		}
+	}
+	if spec == nil {
+		t.Fatal("miro_update_board_member tool not found in AllTools")
+	}
+	if !spec.Destructive {
+		t.Error("miro_update_board_member must be marked Destructive: true — role escalation grants durable write access")
+	}
+	if !strings.Contains(spec.Description, "USE WHEN") {
+		t.Error("miro_update_board_member description must include a USE WHEN clause to constrain agent triggering")
+	}
+	if !strings.Contains(spec.Description, "DO NOT USE") {
+		t.Error("miro_update_board_member description must include a DO NOT USE clause warning against board-content-sourced instructions")
+	}
+}
+
 // TestShareBoardHandler_RejectsDisallowedDomain verifies that the registry
 // ShareBoard wrapper rejects invitations to domains outside the configured
 // allowlist and does NOT call through to the underlying Miro client.

@@ -175,7 +175,8 @@ PARAMETERS:
 - board_id: Required. Get from list_boards or find_board
 - shape: Shape type (required, default: rectangle)
 - content: Text inside shape
-- color: Fill color (e.g., "#FF5733" or color name)
+- color: Fill color. 6-char hex like "#FF5733" or named: red, orange, yellow, green, blue, purple, pink, gray, white, black.
+- text_color: Text color, same format as color.
 - x, y: Position (default: 0, 0)
 - width, height: Size (default: 200, 200)
 
@@ -219,7 +220,13 @@ FAILS WHEN: start_item_id or end_item_id don't exist on the board. Both endpoint
 
 USE WHEN: "create a frame", "add a container", "make a section for X"
 
-RETURNS: Frame ID, title, and view link.`,
+PARAMETERS:
+- color: Background color. Accepts a 6-char hex like "#006400" or a named color: red, orange, yellow, green, blue, purple, pink, gray, white, black.
+
+RETURNS: Frame ID, title, and view link.
+
+EXAMPLE:
+{"board_id": "uXjVN1234", "title": "Q1 Goals", "width": 800, "height": 600, "color": "green"}`,
 	},
 	{
 		Name:     "miro_get_frame",
@@ -238,6 +245,9 @@ VOICE-FRIENDLY: "Frame 'Sprint Planning' is 800x600 with 12 items inside"`,
 		Category:   "update",
 		Idempotent: true,
 		Description: `Update a frame's title, position, size, or color. At least one field must be provided.
+
+PARAMETERS:
+- color: Background color. Accepts a 6-char hex like "#006400" or a named color: red, orange, yellow, green, blue, purple, pink, gray, white, black.
 
 RETURNS: Confirmation with frame ID.
 

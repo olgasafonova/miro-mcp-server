@@ -122,8 +122,12 @@ func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateF
 
 	// Build style object
 	if args.Color != nil {
+		fillColor, err := normalizeColor(*args.Color)
+		if err != nil {
+			return UpdateFrameResult{}, fmt.Errorf("color: %w", err)
+		}
 		reqBody["style"] = map[string]interface{}{
-			"fillColor": *args.Color,
+			"fillColor": fillColor,
 		}
 	}
 

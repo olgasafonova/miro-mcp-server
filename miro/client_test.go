@@ -1401,11 +1401,12 @@ func TestUpdateItem_WithColorAndParent(t *testing.T) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify style
+		// Verify style: "green" is normalized to its hex equivalent before being sent
+		// to Miro because the items endpoint requires hex (regression from 26-04-2026).
 		if style, ok := body["style"].(map[string]interface{}); !ok {
 			t.Error("expected 'style' field in request body")
-		} else if style["fillColor"] != "green" {
-			t.Errorf("fillColor = %v, want 'green'", style["fillColor"])
+		} else if style["fillColor"] != "#008000" {
+			t.Errorf("fillColor = %v, want '#008000' (green normalized to hex)", style["fillColor"])
 		}
 
 		// Verify parent
@@ -2719,6 +2720,66 @@ func TestCreateFrame_WithColor(t *testing.T) {
 	}
 	if result.ID != "frame-color" {
 		t.Errorf("ID = %q, want 'frame-color'", result.ID)
+	}
+}
+
+// TestCreateFrame_WithColorName covers the regression surfaced by trace-mine on
+// 26-04-2026: agents passed semantic color names ("green", "pink", "blue") to
+// the Color field, which Miro's API rejected because frames require a 6-char
+// hex string. CreateFrame now normalizes names to hex before sending.
+func TestCreateFrame_WithColorName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		style, ok := body["style"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected style in request body")
+		}
+		fillColor, _ := style["fillColor"].(string)
+		if fillColor != "#008000" {
+			t.Errorf("fillColor = %q, want '#008000' (green normalized to hex)", fillColor)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "frame-named-color",
+			"data": map[string]interface{}{"title": "Green Frame"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	if _, err := client.CreateFrame(context.Background(), CreateFrameArgs{
+		BoardID: "board123",
+		Title:   "Green Frame",
+		Color:   "green",
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestCreateFrame_RejectsUnknownColor verifies normalizeColor errors for garbage
+// surface back through the create call as a structured Go error rather than a
+// silent passthrough that fails at Miro's API layer.
+func TestCreateFrame_RejectsUnknownColor(t *testing.T) {
+	called := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.CreateFrame(context.Background(), CreateFrameArgs{
+		BoardID: "board123",
+		Title:   "Bad Frame",
+		Color:   "chartreuse",
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown color name, got nil")
+	}
+	if called {
+		t.Error("HTTP server should not be called when normalizeColor rejects input pre-flight")
 	}
 }
 

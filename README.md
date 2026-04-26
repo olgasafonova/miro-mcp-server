@@ -388,7 +388,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
 | **Last changelog entry** | April 2026 | January 2026 |
-| **Tools** | 92 (or 15 in `essentials` profile) | 15 (13 tools + 2 prompts) |
+| **Tools** | 92 (or 15 in `essentials` profile) | 13 |
 | **Transport** | stdio + HTTP | HTTPS only (hosted) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
@@ -410,7 +410,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, AI-powered board context extraction, or code-to-board workflows.
 
-**When to use this server:** You need full API coverage (92 vs 15 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
+**When to use this server:** You need full API coverage (92 vs 13 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 

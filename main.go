@@ -157,7 +157,20 @@ func main() {
 			"source", shareAllowlist.Source())
 	}
 
-	// Register all Miro tools with audit logging and desire path normalization
+	// Register Miro tools, honoring MIRO_TOOLS_PROFILE.
+	//   full       — every tool (default; preserves behavior for upgrading users)
+	//   essentials — meta-tool plus ~15 high-frequency tools; agents reach
+	//                the rest via miro_tool_search on demand
+	// Unknown values fall back to full with a warning so a typo never
+	// silently strips tools the operator was relying on.
+	profileRaw := os.Getenv("MIRO_TOOLS_PROFILE")
+	profile, ok := tools.ParseProfile(profileRaw)
+	if !ok {
+		logger.Warn("Unknown MIRO_TOOLS_PROFILE; falling back to full",
+			"value", profileRaw,
+			"valid", []string{string(tools.ProfileFull), string(tools.ProfileEssentials)})
+	}
+
 	registry := tools.NewHandlerRegistry(client, logger).
 		WithAuditLogger(auditLogger).
 		WithShareAllowlist(shareAllowlist).
@@ -165,7 +178,7 @@ func main() {
 	if user != nil {
 		registry = registry.WithUser(user.ID, user.Email)
 	}
-	registry.RegisterAll(server)
+	registry.RegisterProfile(server, profile)
 
 	// Register MCP Resources (miro://board/{id} URIs)
 	resourceRegistry := resources.NewRegistry(client)
@@ -181,7 +194,7 @@ func main() {
 	cardOpts := servercard.Options{
 		Name:        "io.github.olgasafonova/miro-mcp-server",
 		Version:     ServerVersion,
-		Description: "MCP server for Miro whiteboards. 91 tools for boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit. Voice-friendly.",
+		Description: "MCP server for Miro whiteboards. 92 tools for boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit, with miro_tool_search for discovery. Voice-friendly.",
 		Title:       "Miro MCP Server",
 		WebsiteURL:  "https://github.com/olgasafonova/miro-mcp-server",
 		Repository: &servercard.Repository{

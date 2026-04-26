@@ -22,6 +22,7 @@ Complete configuration guide for Miro MCP Server.
 | `MIRO_AUDIT_FILE` | - | Path to audit log file (enables file logging) |
 | `MIRO_AUDIT_MAX_SIZE` | `10MB` | Max size before log rotation |
 | `MIRO_SHARE_ALLOWED_DOMAINS` | *(see note)* | Comma-separated email domains permitted to receive `miro_share_board` invitations. Example: `tietoevry.com,tieto.com`. **Fail-closed:** when this var is unset, the server falls back to the authenticated user's own email domain. If neither is available, all sharing is blocked. |
+| `MIRO_TOOLS_PROFILE` | `full` | Tool surface to expose. `full` registers all 92 tools (preserves prior behavior). `essentials` registers only the `miro_tool_search` discovery meta-tool plus ~15 high-frequency tools (boards, list/find, sticky/text/frame/connector creation, list/get/update/delete items); agents reach the rest via `miro_tool_search` on demand. Useful when token cost matters and the client doesn't have its own tool-search support. Unknown values fall back to `full` with a warning. |
 
 ---
 

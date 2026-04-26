@@ -91,12 +91,26 @@ func (h *HandlerRegistry) WithDesirePathLogger(dpLogger *desirepath.Logger, norm
 	return h
 }
 
-// RegisterAll registers all tools with the MCP server.
+// RegisterAll registers every tool in AllTools with the MCP server. Equivalent
+// to RegisterProfile(server, ProfileFull). Kept for backward compatibility
+// with callers that don't know about profiles yet.
 func (h *HandlerRegistry) RegisterAll(server *mcp.Server) {
-	for _, spec := range AllTools {
+	h.RegisterProfile(server, ProfileFull)
+}
+
+// RegisterProfile registers a subset of AllTools determined by the profile.
+// ProfileFull (the default) registers everything. ProfileEssentials registers
+// only the discovery meta-tool plus the curated EssentialsToolNames list;
+// agents discover the rest via miro_tool_search on demand.
+func (h *HandlerRegistry) RegisterProfile(server *mcp.Server, profile Profile) {
+	specs := ToolsForProfile(profile)
+	for _, spec := range specs {
 		h.registerTool(server, spec)
 	}
-	h.logger.Info("Registered all Miro tools", "count", len(AllTools))
+	h.logger.Info("Registered Miro tools",
+		"profile", string(profile),
+		"count", len(specs),
+		"total_available", len(AllTools))
 }
 
 // buildHandlerMap creates a map of method names to registration functions.
@@ -207,6 +221,9 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		// Audit tools (local, not Miro API)
 		"GetAuditLog":         makeHandler(h, h.GetAuditLog),
 		"GetDesirePathReport": makeHandler(h, h.GetDesirePathReport),
+
+		// Discovery (local, no Miro API call)
+		"SearchTools": makeHandler(h, h.SearchTools),
 
 		// App card tools
 		"CreateAppCard": makeHandler(h, h.client.CreateAppCard),

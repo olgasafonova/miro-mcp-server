@@ -59,6 +59,7 @@ func TestToolCategories(t *testing.T) {
 		"groups":     true,
 		"members":    true,
 		"frames":     true,
+		"discovery":  true,
 	}
 
 	for _, tool := range AllTools {
@@ -124,7 +125,8 @@ func TestToolCount(t *testing.T) {
 	//          +2 update_image_from_file, update_document_from_file = 89
 	// v1.15.0: -1 miro_ungroup (merged into miro_delete_group) = 88
 	// v1.16.0: +1 update_doc + 2 table tools (list_tables, get_table) = 91
-	expectedCount := 91
+	// v1.17.0: +1 miro_tool_search discovery meta-tool = 92
+	expectedCount := 92
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

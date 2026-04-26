@@ -53,6 +53,12 @@ type ToolSpec struct {
 // Tool descriptions are optimized for token efficiency and voice interaction.
 var AllTools = []ToolSpec{
 	// ==========================================================================
+	// Discovery (always-on meta-tool — keep first so agents see it before
+	// scanning the full surface)
+	// ==========================================================================
+	SearchToolSpec,
+
+	// ==========================================================================
 	// Board Tools
 	// ==========================================================================
 	{

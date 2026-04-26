@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="228" height="20" role="img" aria-label="MCP Context: ~11K tokens (5.6%)">
-  <title>MCP Context: ~11K tokens (5.6%)</title>
+<svg xmlns="http://www.w3.org/2000/svg" width="228" height="20" role="img" aria-label="MCP Context: ~15K tokens (7.8%)">
+  <title>MCP Context: ~15K tokens (7.8%)</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -15,7 +15,7 @@
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="11">
     <text aria-hidden="true" x="45.8" y="15" fill="#010101" fill-opacity=".3">MCP Context</text>
     <text x="45.8" y="14">MCP Context</text>
-    <text aria-hidden="true" x="160.0" y="15" fill="#010101" fill-opacity=".3">~11K tokens (5.6%)</text>
-    <text x="160.0" y="14">~11K tokens (5.6%)</text>
+    <text aria-hidden="true" x="160.0" y="15" fill="#010101" fill-opacity=".3">~15K tokens (7.8%)</text>
+    <text x="160.0" y="14">~15K tokens (7.8%)</text>
   </g>
 </svg>

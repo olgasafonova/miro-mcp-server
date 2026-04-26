@@ -9,7 +9,8 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP Context](badges/mcp-tokens.svg)](#tools)
+[![MCP Context — full](badges/mcp-tokens.svg)](#token-efficiency)
+[![MCP Context — essentials](badges/mcp-tokens-essentials.svg)](#token-efficiency)
 
 <video src="https://github.com/user-attachments/assets/a27c535e-f3b5-4a3a-ac3c-bea5fe7ebd0b" width="100%" autoplay loop muted playsinline></video>
 
@@ -124,7 +125,24 @@ The badge above is awarded by [SkillCheck Pro](https://getskillcheck.com); this 
 
 ---
 
-## All 91 Tools
+## Token Efficiency
+
+The full tool surface (92 tools) costs roughly **15.5K tokens** of preload — about 7.8% of a 200K Claude context. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
+
+| Profile | Tools | Preload tokens (est.) | % of 200K context |
+|---|---|---|---|
+| `full` (default) | 92 | ~15,500 | 7.8% |
+| `essentials` | 15 | ~2,400 | 1.2% |
+
+Savings: **~13,100 tokens (84.5% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
+
+`miro_tool_search(query?, category?, limit?)` is registered in both profiles. It searches tool names, titles, descriptions, and categories with weighted keyword scoring (name 3×, title 2×, category 2.5×, description 1×), returns up to 50 matches, and never recommends itself. Use it when you don't know which tool to reach for, or to scope to a category before browsing. Empty query plus a category returns the category's tools alphabetically.
+
+See [CONFIG.md](CONFIG.md) for the full env-var reference.
+
+---
+
+## All 92 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -370,7 +388,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
 | **Last changelog entry** | April 2026 | January 2026 |
-| **Tools** | 91 | 15 (13 tools + 2 prompts) |
+| **Tools** | 92 (or 15 in `essentials` profile) | 15 (13 tools + 2 prompts) |
 | **Transport** | stdio + HTTP | HTTPS only (hosted) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
@@ -392,7 +410,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, AI-powered board context extraction, or code-to-board workflows.
 
-**When to use this server:** You need full API coverage (91 vs 15 tools), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
+**When to use this server:** You need full API coverage (92 vs 15 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 

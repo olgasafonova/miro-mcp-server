@@ -1,5 +1,7 @@
-// Command token-count estimates the MCP context token cost of registering all
-// Miro MCP tools and generates a shields.io-style SVG badge.
+// Command token-count estimates the MCP context token cost of registering
+// Miro MCP tools and generates shields.io-style SVG badges, one per
+// MIRO_TOOLS_PROFILE option (full / essentials). Always prints a comparison
+// to stdout so the savings claim is reproducible from the repo.
 //
 // Usage:
 //
@@ -33,14 +35,23 @@ type mcpTool struct {
 	Annotations map[string]bool `json:"annotations,omitempty"`
 }
 
-func main() {
-	// Build MCP wire-format representation of each tool.
-	mcpTools := make([]mcpTool, 0, len(tools.AllTools))
-	for _, spec := range tools.AllTools {
-		t := mcpTool{
-			Name:        spec.Name,
-			Description: spec.Description,
-		}
+// profileMeasurement captures the token-cost numbers for a registered
+// profile so callers (badge generator, stdout printer) can share results.
+type profileMeasurement struct {
+	Profile      tools.Profile
+	ToolCount    int
+	DescBytes    int
+	DescTokens   int
+	SchemaTokens int
+	TotalTokens  int
+	Percentage   float64
+}
+
+func measureProfile(profile tools.Profile) (profileMeasurement, error) {
+	specs := tools.ToolsForProfile(profile)
+	wire := make([]mcpTool, 0, len(specs))
+	for _, spec := range specs {
+		t := mcpTool{Name: spec.Name, Description: spec.Description}
 		annotations := make(map[string]bool)
 		if spec.ReadOnly {
 			annotations["readOnlyHint"] = true
@@ -54,47 +65,98 @@ func main() {
 		if len(annotations) > 0 {
 			t.Annotations = annotations
 		}
-		mcpTools = append(mcpTools, t)
+		wire = append(wire, t)
 	}
 
-	// Marshal to JSON to measure description payload size.
-	data, err := json.Marshal(mcpTools)
+	data, err := json.Marshal(wire)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error marshaling tools: %v\n", err)
-		os.Exit(1)
+		return profileMeasurement{}, fmt.Errorf("marshal %s: %w", profile, err)
 	}
 
 	descTokens := len(data) / charsPerToken
-	schemaTokens := len(tools.AllTools) * avgSchemaBytesPerTool / charsPerToken
+	schemaTokens := len(specs) * avgSchemaBytesPerTool / charsPerToken
 	totalTokens := descTokens + schemaTokens
-	percentage := float64(totalTokens) / float64(contextWindow) * 100
 
-	// Round to nearest 100 for display.
-	displayTokens := int(math.Round(float64(totalTokens)/100) * 100)
+	return profileMeasurement{
+		Profile:      profile,
+		ToolCount:    len(specs),
+		DescBytes:    len(data),
+		DescTokens:   descTokens,
+		SchemaTokens: schemaTokens,
+		TotalTokens:  totalTokens,
+		Percentage:   float64(totalTokens) / float64(contextWindow) * 100,
+	}, nil
+}
+
+// badgeFilename returns the relative output path for a profile's SVG badge.
+// The default profile keeps the historical filename so existing README
+// references don't break.
+func badgeFilename(profile tools.Profile) string {
+	if profile == tools.ProfileFull {
+		return filepath.Join("badges", "mcp-tokens.svg")
+	}
+	return filepath.Join("badges", "mcp-tokens-"+string(profile)+".svg")
+}
+
+func writeBadge(m profileMeasurement) (string, error) {
+	displayTokens := int(math.Round(float64(m.TotalTokens)/100) * 100)
 	displayK := fmt.Sprintf("~%dK", displayTokens/1000)
 	if displayTokens < 1000 {
 		displayK = fmt.Sprintf("~%d", displayTokens)
 	}
 
 	label := "MCP Context"
-	value := fmt.Sprintf("%s tokens (%.1f%%)", displayK, percentage)
-
-	// Generate badge SVG.
+	if m.Profile != tools.ProfileFull {
+		label = fmt.Sprintf("MCP Context (%s)", m.Profile)
+	}
+	value := fmt.Sprintf("%s tokens (%.1f%%)", displayK, m.Percentage)
 	svg := generateBadge(label, value)
 
-	badgePath := filepath.Join("badges", "mcp-tokens.svg")
-	if err := os.WriteFile(badgePath, []byte(svg), 0600); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing badge: %v\n", err)
+	path := badgeFilename(m.Profile)
+	if err := os.WriteFile(path, []byte(svg), 0600); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func main() {
+	full, err := measureProfile(tools.ProfileFull)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	essentials, err := measureProfile(tools.ProfileEssentials)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Tools:             %d\n", len(tools.AllTools))
-	fmt.Printf("Description JSON:  %d bytes (%d tokens)\n", len(data), descTokens)
-	fmt.Printf("Schema estimate:   %d bytes (%d tokens)\n",
-		len(tools.AllTools)*avgSchemaBytesPerTool, schemaTokens)
-	fmt.Printf("Total estimate:    %d tokens (%.1f%% of %dK context)\n",
-		totalTokens, percentage, contextWindow/1000)
-	fmt.Printf("Badge written:     %s\n", badgePath)
+	fullBadge, err := writeBadge(full)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "writing full badge:", err)
+		os.Exit(1)
+	}
+	essBadge, err := writeBadge(essentials)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "writing essentials badge:", err)
+		os.Exit(1)
+	}
+
+	saved := full.TotalTokens - essentials.TotalTokens
+	pct := float64(saved) / float64(full.TotalTokens) * 100
+
+	fmt.Println("Profile     Tools  DescTokens  SchemaTokens  Total   % of 200K")
+	fmt.Println("----------  -----  ----------  ------------  ------  ---------")
+	fmt.Printf("%-10s  %5d  %10d  %12d  %6d  %5.1f%%\n",
+		full.Profile, full.ToolCount, full.DescTokens, full.SchemaTokens, full.TotalTokens, full.Percentage)
+	fmt.Printf("%-10s  %5d  %10d  %12d  %6d  %5.1f%%\n",
+		essentials.Profile, essentials.ToolCount, essentials.DescTokens, essentials.SchemaTokens, essentials.TotalTokens, essentials.Percentage)
+	fmt.Println()
+	fmt.Printf("Savings (essentials vs full): %d tokens (%.1f%% reduction)\n", saved, pct)
+	fmt.Println()
+	fmt.Println("Badges written:")
+	fmt.Println("  ", fullBadge)
+	fmt.Println("  ", essBadge)
 }
 
 // generateBadge creates a shields.io-style SVG badge.

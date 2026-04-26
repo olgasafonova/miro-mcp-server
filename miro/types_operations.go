@@ -37,8 +37,8 @@ type CreateShapeArgs struct {
 	Y         float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, shape center is placed at this y. Y increases downward."`
 	Width     float64 `json:"width,omitempty" jsonschema:"Width in pixels (default 200)"`
 	Height    float64 `json:"height,omitempty" jsonschema:"Height in pixels (default 200)"`
-	Color     string  `json:"color,omitempty" jsonschema:"Fill/background color (hex like #006400)"`
-	TextColor string  `json:"text_color,omitempty" jsonschema:"Text color (hex like #ffffff for white)"`
+	Color     string  `json:"color,omitempty" jsonschema:"Fill/background color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
+	TextColor string  `json:"text_color,omitempty" jsonschema:"Text color: 6-char hex like #ffffff or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 	ParentID  string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place shape in. Coords (x, y) are then relative to the frame's TOP-LEFT; the shape's CENTER is placed at (x, y). Account for shape width/height when picking coords to keep it inside the frame."`
 }
 
@@ -63,7 +63,7 @@ type CreateTextArgs struct {
 	Y        float64 `json:"y,omitempty" jsonschema:"Y position"`
 	Width    float64 `json:"width,omitempty" jsonschema:"Text box width"`
 	FontSize int     `json:"font_size,omitempty" jsonschema:"Font size (default 14)"`
-	Color    string  `json:"color,omitempty" jsonschema:"Text color"`
+	Color    string  `json:"color,omitempty" jsonschema:"Text color: 6-char hex like #1a1a1a or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID"`
 }
 
@@ -165,7 +165,7 @@ type UpdateConnectorArgs struct {
 	StartCap    string `json:"start_cap,omitempty" jsonschema:"Start arrow: none, arrow, filled_arrow, diamond, etc."`
 	EndCap      string `json:"end_cap,omitempty" jsonschema:"End arrow: none, arrow, filled_arrow, diamond, etc."`
 	Caption     string `json:"caption,omitempty" jsonschema:"Text label on the connector"`
-	Color       string `json:"color,omitempty" jsonschema:"Connector line color (hex)"`
+	Color       string `json:"color,omitempty" jsonschema:"Connector line color: 6-char hex like #1a1a1a or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 }
 
 // UpdateConnectorResult confirms connector update.
@@ -205,7 +205,7 @@ type CreateFrameArgs struct {
 	Y       float64 `json:"y,omitempty" jsonschema:"Y position"`
 	Width   float64 `json:"width,omitempty" jsonschema:"Width (default 800)"`
 	Height  float64 `json:"height,omitempty" jsonschema:"Height (default 600)"`
-	Color   string  `json:"color,omitempty" jsonschema:"Background color"`
+	Color   string  `json:"color,omitempty" jsonschema:"Background color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 }
 
 // CreateFrameResult contains the created frame.
@@ -468,7 +468,7 @@ type UpdateItemArgs struct {
 	Y        *float64 `json:"y,omitempty" jsonschema:"New Y position"`
 	Width    *float64 `json:"width,omitempty" jsonschema:"New width"`
 	Height   *float64 `json:"height,omitempty" jsonschema:"New height"`
-	Color    *string  `json:"color,omitempty" jsonschema:"New color"`
+	Color    *string  `json:"color,omitempty" jsonschema:"New color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black). For sticky notes, prefer miro_update_sticky which accepts Miro sticky color names."`
 	ParentID *string  `json:"parent_id,omitempty" jsonschema:"Move to new frame"`
 }
 
@@ -530,7 +530,7 @@ type BulkCreateItem struct {
 	Y        float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this y."`
 	Width    float64 `json:"width,omitempty" jsonschema:"Width"`
 	Height   float64 `json:"height,omitempty" jsonschema:"Height"`
-	Color    string  `json:"color,omitempty" jsonschema:"Color. For sticky_note items: named (yellow, light_green, etc.). For shape items: hex (e.g. #006400)."`
+	Color    string  `json:"color,omitempty" jsonschema:"Color. For sticky_note items: Miro sticky names (yellow, light_green, dark_blue, etc.). For shape/text items: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)."`
 	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place item in. Coords (x, y) are then relative to the frame's TOP-LEFT corner; the item's CENTER is placed at (x, y)."`
 }
 
@@ -646,8 +646,8 @@ type UpdateShapeArgs struct {
 	ItemID    string   `json:"item_id" jsonschema:"Shape ID to update"`
 	Content   *string  `json:"content,omitempty" jsonschema:"New text inside shape"`
 	ShapeType *string  `json:"shape_type,omitempty" jsonschema:"New shape type: rectangle, circle, triangle, rhombus, round_rectangle, parallelogram, trapezoid, pentagon, hexagon, star, flow_chart_predefined_process, etc."`
-	Color     *string  `json:"color,omitempty" jsonschema:"New fill color (hex like #006400)"`
-	TextColor *string  `json:"text_color,omitempty" jsonschema:"New text color (hex like #ffffff)"`
+	Color     *string  `json:"color,omitempty" jsonschema:"New fill color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
+	TextColor *string  `json:"text_color,omitempty" jsonschema:"New text color: 6-char hex like #ffffff or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 	X         *float64 `json:"x,omitempty" jsonschema:"New X position"`
 	Y         *float64 `json:"y,omitempty" jsonschema:"New Y position"`
 	Width     *float64 `json:"width,omitempty" jsonschema:"New width"`
@@ -670,7 +670,7 @@ type UpdateTextArgs struct {
 	Content   *string  `json:"content,omitempty" jsonschema:"New text content (supports basic HTML: <p>, <a>, <b>, <strong>, <i>, <em>, <u>, <s>)"`
 	FontSize  *int     `json:"font_size,omitempty" jsonschema:"New font size (10-288, default 14)"`
 	TextAlign *string  `json:"text_align,omitempty" jsonschema:"Text alignment: left, center, right"`
-	Color     *string  `json:"color,omitempty" jsonschema:"New text color (hex like #1a1a1a)"`
+	Color     *string  `json:"color,omitempty" jsonschema:"New text color: 6-char hex like #1a1a1a or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 	X         *float64 `json:"x,omitempty" jsonschema:"New X position"`
 	Y         *float64 `json:"y,omitempty" jsonschema:"New Y position"`
 	Width     *float64 `json:"width,omitempty" jsonschema:"New width"`
@@ -983,7 +983,7 @@ type CreateFlowchartShapeArgs struct {
 	Y           float64 `json:"y,omitempty" jsonschema:"Y position"`
 	Width       float64 `json:"width,omitempty" jsonschema:"Width in pixels (default 200)"`
 	Height      float64 `json:"height,omitempty" jsonschema:"Height in pixels (default 200)"`
-	FillColor   string  `json:"fill_color,omitempty" jsonschema:"Fill/background color (hex like #006400)"`
-	BorderColor string  `json:"border_color,omitempty" jsonschema:"Border color (hex like #000000)"`
+	FillColor   string  `json:"fill_color,omitempty" jsonschema:"Fill/background color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
+	BorderColor string  `json:"border_color,omitempty" jsonschema:"Border color: 6-char hex like #000000 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 	ParentID    string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place shape in"`
 }

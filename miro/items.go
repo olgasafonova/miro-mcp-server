@@ -301,8 +301,12 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 	}
 
 	if args.Color != nil {
+		fillColor, err := normalizeColor(*args.Color)
+		if err != nil {
+			return UpdateItemResult{}, fmt.Errorf("color: %w", err)
+		}
 		reqBody["style"] = map[string]interface{}{
-			"fillColor": *args.Color,
+			"fillColor": fillColor,
 		}
 	}
 
@@ -1058,10 +1062,18 @@ func (c *Client) UpdateShape(ctx context.Context, args UpdateShapeArgs) (UpdateS
 	// Build style section
 	style := make(map[string]interface{})
 	if args.Color != nil {
-		style["fillColor"] = *args.Color
+		fillColor, err := normalizeColor(*args.Color)
+		if err != nil {
+			return UpdateShapeResult{}, fmt.Errorf("color: %w", err)
+		}
+		style["fillColor"] = fillColor
 	}
 	if args.TextColor != nil {
-		style["fontColor"] = *args.TextColor
+		fontColor, err := normalizeColor(*args.TextColor)
+		if err != nil {
+			return UpdateShapeResult{}, fmt.Errorf("text_color: %w", err)
+		}
+		style["fontColor"] = fontColor
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style
@@ -1161,7 +1173,11 @@ func (c *Client) UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTex
 		style["textAlign"] = *args.TextAlign
 	}
 	if args.Color != nil {
-		style["color"] = *args.Color
+		color, err := normalizeColor(*args.Color)
+		if err != nil {
+			return UpdateTextResult{}, fmt.Errorf("color: %w", err)
+		}
+		style["color"] = color
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style

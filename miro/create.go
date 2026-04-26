@@ -117,10 +117,18 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 	// Build style object with fill color and/or text color
 	style := make(map[string]interface{})
 	if args.Color != "" {
-		style["fillColor"] = args.Color
+		fillColor, err := normalizeColor(args.Color)
+		if err != nil {
+			return CreateShapeResult{}, fmt.Errorf("color: %w", err)
+		}
+		style["fillColor"] = fillColor
 	}
 	if args.TextColor != "" {
-		style["color"] = args.TextColor
+		textColor, err := normalizeColor(args.TextColor)
+		if err != nil {
+			return CreateShapeResult{}, fmt.Errorf("text_color: %w", err)
+		}
+		style["color"] = textColor
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style
@@ -207,10 +215,18 @@ func (c *Client) CreateShapeExperimental(ctx context.Context, args CreateShapeEx
 	// Build style with fill and border colors
 	style := make(map[string]interface{})
 	if args.FillColor != "" {
-		style["fillColor"] = args.FillColor
+		fillColor, err := normalizeColor(args.FillColor)
+		if err != nil {
+			return CreateShapeResult{}, fmt.Errorf("fill_color: %w", err)
+		}
+		style["fillColor"] = fillColor
 	}
 	if args.BorderColor != "" {
-		style["borderColor"] = args.BorderColor
+		borderColor, err := normalizeColor(args.BorderColor)
+		if err != nil {
+			return CreateShapeResult{}, fmt.Errorf("border_color: %w", err)
+		}
+		style["borderColor"] = borderColor
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style
@@ -269,7 +285,11 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 		style["fontSize"] = strconv.Itoa(args.FontSize)
 	}
 	if args.Color != "" {
-		style["color"] = args.Color
+		color, err := normalizeColor(args.Color)
+		if err != nil {
+			return CreateTextResult{}, fmt.Errorf("color: %w", err)
+		}
+		style["color"] = color
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style
@@ -513,7 +533,11 @@ func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) 
 		connectorStyle["endStrokeCap"] = args.EndCap
 	}
 	if args.Color != "" {
-		connectorStyle["strokeColor"] = args.Color
+		strokeColor, err := normalizeColor(args.Color)
+		if err != nil {
+			return UpdateConnectorResult{}, fmt.Errorf("color: %w", err)
+		}
+		connectorStyle["strokeColor"] = strokeColor
 	}
 	if len(connectorStyle) > 0 {
 		reqBody["style"] = connectorStyle
@@ -620,8 +644,12 @@ func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateF
 	}
 
 	if args.Color != "" {
+		fillColor, err := normalizeColor(args.Color)
+		if err != nil {
+			return CreateFrameResult{}, fmt.Errorf("color: %w", err)
+		}
 		reqBody["style"] = map[string]interface{}{
-			"fillColor": args.Color,
+			"fillColor": fillColor,
 		}
 	}
 

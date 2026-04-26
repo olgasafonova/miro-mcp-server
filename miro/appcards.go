@@ -39,10 +39,18 @@ func (c *Client) CreateAppCard(ctx context.Context, args CreateAppCardArgs) (Cre
 				field["value"] = f.Value
 			}
 			if f.FillColor != "" {
-				field["fillColor"] = f.FillColor
+				fillColor, err := normalizeColor(f.FillColor)
+				if err != nil {
+					return CreateAppCardResult{}, fmt.Errorf("fields[%d].fill_color: %w", i, err)
+				}
+				field["fillColor"] = fillColor
 			}
 			if f.TextColor != "" {
-				field["textColor"] = f.TextColor
+				textColor, err := normalizeColor(f.TextColor)
+				if err != nil {
+					return CreateAppCardResult{}, fmt.Errorf("fields[%d].text_color: %w", i, err)
+				}
+				field["textColor"] = textColor
 			}
 			if f.IconShape != "" {
 				field["iconShape"] = f.IconShape
@@ -214,10 +222,18 @@ func (c *Client) UpdateAppCard(ctx context.Context, args UpdateAppCardArgs) (Upd
 				field["value"] = f.Value
 			}
 			if f.FillColor != "" {
-				field["fillColor"] = f.FillColor
+				fillColor, err := normalizeColor(f.FillColor)
+				if err != nil {
+					return UpdateAppCardResult{}, fmt.Errorf("fields[%d].fill_color: %w", i, err)
+				}
+				field["fillColor"] = fillColor
 			}
 			if f.TextColor != "" {
-				field["textColor"] = f.TextColor
+				textColor, err := normalizeColor(f.TextColor)
+				if err != nil {
+					return UpdateAppCardResult{}, fmt.Errorf("fields[%d].text_color: %w", i, err)
+				}
+				field["textColor"] = textColor
 			}
 			if f.IconShape != "" {
 				field["iconShape"] = f.IconShape

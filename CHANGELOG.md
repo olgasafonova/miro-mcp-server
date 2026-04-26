@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-04-26
+
 ### Added
 - **`miro_tool_search` discovery tool**. Server-side keyword search across all tool names, titles, categories, and descriptions. Returns up to 50 matches with short description excerpts so the agent can pick a tool to call. Use when you don't know which tool to reach for, or to scope to a category before browsing. Tool count: 91 → 92.
 - **`MIRO_TOOLS_PROFILE=full|essentials` env var**. Default `full` registers all 92 tools (preserves existing behavior). `essentials` registers `miro_tool_search` plus 14 high-frequency tools (boards, list/find, search, sticky/text/frame/connector creation, list/get/update/delete items); agents reach the long tail via the discovery tool. Saves ~13K tokens of preload (~84.5% reduction, measured). See [CONFIG.md](CONFIG.md) for details. Unknown values fall back to `full` with a logged warning.

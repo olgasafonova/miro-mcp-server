@@ -8,28 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **`miro_tool_search` discovery meta-tool** (`tools/search.go`). Server-side keyword search across tool name (3×), title (2×), category (2.5×), and description (1×). Multi-term OR scoring, self-recursion guarded, descriptions truncated to first non-empty line + 200 chars, up to 50 matches. Use when you don't know which tool to reach for, or to scope to a category before browsing. Empty query plus a category returns the category's tools alphabetically. Tool count: 91 → 92.
-- **`MIRO_TOOLS_PROFILE=full|essentials` env var** (`tools/profile.go`). `full` (default) registers all 92 tools; `essentials` registers `miro_tool_search` plus 14 high-frequency tools (boards, list/find, search, sticky/text/frame/connector creation, list/get/update/delete items). Agents reach the long tail via the discovery tool on demand. Unknown values fall back to `full` with a logged warning. Documented in `CONFIG.md`.
-- **README "Token Efficiency" section** with measured numbers and both profile badges. Reproducible from the repo via `go run ./cmd/token-count/`.
-- **Profile integration test** (`tools/profile_integration_test.go`). End-to-end MCP roundtrip via `mcp.NewInMemoryTransports`: registers each profile, calls `ListTools`, asserts count matches and discovery tool is reachable in the lean profile.
-
-### Changed
-- **`cmd/token-count` measures both profiles**. Prints comparison table + savings to stdout, emits two badges (`badges/mcp-tokens.svg` for full, `badges/mcp-tokens-essentials.svg` for essentials).
-
-### Token cost (measured)
-| Profile | Tools | Preload tokens (est.) | % of 200K context |
-|---|---|---|---|
-| `full` (default) | 92 | ~15,500 | 7.8% |
-| `essentials` | 15 | ~2,400 | 1.2% |
-
-Savings: ~13,100 tokens (84.5% reduction) when an operator opts into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool.
+- **`miro_tool_search` discovery tool**. Server-side keyword search across all tool names, titles, categories, and descriptions. Returns up to 50 matches with short description excerpts so the agent can pick a tool to call. Use when you don't know which tool to reach for, or to scope to a category before browsing. Tool count: 91 → 92.
+- **`MIRO_TOOLS_PROFILE=full|essentials` env var**. Default `full` registers all 92 tools (preserves existing behavior). `essentials` registers `miro_tool_search` plus 14 high-frequency tools (boards, list/find, search, sticky/text/frame/connector creation, list/get/update/delete items); agents reach the long tail via the discovery tool. Saves ~13K tokens of preload (~84.5% reduction, measured). See [CONFIG.md](CONFIG.md) for details. Unknown values fall back to `full` with a logged warning.
 
 ### Fixed
-- Translate color names to hex in miro write paths (#41). Some Miro APIs accept named colors (e.g. `yellow`), others require hex (`#FFEB3B`); this normalizes at the SDK boundary so agents don't need to know the difference.
-
-### Internal
-- **`ServerVersion` bumped to 1.19.0**. The constant had drifted (was 1.16.1 while tags went to v1.18.0); the SEP-2127 server card was advertising the wrong version. Bumping forward and aligning with the tag we're about to cut.
-- SkillCheck Pro badge for the `miro-workflow` skill.
+- Translate color names to hex in write paths (#41). Some Miro APIs accept named colors (e.g. `yellow`), others require hex (`#FFEB3B`); this normalizes at the SDK boundary so agents don't need to know the difference.
 
 ## [1.18.0] - 2026-04-25
 

@@ -31,6 +31,16 @@ jobs:
             /tmp/miro-spec-latest.json > /tmp/diff-report.md
           echo "has_changes=$?" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure api-tracking label exists
+        if: steps.diff.outputs.has_changes == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create api-tracking \
+            --color "0E8A16" \
+            --description "Automated Miro OpenAPI spec change detection" \
+            --force
+
       - name: Create issue if changes found
         if: steps.diff.outputs.has_changes == '1'
         env:

@@ -67,8 +67,6 @@ def diff_endpoints(baseline, current):
             diffs.append(f"summary: '{old['summary']}' -> '{new['summary']}'")
         if old["deprecated"] != new["deprecated"]:
             diffs.append(f"deprecated: {old['deprecated']} -> {new['deprecated']}")
-        if old["tags"] != new["tags"]:
-            diffs.append(f"tags: {old['tags']} -> {new['tags']}")
 
         old_params = {p["name"] for p in old["parameters"]}
         new_params = {p["name"] for p in new["parameters"]}

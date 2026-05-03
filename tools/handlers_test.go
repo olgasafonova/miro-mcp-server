@@ -993,33 +993,7 @@ func TestArgsToMap(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// recoverPanic Tests
-// =============================================================================
-
-func TestRecoverPanic(t *testing.T) {
-	mock := &MockClient{}
-	registry := newTestRegistry(mock)
-
-	// Should recover from panic without crashing
-	func() {
-		defer registry.recoverPanic("test_tool")
-		panic("test panic")
-	}()
-
-	// If we get here, panic was recovered successfully
-}
-
-func TestRecoverPanicNoPanic(t *testing.T) {
-	mock := &MockClient{}
-	registry := newTestRegistry(mock)
-
-	// Should handle case where no panic occurs
-	func() {
-		defer registry.recoverPanic("test_tool")
-		// No panic, just normal execution
-	}()
-}
+// recoverPanic tests live in recover_test.go (HG-1 regression suite).
 
 // =============================================================================
 // logExecution Tests

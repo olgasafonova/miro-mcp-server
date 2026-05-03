@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-05-03
+
+### Security
+
+- **Panic in any tool now surfaces as a structured error to the MCP caller.** Previously, if a tool handler panicked, the deferred recover only logged — the MCP caller received what looked like a successful empty response, with no error signal and no audit-log entry. After: the caller gets a clear error with a correlation ID; the panic value is logged server-side only and never reaches the agent. **Behavior change**: clients that observed the old "empty success on panic" should re-review their error handling.
+- **API errors no longer include the raw HTTP response body.** During Miro incidents or CDN/edge errors that return HTML pages, `ParseAPIError` previously echoed up to several KB of response body verbatim into the caller-facing error string (internal hostnames, request IDs, `nginx/X.Y.Z` strings could leak into agent transcripts). Now non-JSON or malformed-JSON responses fall back to `http.StatusText(StatusCode)`. JSON errors with a usable `message` field are unchanged.
+- **`board_id`, `item_id`, and `org_id` now validated at every Miro API call site.** A prompt-injected agent could previously send `board_id="valid?team_id=victim"` and Go's URL parser would silently split it into a path-pivot to a different endpoint with attacker-controlled query params. Validators now reject any ID outside `^[a-zA-Z0-9_=\-]+$` (max 100 chars) before the request is constructed. Real Miro IDs match this regex; no legitimate workflow regresses. Invalid IDs now get `board_id contains invalid characters` instead of an opaque Miro 4xx after a wasted request. Resource handlers (`miro://board/...`) also validate.
+
+These three fixes close regressions of hard gates graduated 2026-04-25 (`rules/review-patterns.md`: HG-1 dispatcher panic recovery, HG-2 error sanitization, path-injection class). Found by an autonomous-vulnerability-research sweep across the MCP portfolio.
+
 ## [1.19.0] - 2026-04-26
 
 ### Added

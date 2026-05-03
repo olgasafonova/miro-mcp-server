@@ -19,8 +19,8 @@ import (
 // ListItems retrieves items from a board.
 // When detail_level=full, additional fields (style, geometry, timestamps, user info) are included.
 func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsResult, error) {
-	if args.BoardID == "" {
-		return ListItemsResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListItemsResult{}, err
 	}
 
 	params := url.Values{}
@@ -174,11 +174,11 @@ func parseItemSummary(raw json.RawMessage, fullDetails bool) ItemSummary {
 
 // GetItem retrieves detailed information about a specific item.
 func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, error) {
-	if args.BoardID == "" {
-		return GetItemResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetItemResult{}, err
 	}
-	if args.ItemID == "" {
-		return GetItemResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetItemResult{}, err
 	}
 
 	// Check cache first
@@ -262,11 +262,11 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 
 // UpdateItem updates an existing item.
 func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateItemResult, error) {
-	if args.BoardID == "" {
-		return UpdateItemResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateItemResult{}, err
 	}
-	if args.ItemID == "" {
-		return UpdateItemResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateItemResult{}, err
 	}
 
 	// Build update body - only include provided fields
@@ -349,11 +349,11 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 
 // DeleteItem deletes an item from a board.
 func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteItemResult, error) {
-	if args.BoardID == "" {
-		return DeleteItemResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteItemResult{}, err
 	}
-	if args.ItemID == "" {
-		return DeleteItemResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return DeleteItemResult{}, err
 	}
 
 	// Dry-run mode: return preview without deleting
@@ -465,8 +465,8 @@ func categorizeBulkError(index int, itemID string, err error) BulkItemError {
 // Items are created in parallel using goroutines, with concurrency
 // controlled by the client's semaphore (MaxConcurrentRequests).
 func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error) {
-	if args.BoardID == "" {
-		return BulkCreateResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return BulkCreateResult{}, err
 	}
 	if len(args.Items) == 0 {
 		return BulkCreateResult{}, fmt.Errorf("at least one item is required")
@@ -592,8 +592,8 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 // Items are updated in parallel using goroutines, with concurrency
 // controlled by the client's semaphore (MaxConcurrentRequests).
 func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdateResult, error) {
-	if args.BoardID == "" {
-		return BulkUpdateResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return BulkUpdateResult{}, err
 	}
 	if len(args.Items) == 0 {
 		return BulkUpdateResult{}, fmt.Errorf("at least one item is required")
@@ -701,8 +701,8 @@ func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdat
 // Items are deleted in parallel using goroutines, with concurrency
 // controlled by the client's semaphore (MaxConcurrentRequests).
 func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDeleteResult, error) {
-	if args.BoardID == "" {
-		return BulkDeleteResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return BulkDeleteResult{}, err
 	}
 	if len(args.ItemIDs) == 0 {
 		return BulkDeleteResult{}, fmt.Errorf("at least one item_id is required")
@@ -783,8 +783,8 @@ func (c *Client) BulkDelete(ctx context.Context, args BulkDeleteArgs) (BulkDelet
 
 // ListAllItems retrieves all items from a board with automatic pagination.
 func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListAllItemsResult, error) {
-	if args.BoardID == "" {
-		return ListAllItemsResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListAllItemsResult{}, err
 	}
 
 	maxItems := args.MaxItems
@@ -845,8 +845,8 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 
 // SearchBoard searches for items containing specific text.
 func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchBoardResult, error) {
-	if args.BoardID == "" {
-		return SearchBoardResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return SearchBoardResult{}, err
 	}
 	if args.Query == "" {
 		return SearchBoardResult{}, fmt.Errorf("query is required")
@@ -1376,11 +1376,11 @@ func createSnippet(content, query string, contextLen int) string {
 
 // GetImage retrieves details of a specific image item.
 func (c *Client) GetImage(ctx context.Context, args GetImageArgs) (GetImageResult, error) {
-	if args.BoardID == "" {
-		return GetImageResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetImageResult{}, err
 	}
-	if args.ItemID == "" {
-		return GetImageResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetImageResult{}, err
 	}
 
 	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)
@@ -1438,11 +1438,11 @@ func (c *Client) GetImage(ctx context.Context, args GetImageArgs) (GetImageResul
 
 // GetDocument retrieves details of a specific document item.
 func (c *Client) GetDocument(ctx context.Context, args GetDocumentArgs) (GetDocumentResult, error) {
-	if args.BoardID == "" {
-		return GetDocumentResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetDocumentResult{}, err
 	}
-	if args.ItemID == "" {
-		return GetDocumentResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetDocumentResult{}, err
 	}
 
 	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)

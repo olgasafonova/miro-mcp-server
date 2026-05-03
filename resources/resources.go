@@ -72,6 +72,13 @@ func (r *Registry) handleBoardResource(ctx context.Context, req *mcp.ReadResourc
 		boardID = boardID[:idx]
 	}
 
+	// Validate before passing to the client. Without this gate a prompt-
+	// injected URI like miro://board/abc?team_id=victim flows raw into the
+	// Miro API URL and pivots the request away from the intended endpoint.
+	if err := miroclient.ValidateBoardID(boardID); err != nil {
+		return nil, mcp.ResourceNotFoundError(req.Params.URI)
+	}
+
 	// Get board summary (includes metadata and item counts)
 	summary, err := r.client.GetBoardSummary(ctx, miroclient.GetBoardSummaryArgs{
 		BoardID: boardID,
@@ -106,6 +113,10 @@ func (r *Registry) handleBoardItemsResource(ctx context.Context, req *mcp.ReadRe
 
 	// Remove /items suffix
 	boardID = strings.TrimSuffix(boardID, "/items")
+
+	if err := miroclient.ValidateBoardID(boardID); err != nil {
+		return nil, mcp.ResourceNotFoundError(req.Params.URI)
+	}
 
 	// Get all items on the board
 	items, err := r.client.ListAllItems(ctx, miroclient.ListAllItemsArgs{
@@ -142,6 +153,10 @@ func (r *Registry) handleBoardFramesResource(ctx context.Context, req *mcp.ReadR
 
 	// Remove /frames suffix
 	boardID = strings.TrimSuffix(boardID, "/frames")
+
+	if err := miroclient.ValidateBoardID(boardID); err != nil {
+		return nil, mcp.ResourceNotFoundError(req.Params.URI)
+	}
 
 	// Get all items and filter for frames
 	items, err := r.client.ListItems(ctx, miroclient.ListItemsArgs{

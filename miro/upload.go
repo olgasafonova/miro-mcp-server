@@ -72,8 +72,8 @@ func ValidateUploadPath(filePath string) (string, error) {
 
 // UploadImage uploads a local image file to a Miro board.
 func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error) {
-	if args.BoardID == "" {
-		return UploadImageResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UploadImageResult{}, err
 	}
 	if args.FilePath == "" {
 		return UploadImageResult{}, fmt.Errorf("file_path is required")
@@ -149,8 +149,8 @@ func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadI
 
 // UploadDocument uploads a local document file to a Miro board.
 func (c *Client) UploadDocument(ctx context.Context, args UploadDocumentArgs) (UploadDocumentResult, error) {
-	if args.BoardID == "" {
-		return UploadDocumentResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UploadDocumentResult{}, err
 	}
 	if args.FilePath == "" {
 		return UploadDocumentResult{}, fmt.Errorf("file_path is required")
@@ -232,11 +232,11 @@ func (c *Client) UploadDocument(ctx context.Context, args UploadDocumentArgs) (U
 
 // UpdateImageFromFile replaces the file on an existing image item via PATCH multipart.
 func (c *Client) UpdateImageFromFile(ctx context.Context, args UpdateImageFromFileArgs) (UpdateImageFromFileResult, error) {
-	if args.BoardID == "" {
-		return UpdateImageFromFileResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateImageFromFileResult{}, err
 	}
-	if args.ItemID == "" {
-		return UpdateImageFromFileResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateImageFromFileResult{}, err
 	}
 	if args.FilePath == "" {
 		return UpdateImageFromFileResult{}, fmt.Errorf("file_path is required")
@@ -307,11 +307,11 @@ func (c *Client) UpdateImageFromFile(ctx context.Context, args UpdateImageFromFi
 
 // UpdateDocumentFromFile replaces the file on an existing document item via PATCH multipart.
 func (c *Client) UpdateDocumentFromFile(ctx context.Context, args UpdateDocumentFromFileArgs) (UpdateDocumentFromFileResult, error) {
-	if args.BoardID == "" {
-		return UpdateDocumentFromFileResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateDocumentFromFileResult{}, err
 	}
-	if args.ItemID == "" {
-		return UpdateDocumentFromFileResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateDocumentFromFileResult{}, err
 	}
 	if args.FilePath == "" {
 		return UpdateDocumentFromFileResult{}, fmt.Errorf("file_path is required")

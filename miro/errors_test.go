@@ -230,7 +230,7 @@ func TestParseAPIError_HTMLBodyDoesNotLeak(t *testing.T) {
 		}
 	}
 	// And verify the fallback message is the stable status text.
-	wantMsg := http.StatusText(502)
+	wantMsg := http.StatusText(http.StatusBadGateway)
 	if err.Message != wantMsg {
 		t.Errorf("Message = %q, want %q", err.Message, wantMsg)
 	}

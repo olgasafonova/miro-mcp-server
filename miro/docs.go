@@ -10,8 +10,8 @@ import (
 
 // CreateDocFormat creates a doc format item from Markdown content on a board.
 func (c *Client) CreateDocFormat(ctx context.Context, args CreateDocFormatArgs) (CreateDocFormatResult, error) {
-	if args.BoardID == "" {
-		return CreateDocFormatResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateDocFormatResult{}, err
 	}
 	if args.Content == "" {
 		return CreateDocFormatResult{}, fmt.Errorf("content is required")
@@ -62,11 +62,11 @@ func (c *Client) CreateDocFormat(ctx context.Context, args CreateDocFormatArgs) 
 
 // GetDocFormat gets the details of a doc format item.
 func (c *Client) GetDocFormat(ctx context.Context, args GetDocFormatArgs) (GetDocFormatResult, error) {
-	if args.BoardID == "" {
-		return GetDocFormatResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetDocFormatResult{}, err
 	}
-	if args.ItemID == "" {
-		return GetDocFormatResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetDocFormatResult{}, err
 	}
 
 	path := fmt.Sprintf("/boards/%s/docs/%s", args.BoardID, args.ItemID)
@@ -112,11 +112,11 @@ func (c *Client) GetDocFormat(ctx context.Context, args GetDocFormatArgs) (GetDo
 
 // DeleteDocFormat deletes a doc format item from a board.
 func (c *Client) DeleteDocFormat(ctx context.Context, args DeleteDocFormatArgs) (DeleteDocFormatResult, error) {
-	if args.BoardID == "" {
-		return DeleteDocFormatResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteDocFormatResult{}, err
 	}
-	if args.ItemID == "" {
-		return DeleteDocFormatResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return DeleteDocFormatResult{}, err
 	}
 
 	if args.DryRun {
@@ -148,11 +148,11 @@ func (c *Client) DeleteDocFormat(ctx context.Context, args DeleteDocFormatArgs) 
 // reads the current doc, applies changes, deletes the original, and
 // recreates it at the same position with the new content.
 func (c *Client) UpdateDocFormat(ctx context.Context, args UpdateDocFormatArgs) (UpdateDocFormatResult, error) {
-	if args.BoardID == "" {
-		return UpdateDocFormatResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateDocFormatResult{}, err
 	}
-	if args.ItemID == "" {
-		return UpdateDocFormatResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateDocFormatResult{}, err
 	}
 
 	// Step 1: Read current doc

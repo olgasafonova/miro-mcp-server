@@ -14,8 +14,8 @@ import (
 
 // GenerateDiagram parses diagram code and creates shapes/connectors on a board.
 func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) (GenerateDiagramResult, error) {
-	if args.BoardID == "" {
-		return GenerateDiagramResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GenerateDiagramResult{}, err
 	}
 	if args.Diagram == "" {
 		return GenerateDiagramResult{}, fmt.Errorf("diagram code is required")

@@ -95,13 +95,19 @@ func (e *APIError) Suggestion() string {
 // =============================================================================
 
 // ParseAPIError parses an HTTP response into a structured APIError.
+//
+// The raw response body is NEVER assigned to apiErr.Message. Non-JSON or
+// malformed-JSON responses fall back to http.StatusText so the MCP caller
+// gets a stable, sanitized status string. Operators who need the raw body
+// for incident debugging can log it at the request site (Client.request)
+// before calling ParseAPIError. See HG-2 in rules/code-review-prompts.md.
 func ParseAPIError(resp *http.Response, body []byte) *APIError {
 	apiErr := &APIError{
 		StatusCode: resp.StatusCode,
-		Message:    string(body),
 	}
 
-	// Try to parse as JSON error
+	// Try to parse as JSON error envelope. Only fields that JSON-decoded
+	// reach apiErr; raw body is dropped on every code path.
 	var jsonErr struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
@@ -109,13 +115,15 @@ func ParseAPIError(resp *http.Response, body []byte) *APIError {
 		Status  int    `json:"status"`
 		Context string `json:"context"`
 	}
-	if err := json.Unmarshal(body, &jsonErr); err == nil {
-		if jsonErr.Message != "" {
-			apiErr.Message = jsonErr.Message
-		}
+	if err := json.Unmarshal(body, &jsonErr); err == nil && jsonErr.Message != "" {
 		apiErr.Code = jsonErr.Code
+		apiErr.Message = jsonErr.Message
 		apiErr.Type = jsonErr.Type
 		apiErr.Context = jsonErr.Context
+	} else {
+		// Non-JSON, malformed JSON, or JSON without a usable message field.
+		// Don't leak the raw body — return a stable status string instead.
+		apiErr.Message = http.StatusText(resp.StatusCode)
 	}
 
 	// Parse Retry-After header for rate limits

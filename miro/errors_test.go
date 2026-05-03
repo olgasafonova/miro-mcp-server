@@ -178,6 +178,8 @@ func TestParseAPIError_RateLimitWithRetryAfter(t *testing.T) {
 }
 
 func TestParseAPIError_PlainText(t *testing.T) {
+	// Non-JSON body must NOT flow through to apiErr.Message — the falls-back
+	// to http.StatusText. Stable, no leak. (HG-2 regression test.)
 	resp := &http.Response{
 		StatusCode: 500,
 		Header:     http.Header{},
@@ -189,8 +191,71 @@ func TestParseAPIError_PlainText(t *testing.T) {
 	if err.StatusCode != 500 {
 		t.Errorf("StatusCode = %d, want 500", err.StatusCode)
 	}
-	if err.Message != "Internal Server Error" {
-		t.Errorf("Message = %q, want 'Internal Server Error'", err.Message)
+	want := http.StatusText(500)
+	if err.Message != want {
+		t.Errorf("Message = %q, want %q (http.StatusText fallback)", err.Message, want)
+	}
+}
+
+// TestParseAPIError_HTMLBodyDoesNotLeak is the HG-2 regression test. It asserts
+// that an HTML response body (typical of CDN/edge errors during Miro outages,
+// or corp MITM proxy responses) is NOT propagated into the caller-facing error
+// string. Before the fix, ParseAPIError would assign Message = string(body)
+// unconditionally and only override it when JSON decoding succeeded with a
+// non-empty message field — so HTML bodies leaked verbatim into MCP errors.
+func TestParseAPIError_HTMLBodyDoesNotLeak(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: 502,
+		Header:     http.Header{},
+	}
+	body := []byte(`<html><head><title>502 Bad Gateway</title></head>` +
+		`<body><h1>nginx/1.21.6 internal-host.miro.local</h1>` +
+		`<p>request_id: abc-secret-123</p></body></html>`)
+
+	err := ParseAPIError(resp, body)
+
+	if err.StatusCode != 502 {
+		t.Errorf("StatusCode = %d, want 502", err.StatusCode)
+	}
+	leakSentinels := []string{
+		"<html>",
+		"nginx",
+		"internal-host.miro.local",
+		"abc-secret-123",
+	}
+	msg := err.Error()
+	for _, leak := range leakSentinels {
+		if strings.Contains(msg, leak) {
+			t.Errorf("HG-2 regression: error message leaked %q into caller-facing string: %q", leak, msg)
+		}
+	}
+	// And verify the fallback message is the stable status text.
+	wantMsg := http.StatusText(502)
+	if err.Message != wantMsg {
+		t.Errorf("Message = %q, want %q", err.Message, wantMsg)
+	}
+}
+
+// TestParseAPIError_EmptyJSONMessageDoesNotLeak verifies that JSON bodies
+// without a usable `message` field also fall back to StatusText rather than
+// echoing the original body bytes.
+func TestParseAPIError_EmptyJSONMessageDoesNotLeak(t *testing.T) {
+	resp := &http.Response{
+		StatusCode: 400,
+		Header:     http.Header{},
+	}
+	// JSON parses fine but message is empty — pre-fix this would have left
+	// Message = string(body) verbatim because the override was conditional on
+	// jsonErr.Message != "".
+	body := []byte(`{"code":"bad_request","message":""}`)
+
+	err := ParseAPIError(resp, body)
+
+	if strings.Contains(err.Error(), `"code"`) || strings.Contains(err.Error(), `"message"`) {
+		t.Errorf("HG-2 regression: error message echoed raw JSON: %q", err.Error())
+	}
+	if err.Message != http.StatusText(400) {
+		t.Errorf("Message = %q, want %q", err.Message, http.StatusText(400))
 	}
 }
 

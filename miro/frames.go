@@ -15,8 +15,8 @@ import (
 
 // GetFrame retrieves a specific frame by ID.
 func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error) {
-	if args.BoardID == "" {
-		return GetFrameResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetFrameResult{}, err
 	}
 	if args.FrameID == "" {
 		return GetFrameResult{}, fmt.Errorf("frame_id is required")
@@ -80,8 +80,8 @@ func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResul
 
 // UpdateFrame updates an existing frame.
 func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateFrameResult, error) {
-	if args.BoardID == "" {
-		return UpdateFrameResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateFrameResult{}, err
 	}
 	if args.FrameID == "" {
 		return UpdateFrameResult{}, fmt.Errorf("frame_id is required")
@@ -154,8 +154,8 @@ func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateF
 
 // DeleteFrame removes a frame from a board.
 func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteFrameResult, error) {
-	if args.BoardID == "" {
-		return DeleteFrameResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteFrameResult{}, err
 	}
 	if args.FrameID == "" {
 		return DeleteFrameResult{}, fmt.Errorf("frame_id is required")
@@ -193,8 +193,8 @@ func (c *Client) DeleteFrame(ctx context.Context, args DeleteFrameArgs) (DeleteF
 // GetFrameItems retrieves all items within a specific frame.
 // When detail_level=full, additional fields (style, geometry, timestamps, user info) are included.
 func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (GetFrameItemsResult, error) {
-	if args.BoardID == "" {
-		return GetFrameItemsResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetFrameItemsResult{}, err
 	}
 	if args.FrameID == "" {
 		return GetFrameItemsResult{}, fmt.Errorf("frame_id is required")

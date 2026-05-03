@@ -16,8 +16,8 @@ import (
 // GetBoardPicture retrieves the preview image URL for a board.
 // This works for all Miro plans and provides a thumbnail of the board.
 func (c *Client) GetBoardPicture(ctx context.Context, args GetBoardPictureArgs) (GetBoardPictureResult, error) {
-	if args.BoardID == "" {
-		return GetBoardPictureResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetBoardPictureResult{}, err
 	}
 
 	// Get board details (which includes the picture)
@@ -54,14 +54,19 @@ func (c *Client) GetBoardPicture(ctx context.Context, args GetBoardPictureArgs) 
 // This is an Enterprise-only feature requiring the boards:export scope.
 // Up to 50 boards can be exported in a single job.
 func (c *Client) CreateExportJob(ctx context.Context, args CreateExportJobArgs) (CreateExportJobResult, error) {
-	if args.OrgID == "" {
-		return CreateExportJobResult{}, fmt.Errorf("org_id is required (Enterprise feature)")
+	if err := ValidateOrgID(args.OrgID); err != nil {
+		return CreateExportJobResult{}, fmt.Errorf("%w (Enterprise feature)", err)
 	}
 	if len(args.BoardIDs) == 0 {
 		return CreateExportJobResult{}, fmt.Errorf("board_ids is required (at least one board)")
 	}
 	if len(args.BoardIDs) > 50 {
 		return CreateExportJobResult{}, fmt.Errorf("maximum 50 boards per export job")
+	}
+	for i, boardID := range args.BoardIDs {
+		if err := ValidateBoardID(boardID); err != nil {
+			return CreateExportJobResult{}, fmt.Errorf("board_ids[%d]: %w", i, err)
+		}
 	}
 
 	// Generate request ID if not provided
@@ -111,8 +116,8 @@ func (c *Client) CreateExportJob(ctx context.Context, args CreateExportJobArgs) 
 // GetExportJobStatus retrieves the status of an export job.
 // This is an Enterprise-only feature.
 func (c *Client) GetExportJobStatus(ctx context.Context, args GetExportJobStatusArgs) (GetExportJobStatusResult, error) {
-	if args.OrgID == "" {
-		return GetExportJobStatusResult{}, fmt.Errorf("org_id is required")
+	if err := ValidateOrgID(args.OrgID); err != nil {
+		return GetExportJobStatusResult{}, err
 	}
 	if args.JobID == "" {
 		return GetExportJobStatusResult{}, fmt.Errorf("job_id is required")
@@ -156,8 +161,8 @@ func (c *Client) GetExportJobStatus(ctx context.Context, args GetExportJobStatus
 // This is an Enterprise-only feature.
 // Download links are valid for 15 minutes; call again to regenerate if expired.
 func (c *Client) GetExportJobResults(ctx context.Context, args GetExportJobResultsArgs) (GetExportJobResultsResult, error) {
-	if args.OrgID == "" {
-		return GetExportJobResultsResult{}, fmt.Errorf("org_id is required")
+	if err := ValidateOrgID(args.OrgID); err != nil {
+		return GetExportJobResultsResult{}, err
 	}
 	if args.JobID == "" {
 		return GetExportJobResultsResult{}, fmt.Errorf("job_id is required")

@@ -112,8 +112,8 @@ func truncateMindmap(s string, max int) string {
 
 // GetMindmapNode retrieves a specific mindmap node.
 func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (GetMindmapNodeResult, error) {
-	if args.BoardID == "" {
-		return GetMindmapNodeResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetMindmapNodeResult{}, err
 	}
 	if args.NodeID == "" {
 		return GetMindmapNodeResult{}, fmt.Errorf("node_id is required")
@@ -182,8 +182,8 @@ func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (G
 
 // ListMindmapNodes retrieves all mindmap nodes on a board.
 func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs) (ListMindmapNodesResult, error) {
-	if args.BoardID == "" {
-		return ListMindmapNodesResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListMindmapNodesResult{}, err
 	}
 
 	limit := args.Limit
@@ -254,8 +254,8 @@ func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs
 
 // DeleteMindmapNode removes a mindmap node.
 func (c *Client) DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error) {
-	if args.BoardID == "" {
-		return DeleteMindmapNodeResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteMindmapNodeResult{}, err
 	}
 	if args.NodeID == "" {
 		return DeleteMindmapNodeResult{}, fmt.Errorf("node_id is required")

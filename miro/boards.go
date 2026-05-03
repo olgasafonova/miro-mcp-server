@@ -91,8 +91,8 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 
 // GetBoard retrieves a specific board by ID.
 func (c *Client) GetBoard(ctx context.Context, args GetBoardArgs) (GetBoardResult, error) {
-	if args.BoardID == "" {
-		return GetBoardResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetBoardResult{}, err
 	}
 
 	// Check cache
@@ -158,8 +158,8 @@ func (c *Client) CreateBoard(ctx context.Context, args CreateBoardArgs) (CreateB
 // CopyBoard copies an existing board.
 // Uses PUT /boards?copy_from={board_id} as per Miro API docs.
 func (c *Client) CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardResult, error) {
-	if args.BoardID == "" {
-		return CopyBoardResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CopyBoardResult{}, err
 	}
 
 	reqBody := make(map[string]interface{})
@@ -196,8 +196,8 @@ func (c *Client) CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardRe
 
 // DeleteBoard deletes a board.
 func (c *Client) DeleteBoard(ctx context.Context, args DeleteBoardArgs) (DeleteBoardResult, error) {
-	if args.BoardID == "" {
-		return DeleteBoardResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteBoardResult{}, err
 	}
 
 	// Dry-run mode: return preview without deleting
@@ -293,8 +293,8 @@ func (c *Client) FindBoardByNameTool(ctx context.Context, args FindBoardByNameAr
 
 // UpdateBoard updates a board's name and/or description.
 func (c *Client) UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateBoardResult, error) {
-	if args.BoardID == "" {
-		return UpdateBoardResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateBoardResult{}, err
 	}
 	if args.Name == "" && args.Description == "" {
 		return UpdateBoardResult{}, fmt.Errorf("at least one of name or description is required")
@@ -332,8 +332,8 @@ func (c *Client) UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateB
 
 // GetBoardSummary retrieves a board with item counts and statistics.
 func (c *Client) GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) (GetBoardSummaryResult, error) {
-	if args.BoardID == "" {
-		return GetBoardSummaryResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetBoardSummaryResult{}, err
 	}
 
 	// Get board details
@@ -376,8 +376,8 @@ func (c *Client) GetBoardSummary(ctx context.Context, args GetBoardSummaryArgs) 
 // This is designed to provide rich, structured data that an AI agent can
 // analyze to generate documentation, summaries, or insights.
 func (c *Client) GetBoardContent(ctx context.Context, args GetBoardContentArgs) (GetBoardContentResult, error) {
-	if args.BoardID == "" {
-		return GetBoardContentResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetBoardContentResult{}, err
 	}
 
 	// Set defaults

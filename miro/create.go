@@ -16,8 +16,8 @@ import (
 
 // CreateSticky creates a sticky note on a board.
 func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (CreateStickyResult, error) {
-	if args.BoardID == "" {
-		return CreateStickyResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateStickyResult{}, err
 	}
 	if args.Content == "" {
 		return CreateStickyResult{}, fmt.Errorf("content is required")
@@ -81,8 +81,8 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 
 // CreateShape creates a shape on a board.
 func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateShapeResult, error) {
-	if args.BoardID == "" {
-		return CreateShapeResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateShapeResult{}, err
 	}
 	if args.Shape == "" {
 		return CreateShapeResult{}, fmt.Errorf("shape type is required")
@@ -179,8 +179,8 @@ type CreateShapeExperimentalArgs struct {
 // CreateShapeExperimental creates a shape using the v2-experimental API.
 // Used for flowchart stencil shapes that require the experimental endpoint.
 func (c *Client) CreateShapeExperimental(ctx context.Context, args CreateShapeExperimentalArgs) (CreateShapeResult, error) {
-	if args.BoardID == "" {
-		return CreateShapeResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateShapeResult{}, err
 	}
 	if args.Shape == "" {
 		return CreateShapeResult{}, fmt.Errorf("shape type is required")
@@ -262,8 +262,8 @@ func (c *Client) CreateShapeExperimental(ctx context.Context, args CreateShapeEx
 
 // CreateText creates a text item on a board.
 func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTextResult, error) {
-	if args.BoardID == "" {
-		return CreateTextResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateTextResult{}, err
 	}
 	if args.Content == "" {
 		return CreateTextResult{}, fmt.Errorf("content is required")
@@ -330,8 +330,8 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 
 // ListConnectors returns a list of connectors on a board.
 func (c *Client) ListConnectors(ctx context.Context, args ListConnectorsArgs) (ListConnectorsResult, error) {
-	if args.BoardID == "" {
-		return ListConnectorsResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListConnectorsResult{}, err
 	}
 
 	limit := args.Limit
@@ -395,8 +395,8 @@ func extractCaption(captions []Caption) string {
 
 // GetConnector retrieves a specific connector by ID.
 func (c *Client) GetConnector(ctx context.Context, args GetConnectorArgs) (GetConnectorResult, error) {
-	if args.BoardID == "" {
-		return GetConnectorResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetConnectorResult{}, err
 	}
 	if args.ConnectorID == "" {
 		return GetConnectorResult{}, fmt.Errorf("connector_id is required")
@@ -446,8 +446,8 @@ func (c *Client) GetConnector(ctx context.Context, args GetConnectorArgs) (GetCo
 
 // CreateConnector creates a connector between two items.
 func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) (CreateConnectorResult, error) {
-	if args.BoardID == "" {
-		return CreateConnectorResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateConnectorResult{}, err
 	}
 	if args.StartItemID == "" || args.EndItemID == "" {
 		return CreateConnectorResult{}, fmt.Errorf("start_item_id and end_item_id are required")
@@ -510,8 +510,8 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 
 // UpdateConnector updates an existing connector.
 func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) (UpdateConnectorResult, error) {
-	if args.BoardID == "" {
-		return UpdateConnectorResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateConnectorResult{}, err
 	}
 	if args.ConnectorID == "" {
 		return UpdateConnectorResult{}, fmt.Errorf("connector_id is required")
@@ -574,8 +574,8 @@ func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) 
 
 // DeleteConnector removes a connector from a board.
 func (c *Client) DeleteConnector(ctx context.Context, args DeleteConnectorArgs) (DeleteConnectorResult, error) {
-	if args.BoardID == "" {
-		return DeleteConnectorResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteConnectorResult{}, err
 	}
 	if args.ConnectorID == "" {
 		return DeleteConnectorResult{}, fmt.Errorf("connector_id is required")
@@ -613,8 +613,8 @@ func (c *Client) DeleteConnector(ctx context.Context, args DeleteConnectorArgs) 
 
 // CreateFrame creates a frame container on a board.
 func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateFrameResult, error) {
-	if args.BoardID == "" {
-		return CreateFrameResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateFrameResult{}, err
 	}
 
 	// Default dimensions
@@ -680,8 +680,8 @@ func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateF
 
 // CreateCard creates a card on a board.
 func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCardResult, error) {
-	if args.BoardID == "" {
-		return CreateCardResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateCardResult{}, err
 	}
 	if args.Title == "" {
 		return CreateCardResult{}, fmt.Errorf("title is required")
@@ -742,8 +742,8 @@ func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCar
 
 // CreateImage creates an image on a board from a URL.
 func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateImageResult, error) {
-	if args.BoardID == "" {
-		return CreateImageResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateImageResult{}, err
 	}
 	if args.URL == "" {
 		return CreateImageResult{}, fmt.Errorf("url is required")
@@ -806,8 +806,8 @@ func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateI
 
 // CreateDocument creates a document on a board from a URL.
 func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (CreateDocumentResult, error) {
-	if args.BoardID == "" {
-		return CreateDocumentResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateDocumentResult{}, err
 	}
 	if args.URL == "" {
 		return CreateDocumentResult{}, fmt.Errorf("url is required")
@@ -869,8 +869,8 @@ func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (C
 
 // CreateEmbed creates an embedded content item on a board.
 func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateEmbedResult, error) {
-	if args.BoardID == "" {
-		return CreateEmbedResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateEmbedResult{}, err
 	}
 	if args.URL == "" {
 		return CreateEmbedResult{}, fmt.Errorf("url is required")
@@ -940,8 +940,8 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 
 // CreateStickyGrid creates multiple sticky notes in a grid layout.
 func (c *Client) CreateStickyGrid(ctx context.Context, args CreateStickyGridArgs) (CreateStickyGridResult, error) {
-	if args.BoardID == "" {
-		return CreateStickyGridResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateStickyGridResult{}, err
 	}
 	if len(args.Contents) == 0 {
 		return CreateStickyGridResult{}, fmt.Errorf("at least one content item is required")

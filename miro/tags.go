@@ -16,8 +16,8 @@ import (
 
 // CreateTag creates a tag on a board.
 func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagResult, error) {
-	if args.BoardID == "" {
-		return CreateTagResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateTagResult{}, err
 	}
 	if args.Title == "" {
 		return CreateTagResult{}, fmt.Errorf("title is required")
@@ -55,8 +55,8 @@ func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagRe
 
 // ListTags retrieves all tags from a board.
 func (c *Client) ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResult, error) {
-	if args.BoardID == "" {
-		return ListTagsResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListTagsResult{}, err
 	}
 
 	params := url.Values{}
@@ -94,11 +94,11 @@ func (c *Client) ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResul
 
 // AttachTag attaches a tag to an item (sticky note).
 func (c *Client) AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error) {
-	if args.BoardID == "" {
-		return AttachTagResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return AttachTagResult{}, err
 	}
-	if args.ItemID == "" {
-		return AttachTagResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return AttachTagResult{}, err
 	}
 	if args.TagID == "" {
 		return AttachTagResult{}, fmt.Errorf("tag_id is required")
@@ -126,11 +126,11 @@ func (c *Client) AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagRe
 
 // DetachTag removes a tag from an item.
 func (c *Client) DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error) {
-	if args.BoardID == "" {
-		return DetachTagResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DetachTagResult{}, err
 	}
-	if args.ItemID == "" {
-		return DetachTagResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return DetachTagResult{}, err
 	}
 	if args.TagID == "" {
 		return DetachTagResult{}, fmt.Errorf("tag_id is required")
@@ -158,11 +158,11 @@ func (c *Client) DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagRe
 
 // GetItemTags retrieves tags attached to an item.
 func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error) {
-	if args.BoardID == "" {
-		return GetItemTagsResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetItemTagsResult{}, err
 	}
-	if args.ItemID == "" {
-		return GetItemTagsResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetItemTagsResult{}, err
 	}
 
 	path := fmt.Sprintf("/boards/%s/items/%s/tags", args.BoardID, args.ItemID)
@@ -240,8 +240,8 @@ func (c *Client) GetTag(ctx context.Context, args GetTagArgs) (GetTagResult, err
 // UpdateTag updates an existing tag on a board.
 // When only color is provided, preserves the existing title (and vice versa).
 func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagResult, error) {
-	if args.BoardID == "" {
-		return UpdateTagResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateTagResult{}, err
 	}
 	if args.TagID == "" {
 		return UpdateTagResult{}, fmt.Errorf("tag_id is required")
@@ -296,8 +296,8 @@ func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagRe
 
 // DeleteTag removes a tag from a board.
 func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagResult, error) {
-	if args.BoardID == "" {
-		return DeleteTagResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return DeleteTagResult{}, err
 	}
 	if args.TagID == "" {
 		return DeleteTagResult{}, fmt.Errorf("tag_id is required")
@@ -332,8 +332,8 @@ func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagRe
 
 // GetItemsByTag returns items on a board filtered by tag ID.
 func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (GetItemsByTagResult, error) {
-	if args.BoardID == "" {
-		return GetItemsByTagResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetItemsByTagResult{}, err
 	}
 	if args.TagID == "" {
 		return GetItemsByTagResult{}, fmt.Errorf("tag_id is required")

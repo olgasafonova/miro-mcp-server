@@ -10,8 +10,8 @@ import (
 
 // ListTables lists data table format items on a board.
 func (c *Client) ListTables(ctx context.Context, args ListTablesArgs) (ListTablesResult, error) {
-	if args.BoardID == "" {
-		return ListTablesResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListTablesResult{}, err
 	}
 
 	limit := args.Limit
@@ -89,11 +89,11 @@ func (c *Client) ListTables(ctx context.Context, args ListTablesArgs) (ListTable
 
 // GetTable gets metadata for a specific data table format item.
 func (c *Client) GetTable(ctx context.Context, args GetTableArgs) (GetTableResult, error) {
-	if args.BoardID == "" {
-		return GetTableResult{}, fmt.Errorf("board_id is required")
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetTableResult{}, err
 	}
-	if args.ItemID == "" {
-		return GetTableResult{}, fmt.Errorf("item_id is required")
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetTableResult{}, err
 	}
 
 	path := fmt.Sprintf("/boards/%s/data_table_formats/%s", args.BoardID, args.ItemID)

@@ -262,6 +262,23 @@ func ValidateItemID(id string) error {
 	return nil
 }
 
+// ValidateOrgID ensures an organization ID is safe and well-formed.
+// Used by export tools that hit /orgs/{org_id}/... endpoints. Without this
+// validation, a prompt-injected agent could pivot the URL to other Miro
+// API paths via path-segment injection.
+func ValidateOrgID(id string) error {
+	if id == "" {
+		return fmt.Errorf("org_id is required")
+	}
+	if len(id) > maxIDLen {
+		return fmt.Errorf("org_id too long (max %d characters)", maxIDLen)
+	}
+	if !validIDPattern.MatchString(id) {
+		return fmt.Errorf("org_id contains invalid characters")
+	}
+	return nil
+}
+
 // ValidateContent ensures content is within allowed limits.
 func ValidateContent(content string) error {
 	if len(content) > maxContentLen {

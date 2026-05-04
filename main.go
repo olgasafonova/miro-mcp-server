@@ -190,7 +190,7 @@ func main() {
 	promptRegistry.RegisterAll(server)
 	logger.Debug("Registered MCP prompts", "count", 5)
 
-	// Register SEP-2127 Server Card as MCP resource
+	// Build SEP-2127 Server Card for HTTP discovery
 	cardOpts := servercard.Options{
 		Name:        "io.github.olgasafonova/miro-mcp-server",
 		Version:     ServerVersion,
@@ -210,8 +210,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Server card error: %v", err)
 	}
-	servercard.RegisterResource(server, serverCard)
-	logger.Debug("Registered Server Card resource", "uri", servercard.ResourceURI)
 
 	ctx := context.Background()
 

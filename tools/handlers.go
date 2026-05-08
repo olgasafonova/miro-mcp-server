@@ -115,11 +115,31 @@ func (h *HandlerRegistry) RegisterProfile(server *mcp.Server, profile Profile) {
 		"total_available", len(AllTools))
 }
 
-// buildHandlerMap creates a map of method names to registration functions.
-// Adding a new tool requires only one entry here.
+// buildHandlerMap composes the per-category dispatch tables into one map of
+// method name → registration function. Adding a new tool requires only one
+// entry in the appropriate per-category builder below.
 func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	all := map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){}
+	for _, sub := range []map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		h.boardHandlers(),
+		h.itemCreateHandlers(),
+		h.itemAccessHandlers(),
+		h.tagHandlers(),
+		h.structureHandlers(),
+		h.contentHandlers(),
+		h.localHandlers(),
+	} {
+		for k, v := range sub {
+			all[k] = v
+		}
+	}
+	return all
+}
+
+// boardHandlers returns dispatch entries for board-level operations: CRUD,
+// composite views, members, sharing, export, and diagram generation.
+func (h *HandlerRegistry) boardHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
 	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
-		// Board tools
 		"ListBoards":  makeHandler(h, h.client.ListBoards),
 		"GetBoard":    makeHandler(h, h.client.GetBoard),
 		"CreateBoard": makeHandler(h, h.client.CreateBoard),
@@ -127,70 +147,10 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"DeleteBoard": makeHandler(h, h.client.DeleteBoard),
 		"UpdateBoard": makeHandler(h, h.client.UpdateBoard),
 
-		// Create tools
-		"CreateSticky":    makeHandler(h, h.client.CreateSticky),
-		"CreateShape":     makeHandler(h, h.client.CreateShape),
-		"CreateText":      makeHandler(h, h.client.CreateText),
-		"CreateConnector": makeHandler(h, h.client.CreateConnector),
-		"CreateFrame":     makeHandler(h, h.client.CreateFrame),
-		"BulkCreate":      makeHandler(h, h.client.BulkCreate),
-		"BulkUpdate":      makeHandler(h, h.client.BulkUpdate),
-		"BulkDelete":      makeHandler(h, h.client.BulkDelete),
-		"CreateCard":      makeHandler(h, h.client.CreateCard),
-		"CreateImage":     makeHandler(h, h.client.CreateImage),
-		"CreateDocument":  makeHandler(h, h.client.CreateDocument),
-		"CreateEmbed":     makeHandler(h, h.client.CreateEmbed),
-
-		// Read tools
-		"ListItems":    makeHandler(h, h.client.ListItems),
-		"GetItem":      makeHandler(h, h.client.GetItem),
-		"GetImage":     makeHandler(h, h.client.GetImage),
-		"GetDocument":  makeHandler(h, h.client.GetDocument),
-		"SearchBoard":  makeHandler(h, h.client.SearchBoard),
-		"ListAllItems": makeHandler(h, h.client.ListAllItems),
-
-		// Tag tools
-		"CreateTag":   makeHandler(h, h.client.CreateTag),
-		"ListTags":    makeHandler(h, h.client.ListTags),
-		"AttachTag":   makeHandler(h, h.client.AttachTag),
-		"DetachTag":   makeHandler(h, h.client.DetachTag),
-		"GetItemTags": makeHandler(h, h.client.GetItemTags),
-		"GetTag":      makeHandler(h, h.client.GetTag),
-		"UpdateTag":   makeHandler(h, h.client.UpdateTag),
-		"DeleteTag":   makeHandler(h, h.client.DeleteTag),
-
-		// Connector tools
-		"ListConnectors":  makeHandler(h, h.client.ListConnectors),
-		"GetConnector":    makeHandler(h, h.client.GetConnector),
-		"UpdateConnector": makeHandler(h, h.client.UpdateConnector),
-		"DeleteConnector": makeHandler(h, h.client.DeleteConnector),
-
-		// Update/Delete tools
-		"UpdateItem":     makeHandler(h, h.client.UpdateItem),
-		"UpdateSticky":   makeHandler(h, h.client.UpdateSticky),
-		"UpdateShape":    makeHandler(h, h.client.UpdateShape),
-		"UpdateText":     makeHandler(h, h.client.UpdateText),
-		"UpdateCard":     makeHandler(h, h.client.UpdateCard),
-		"UpdateImage":    makeHandler(h, h.client.UpdateImage),
-		"UpdateDocument": makeHandler(h, h.client.UpdateDocument),
-		"UpdateEmbed":    makeHandler(h, h.client.UpdateEmbed),
-		"DeleteItem":     makeHandler(h, h.client.DeleteItem),
-
-		// Composite tools
 		"FindBoardByNameTool": makeHandler(h, h.client.FindBoardByNameTool),
 		"GetBoardSummary":     makeHandler(h, h.client.GetBoardSummary),
 		"GetBoardContent":     makeHandler(h, h.client.GetBoardContent),
-		"CreateStickyGrid":    makeHandler(h, h.client.CreateStickyGrid),
 
-		// Group tools
-		"CreateGroup":   makeHandler(h, h.client.CreateGroup),
-		"ListGroups":    makeHandler(h, h.client.ListGroups),
-		"GetGroup":      makeHandler(h, h.client.GetGroup),
-		"GetGroupItems": makeHandler(h, h.client.GetGroupItems),
-		"UpdateGroup":   makeHandler(h, h.client.UpdateGroup),
-		"DeleteGroup":   makeHandler(h, h.client.DeleteGroup),
-
-		// Board member tools
 		"ListBoardMembers": makeHandler(h, h.client.ListBoardMembers),
 		// ShareBoard routes through h.ShareBoard (not h.client.ShareBoard) so
 		// the domain allowlist is enforced before the Miro API call.
@@ -199,61 +159,133 @@ func (h *HandlerRegistry) buildHandlerMap() map[string]func(*mcp.Server, *mcp.To
 		"RemoveBoardMember": makeHandler(h, h.client.RemoveBoardMember),
 		"UpdateBoardMember": makeHandler(h, h.client.UpdateBoardMember),
 
-		// Mindmap tools
-		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
-		"GetMindmapNode":    makeHandler(h, h.client.GetMindmapNode),
-		"ListMindmapNodes":  makeHandler(h, h.client.ListMindmapNodes),
-		"DeleteMindmapNode": makeHandler(h, h.client.DeleteMindmapNode),
-
-		// Frame tools (beyond create)
-		"GetFrame":      makeHandler(h, h.client.GetFrame),
-		"UpdateFrame":   makeHandler(h, h.client.UpdateFrame),
-		"DeleteFrame":   makeHandler(h, h.client.DeleteFrame),
-		"GetFrameItems": makeHandler(h, h.client.GetFrameItems),
-
-		// Diagram generation tools
-		"GenerateDiagram": makeHandler(h, h.client.GenerateDiagram),
-
-		// Export tools
 		"GetBoardPicture":     makeHandler(h, h.client.GetBoardPicture),
 		"CreateExportJob":     makeHandler(h, h.client.CreateExportJob),
 		"GetExportJobStatus":  makeHandler(h, h.client.GetExportJobStatus),
 		"GetExportJobResults": makeHandler(h, h.client.GetExportJobResults),
 
-		// Audit tools (local, not Miro API)
-		"GetAuditLog":         makeHandler(h, h.GetAuditLog),
-		"GetDesirePathReport": makeHandler(h, h.GetDesirePathReport),
+		"GenerateDiagram": makeHandler(h, h.client.GenerateDiagram),
+	}
+}
 
-		// Discovery (local, no Miro API call)
-		"SearchTools": makeHandler(h, h.SearchTools),
+// itemCreateHandlers returns dispatch entries for creating items on a board.
+func (h *HandlerRegistry) itemCreateHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		"CreateSticky":         makeHandler(h, h.client.CreateSticky),
+		"CreateShape":          makeHandler(h, h.client.CreateShape),
+		"CreateText":           makeHandler(h, h.client.CreateText),
+		"CreateConnector":      makeHandler(h, h.client.CreateConnector),
+		"CreateFrame":          makeHandler(h, h.client.CreateFrame),
+		"CreateCard":           makeHandler(h, h.client.CreateCard),
+		"CreateImage":          makeHandler(h, h.client.CreateImage),
+		"CreateDocument":       makeHandler(h, h.client.CreateDocument),
+		"CreateEmbed":          makeHandler(h, h.client.CreateEmbed),
+		"CreateStickyGrid":     makeHandler(h, h.client.CreateStickyGrid),
+		"CreateFlowchartShape": makeHandler(h, h.client.CreateFlowchartShape),
+		"BulkCreate":           makeHandler(h, h.client.BulkCreate),
+	}
+}
 
-		// App card tools
+// itemAccessHandlers returns dispatch entries for reading, updating, and
+// deleting items.
+func (h *HandlerRegistry) itemAccessHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		"ListItems":     makeHandler(h, h.client.ListItems),
+		"GetItem":       makeHandler(h, h.client.GetItem),
+		"GetImage":      makeHandler(h, h.client.GetImage),
+		"GetDocument":   makeHandler(h, h.client.GetDocument),
+		"SearchBoard":   makeHandler(h, h.client.SearchBoard),
+		"ListAllItems":  makeHandler(h, h.client.ListAllItems),
+		"GetItemsByTag": makeHandler(h, h.client.GetItemsByTag),
+
+		"UpdateItem":     makeHandler(h, h.client.UpdateItem),
+		"UpdateSticky":   makeHandler(h, h.client.UpdateSticky),
+		"UpdateShape":    makeHandler(h, h.client.UpdateShape),
+		"UpdateText":     makeHandler(h, h.client.UpdateText),
+		"UpdateCard":     makeHandler(h, h.client.UpdateCard),
+		"UpdateImage":    makeHandler(h, h.client.UpdateImage),
+		"UpdateDocument": makeHandler(h, h.client.UpdateDocument),
+		"UpdateEmbed":    makeHandler(h, h.client.UpdateEmbed),
+
+		"DeleteItem": makeHandler(h, h.client.DeleteItem),
+		"BulkUpdate": makeHandler(h, h.client.BulkUpdate),
+		"BulkDelete": makeHandler(h, h.client.BulkDelete),
+	}
+}
+
+// tagHandlers returns dispatch entries for tag CRUD and item attachment.
+func (h *HandlerRegistry) tagHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		"CreateTag":   makeHandler(h, h.client.CreateTag),
+		"ListTags":    makeHandler(h, h.client.ListTags),
+		"AttachTag":   makeHandler(h, h.client.AttachTag),
+		"DetachTag":   makeHandler(h, h.client.DetachTag),
+		"GetItemTags": makeHandler(h, h.client.GetItemTags),
+		"GetTag":      makeHandler(h, h.client.GetTag),
+		"UpdateTag":   makeHandler(h, h.client.UpdateTag),
+		"DeleteTag":   makeHandler(h, h.client.DeleteTag),
+	}
+}
+
+// structureHandlers returns dispatch entries for board structure: connectors,
+// groups, mindmap nodes, and frames.
+func (h *HandlerRegistry) structureHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		"ListConnectors":  makeHandler(h, h.client.ListConnectors),
+		"GetConnector":    makeHandler(h, h.client.GetConnector),
+		"UpdateConnector": makeHandler(h, h.client.UpdateConnector),
+		"DeleteConnector": makeHandler(h, h.client.DeleteConnector),
+
+		"CreateGroup":   makeHandler(h, h.client.CreateGroup),
+		"ListGroups":    makeHandler(h, h.client.ListGroups),
+		"GetGroup":      makeHandler(h, h.client.GetGroup),
+		"GetGroupItems": makeHandler(h, h.client.GetGroupItems),
+		"UpdateGroup":   makeHandler(h, h.client.UpdateGroup),
+		"DeleteGroup":   makeHandler(h, h.client.DeleteGroup),
+
+		"CreateMindmapNode": makeHandler(h, h.client.CreateMindmapNode),
+		"GetMindmapNode":    makeHandler(h, h.client.GetMindmapNode),
+		"ListMindmapNodes":  makeHandler(h, h.client.ListMindmapNodes),
+		"DeleteMindmapNode": makeHandler(h, h.client.DeleteMindmapNode),
+
+		"GetFrame":      makeHandler(h, h.client.GetFrame),
+		"UpdateFrame":   makeHandler(h, h.client.UpdateFrame),
+		"DeleteFrame":   makeHandler(h, h.client.DeleteFrame),
+		"GetFrameItems": makeHandler(h, h.client.GetFrameItems),
+	}
+}
+
+// contentHandlers returns dispatch entries for app cards, doc formats,
+// tables, and file uploads.
+func (h *HandlerRegistry) contentHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
 		"CreateAppCard": makeHandler(h, h.client.CreateAppCard),
 		"GetAppCard":    makeHandler(h, h.client.GetAppCard),
 		"UpdateAppCard": makeHandler(h, h.client.UpdateAppCard),
 		"DeleteAppCard": makeHandler(h, h.client.DeleteAppCard),
 
-		// Doc format tools
 		"CreateDocFormat": makeHandler(h, h.client.CreateDocFormat),
 		"GetDocFormat":    makeHandler(h, h.client.GetDocFormat),
 		"UpdateDocFormat": makeHandler(h, h.client.UpdateDocFormat),
 		"DeleteDocFormat": makeHandler(h, h.client.DeleteDocFormat),
 
-		// Table tools
 		"ListTables": makeHandler(h, h.client.ListTables),
 		"GetTable":   makeHandler(h, h.client.GetTable),
 
-		// Tag query tools
-		"GetItemsByTag": makeHandler(h, h.client.GetItemsByTag),
-
-		// Upload tools
 		"UploadImage":            makeHandler(h, h.client.UploadImage),
 		"UploadDocument":         makeHandler(h, h.client.UploadDocument),
 		"UpdateImageFromFile":    makeHandler(h, h.client.UpdateImageFromFile),
 		"UpdateDocumentFromFile": makeHandler(h, h.client.UpdateDocumentFromFile),
+	}
+}
 
-		// Flowchart shape tools (experimental)
-		"CreateFlowchartShape": makeHandler(h, h.client.CreateFlowchartShape),
+// localHandlers returns dispatch entries for tools handled locally on the
+// server (no Miro API call): audit log, desire path report, tool discovery.
+func (h *HandlerRegistry) localHandlers() map[string]func(*mcp.Server, *mcp.Tool, ToolSpec) {
+	return map[string]func(*mcp.Server, *mcp.Tool, ToolSpec){
+		"GetAuditLog":         makeHandler(h, h.GetAuditLog),
+		"GetDesirePathReport": makeHandler(h, h.GetDesirePathReport),
+		"SearchTools":         makeHandler(h, h.SearchTools),
 	}
 }
 
@@ -467,101 +499,6 @@ func registerTool[Args, Result any](
 	})
 }
 
-// normalizeArgs applies desire path normalizers to raw request arguments.
-// Operates on the raw JSON map, then re-marshals into the typed Args struct.
-// Falls back to the original args if re-marshaling fails.
-func normalizeArgs[Args any](h *HandlerRegistry, toolName string, req *mcp.CallToolRequest, args Args) Args {
-	if h.desireLogger == nil || len(h.normalizers) == 0 || req == nil || req.Params == nil {
-		return args
-	}
-
-	rawArgs := req.Params.Arguments
-	if len(rawArgs) == 0 {
-		return args
-	}
-
-	// Parse raw arguments into a map
-	var argMap map[string]any
-	if err := json.Unmarshal(rawArgs, &argMap); err != nil {
-		return args
-	}
-
-	changed := false
-
-	// Phase 1: Check for camelCase keys and remap them
-	var camelNormalizer *desirepath.CamelToSnakeNormalizer
-	for _, n := range h.normalizers {
-		if cn, ok := n.(*desirepath.CamelToSnakeNormalizer); ok {
-			camelNormalizer = cn
-			break
-		}
-	}
-
-	if camelNormalizer != nil {
-		remapped := make(map[string]any, len(argMap))
-		for key, val := range argMap {
-			newKey, converted := camelNormalizer.ConvertKey(key)
-			if converted {
-				changed = true
-				h.desireLogger.Log(desirepath.Event{
-					Timestamp:    time.Now().UTC(),
-					Tool:         toolName,
-					Parameter:    key,
-					Rule:         "camel_to_snake",
-					RawValue:     key,
-					NormalizedTo: newKey,
-				})
-			}
-			remapped[newKey] = val
-		}
-		argMap = remapped
-	}
-
-	// Phase 2: Apply value normalizers to each parameter
-	for key, val := range argMap {
-		for _, n := range h.normalizers {
-			// Skip camel normalizer (handled above at the key level)
-			if _, ok := n.(*desirepath.CamelToSnakeNormalizer); ok {
-				continue
-			}
-
-			newVal, result := n.Normalize(key, val)
-			if result.Changed {
-				argMap[key] = newVal
-				val = newVal // Chain normalizers
-				changed = true
-				h.desireLogger.Log(desirepath.Event{
-					Timestamp:    time.Now().UTC(),
-					Tool:         toolName,
-					Parameter:    key,
-					Rule:         result.Rule,
-					RawValue:     result.Original,
-					NormalizedTo: result.New,
-				})
-			}
-		}
-	}
-
-	if !changed {
-		return args
-	}
-
-	// Re-marshal the normalized map into the typed Args struct
-	normalized, err := json.Marshal(argMap)
-	if err != nil {
-		h.logger.Debug("Desire path: failed to marshal normalized args", "error", err)
-		return args
-	}
-
-	var newArgs Args
-	if err := json.Unmarshal(normalized, &newArgs); err != nil {
-		h.logger.Debug("Desire path: failed to unmarshal into typed args", "error", err)
-		return args
-	}
-
-	return newArgs
-}
-
 // createAuditEvent creates an audit event from tool execution details.
 func (h *HandlerRegistry) createAuditEvent(spec ToolSpec, args, result any, err error, duration time.Duration) audit.Event {
 	event := audit.NewEvent(spec.Name, spec.Method, audit.DetectAction(spec.Method)).
@@ -647,49 +584,58 @@ func newCorrelationID() string {
 	return hex.EncodeToString(b)
 }
 
-// logExecution logs tool execution details.
+// logExecution logs tool execution with arg- and result-specific context.
 func (h *HandlerRegistry) logExecution(spec ToolSpec, args, result any) {
 	attrs := []any{"tool", spec.Name, "category", spec.Category}
+	attrs = append(attrs, argAttrs(args)...)
+	attrs = append(attrs, resultAttrs(result)...)
+	h.logger.Info("Tool executed", attrs...)
+}
 
-	// Add context from specific arg types
+// argAttrs extracts log attributes specific to known argument types. Returns
+// nil for types that don't carry loggable context.
+func argAttrs(args any) []any {
 	switch a := args.(type) {
 	case miro.ListBoardsArgs:
 		if a.Query != "" {
-			attrs = append(attrs, "query", a.Query)
+			return []any{"query", a.Query}
 		}
 	case miro.GetBoardArgs:
-		attrs = append(attrs, "board_id", a.BoardID)
+		return []any{"board_id", a.BoardID}
 	case miro.CreateStickyArgs:
-		attrs = append(attrs, "board_id", a.BoardID, "content_len", len(a.Content))
+		return []any{"board_id", a.BoardID, "content_len", len(a.Content)}
 	case miro.CreateShapeArgs:
-		attrs = append(attrs, "board_id", a.BoardID, "shape", a.Shape)
+		return []any{"board_id", a.BoardID, "shape", a.Shape}
 	case miro.ListItemsArgs:
-		attrs = append(attrs, "board_id", a.BoardID, "type", a.Type)
+		return []any{"board_id", a.BoardID, "type", a.Type}
 	case miro.BulkCreateArgs:
-		attrs = append(attrs, "board_id", a.BoardID, "items_count", len(a.Items))
+		return []any{"board_id", a.BoardID, "items_count", len(a.Items)}
 	case miro.DeleteItemArgs:
-		attrs = append(attrs, "board_id", a.BoardID, "item_id", a.ItemID)
+		return []any{"board_id", a.BoardID, "item_id", a.ItemID}
 	case miro.GenerateDiagramArgs:
-		attrs = append(attrs, "board_id", a.BoardID, "diagram_len", len(a.Diagram))
+		return []any{"board_id", a.BoardID, "diagram_len", len(a.Diagram)}
 	}
+	return nil
+}
 
-	// Add context from result types
+// resultAttrs extracts log attributes specific to known result types. Returns
+// nil for types that don't carry loggable context.
+func resultAttrs(result any) []any {
 	switch r := result.(type) {
 	case miro.ListBoardsResult:
-		attrs = append(attrs, "boards_count", r.Count)
+		return []any{"boards_count", r.Count}
 	case miro.ListItemsResult:
-		attrs = append(attrs, "items_count", r.Count)
+		return []any{"items_count", r.Count}
 	case miro.CreateStickyResult:
-		attrs = append(attrs, "item_id", r.ID)
+		return []any{"item_id", r.ID}
 	case miro.CreateShapeResult:
-		attrs = append(attrs, "item_id", r.ID)
+		return []any{"item_id", r.ID}
 	case miro.BulkCreateResult:
-		attrs = append(attrs, "created", r.Created, "errors", len(r.Errors))
+		return []any{"created", r.Created, "errors", len(r.Errors)}
 	case miro.DeleteItemResult:
-		attrs = append(attrs, "success", r.Success)
+		return []any{"success", r.Success}
 	case miro.GenerateDiagramResult:
-		attrs = append(attrs, "nodes", r.NodesCreated, "connectors", r.ConnectorsCreated)
+		return []any{"nodes", r.NodesCreated, "connectors", r.ConnectorsCreated}
 	}
-
-	h.logger.Info("Tool executed", attrs...)
+	return nil
 }

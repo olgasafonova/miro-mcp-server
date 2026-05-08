@@ -10,8 +10,71 @@ import (
 )
 
 // =============================================================================
-// Frame Operations - Get, Update, Delete, Get Items
+// Frame Operations - Create, Get, Update, Delete, Get Items
 // =============================================================================
+
+// CreateFrame creates a frame container on a board.
+func (c *Client) CreateFrame(ctx context.Context, args CreateFrameArgs) (CreateFrameResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateFrameResult{}, err
+	}
+
+	// Default dimensions
+	width := args.Width
+	if width == 0 {
+		width = 800
+	}
+	height := args.Height
+	if height == 0 {
+		height = 600
+	}
+
+	reqBody := map[string]interface{}{
+		"data": map[string]interface{}{
+			"title":  args.Title,
+			"format": "custom",
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+		"geometry": map[string]interface{}{
+			"width":  width,
+			"height": height,
+		},
+	}
+
+	if args.Color != "" {
+		fillColor, err := normalizeColor(args.Color)
+		if err != nil {
+			return CreateFrameResult{}, fmt.Errorf("color: %w", err)
+		}
+		reqBody["style"] = map[string]interface{}{
+			"fillColor": fillColor,
+		}
+	}
+
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/frames", reqBody)
+	if err != nil {
+		return CreateFrameResult{}, err
+	}
+
+	var frame Frame
+	if err := json.Unmarshal(respBody, &frame); err != nil {
+		return CreateFrameResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Invalidate items list cache
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
+
+	return CreateFrameResult{
+		ID:      frame.ID,
+		ItemURL: BuildItemURL(args.BoardID, frame.ID),
+		Title:   frame.Data.Title,
+		Message: fmt.Sprintf("Created frame '%s'", args.Title),
+	}, nil
+}
 
 // GetFrame retrieves a specific frame by ID.
 func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error) {

@@ -90,3 +90,26 @@ type GetFrameItemsResult struct {
 	Cursor  string        `json:"cursor,omitempty"`
 	Message string        `json:"message"`
 }
+
+// =============================================================================
+// Create Frame
+// =============================================================================
+
+// CreateFrameArgs contains parameters for creating a frame.
+type CreateFrameArgs struct {
+	BoardID string  `json:"board_id" jsonschema:"Board ID"`
+	Title   string  `json:"title,omitempty" jsonschema:"Frame title"`
+	X       float64 `json:"x,omitempty" jsonschema:"X position"`
+	Y       float64 `json:"y,omitempty" jsonschema:"Y position"`
+	Width   float64 `json:"width,omitempty" jsonschema:"Width (default 800)"`
+	Height  float64 `json:"height,omitempty" jsonschema:"Height (default 600)"`
+	Color   string  `json:"color,omitempty" jsonschema:"Background color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
+}
+
+// CreateFrameResult contains the created frame.
+type CreateFrameResult struct {
+	ID      string `json:"id"`
+	ItemURL string `json:"item_url,omitempty"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}

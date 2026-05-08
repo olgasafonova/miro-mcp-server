@@ -270,3 +270,136 @@ type Embed struct {
 	ItemBase
 	Data EmbedData `json:"data"`
 }
+
+// =============================================================================
+// List Items
+// =============================================================================
+
+// ListItemsArgs contains parameters for listing board items.
+type ListItemsArgs struct {
+	BoardID     string `json:"board_id" jsonschema:"Board ID"`
+	Type        string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, connector, frame"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 100)"`
+	Cursor      string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
+}
+
+// ListItemsResult contains board items.
+type ListItemsResult struct {
+	Items   []ItemSummary `json:"items"`
+	Count   int           `json:"count"`
+	HasMore bool          `json:"has_more"`
+	Cursor  string        `json:"cursor,omitempty"`
+}
+
+// =============================================================================
+// List All Items (Paginated)
+// =============================================================================
+
+// ListAllItemsArgs extends ListItemsArgs for full pagination.
+type ListAllItemsArgs struct {
+	BoardID     string `json:"board_id" jsonschema:"Board ID"`
+	Type        string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, connector, frame, card, image, document, embed"`
+	MaxItems    int    `json:"max_items,omitempty" jsonschema:"Maximum total items to fetch across all pages (default 500, max 10000)"`
+	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
+}
+
+// ListAllItemsResult contains all items from a board.
+type ListAllItemsResult struct {
+	Items      []ItemSummary `json:"items"`
+	Count      int           `json:"count"`
+	TotalPages int           `json:"total_pages"`
+	Truncated  bool          `json:"truncated"` // True if max_items limit was reached
+	Message    string        `json:"message"`
+}
+
+// =============================================================================
+// Get Item
+// =============================================================================
+
+// GetItemArgs contains parameters for getting a specific item.
+type GetItemArgs struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"Item ID to retrieve"`
+}
+
+// GetItemResult contains the full item details.
+type GetItemResult struct {
+	ID         string  `json:"id"`
+	Type       string  `json:"type"`
+	Content    string  `json:"content,omitempty"`
+	Title      string  `json:"title,omitempty"`
+	X          float64 `json:"x"`
+	Y          float64 `json:"y"`
+	Width      float64 `json:"width,omitempty"`
+	Height     float64 `json:"height,omitempty"`
+	Color      string  `json:"color,omitempty"`
+	Shape      string  `json:"shape,omitempty"`
+	ParentID   string  `json:"parent_id,omitempty"`
+	CreatedAt  string  `json:"created_at,omitempty"`
+	ModifiedAt string  `json:"modified_at,omitempty"`
+	CreatedBy  string  `json:"created_by,omitempty"`
+	ModifiedBy string  `json:"modified_by,omitempty"`
+}
+
+// =============================================================================
+// Update Item
+// =============================================================================
+
+// UpdateItemArgs contains parameters for updating an item.
+type UpdateItemArgs struct {
+	BoardID  string   `json:"board_id" jsonschema:"Board ID"`
+	ItemID   string   `json:"item_id" jsonschema:"Item ID to update"`
+	Content  *string  `json:"content,omitempty" jsonschema:"New content text"`
+	X        *float64 `json:"x,omitempty" jsonschema:"New X position"`
+	Y        *float64 `json:"y,omitempty" jsonschema:"New Y position"`
+	Width    *float64 `json:"width,omitempty" jsonschema:"New width"`
+	Height   *float64 `json:"height,omitempty" jsonschema:"New height"`
+	Color    *string  `json:"color,omitempty" jsonschema:"New color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black). For sticky notes, prefer miro_update_sticky which accepts Miro sticky color names."`
+	ParentID *string  `json:"parent_id,omitempty" jsonschema:"Move to new frame"`
+}
+
+// UpdateItemResult confirms item update.
+type UpdateItemResult struct {
+	Success bool   `json:"success"`
+	ItemID  string `json:"item_id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Delete Item
+// =============================================================================
+
+// DeleteItemArgs contains parameters for deleting an item.
+type DeleteItemArgs struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"Item ID to delete"`
+	DryRun  bool   `json:"dry_run,omitempty" jsonschema:"If true, returns preview without deleting"`
+}
+
+// DeleteItemResult confirms item deletion.
+type DeleteItemResult struct {
+	Success bool   `json:"success"`
+	ItemID  string `json:"item_id"`
+	Message string `json:"message"`
+}
+
+// =============================================================================
+// Search Board
+// =============================================================================
+
+// SearchBoardArgs contains parameters for searching items on a board.
+type SearchBoardArgs struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID to search"`
+	Query   string `json:"query" jsonschema:"Text to search for in item content"`
+	Type    string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, frame"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max results (default 20, max 50)"`
+}
+
+// SearchBoardResult contains matching items.
+type SearchBoardResult struct {
+	Matches []ItemMatch `json:"matches"`
+	Count   int         `json:"count"`
+	Query   string      `json:"query"`
+	Message string      `json:"message"`
+}

@@ -160,3 +160,24 @@ type DeleteTagResult struct {
 	TagID   string `json:"tag_id"`
 	Message string `json:"message"`
 }
+
+// =============================================================================
+// Get Items By Tag
+// =============================================================================
+
+// GetItemsByTagArgs contains parameters for getting items filtered by tag.
+type GetItemsByTagArgs struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	TagID   string `json:"tag_id" jsonschema:"Tag ID to filter by"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 50)"`
+	Offset  int    `json:"offset,omitempty" jsonschema:"Offset for pagination"`
+}
+
+// GetItemsByTagResult contains items matching the tag filter.
+type GetItemsByTagResult struct {
+	Items   []ItemSummary `json:"items"`
+	Count   int           `json:"count"`
+	HasMore bool          `json:"has_more"`
+	TagID   string        `json:"tag_id"`
+	Message string        `json:"message"`
+}

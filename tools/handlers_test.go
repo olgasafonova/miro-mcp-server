@@ -1151,7 +1151,12 @@ func TestCreateAuditEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := registry.createAuditEvent(tt.spec, tt.args, tt.result, tt.err, 100*1000000)
+			event := registry.createAuditEvent(tt.spec, executionResult{
+				args:     tt.args,
+				result:   tt.result,
+				err:      tt.err,
+				duration: 100 * 1000000,
+			})
 
 			if event.Tool != tt.spec.Name {
 				t.Errorf("Tool = %q, want %q", event.Tool, tt.spec.Name)

@@ -331,12 +331,13 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 </details>
 
 <details>
-<summary><b>Diagrams & Audit (2)</b></summary>
+<summary><b>Diagrams & Audit (3)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_generate_diagram` | Create diagram from Mermaid syntax |
 | `miro_get_audit_log` | Query local execution log |
+| `miro_get_desire_paths` | Query agent normalization patterns (what agents sent vs. what got auto-corrected) |
 
 </details>
 
@@ -447,7 +448,7 @@ When running with `-http :8080`:
 {
   "status": "healthy",
   "server": "miro-mcp-server",
-  "version": "1.15.2",
+  "version": "1.21.0",
   "uptime": "2h30m",
   "components": {
     "config": {"status": "healthy"},

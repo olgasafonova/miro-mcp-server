@@ -128,52 +128,68 @@ func applyOptionalColorPtr(style map[string]interface{}, styleKey, errorTag stri
 	return applyOptionalColor(style, shapeColorSpec{styleKey: styleKey, errorTag: errorTag, value: *value})
 }
 
-// validTextAligns lists accepted horizontal text alignment values for shapes.
-var validTextAligns = []string{"left", "center", "right"}
+// enumField bundles the metadata for a string-enum slot in a style map:
+// the key it lands under, the error tag for validation failures, and the
+// allowed value set. Used by applyOptionalEnum / applyOptionalEnumPtr.
+type enumField struct {
+	styleKey string
+	errorTag string
+	allowed  []string
+}
 
-// validTextAlignVerticals lists accepted vertical text alignment values for shapes.
-var validTextAlignVerticals = []string{"top", "middle", "bottom"}
+// shapeTextAlignField governs the horizontal text-alignment slot on shapes.
+var shapeTextAlignField = enumField{
+	styleKey: "textAlign",
+	errorTag: "text_align",
+	allowed:  []string{"left", "center", "right"},
+}
 
-// applyOptionalEnum validates value against allowed and stores it under styleKey
-// in the style map when non-empty. errorTag is used to wrap the validation error.
-func applyOptionalEnum(style map[string]interface{}, styleKey, errorTag, value string, allowed []string) error {
+// shapeTextAlignVerticalField governs the vertical text-alignment slot on shapes.
+var shapeTextAlignVerticalField = enumField{
+	styleKey: "textAlignVertical",
+	errorTag: "text_align_vertical",
+	allowed:  []string{"top", "middle", "bottom"},
+}
+
+// applyOptionalEnum validates value against field.allowed and stores it under
+// field.styleKey when non-empty.
+func applyOptionalEnum(style map[string]interface{}, field enumField, value string) error {
 	if value == "" {
 		return nil
 	}
-	for _, a := range allowed {
+	for _, a := range field.allowed {
 		if value == a {
-			style[styleKey] = value
+			style[field.styleKey] = value
 			return nil
 		}
 	}
-	return fmt.Errorf("%s: must be one of %v, got %q", errorTag, allowed, value)
+	return fmt.Errorf("%s: must be one of %v, got %q", field.errorTag, field.allowed, value)
 }
 
-// applyOptionalEnumPtr is the *string variant of applyOptionalEnum used by
-// PATCH-style endpoints where a nil pointer means "leave field unchanged".
-func applyOptionalEnumPtr(style map[string]interface{}, styleKey, errorTag string, value *string, allowed []string) error {
+// applyOptionalEnumPtr is the *string variant for PATCH-style updates where a
+// nil pointer means "leave field unchanged".
+func applyOptionalEnumPtr(style map[string]interface{}, field enumField, value *string) error {
 	if value == nil {
 		return nil
 	}
-	return applyOptionalEnum(style, styleKey, errorTag, *value, allowed)
+	return applyOptionalEnum(style, field, *value)
 }
 
 // applyShapeTextAlign attaches text_align and text_align_vertical to the style
-// map after validation. Used by both CreateShape and UpdateShape so the keys
-// (textAlign / textAlignVertical) and allowed-value lists stay in one place.
+// map after validation. Used by both CreateShape and UpdateShape.
 func applyShapeTextAlign(style map[string]interface{}, textAlign, textAlignVertical string) error {
-	if err := applyOptionalEnum(style, "textAlign", "text_align", textAlign, validTextAligns); err != nil {
+	if err := applyOptionalEnum(style, shapeTextAlignField, textAlign); err != nil {
 		return err
 	}
-	return applyOptionalEnum(style, "textAlignVertical", "text_align_vertical", textAlignVertical, validTextAlignVerticals)
+	return applyOptionalEnum(style, shapeTextAlignVerticalField, textAlignVertical)
 }
 
 // applyShapeTextAlignPtr is the *string variant for PATCH-style updates.
 func applyShapeTextAlignPtr(style map[string]interface{}, textAlign, textAlignVertical *string) error {
-	if err := applyOptionalEnumPtr(style, "textAlign", "text_align", textAlign, validTextAligns); err != nil {
+	if err := applyOptionalEnumPtr(style, shapeTextAlignField, textAlign); err != nil {
 		return err
 	}
-	return applyOptionalEnumPtr(style, "textAlignVertical", "text_align_vertical", textAlignVertical, validTextAlignVerticals)
+	return applyOptionalEnumPtr(style, shapeTextAlignVerticalField, textAlignVertical)
 }
 
 // shapeRequestFunc is the signature of c.request and c.requestExperimental.
@@ -218,13 +234,50 @@ func (c *Client) executeShapeCreate(ctx context.Context, exec shapeCreateExec) (
 	}, nil
 }
 
+// validateShapeCreateArgs runs the shared up-front validation for both
+// CreateShape and CreateShapeExperimental.
+func validateShapeCreateArgs(boardID, shape string) error {
+	if err := ValidateBoardID(boardID); err != nil {
+		return err
+	}
+	if shape == "" {
+		return fmt.Errorf("shape type is required")
+	}
+	return nil
+}
+
+// toCoreBody projects CreateShapeArgs onto the internal shapeCoreBody.
+func (a CreateShapeArgs) toCoreBody() shapeCoreBody {
+	return shapeCoreBody{
+		boardID:  a.BoardID,
+		shape:    a.Shape,
+		content:  a.Content,
+		x:        a.X,
+		y:        a.Y,
+		width:    a.Width,
+		height:   a.Height,
+		parentID: a.ParentID,
+	}
+}
+
+// toCoreBody projects CreateShapeExperimentalArgs onto the internal shapeCoreBody.
+func (a CreateShapeExperimentalArgs) toCoreBody() shapeCoreBody {
+	return shapeCoreBody{
+		boardID:  a.BoardID,
+		shape:    a.Shape,
+		content:  a.Content,
+		x:        a.X,
+		y:        a.Y,
+		width:    a.Width,
+		height:   a.Height,
+		parentID: a.ParentID,
+	}
+}
+
 // CreateShape creates a shape on a board.
 func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateShapeResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateShapeCreateArgs(args.BoardID, args.Shape); err != nil {
 		return CreateShapeResult{}, err
-	}
-	if args.Shape == "" {
-		return CreateShapeResult{}, fmt.Errorf("shape type is required")
 	}
 
 	style, err := buildCreateShapeStyle(args.Color, args.TextColor)
@@ -236,16 +289,7 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 	}
 
 	return c.executeShapeCreate(ctx, shapeCreateExec{
-		core: shapeCoreBody{
-			boardID:  args.BoardID,
-			shape:    args.Shape,
-			content:  args.Content,
-			x:        args.X,
-			y:        args.Y,
-			width:    args.Width,
-			height:   args.Height,
-			parentID: args.ParentID,
-		},
+		core:          args.toCoreBody(),
 		style:         style,
 		requestFunc:   c.request,
 		successFormat: "Created %s shape",
@@ -255,11 +299,8 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 // CreateShapeExperimental creates a shape using the v2-experimental API.
 // Used for flowchart stencil shapes that require the experimental endpoint.
 func (c *Client) CreateShapeExperimental(ctx context.Context, args CreateShapeExperimentalArgs) (CreateShapeResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateShapeCreateArgs(args.BoardID, args.Shape); err != nil {
 		return CreateShapeResult{}, err
-	}
-	if args.Shape == "" {
-		return CreateShapeResult{}, fmt.Errorf("shape type is required")
 	}
 
 	style, err := buildExperimentalShapeStyle(args.FillColor, args.BorderColor)
@@ -268,16 +309,7 @@ func (c *Client) CreateShapeExperimental(ctx context.Context, args CreateShapeEx
 	}
 
 	return c.executeShapeCreate(ctx, shapeCreateExec{
-		core: shapeCoreBody{
-			boardID:  args.BoardID,
-			shape:    args.Shape,
-			content:  args.Content,
-			x:        args.X,
-			y:        args.Y,
-			width:    args.Width,
-			height:   args.Height,
-			parentID: args.ParentID,
-		},
+		core:          args.toCoreBody(),
 		style:         style,
 		requestFunc:   c.requestExperimental,
 		successFormat: "Created %s stencil shape",

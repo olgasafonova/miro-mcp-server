@@ -21,6 +21,40 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 		return ListItemsResult{}, err
 	}
 
+	respBody, err := c.request(ctx, http.MethodGet, buildListItemsPath(args), nil)
+	if err != nil {
+		return ListItemsResult{}, err
+	}
+
+	var resp struct {
+		Data   []json.RawMessage `json:"data"`
+		Cursor string            `json:"cursor,omitempty"`
+		Size   int               `json:"size,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return ListItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	fullDetails := strings.EqualFold(args.DetailLevel, "full")
+	items := make([]ItemSummary, 0, len(resp.Data))
+	for _, raw := range resp.Data {
+		item := parseItemSummary(raw, fullDetails)
+		if item.ID != "" {
+			items = append(items, item)
+		}
+	}
+
+	return ListItemsResult{
+		Items:   items,
+		Count:   len(items),
+		HasMore: resp.Cursor != "",
+		Cursor:  resp.Cursor,
+	}, nil
+}
+
+// buildListItemsPath assembles the items-list URL with query parameters,
+// applying the limit fallback rules (default if unset, capped at MaxItemLimit).
+func buildListItemsPath(args ListItemsArgs) string {
 	params := url.Values{}
 	if args.Type != "" {
 		params.Set("type", args.Type)
@@ -38,136 +72,136 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 	if len(params) > 0 {
 		path += "?" + params.Encode()
 	}
+	return path
+}
 
-	respBody, err := c.request(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return ListItemsResult{}, err
-	}
+// rawItemPosition mirrors the JSON wire format for an item's position.
+type rawItemPosition struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
 
-	var resp struct {
-		Data   []json.RawMessage `json:"data"`
-		Cursor string            `json:"cursor,omitempty"`
-		Size   int               `json:"size,omitempty"`
-	}
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return ListItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
-	}
+// rawItemGeometry mirrors the JSON wire format for an item's geometry block.
+type rawItemGeometry struct {
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
+}
 
-	// Check if full details are requested
-	fullDetails := strings.EqualFold(args.DetailLevel, "full")
+// rawItemStyle mirrors the JSON wire format for an item's style block.
+type rawItemStyle struct {
+	FillColor   string `json:"fillColor"`
+	TextAlign   string `json:"textAlign"`
+	BorderColor string `json:"borderColor"`
+	FontSize    string `json:"fontSize"`
+}
 
-	// Parse items into summaries
-	items := make([]ItemSummary, 0, len(resp.Data))
-	for _, raw := range resp.Data {
-		item := parseItemSummary(raw, fullDetails)
-		if item.ID != "" {
-			items = append(items, item)
-		}
-	}
+// rawItemUser mirrors the JSON wire format for createdBy / modifiedBy actors.
+type rawItemUser struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
 
-	return ListItemsResult{
-		Items:   items,
-		Count:   len(items),
-		HasMore: resp.Cursor != "",
-		Cursor:  resp.Cursor,
-	}, nil
+// rawItemSummary mirrors the JSON wire format used by parseItemSummary.
+// Extended fields (Geometry, Style, timestamps, actors) are only populated
+// when ListItems is called with detail_level=full.
+type rawItemSummary struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Position *rawItemPosition `json:"position"`
+	ParentID string           `json:"parentId"`
+	Data     struct {
+		Content string `json:"content"`
+		Title   string `json:"title"`
+	} `json:"data"`
+	Geometry   *rawItemGeometry `json:"geometry"`
+	Style      *rawItemStyle    `json:"style"`
+	CreatedAt  string           `json:"createdAt"`
+	ModifiedAt string           `json:"modifiedAt"`
+	CreatedBy  *rawItemUser     `json:"createdBy"`
+	ModifiedBy *rawItemUser     `json:"modifiedBy"`
 }
 
 // parseItemSummary extracts an ItemSummary from raw JSON data.
 // When fullDetails is true, additional fields are populated.
 func parseItemSummary(raw json.RawMessage, fullDetails bool) ItemSummary {
-	// Base structure for minimal fields
-	var base struct {
-		ID       string `json:"id"`
-		Type     string `json:"type"`
-		Position *struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-		} `json:"position"`
-		ParentID string `json:"parentId"`
-		Data     struct {
-			Content string `json:"content"`
-			Title   string `json:"title"`
-		} `json:"data"`
-		// Extended fields (only parsed when fullDetails=true)
-		Geometry *struct {
-			Width  float64 `json:"width"`
-			Height float64 `json:"height"`
-		} `json:"geometry"`
-		Style *struct {
-			FillColor   string `json:"fillColor"`
-			TextAlign   string `json:"textAlign"`
-			BorderColor string `json:"borderColor"`
-			FontSize    string `json:"fontSize"`
-		} `json:"style"`
-		CreatedAt  string `json:"createdAt"`
-		ModifiedAt string `json:"modifiedAt"`
-		CreatedBy  *struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"createdBy"`
-		ModifiedBy *struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"modifiedBy"`
-	}
-
+	var base rawItemSummary
 	if err := json.Unmarshal(raw, &base); err != nil {
 		return ItemSummary{}
 	}
+	item := minimalItemSummary(base)
+	if fullDetails {
+		addItemFullDetails(&item, base)
+	}
+	return item
+}
 
-	// Build minimal summary
+// minimalItemSummary builds the minimum-detail ItemSummary returned for
+// every list response (regardless of detail_level).
+func minimalItemSummary(base rawItemSummary) ItemSummary {
 	content := base.Data.Content
 	if content == "" {
 		content = base.Data.Title
 	}
-
 	item := ItemSummary{
 		ID:       base.ID,
 		Type:     base.Type,
 		Content:  content,
 		ParentID: base.ParentID,
 	}
-
 	if base.Position != nil {
 		item.X = base.Position.X
 		item.Y = base.Position.Y
 	}
+	return item
+}
 
-	// Add extended fields when full details requested
-	if fullDetails {
-		if base.Geometry != nil {
-			item.Width = base.Geometry.Width
-			item.Height = base.Geometry.Height
-		}
-
-		if base.Style != nil {
-			item.Style = &ItemStyleInfo{
-				FillColor:   base.Style.FillColor,
-				TextAlign:   base.Style.TextAlign,
-				BorderColor: base.Style.BorderColor,
-				FontSize:    base.Style.FontSize,
-			}
-		}
-
-		item.CreatedAt = base.CreatedAt
-		item.ModifiedAt = base.ModifiedAt
-
-		if base.CreatedBy != nil {
-			item.CreatedBy = &UserInfo{
-				ID:   base.CreatedBy.ID,
-				Name: base.CreatedBy.Name,
-			}
-		}
-		if base.ModifiedBy != nil {
-			item.ModifiedBy = &UserInfo{
-				ID:   base.ModifiedBy.ID,
-				Name: base.ModifiedBy.Name,
-			}
+// addItemFullDetails populates the extended fields when detail_level=full.
+func addItemFullDetails(item *ItemSummary, base rawItemSummary) {
+	if base.Geometry != nil {
+		item.Width = base.Geometry.Width
+		item.Height = base.Geometry.Height
+	}
+	if base.Style != nil {
+		item.Style = &ItemStyleInfo{
+			FillColor:   base.Style.FillColor,
+			TextAlign:   base.Style.TextAlign,
+			BorderColor: base.Style.BorderColor,
+			FontSize:    base.Style.FontSize,
 		}
 	}
+	item.CreatedAt = base.CreatedAt
+	item.ModifiedAt = base.ModifiedAt
+	if base.CreatedBy != nil {
+		item.CreatedBy = &UserInfo{ID: base.CreatedBy.ID, Name: base.CreatedBy.Name}
+	}
+	if base.ModifiedBy != nil {
+		item.ModifiedBy = &UserInfo{ID: base.ModifiedBy.ID, Name: base.ModifiedBy.Name}
+	}
+}
 
-	return item
+// rawItemDetail mirrors the JSON wire format used by GetItem.
+type rawItemDetail struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Position *rawItemPosition `json:"position"`
+	Geometry *rawItemGeometry `json:"geometry"`
+	Data     struct {
+		Content string `json:"content"`
+		Title   string `json:"title"`
+		Shape   string `json:"shape"`
+	} `json:"data"`
+	Style struct {
+		FillColor string `json:"fillColor"`
+	} `json:"style"`
+	ParentID   string `json:"parentId"`
+	CreatedAt  string `json:"createdAt"`
+	ModifiedAt string `json:"modifiedAt"`
+	CreatedBy  *struct {
+		Name string `json:"name"`
+	} `json:"createdBy"`
+	ModifiedBy *struct {
+		Name string `json:"name"`
+	} `json:"modifiedBy"`
 }
 
 // GetItem retrieves detailed information about a specific item.
@@ -179,7 +213,6 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 		return GetItemResult{}, err
 	}
 
-	// Check cache first
 	cacheKey := CacheKeyItem(args.BoardID, args.ItemID)
 	if cached, ok := c.cache.Get(cacheKey); ok {
 		return cached.(GetItemResult), nil
@@ -190,41 +223,19 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 		return GetItemResult{}, err
 	}
 
-	// Parse generic item response
-	var item struct {
-		ID       string `json:"id"`
-		Type     string `json:"type"`
-		Position *struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-		} `json:"position"`
-		Geometry *struct {
-			Width  float64 `json:"width"`
-			Height float64 `json:"height"`
-		} `json:"geometry"`
-		Data struct {
-			Content string `json:"content"`
-			Title   string `json:"title"`
-			Shape   string `json:"shape"`
-		} `json:"data"`
-		Style struct {
-			FillColor string `json:"fillColor"`
-		} `json:"style"`
-		ParentID   string `json:"parentId"`
-		CreatedAt  string `json:"createdAt"`
-		ModifiedAt string `json:"modifiedAt"`
-		CreatedBy  *struct {
-			Name string `json:"name"`
-		} `json:"createdBy"`
-		ModifiedBy *struct {
-			Name string `json:"name"`
-		} `json:"modifiedBy"`
-	}
-
+	var item rawItemDetail
 	if err := json.Unmarshal(respBody, &item); err != nil {
 		return GetItemResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	result := buildGetItemResult(item)
+	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
+	return result, nil
+}
+
+// buildGetItemResult assembles the GetItemResult from a raw item record,
+// folding the four optional-pointer-deref blocks into a flat assignment chain.
+func buildGetItemResult(item rawItemDetail) GetItemResult {
 	result := GetItemResult{
 		ID:         item.ID,
 		Type:       item.Type,
@@ -236,7 +247,6 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 		CreatedAt:  item.CreatedAt,
 		ModifiedAt: item.ModifiedAt,
 	}
-
 	if item.Position != nil {
 		result.X = item.Position.X
 		result.Y = item.Position.Y
@@ -251,11 +261,7 @@ func (c *Client) GetItem(ctx context.Context, args GetItemArgs) (GetItemResult, 
 	if item.ModifiedBy != nil {
 		result.ModifiedBy = item.ModifiedBy.Name
 	}
-
-	// Cache the result
-	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
-
-	return result, nil
+	return result
 }
 
 // UpdateItem updates an existing item.
@@ -267,57 +273,10 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 		return UpdateItemResult{}, err
 	}
 
-	// Build update body - only include provided fields
-	reqBody := make(map[string]interface{})
-
-	if args.Content != nil {
-		reqBody["data"] = map[string]interface{}{
-			"content": *args.Content,
-		}
+	reqBody, err := buildUpdateItemBody(args)
+	if err != nil {
+		return UpdateItemResult{}, err
 	}
-
-	if args.X != nil || args.Y != nil {
-		pos := map[string]interface{}{"origin": "center"}
-		if args.X != nil {
-			pos["x"] = *args.X
-		}
-		if args.Y != nil {
-			pos["y"] = *args.Y
-		}
-		reqBody["position"] = pos
-	}
-
-	if args.Width != nil || args.Height != nil {
-		geom := make(map[string]interface{})
-		if args.Width != nil {
-			geom["width"] = *args.Width
-		}
-		if args.Height != nil {
-			geom["height"] = *args.Height
-		}
-		reqBody["geometry"] = geom
-	}
-
-	if args.Color != nil {
-		fillColor, err := normalizeColor(*args.Color)
-		if err != nil {
-			return UpdateItemResult{}, fmt.Errorf("color: %w", err)
-		}
-		reqBody["style"] = map[string]interface{}{
-			"fillColor": fillColor,
-		}
-	}
-
-	if args.ParentID != nil {
-		if *args.ParentID == "" {
-			reqBody["parent"] = nil // Remove from frame
-		} else {
-			reqBody["parent"] = map[string]interface{}{
-				"id": *args.ParentID,
-			}
-		}
-	}
-
 	if len(reqBody) == 0 {
 		return UpdateItemResult{
 			Success: true,
@@ -326,8 +285,7 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 		}, nil
 	}
 
-	_, err := c.request(ctx, http.MethodPatch, "/boards/"+args.BoardID+"/items/"+args.ItemID, reqBody)
-	if err != nil {
+	if _, err := c.request(ctx, http.MethodPatch, "/boards/"+args.BoardID+"/items/"+args.ItemID, reqBody); err != nil {
 		return UpdateItemResult{
 			Success: false,
 			ItemID:  args.ItemID,
@@ -335,7 +293,6 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 		}, err
 	}
 
-	// Invalidate cache for this item
 	c.cache.InvalidateItem(args.BoardID, args.ItemID)
 
 	return UpdateItemResult{
@@ -343,6 +300,61 @@ func (c *Client) UpdateItem(ctx context.Context, args UpdateItemArgs) (UpdateIte
 		ItemID:  args.ItemID,
 		Message: "Item updated successfully",
 	}, nil
+}
+
+// buildUpdateItemBody assembles the PATCH body for UpdateItem, including only
+// the fields the caller supplied. Returns an empty map when the caller passed
+// no updatable fields.
+func buildUpdateItemBody(args UpdateItemArgs) (map[string]interface{}, error) {
+	reqBody := make(map[string]interface{})
+
+	if args.Content != nil {
+		reqBody["data"] = map[string]interface{}{"content": *args.Content}
+	}
+	if pos := buildUpdatePosition(args.X, args.Y); pos != nil {
+		reqBody["position"] = pos
+	}
+	if geom := buildUpdateGeometry(args.Width, args.Height); geom != nil {
+		reqBody["geometry"] = geom
+	}
+	if args.Color != nil {
+		fillColor, err := normalizeColor(*args.Color)
+		if err != nil {
+			return nil, fmt.Errorf("color: %w", err)
+		}
+		reqBody["style"] = map[string]interface{}{"fillColor": fillColor}
+	}
+	if args.ParentID != nil {
+		// Empty string explicitly nulls parent (removes from frame).
+		reqBody["parent"] = updateParentPayload(*args.ParentID)
+	}
+	return reqBody, nil
+}
+
+// buildUpdateGeometry returns a geometry payload for PATCH-style updates,
+// or nil when both pointers are nil. Either pointer can be set independently.
+func buildUpdateGeometry(width, height *float64) map[string]interface{} {
+	if width == nil && height == nil {
+		return nil
+	}
+	geom := make(map[string]interface{})
+	if width != nil {
+		geom["width"] = *width
+	}
+	if height != nil {
+		geom["height"] = *height
+	}
+	return geom
+}
+
+// updateParentPayload returns the parent payload for an item update.
+// An empty parentID maps to nil (removes the item from its parent frame);
+// a non-empty parentID maps to {"id": parentID} (re-parents the item).
+func updateParentPayload(parentID string) interface{} {
+	if parentID == "" {
+		return nil
+	}
+	return map[string]interface{}{"id": parentID}
 }
 
 // DeleteItem deletes an item from a board.
@@ -390,51 +402,10 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 		return ListAllItemsResult{}, err
 	}
 
-	maxItems := args.MaxItems
-	if maxItems == 0 {
-		maxItems = DefaultListAllMaxItems
-	}
-	if maxItems > MaxListAllItems {
-		maxItems = MaxListAllItems
-	}
-
-	var allItems []ItemSummary
-	cursor := ""
-	pageCount := 0
-	truncated := false
-
-	for {
-		result, err := c.ListItems(ctx, ListItemsArgs{
-			BoardID:     args.BoardID,
-			Type:        args.Type,
-			Limit:       MaxItemLimitExtended, // Max per page
-			Cursor:      cursor,
-			DetailLevel: args.DetailLevel,
-		})
-		if err != nil {
-			return ListAllItemsResult{}, err
-		}
-
-		pageCount++
-		allItems = append(allItems, result.Items...)
-
-		// Check if we've hit the max items limit
-		if len(allItems) >= maxItems {
-			allItems = allItems[:maxItems]
-			truncated = true
-			break
-		}
-
-		// Check if there are more pages
-		if !result.HasMore || result.Cursor == "" {
-			break
-		}
-		cursor = result.Cursor
-	}
-
-	message := fmt.Sprintf("Retrieved %d items in %d pages", len(allItems), pageCount)
-	if truncated {
-		message = fmt.Sprintf("Retrieved %d items (truncated at max_items limit)", len(allItems))
+	maxItems := effectiveListAllMax(args.MaxItems)
+	allItems, pageCount, truncated, err := c.collectAllItems(ctx, args, maxItems)
+	if err != nil {
+		return ListAllItemsResult{}, err
 	}
 
 	return ListAllItemsResult{
@@ -442,6 +413,58 @@ func (c *Client) ListAllItems(ctx context.Context, args ListAllItemsArgs) (ListA
 		Count:      len(allItems),
 		TotalPages: pageCount,
 		Truncated:  truncated,
-		Message:    message,
+		Message:    formatListAllMessage(len(allItems), pageCount, truncated),
 	}, nil
+}
+
+// effectiveListAllMax resolves the effective per-call cap, honoring the default
+// when the caller passed 0 and clamping the upper bound.
+func effectiveListAllMax(requested int) int {
+	if requested == 0 {
+		return DefaultListAllMaxItems
+	}
+	if requested > MaxListAllItems {
+		return MaxListAllItems
+	}
+	return requested
+}
+
+// collectAllItems pages through ListItems, accumulating up to maxItems and
+// reporting whether the result was truncated at the cap.
+func (c *Client) collectAllItems(ctx context.Context, args ListAllItemsArgs, maxItems int) ([]ItemSummary, int, bool, error) {
+	var allItems []ItemSummary
+	cursor := ""
+	pageCount := 0
+
+	for {
+		result, err := c.ListItems(ctx, ListItemsArgs{
+			BoardID:     args.BoardID,
+			Type:        args.Type,
+			Limit:       MaxItemLimitExtended,
+			Cursor:      cursor,
+			DetailLevel: args.DetailLevel,
+		})
+		if err != nil {
+			return nil, 0, false, err
+		}
+
+		pageCount++
+		allItems = append(allItems, result.Items...)
+
+		if len(allItems) >= maxItems {
+			return allItems[:maxItems], pageCount, true, nil
+		}
+		if !result.HasMore || result.Cursor == "" {
+			return allItems, pageCount, false, nil
+		}
+		cursor = result.Cursor
+	}
+}
+
+// formatListAllMessage produces the user-facing message for a ListAllItems result.
+func formatListAllMessage(count, pageCount int, truncated bool) string {
+	if truncated {
+		return fmt.Sprintf("Retrieved %d items (truncated at max_items limit)", count)
+	}
+	return fmt.Sprintf("Retrieved %d items in %d pages", count, pageCount)
 }

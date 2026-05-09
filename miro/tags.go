@@ -23,7 +23,7 @@ func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagRe
 		return CreateTagResult{}, fmt.Errorf("title is required")
 	}
 
-	// Color is required by Miro API, default to "blue" if not specified
+	// Color is required by Miro API; default to "blue" when unset.
 	color := args.Color
 	if color == "" {
 		color = "blue"
@@ -92,68 +92,86 @@ func (c *Client) ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResul
 	}, nil
 }
 
+// tagItemRequest bundles the per-call inputs to runTagItemAction, the shared
+// dispatcher that backs AttachTag and DetachTag.
+type tagItemRequest struct {
+	method      string // POST for attach, DELETE for detach
+	successMsg  string // populated into the result on success
+	failureVerb string // verb in "Failed to <verb> tag" failure message
+	boardID     string
+	itemID      string
+	tagID       string
+}
+
+// validateTagItemRequest validates the (boardID, itemID, tagID) trio shared by
+// AttachTag and DetachTag. tagID is required because the underlying endpoint
+// encodes it as a query parameter.
+func validateTagItemRequest(req tagItemRequest) error {
+	if err := ValidateBoardID(req.boardID); err != nil {
+		return err
+	}
+	if err := ValidateItemID(req.itemID); err != nil {
+		return err
+	}
+	if req.tagID == "" {
+		return fmt.Errorf("tag_id is required")
+	}
+	return nil
+}
+
+// tagItemPath returns the attach/detach endpoint path with tag_id encoded as
+// a query parameter (Miro's per-item tag endpoint is the same URL regardless
+// of HTTP method).
+func tagItemPath(boardID, itemID, tagID string) string {
+	return fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", boardID, itemID, tagID)
+}
+
+// runTagItemAction validates args, executes the request, and returns the four
+// fields the typed AttachTag/DetachTag wrappers need:
+//   - filled: false on validation error (caller returns zero result + err)
+//   - success: meaningful only when filled=true
+//   - message: success or failure text to populate the result's Message field
+//   - err: raw error from validation or the HTTP request
+func (c *Client) runTagItemAction(ctx context.Context, req tagItemRequest) (filled bool, success bool, message string, err error) {
+	if err := validateTagItemRequest(req); err != nil {
+		return false, false, "", err
+	}
+	if _, err := c.request(ctx, req.method, tagItemPath(req.boardID, req.itemID, req.tagID), nil); err != nil {
+		return true, false, fmt.Sprintf("Failed to %s tag: %v", req.failureVerb, err), err
+	}
+	return true, true, req.successMsg, nil
+}
+
 // AttachTag attaches a tag to an item (sticky note).
 func (c *Client) AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	filled, success, msg, err := c.runTagItemAction(ctx, tagItemRequest{
+		method:      http.MethodPost,
+		successMsg:  "Tag attached successfully",
+		failureVerb: "attach",
+		boardID:     args.BoardID,
+		itemID:      args.ItemID,
+		tagID:       args.TagID,
+	})
+	if !filled {
 		return AttachTagResult{}, err
 	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return AttachTagResult{}, err
-	}
-	if args.TagID == "" {
-		return AttachTagResult{}, fmt.Errorf("tag_id is required")
-	}
-
-	path := fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", args.BoardID, args.ItemID, args.TagID)
-
-	_, err := c.request(ctx, http.MethodPost, path, nil)
-	if err != nil {
-		return AttachTagResult{
-			Success: false,
-			ItemID:  args.ItemID,
-			TagID:   args.TagID,
-			Message: fmt.Sprintf("Failed to attach tag: %v", err),
-		}, err
-	}
-
-	return AttachTagResult{
-		Success: true,
-		ItemID:  args.ItemID,
-		TagID:   args.TagID,
-		Message: "Tag attached successfully",
-	}, nil
+	return AttachTagResult{Success: success, ItemID: args.ItemID, TagID: args.TagID, Message: msg}, err
 }
 
 // DetachTag removes a tag from an item.
 func (c *Client) DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	filled, success, msg, err := c.runTagItemAction(ctx, tagItemRequest{
+		method:      http.MethodDelete,
+		successMsg:  "Tag removed successfully",
+		failureVerb: "detach",
+		boardID:     args.BoardID,
+		itemID:      args.ItemID,
+		tagID:       args.TagID,
+	})
+	if !filled {
 		return DetachTagResult{}, err
 	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return DetachTagResult{}, err
-	}
-	if args.TagID == "" {
-		return DetachTagResult{}, fmt.Errorf("tag_id is required")
-	}
-
-	path := fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", args.BoardID, args.ItemID, args.TagID)
-
-	_, err := c.request(ctx, http.MethodDelete, path, nil)
-	if err != nil {
-		return DetachTagResult{
-			Success: false,
-			ItemID:  args.ItemID,
-			TagID:   args.TagID,
-			Message: fmt.Sprintf("Failed to detach tag: %v", err),
-		}, err
-	}
-
-	return DetachTagResult{
-		Success: true,
-		ItemID:  args.ItemID,
-		TagID:   args.TagID,
-		Message: "Tag removed successfully",
-	}, nil
+	return DetachTagResult{Success: success, ItemID: args.ItemID, TagID: args.TagID, Message: msg}, err
 }
 
 // GetItemTags retrieves tags attached to an item.
@@ -179,7 +197,7 @@ func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItem
 		return GetItemTagsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Ensure tags is never nil (MCP schema validation requires array, not null)
+	// Ensure tags is never nil (MCP schema validation requires array, not null).
 	tags := resp.Data
 	if tags == nil {
 		tags = []Tag{}
@@ -237,6 +255,32 @@ func (c *Client) GetTag(ctx context.Context, args GetTagArgs) (GetTagResult, err
 	}, nil
 }
 
+// tagUpdateFields bundles the inputs to resolveTagUpdateFields.
+type tagUpdateFields struct {
+	boardID, tagID, title, color string
+}
+
+// resolveTagUpdateFields fills in any unspecified field from the existing tag.
+// Miro's PATCH /tags clears omitted fields, so a partial update needs the
+// existing values for any field the caller did not supply.
+func (c *Client) resolveTagUpdateFields(ctx context.Context, in tagUpdateFields) (string, string, error) {
+	if in.title != "" && in.color != "" {
+		return in.title, in.color, nil
+	}
+	existing, err := c.getTagInternal(ctx, in.boardID, in.tagID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to fetch existing tag: %w", err)
+	}
+	title, color := in.title, in.color
+	if title == "" {
+		title = existing.Title
+	}
+	if color == "" {
+		color = existing.FillColor
+	}
+	return title, color, nil
+}
+
 // UpdateTag updates an existing tag on a board.
 // When only color is provided, preserves the existing title (and vice versa).
 func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagResult, error) {
@@ -250,22 +294,14 @@ func (c *Client) UpdateTag(ctx context.Context, args UpdateTagArgs) (UpdateTagRe
 		return UpdateTagResult{}, fmt.Errorf("at least one of title or color is required")
 	}
 
-	// If doing a partial update, fetch existing tag to preserve unspecified fields
-	// Miro's API clears fields that aren't included in the PATCH request
-	title := args.Title
-	color := args.Color
-
-	if title == "" || color == "" {
-		existingTag, err := c.getTagInternal(ctx, args.BoardID, args.TagID)
-		if err != nil {
-			return UpdateTagResult{}, fmt.Errorf("failed to fetch existing tag: %w", err)
-		}
-		if title == "" {
-			title = existingTag.Title
-		}
-		if color == "" {
-			color = existingTag.FillColor
-		}
+	title, color, err := c.resolveTagUpdateFields(ctx, tagUpdateFields{
+		boardID: args.BoardID,
+		tagID:   args.TagID,
+		title:   args.Title,
+		color:   args.Color,
+	})
+	if err != nil {
+		return UpdateTagResult{}, err
 	}
 
 	reqBody := map[string]interface{}{
@@ -303,7 +339,6 @@ func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagRe
 		return DeleteTagResult{}, fmt.Errorf("tag_id is required")
 	}
 
-	// Dry-run mode: return preview without deleting
 	if args.DryRun {
 		return DeleteTagResult{
 			Success: true,
@@ -314,8 +349,7 @@ func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagRe
 
 	path := fmt.Sprintf("/boards/%s/tags/%s", args.BoardID, args.TagID)
 
-	_, err := c.request(ctx, http.MethodDelete, path, nil)
-	if err != nil {
+	if _, err := c.request(ctx, http.MethodDelete, path, nil); err != nil {
 		return DeleteTagResult{
 			Success: false,
 			TagID:   args.TagID,
@@ -330,6 +364,29 @@ func (c *Client) DeleteTag(ctx context.Context, args DeleteTagArgs) (DeleteTagRe
 	}, nil
 }
 
+// maxTagItemsPageSize is the upper bound Miro enforces for the items-by-tag endpoint.
+const maxTagItemsPageSize = 50
+
+// clampTagItemsLimit applies the items-by-tag page-size rules: a non-positive
+// limit defaults to the cap, a request larger than the cap is clamped to it.
+func clampTagItemsLimit(requested int) int {
+	if requested <= 0 || requested > maxTagItemsPageSize {
+		return maxTagItemsPageSize
+	}
+	return requested
+}
+
+// buildTagItemsPath builds the /items?tag_id=... URL for GetItemsByTag.
+func buildTagItemsPath(boardID, tagID string, limit, offset int) string {
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("tag_id", tagID)
+	if offset > 0 {
+		params.Set("offset", strconv.Itoa(offset))
+	}
+	return "/boards/" + boardID + "/items?" + params.Encode()
+}
+
 // GetItemsByTag returns items on a board filtered by tag ID.
 func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (GetItemsByTagResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -339,23 +396,8 @@ func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (Get
 		return GetItemsByTagResult{}, fmt.Errorf("tag_id is required")
 	}
 
-	limit := args.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 50 {
-		limit = 50
-	}
-
-	params := url.Values{}
-	params.Set("limit", strconv.Itoa(limit))
-	params.Set("tag_id", args.TagID)
-	if args.Offset > 0 {
-		params.Set("offset", strconv.Itoa(args.Offset))
-	}
-
-	path := "/boards/" + args.BoardID + "/items?" + params.Encode()
-	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	limit := clampTagItemsLimit(args.Limit)
+	respBody, err := c.request(ctx, http.MethodGet, buildTagItemsPath(args.BoardID, args.TagID, limit, args.Offset), nil)
 	if err != nil {
 		return GetItemsByTagResult{}, err
 	}
@@ -370,8 +412,7 @@ func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (Get
 
 	items := make([]ItemSummary, 0, len(resp.Data))
 	for _, raw := range resp.Data {
-		item := parseItemSummary(raw, false)
-		items = append(items, item)
+		items = append(items, parseItemSummary(raw, false))
 	}
 
 	return GetItemsByTagResult{
@@ -387,23 +428,25 @@ func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (Get
 // Helper Functions
 // =============================================================================
 
-// normalizeTagColor converts color names to Miro's expected format for tags.
-func normalizeTagColor(color string) string {
-	colorMap := map[string]string{
-		"red":     "red",
-		"magenta": "magenta",
-		"violet":  "violet",
-		"blue":    "blue",
-		"cyan":    "cyan",
-		"green":   "green",
-		"yellow":  "yellow",
-		"orange":  "orange",
-		"gray":    "gray",
-		"grey":    "gray",
-	}
+// tagColorAliases maps caller-supplied color names (case-insensitive) to the
+// canonical Miro tag color identifier. "grey" is folded into "gray" as an alias.
+var tagColorAliases = map[string]string{
+	"red":     "red",
+	"magenta": "magenta",
+	"violet":  "violet",
+	"blue":    "blue",
+	"cyan":    "cyan",
+	"green":   "green",
+	"yellow":  "yellow",
+	"orange":  "orange",
+	"gray":    "gray",
+	"grey":    "gray",
+}
 
-	lower := strings.ToLower(color)
-	if mapped, ok := colorMap[lower]; ok {
+// normalizeTagColor converts color names to Miro's expected format for tags.
+// Unknown colors are returned unchanged so callers can pass hex codes through.
+func normalizeTagColor(color string) string {
+	if mapped, ok := tagColorAliases[strings.ToLower(color)]; ok {
 		return mapped
 	}
 	return color

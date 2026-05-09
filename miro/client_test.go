@@ -10281,3 +10281,172 @@ func TestUpdateDocumentFromFile_FileSizeExceeded(t *testing.T) {
 		t.Errorf("error = %q, want containing 'exceeds 6 MB limit'", err.Error())
 	}
 }
+
+// =============================================================================
+// Shape Text Alignment Tests (bead miro-mcp-server-dqy issues #1, #2)
+// =============================================================================
+
+func TestCreateShape_WithTextAlign(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		style, ok := body["style"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected style in request body")
+		}
+		if style["textAlign"] != "center" {
+			t.Errorf("style.textAlign = %v, want 'center'", style["textAlign"])
+		}
+		if style["textAlignVertical"] != "middle" {
+			t.Errorf("style.textAlignVertical = %v, want 'middle'", style["textAlignVertical"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "shape123",
+			"data": map[string]interface{}{"shape": "triangle", "content": "Centered"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.CreateShape(context.Background(), CreateShapeArgs{
+		BoardID:           "board123",
+		Shape:             "triangle",
+		Content:           "Centered",
+		TextAlign:         "center",
+		TextAlignVertical: "middle",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateShape_InvalidTextAlign(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+
+	tests := []struct {
+		name    string
+		args    CreateShapeArgs
+		errText string
+	}{
+		{
+			name: "bad horizontal value",
+			args: CreateShapeArgs{
+				BoardID:   "board123",
+				Shape:     "rectangle",
+				TextAlign: "centre",
+			},
+			errText: "text_align",
+		},
+		{
+			name: "bad vertical value",
+			args: CreateShapeArgs{
+				BoardID:           "board123",
+				Shape:             "rectangle",
+				TextAlignVertical: "centre",
+			},
+			errText: "text_align_vertical",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.CreateShape(context.Background(), tt.args)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.errText) {
+				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			}
+		})
+	}
+}
+
+func TestUpdateShape_WithTextAlign(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		style, ok := body["style"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected style in request body")
+		}
+		if style["textAlign"] != "left" {
+			t.Errorf("style.textAlign = %v, want 'left'", style["textAlign"])
+		}
+		if style["textAlignVertical"] != "top" {
+			t.Errorf("style.textAlignVertical = %v, want 'top'", style["textAlignVertical"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "shape123",
+			"data": map[string]interface{}{"shape": "rectangle", "content": "Left-top"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	textAlign := "left"
+	textAlignVertical := "top"
+	_, err := client.UpdateShape(context.Background(), UpdateShapeArgs{
+		BoardID:           "board123",
+		ItemID:            "shape123",
+		TextAlign:         &textAlign,
+		TextAlignVertical: &textAlignVertical,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		style, ok := body["style"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected style in request body for shape item")
+		}
+		if style["color"] != "#ffffff" {
+			t.Errorf("style.color (text color) = %v, want '#ffffff'", style["color"])
+		}
+		if style["textAlign"] != "right" {
+			t.Errorf("style.textAlign = %v, want 'right'", style["textAlign"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "shape999",
+			"data": map[string]interface{}{"shape": "circle", "content": "Bulk styled"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.BulkCreate(context.Background(), BulkCreateArgs{
+		BoardID: "board123",
+		Items: []BulkCreateItem{{
+			Type:      "shape",
+			Shape:     "circle",
+			Content:   "Bulk styled",
+			Color:     "#000000",
+			TextColor: "#ffffff",
+			TextAlign: "right",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Created != 1 {
+		t.Errorf("Created = %d, want 1", result.Created)
+	}
+}

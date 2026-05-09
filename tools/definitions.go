@@ -183,6 +183,8 @@ PARAMETERS:
 - content: Text inside shape
 - color: Fill color. 6-char hex like "#FF5733" or named: red, orange, yellow, green, blue, purple, pink, gray, white, black.
 - text_color: Text color, same format as color.
+- text_align: Horizontal text alignment: left, center (default), right.
+- text_align_vertical: Vertical text alignment: top, middle (default), bottom. For non-rectangular shapes (triangle, hexagon), 'middle' aligns to the bounding-box center, which is not the same as the visual centroid.
 - x, y: Position (default: 0, 0)
 - width, height: Size (default: 200, 200)
 
@@ -191,7 +193,7 @@ RETURNS: Item ID, shape type, position, size, and view link.
 RELATED: For flowchart-specific stencil shapes (experimental API), use miro_create_flowchart_shape instead.
 
 EXAMPLE:
-{"board_id": "uXjVN1234", "shape": "circle", "content": "Start", "color": "green", "x": 0, "y": 0}`,
+{"board_id": "uXjVN1234", "shape": "circle", "content": "Start", "color": "green", "text_align": "center", "x": 0, "y": 0}`,
 	},
 	{
 		Name:     "miro_create_text",
@@ -296,7 +298,15 @@ VOICE-FRIENDLY: "Frame has 8 items: 5 stickies, 2 shapes, 1 text"`,
 
 USE WHEN: "add these 5 stickies", "create items for each of these", "batch add"
 
-RETURNS: Count of created items and their IDs.
+ITEM FIELDS:
+- type (required): sticky_note, shape, text
+- content, x, y, width, height, color, parent_id: standard fields
+- shape: shape type (when type=shape)
+- text_color: text color (shape and text items only)
+- text_align: horizontal text alignment (shape items only): left, center, right
+- text_align_vertical: vertical text alignment (shape items only): top, middle, bottom
+
+RETURNS: Count of created items and their IDs (returned in input order even when API IDs are assigned out of order).
 
 FAILS WHEN: More than 20 items. Empty items list. Individual items may fail while others succeed; check errors in response.
 
@@ -615,13 +625,17 @@ VOICE-FRIENDLY: "Updated sticky to yellow square"`,
 		Title:      "Update Shape",
 		Category:   "update",
 		Idempotent: true,
-		Description: `Update a shape with type-specific options (fill_color, text_color, shape type). For generic updates, use miro_update_item.
+		Description: `Update a shape with type-specific options (fill_color, text_color, text alignment, shape type). For generic updates, use miro_update_item.
 
-USE WHEN: "change shape color", "update shape to circle", "resize this shape"
+USE WHEN: "change shape color", "center the text on this shape", "update shape to circle", "resize this shape"
+
+PARAMETERS:
+- text_align: Horizontal text alignment: left, center, right.
+- text_align_vertical: Vertical text alignment: top, middle, bottom.
 
 RETURNS: Confirmation with item ID.
 
-VOICE-FRIENDLY: "Updated shape to blue circle"`,
+VOICE-FRIENDLY: "Updated shape to blue circle with centered text"`,
 	},
 	{
 		Name:       "miro_update_text",
@@ -999,9 +1013,14 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 		Method:   "CreateMindmapNode",
 		Title:    "Create Mindmap Node",
 		Category: "create",
-		Description: `Create a mindmap node. Omit parent_id for root; add parent_id for children. node_view: "text" (default) or "bubble".
+		Description: `Create a mindmap node. Omit parent_id for root; add parent_id for children.
 
 USE WHEN: "add a mindmap node", "create root node", "add child to mindmap"
+
+LIMITATION: Children created via API do NOT auto-arrange spatially. Multiple children of the same parent stack at the same default position and overlap. For a clean tree, prefer miro_create_shape + miro_create_connector with explicit positions, or arrange the resulting mindmap manually in the Miro UI.
+
+PARAMETERS:
+- node_view: Currently only "text" is reliably supported. Other values may return 400.
 
 RETURNS: Node ID, parent node ID, and view link.
 

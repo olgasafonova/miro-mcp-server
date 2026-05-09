@@ -6,15 +6,18 @@ package miro
 
 // BulkCreateItem defines a single item in a bulk create request.
 type BulkCreateItem struct {
-	Type     string  `json:"type" jsonschema:"Item type: sticky_note, shape, text"`
-	Content  string  `json:"content,omitempty" jsonschema:"Text content"`
-	Shape    string  `json:"shape,omitempty" jsonschema:"Shape type (for shapes)"`
-	X        float64 `json:"x,omitempty" jsonschema:"X position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this x."`
-	Y        float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this y."`
-	Width    float64 `json:"width,omitempty" jsonschema:"Width"`
-	Height   float64 `json:"height,omitempty" jsonschema:"Height"`
-	Color    string  `json:"color,omitempty" jsonschema:"Color. For sticky_note items: Miro sticky names (yellow, light_green, dark_blue, etc.). For shape/text items: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)."`
-	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place item in. Coords (x, y) are then relative to the frame's TOP-LEFT corner; the item's CENTER is placed at (x, y)."`
+	Type              string  `json:"type" jsonschema:"Item type: sticky_note, shape, text"`
+	Content           string  `json:"content,omitempty" jsonschema:"Text content"`
+	Shape             string  `json:"shape,omitempty" jsonschema:"Shape type (for shapes)"`
+	X                 float64 `json:"x,omitempty" jsonschema:"X position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this x."`
+	Y                 float64 `json:"y,omitempty" jsonschema:"Y position. On canvas: absolute. Inside a frame (parent_id set): relative to frame's TOP-LEFT, item's CENTER is placed at this y."`
+	Width             float64 `json:"width,omitempty" jsonschema:"Width"`
+	Height            float64 `json:"height,omitempty" jsonschema:"Height"`
+	Color             string  `json:"color,omitempty" jsonschema:"Color. For sticky_note items: Miro sticky names (yellow, light_green, dark_blue, etc.). For shape/text items: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)."`
+	TextColor         string  `json:"text_color,omitempty" jsonschema:"Text color (shape and text items only): 6-char hex like #ffffff or named color."`
+	TextAlign         string  `json:"text_align,omitempty" jsonschema:"Horizontal text alignment (shape items only): left, center, right."`
+	TextAlignVertical string  `json:"text_align_vertical,omitempty" jsonschema:"Vertical text alignment (shape items only): top, middle, bottom."`
+	ParentID          string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place item in. Coords (x, y) are then relative to the frame's TOP-LEFT corner; the item's CENTER is placed at (x, y)."`
 }
 
 // BulkCreateArgs contains parameters for bulk item creation.

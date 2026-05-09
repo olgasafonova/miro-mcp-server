@@ -128,6 +128,54 @@ func applyOptionalColorPtr(style map[string]interface{}, styleKey, errorTag stri
 	return applyOptionalColor(style, shapeColorSpec{styleKey: styleKey, errorTag: errorTag, value: *value})
 }
 
+// validTextAligns lists accepted horizontal text alignment values for shapes.
+var validTextAligns = []string{"left", "center", "right"}
+
+// validTextAlignVerticals lists accepted vertical text alignment values for shapes.
+var validTextAlignVerticals = []string{"top", "middle", "bottom"}
+
+// applyOptionalEnum validates value against allowed and stores it under styleKey
+// in the style map when non-empty. errorTag is used to wrap the validation error.
+func applyOptionalEnum(style map[string]interface{}, styleKey, errorTag, value string, allowed []string) error {
+	if value == "" {
+		return nil
+	}
+	for _, a := range allowed {
+		if value == a {
+			style[styleKey] = value
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: must be one of %v, got %q", errorTag, allowed, value)
+}
+
+// applyOptionalEnumPtr is the *string variant of applyOptionalEnum used by
+// PATCH-style endpoints where a nil pointer means "leave field unchanged".
+func applyOptionalEnumPtr(style map[string]interface{}, styleKey, errorTag string, value *string, allowed []string) error {
+	if value == nil {
+		return nil
+	}
+	return applyOptionalEnum(style, styleKey, errorTag, *value, allowed)
+}
+
+// applyShapeTextAlign attaches text_align and text_align_vertical to the style
+// map after validation. Used by both CreateShape and UpdateShape so the keys
+// (textAlign / textAlignVertical) and allowed-value lists stay in one place.
+func applyShapeTextAlign(style map[string]interface{}, textAlign, textAlignVertical string) error {
+	if err := applyOptionalEnum(style, "textAlign", "text_align", textAlign, validTextAligns); err != nil {
+		return err
+	}
+	return applyOptionalEnum(style, "textAlignVertical", "text_align_vertical", textAlignVertical, validTextAlignVerticals)
+}
+
+// applyShapeTextAlignPtr is the *string variant for PATCH-style updates.
+func applyShapeTextAlignPtr(style map[string]interface{}, textAlign, textAlignVertical *string) error {
+	if err := applyOptionalEnumPtr(style, "textAlign", "text_align", textAlign, validTextAligns); err != nil {
+		return err
+	}
+	return applyOptionalEnumPtr(style, "textAlignVertical", "text_align_vertical", textAlignVertical, validTextAlignVerticals)
+}
+
 // shapeRequestFunc is the signature of c.request and c.requestExperimental.
 // Used by executeShapeCreate to dispatch to the chosen API surface.
 type shapeRequestFunc func(ctx context.Context, method, path string, body interface{}) ([]byte, error)
@@ -181,6 +229,9 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 
 	style, err := buildCreateShapeStyle(args.Color, args.TextColor)
 	if err != nil {
+		return CreateShapeResult{}, err
+	}
+	if err := applyShapeTextAlign(style, args.TextAlign, args.TextAlignVertical); err != nil {
 		return CreateShapeResult{}, err
 	}
 
@@ -256,14 +307,17 @@ func buildShapeUpdateData(content, shapeType *string) map[string]interface{} {
 }
 
 // buildShapeUpdateStyle assembles the "style" section for an UpdateShape call.
-// Returns nil when neither color is supplied. The standard shapes endpoint uses
-// fillColor + fontColor (note: fontColor here, not color as in CreateShape).
-func buildShapeUpdateStyle(color, textColor *string) (map[string]interface{}, error) {
+// Returns nil when no style fields are supplied. The standard shapes endpoint
+// uses fillColor + fontColor (note: fontColor here, not color as in CreateShape).
+func buildShapeUpdateStyle(color, textColor, textAlign, textAlignVertical *string) (map[string]interface{}, error) {
 	style := make(map[string]interface{})
 	if err := applyOptionalColorPtr(style, "fillColor", "color", color); err != nil {
 		return nil, err
 	}
 	if err := applyOptionalColorPtr(style, "fontColor", "text_color", textColor); err != nil {
+		return nil, err
+	}
+	if err := applyShapeTextAlignPtr(style, textAlign, textAlignVertical); err != nil {
 		return nil, err
 	}
 	if len(style) == 0 {
@@ -281,7 +335,7 @@ func buildUpdateShapeBody(args UpdateShapeArgs) (map[string]interface{}, error) 
 		reqBody["data"] = data
 	}
 
-	style, err := buildShapeUpdateStyle(args.Color, args.TextColor)
+	style, err := buildShapeUpdateStyle(args.Color, args.TextColor, args.TextAlign, args.TextAlignVertical)
 	if err != nil {
 		return nil, err
 	}

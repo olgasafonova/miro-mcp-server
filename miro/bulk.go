@@ -212,15 +212,18 @@ func createBulkItem(ctx context.Context, c *Client, boardID string, item BulkCre
 
 	case "shape":
 		result, err := c.CreateShape(ctx, CreateShapeArgs{
-			BoardID:  boardID,
-			Shape:    item.Shape,
-			Content:  item.Content,
-			X:        item.X,
-			Y:        item.Y,
-			Width:    item.Width,
-			Height:   item.Height,
-			Color:    item.Color,
-			ParentID: item.ParentID,
+			BoardID:           boardID,
+			Shape:             item.Shape,
+			Content:           item.Content,
+			X:                 item.X,
+			Y:                 item.Y,
+			Width:             item.Width,
+			Height:            item.Height,
+			Color:             item.Color,
+			TextColor:         item.TextColor,
+			TextAlign:         item.TextAlign,
+			TextAlignVertical: item.TextAlignVertical,
+			ParentID:          item.ParentID,
 		})
 		return result.ID, err
 

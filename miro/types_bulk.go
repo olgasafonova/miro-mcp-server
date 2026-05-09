@@ -52,15 +52,25 @@ type BulkCreateResult struct {
 // =============================================================================
 
 // BulkUpdateItem defines a single item update in a bulk update request.
+//
+// Type is optional. When set ('shape', 'sticky_note', 'text'), the bulk update
+// dispatches to the matching type-specific endpoint (UpdateShape / UpdateSticky
+// / UpdateText) so type-specific fields like text_align take effect. When
+// omitted, the update goes through the generic /items endpoint, which accepts
+// only the cross-type fields (content, position, geometry, color, parent).
 type BulkUpdateItem struct {
-	ItemID   string   `json:"item_id" jsonschema:"ID of the item to update"`
-	Content  *string  `json:"content,omitempty" jsonschema:"New text content"`
-	X        *float64 `json:"x,omitempty" jsonschema:"New X position"`
-	Y        *float64 `json:"y,omitempty" jsonschema:"New Y position"`
-	Width    *float64 `json:"width,omitempty" jsonschema:"New width"`
-	Height   *float64 `json:"height,omitempty" jsonschema:"New height"`
-	Color    *string  `json:"color,omitempty" jsonschema:"New color"`
-	ParentID *string  `json:"parent_id,omitempty" jsonschema:"New frame ID (empty string to remove from frame)"`
+	ItemID            string   `json:"item_id" jsonschema:"ID of the item to update"`
+	Type              string   `json:"type,omitempty" jsonschema:"Optional item type for type-specific routing: shape, sticky_note, text. Omit to use the generic /items endpoint (cross-type fields only)."`
+	Content           *string  `json:"content,omitempty" jsonschema:"New text content"`
+	X                 *float64 `json:"x,omitempty" jsonschema:"New X position"`
+	Y                 *float64 `json:"y,omitempty" jsonschema:"New Y position"`
+	Width             *float64 `json:"width,omitempty" jsonschema:"New width"`
+	Height            *float64 `json:"height,omitempty" jsonschema:"New height"`
+	Color             *string  `json:"color,omitempty" jsonschema:"New color"`
+	TextColor         *string  `json:"text_color,omitempty" jsonschema:"New text color (shape and text items only; requires type=shape or type=text)"`
+	TextAlign         *string  `json:"text_align,omitempty" jsonschema:"Horizontal text alignment (shape items only; requires type=shape): left, center, right"`
+	TextAlignVertical *string  `json:"text_align_vertical,omitempty" jsonschema:"Vertical text alignment (shape items only; requires type=shape): top, middle, bottom"`
+	ParentID          *string  `json:"parent_id,omitempty" jsonschema:"New frame ID (empty string to remove from frame)"`
 }
 
 // BulkUpdateArgs contains parameters for bulk item updates.

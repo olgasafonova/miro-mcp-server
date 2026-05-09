@@ -10510,6 +10510,78 @@ func TestCreateMindmapNode_ChildAcceptsPosition(t *testing.T) {
 	}
 }
 
+func TestBulkUpdate_TypeShapeRoutesToShapesEndpoint(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		// Shape-specific fields must reach the shapes endpoint
+		style, ok := body["style"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected style in PATCH body")
+		}
+		if style["textAlign"] != "center" {
+			t.Errorf("style.textAlign = %v, want 'center'", style["textAlign"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":   "shape1",
+			"data": map[string]interface{}{"shape": "triangle", "content": "X"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	textAlign := "center"
+	result, err := client.BulkUpdate(context.Background(), BulkUpdateArgs{
+		BoardID: "board123",
+		Items: []BulkUpdateItem{{
+			ItemID:    "shape1",
+			Type:      "shape",
+			TextAlign: &textAlign,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Updated != 1 {
+		t.Errorf("Updated = %d, want 1", result.Updated)
+	}
+	if len(paths) != 1 || !strings.Contains(paths[0], "/shapes/shape1") {
+		t.Errorf("expected PATCH to /shapes/shape1, got: %v", paths)
+	}
+}
+
+func TestBulkUpdate_NoTypeFallsBackToGenericItemsEndpoint(t *testing.T) {
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"id": "item1"})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	content := "renamed"
+	_, err := client.BulkUpdate(context.Background(), BulkUpdateArgs{
+		BoardID: "board123",
+		Items: []BulkUpdateItem{{
+			ItemID:  "item1",
+			Content: &content,
+			// Type intentionally omitted -> generic /items endpoint
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(paths) != 1 || !strings.Contains(paths[0], "/items/item1") {
+		t.Errorf("expected PATCH to /items/item1 (generic fallback), got: %v", paths)
+	}
+}
+
 func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}

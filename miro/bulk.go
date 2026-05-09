@@ -273,6 +273,66 @@ func buildBulkUpdateArgs(boardID string, item BulkUpdateItem) UpdateItemArgs {
 	return args
 }
 
+// updateBulkItem dispatches a single bulk update to the matching typed Update*
+// method when item.Type is set, falling back to the generic UpdateItem path
+// when Type is empty (preserving pre-existing bulk_update behavior). Routing
+// to a typed endpoint is what unlocks shape-specific fields like text_align,
+// which the generic /items endpoint does not accept.
+func updateBulkItem(ctx context.Context, c *Client, boardID string, item BulkUpdateItem) (string, error) {
+	switch item.Type {
+	case "shape":
+		_, err := c.UpdateShape(ctx, UpdateShapeArgs{
+			BoardID:           boardID,
+			ItemID:            item.ItemID,
+			Content:           item.Content,
+			Color:             item.Color,
+			TextColor:         item.TextColor,
+			TextAlign:         item.TextAlign,
+			TextAlignVertical: item.TextAlignVertical,
+			X:                 item.X,
+			Y:                 item.Y,
+			Width:             item.Width,
+			Height:            item.Height,
+			ParentID:          item.ParentID,
+		})
+		return item.ItemID, err
+
+	case "sticky_note":
+		_, err := c.UpdateSticky(ctx, UpdateStickyArgs{
+			BoardID:  boardID,
+			ItemID:   item.ItemID,
+			Content:  item.Content,
+			Color:    item.Color,
+			X:        item.X,
+			Y:        item.Y,
+			Width:    item.Width,
+			ParentID: item.ParentID,
+		})
+		return item.ItemID, err
+
+	case "text":
+		_, err := c.UpdateText(ctx, UpdateTextArgs{
+			BoardID:   boardID,
+			ItemID:    item.ItemID,
+			Content:   item.Content,
+			TextAlign: item.TextAlign,
+			Color:     item.TextColor, // text items use Color for the text color
+			X:         item.X,
+			Y:         item.Y,
+			Width:     item.Width,
+			ParentID:  item.ParentID,
+		})
+		return item.ItemID, err
+
+	default:
+		// No type specified (or unknown type): route to generic /items endpoint
+		// for backward compatibility. Type-specific fields are silently dropped
+		// because the generic endpoint can't accept them.
+		_, err := c.UpdateItem(ctx, buildBulkUpdateArgs(boardID, item))
+		return item.ItemID, err
+	}
+}
+
 // BulkCreate creates multiple items in one operation.
 // Items are created in parallel using goroutines, with concurrency
 // controlled by the client's semaphore (MaxConcurrentRequests).
@@ -316,8 +376,7 @@ func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdat
 	defer cancel()
 
 	resultSlice := runBulkInParallel(ctx, args.Items, func(ctx context.Context, _ int, item BulkUpdateItem) (string, error) {
-		_, err := c.UpdateItem(ctx, buildBulkUpdateArgs(args.BoardID, item))
-		return item.ItemID, err
+		return updateBulkItem(ctx, c, args.BoardID, item)
 	})
 
 	agg := processBulkResults(resultSlice, func(idx int, id string, err error) string {

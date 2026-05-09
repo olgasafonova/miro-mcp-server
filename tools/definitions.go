@@ -319,9 +319,15 @@ VOICE-FRIENDLY: "Created 5 items on the board"`,
 		Category: "update",
 		Description: `Update multiple items at once (max 20). Only provide fields you want to change.
 
-USE WHEN: "update positions for these items", "rename these stickies", "move several items into a frame".
+USE WHEN: "update positions for these items", "rename these stickies", "move several items into a frame", "center the text on these shapes".
 
-NOT FOR: Type-specific styling like text_align, text_color, or shape geometry. bulk_update goes through the generic /items endpoint, which doesn't accept style fields beyond color. For text alignment, font color, or shape-specific properties, use miro_update_shape (or the type-specific update tool) per item.
+ITEM FIELDS:
+- item_id (required): ID of the item to update
+- type (optional but recommended): 'shape', 'sticky_note', or 'text'. When set, the update routes to the type-specific endpoint and accepts type-specific fields like text_align. When omitted, falls back to the generic /items endpoint (cross-type fields only).
+- content, x, y, width, height, color, parent_id: cross-type fields, accepted regardless of type
+- text_color: shape and text items (requires type=shape or type=text)
+- text_align: shape items (requires type=shape): left, center, right
+- text_align_vertical: shape items (requires type=shape): top, middle, bottom
 
 RETURNS: Count of updated items and their IDs.
 

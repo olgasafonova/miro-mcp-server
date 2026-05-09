@@ -11,14 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Text alignment on shapes**: `miro_create_shape` and `miro_update_shape` now accept `text_align` (left/center/right) and `text_align_vertical` (top/middle/bottom). Previously, text on shapes rendered with the API's default alignment, which was particularly visible on triangles, hexagons, and other non-rectangular shapes where the bounding-box center is not the visual centroid. The new fields are validated against the allowed enums; invalid values fail at the SDK boundary with a clear error.
 - **`text_color` + alignment on `miro_bulk_create` shape items**: the bulk schema now accepts `text_color`, `text_align`, and `text_align_vertical` on shape items, closing the gap where these fields worked on single-create but were rejected by `bulk_create` validation.
 - **Mindmap child node positions**: `miro_create_mindmap_node` now accepts explicit `x`/`y` for child nodes (previously root-only). Without this, multiple siblings created via the API stacked at the same default position. Supplying explicit coordinates lets agents lay out children spatially.
+- **`miro_bulk_update` type-dispatch**: bulk updates now accept an optional `type` field on each item (`shape`, `sticky_note`, `text`). When set, the update routes to the type-specific endpoint (`UpdateShape` / `UpdateSticky` / `UpdateText`) and accepts type-specific fields like `text_align`, `text_color`, and sticky color names. Backward-compatible: items without `type` still go through the generic `/items/{id}` endpoint with no behavior change.
 
 ### Fixed
 - **`miro_bulk_delete` and `miro_delete_item` now work transparently on mindmap node IDs**: when the generic `/items/{id}` endpoint returns 400 or 404, the client retries via the experimental `/mindmap_nodes/{id}` endpoint before giving up. Previously, mindmap nodes had to be deleted through `miro_delete_mindmap_node`; bulk delete on a mixed-type list of IDs would fail entirely on any mindmap node. The fallback is gated to 4xx so that 5xx errors don't trigger silent endpoint-swapping.
 - **`miro_create_mindmap_node` description corrected**: removed the misleading "bubble" `node_view` value (the underlying API rejects it with 400). Documented that only `text` is reliably supported and noted the new explicit-positioning workflow for child nodes.
 - **`miro_create_frame` color description clarified**: explicitly states that frames use a smaller palette than stickies. Sticky-only names like `light_yellow` and `light_green` now have a clear "not valid for frames" hint instead of producing a generic palette error.
-
-### Known limitations
-- **`miro_bulk_update` does not yet support shape-specific style fields** (`text_color`, `text_align`, `text_align_vertical`) because it dispatches through the generic `/items/{id}` PATCH endpoint, not the type-specific `/shapes/{id}` PATCH. Use `miro_update_shape` directly for these properties; bulk update remains correct for content, position, geometry, color, and parent.
 
 ## [1.20.1] - 2026-05-09
 

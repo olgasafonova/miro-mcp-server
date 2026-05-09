@@ -14,13 +14,61 @@ import (
 // HTTP Request Handling
 // =============================================================================
 
+// requestState carries the per-call inputs that the retry loop reuses across
+// attempts. Marshaled body bytes live here so retries don't re-serialize.
+type requestState struct {
+	method      string
+	path        string
+	bodyBytes   []byte
+	hasJSONBody bool
+	token       string
+	cb          *CircuitBreaker
+}
+
 // request makes an authenticated request to the Miro API with retry support.
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
 	if !c.config.IsConfigured() {
 		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN is not configured. Set the MIRO_ACCESS_TOKEN environment variable. Get one at https://miro.com/app/settings/user-profile/apps")
 	}
 
-	// Check circuit breaker
+	cb, err := c.checkCircuitBreaker(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.acquireSlot(ctx); err != nil {
+		return nil, err
+	}
+	defer c.releaseSlot()
+
+	if err := c.waitForRateLimit(ctx); err != nil {
+		return nil, err
+	}
+
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		cb.RecordFailure()
+		return nil, fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	bodyBytes, err := marshalRequestBody(body)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.runRetryLoop(ctx, requestState{
+		method:      method,
+		path:        path,
+		bodyBytes:   bodyBytes,
+		hasJSONBody: body != nil,
+		token:       token,
+		cb:          cb,
+	})
+}
+
+// checkCircuitBreaker returns the breaker for path's endpoint and rejects when
+// it's open.
+func (c *Client) checkCircuitBreaker(path string) (*CircuitBreaker, error) {
 	endpoint := extractEndpoint(path)
 	cb := c.circuitBreakers.Get(endpoint)
 	if err := cb.Allow(); err != nil {
@@ -30,202 +78,146 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 		)
 		return nil, fmt.Errorf("circuit breaker open for %s: %w", endpoint, err)
 	}
+	return cb, nil
+}
 
-	// Acquire semaphore slot (concurrency limiting)
+// acquireSlot reserves a concurrency slot. Pair with releaseSlot via defer.
+func (c *Client) acquireSlot(ctx context.Context) error {
 	select {
 	case c.semaphore <- struct{}{}:
-		defer func() { <-c.semaphore }()
+		return nil
 	case <-ctx.Done():
-		return nil, fmt.Errorf("context cancelled while waiting for rate limiter: %w", ctx.Err())
+		return fmt.Errorf("context cancelled while waiting for rate limiter: %w", ctx.Err())
 	}
+}
 
-	// Apply adaptive rate limiting based on previous response headers
-	if delay, err := c.rateLimiter.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("context cancelled during rate limit wait: %w", err)
-	} else if delay > 0 {
+// releaseSlot returns the slot acquired by acquireSlot.
+func (c *Client) releaseSlot() {
+	<-c.semaphore
+}
+
+// waitForRateLimit applies the adaptive rate limiter's current delay.
+func (c *Client) waitForRateLimit(ctx context.Context) error {
+	delay, err := c.rateLimiter.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("context cancelled during rate limit wait: %w", err)
+	}
+	if delay > 0 {
 		c.logger.Debug("Adaptive rate limiter applied delay",
 			"delay", delay,
 			"state", c.rateLimiter.State(),
 		)
 	}
+	return nil
+}
 
-	// Get access token (may refresh if using OAuth)
-	token, err := c.getAccessToken(ctx)
+// marshalRequestBody serializes body to JSON if non-nil.
+func marshalRequestBody(body interface{}) ([]byte, error) {
+	if body == nil {
+		return nil, nil
+	}
+	bodyBytes, err := json.Marshal(body)
 	if err != nil {
-		cb.RecordFailure()
-		return nil, fmt.Errorf("failed to get access token: %w", err)
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
+	return bodyBytes, nil
+}
 
-	// Marshal body once for potential retries
-	var bodyBytes []byte
-	if body != nil {
-		var marshalErr error
-		bodyBytes, marshalErr = json.Marshal(body)
-		if marshalErr != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", marshalErr)
-		}
-	}
+// retryContext carries the per-iteration backoff inputs to waitBeforeRetry.
+type retryContext struct {
+	attempt        int
+	lastErr        error
+	lastStatusCode int
+	path           string
+}
 
-	// Retry loop
+// runRetryLoop performs up to MaxRetries+1 attempts of st against the Miro API,
+// honoring backoff with optional Retry-After hints between attempts.
+func (c *Client) runRetryLoop(ctx context.Context, st requestState) ([]byte, error) {
 	var lastErr error
 	var lastStatusCode int
 	for attempt := 0; attempt <= MaxRetries; attempt++ {
 		if attempt > 0 {
-			// Calculate delay for retry
-			retryAfter := GetRetryAfter(lastErr)
-			delay := calculateRetryDelay(attempt-1, retryAfter)
+			if err := c.waitBeforeRetry(ctx, retryContext{
+				attempt:        attempt,
+				lastErr:        lastErr,
+				lastStatusCode: lastStatusCode,
+				path:           st.path,
+			}); err != nil {
+				return nil, err
+			}
+		}
 
-			c.logger.Debug("Retrying request after transient error",
-				"attempt", attempt,
-				"delay", delay,
-				"last_status", lastStatusCode,
-				"path", path,
+		respBody, statusCode, retriable, err := c.tryOnce(ctx, st)
+		if err == nil {
+			c.logger.Debug("API request completed",
+				"method", st.method,
+				"path", st.path,
+				"status", statusCode,
+				"attempts", attempt+1,
 			)
-
-			// Wait before retry, respecting context cancellation
-			select {
-			case <-time.After(delay):
-			case <-ctx.Done():
-				return nil, fmt.Errorf("context cancelled during retry wait: %w", ctx.Err())
-			}
+			return respBody, nil
 		}
 
-		// Build request URL
-		reqURL := c.baseURL + path
-
-		// Prepare request body (fresh reader for each attempt)
-		var reqBody io.Reader
-		if bodyBytes != nil {
-			reqBody = bytes.NewReader(bodyBytes)
+		lastErr = err
+		lastStatusCode = statusCode
+		if !retriable || attempt >= MaxRetries {
+			return nil, err
 		}
-
-		// Create request
-		req, err := http.NewRequestWithContext(ctx, method, reqURL, reqBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-
-		// Set headers
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", c.config.UserAgent)
-		if body != nil {
-			req.Header.Set("Content-Type", "application/json")
-		}
-		req.Header.Set("Accept", "application/json")
-
-		// Execute request
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			lastErr = err
-			lastStatusCode = 0
-			// Check if network error is retriable
-			if isRetriableError(0, err) && attempt < MaxRetries {
-				cb.RecordFailure()
-				continue
-			}
-			cb.RecordFailure()
-			return nil, fmt.Errorf("request failed: %w", err)
-		}
-
-		// Read response body
-		respBody, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			cb.RecordFailure()
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
-
-		// Update rate limiter from response headers (do this for ALL responses)
-		c.rateLimiter.UpdateFromResponse(resp)
-
-		lastStatusCode = resp.StatusCode
-
-		// Check for errors
-		if resp.StatusCode >= 400 {
-			apiErr := ParseAPIError(resp, respBody)
-			lastErr = apiErr
-
-			// Check if retriable
-			if isRetriableError(resp.StatusCode, nil) && attempt < MaxRetries {
-				if resp.StatusCode >= 500 {
-					cb.RecordFailure()
-				}
-				continue
-			}
-
-			// Not retriable or max retries exceeded
-			if resp.StatusCode >= 500 {
-				cb.RecordFailure()
-			}
-			return nil, apiErr
-		}
-
-		// Success - record and return
-		cb.RecordSuccess()
-
-		c.logger.Debug("API request completed",
-			"method", method,
-			"path", path,
-			"status", resp.StatusCode,
-			"attempts", attempt+1,
-		)
-
-		return respBody, nil
 	}
-
-	// Should not reach here, but return last error if we do
 	return nil, fmt.Errorf("max retries exceeded: %w", lastErr)
 }
 
-// requestMultipart makes a multipart form request to the Miro API.
-// Used for file upload endpoints that require multipart/form-data.
-func (c *Client) requestMultipart(ctx context.Context, method, path, contentType string, body io.Reader) ([]byte, error) {
-	// Check circuit breaker
-	endpoint := extractEndpoint(path)
-	cb := c.circuitBreakers.Get(endpoint)
-	if err := cb.Allow(); err != nil {
-		return nil, fmt.Errorf("circuit breaker open for %s: %w", endpoint, err)
-	}
+// waitBeforeRetry sleeps with backoff, respecting context cancellation.
+func (c *Client) waitBeforeRetry(ctx context.Context, rc retryContext) error {
+	retryAfter := GetRetryAfter(rc.lastErr)
+	delay := calculateRetryDelay(rc.attempt-1, retryAfter)
 
-	// Acquire semaphore slot
+	c.logger.Debug("Retrying request after transient error",
+		"attempt", rc.attempt,
+		"delay", delay,
+		"last_status", rc.lastStatusCode,
+		"path", rc.path,
+	)
+
 	select {
-	case c.semaphore <- struct{}{}:
-		defer func() { <-c.semaphore }()
+	case <-time.After(delay):
+		return nil
 	case <-ctx.Done():
-		return nil, fmt.Errorf("context cancelled while waiting for rate limiter: %w", ctx.Err())
+		return fmt.Errorf("context cancelled during retry wait: %w", ctx.Err())
 	}
+}
 
-	// Apply adaptive rate limiting
-	if delay, err := c.rateLimiter.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("context cancelled during rate limit wait: %w", err)
-	} else if delay > 0 {
-		c.logger.Debug("Adaptive rate limiter applied delay", "delay", delay)
-	}
-
-	// Get access token
-	token, err := c.getAccessToken(ctx)
+// tryOnce performs a single HTTP attempt and reports the outcome. Network
+// errors are returned wrapped as "request failed: %w" but remain unwrappable
+// via errors.As, so GetRetryAfter still finds rate-limit hints. Caller decides
+// retry based on retriable.
+func (c *Client) tryOnce(ctx context.Context, st requestState) (respBody []byte, statusCode int, retriable bool, err error) {
+	req, err := c.buildRequest(ctx, st)
 	if err != nil {
-		cb.RecordFailure()
-		return nil, fmt.Errorf("failed to get access token: %w", err)
+		return nil, 0, false, err
 	}
-
-	reqURL := c.baseURL + path
-	req, err := http.NewRequestWithContext(ctx, method, reqURL, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", c.config.UserAgent)
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		cb.RecordFailure()
-		return nil, fmt.Errorf("request failed: %w", err)
+		st.cb.RecordFailure()
+		return nil, 0, isRetriableError(0, err), fmt.Errorf("request failed: %w", err)
 	}
 
+	respBody, err = c.readAndCheckResponse(resp, st.cb)
+	if err == nil {
+		return respBody, resp.StatusCode, false, nil
+	}
+	if resp.StatusCode >= 400 {
+		return nil, resp.StatusCode, isRetriableError(resp.StatusCode, nil), err
+	}
+	return nil, resp.StatusCode, false, err
+}
+
+// readAndCheckResponse reads resp.Body, updates the adaptive rate limiter,
+// and converts >=400 status into a structured APIError. Records circuit
+// breaker outcomes (failure on 5xx and read errors, success on 2xx-3xx).
+func (c *Client) readAndCheckResponse(resp *http.Response, cb *CircuitBreaker) ([]byte, error) {
 	respBody, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
@@ -245,6 +237,80 @@ func (c *Client) requestMultipart(ctx context.Context, method, path, contentType
 
 	cb.RecordSuccess()
 	return respBody, nil
+}
+
+// buildRequest constructs a fresh HTTP request from st. Called once per attempt
+// because bytes.Reader is not replayable across retries.
+func (c *Client) buildRequest(ctx context.Context, st requestState) (*http.Request, error) {
+	var reqBody io.Reader
+	if st.bodyBytes != nil {
+		reqBody = bytes.NewReader(st.bodyBytes)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, st.method, c.baseURL+st.path, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	setMiroHeaders(req, st.token, c.config.UserAgent)
+	if st.hasJSONBody {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return req, nil
+}
+
+// setMiroHeaders sets Authorization, User-Agent, and Accept on req.
+func setMiroHeaders(req *http.Request, token, userAgent string) {
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "application/json")
+}
+
+// multipartRequest carries the inputs to requestMultipart.
+type multipartRequest struct {
+	method      string
+	path        string
+	contentType string
+	body        io.Reader
+}
+
+// requestMultipart makes a multipart form request to the Miro API. Multipart
+// streams cannot be replayed cleanly, so this path does not retry.
+func (c *Client) requestMultipart(ctx context.Context, mr multipartRequest) ([]byte, error) {
+	cb, err := c.checkCircuitBreaker(mr.path)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.acquireSlot(ctx); err != nil {
+		return nil, err
+	}
+	defer c.releaseSlot()
+
+	if err := c.waitForRateLimit(ctx); err != nil {
+		return nil, err
+	}
+
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		cb.RecordFailure()
+		return nil, fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, mr.method, c.baseURL+mr.path, mr.body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	setMiroHeaders(req, token, c.config.UserAgent)
+	req.Header.Set("Content-Type", mr.contentType)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		cb.RecordFailure()
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	return c.readAndCheckResponse(resp, cb)
 }
 
 // requestExperimental makes a request to the v2-experimental API endpoints.

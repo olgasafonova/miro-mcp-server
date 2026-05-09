@@ -127,49 +127,32 @@ type ToolMetrics struct {
 	FalseNegatives int // times this tool should have been selected but wasn't
 }
 
-// LoadToolSelectionSuite loads tool selection tests from a JSON file
+// loadSuite reads path and unmarshals into T. Shared by every Load*Suite loader.
+func loadSuite[T any](path string) (*T, error) {
+	data, err := os.ReadFile(path) // #nosec G304 -- path is controlled by eval framework
+	if err != nil {
+		return nil, fmt.Errorf("reading file: %w", err)
+	}
+	var suite T
+	if err := json.Unmarshal(data, &suite); err != nil {
+		return nil, fmt.Errorf("parsing JSON: %w", err)
+	}
+	return &suite, nil
+}
+
+// LoadToolSelectionSuite loads tool selection tests from a JSON file.
 func LoadToolSelectionSuite(path string) (*ToolSelectionSuite, error) {
-	data, err := os.ReadFile(path) // #nosec G304 -- path is controlled by eval framework
-	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
-	}
-
-	var suite ToolSelectionSuite
-	if err := json.Unmarshal(data, &suite); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-
-	return &suite, nil
+	return loadSuite[ToolSelectionSuite](path)
 }
 
-// LoadConfusionPairSuite loads confusion pair tests from a JSON file
+// LoadConfusionPairSuite loads confusion pair tests from a JSON file.
 func LoadConfusionPairSuite(path string) (*ConfusionPairSuite, error) {
-	data, err := os.ReadFile(path) // #nosec G304 -- path is controlled by eval framework
-	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
-	}
-
-	var suite ConfusionPairSuite
-	if err := json.Unmarshal(data, &suite); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-
-	return &suite, nil
+	return loadSuite[ConfusionPairSuite](path)
 }
 
-// LoadArgumentSuite loads argument correctness tests from a JSON file
+// LoadArgumentSuite loads argument correctness tests from a JSON file.
 func LoadArgumentSuite(path string) (*ArgumentSuite, error) {
-	data, err := os.ReadFile(path) // #nosec G304 -- path is controlled by eval framework
-	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
-	}
-
-	var suite ArgumentSuite
-	if err := json.Unmarshal(data, &suite); err != nil {
-		return nil, fmt.Errorf("parsing JSON: %w", err)
-	}
-
-	return &suite, nil
+	return loadSuite[ArgumentSuite](path)
 }
 
 // ToolSelector is an interface that an LLM or mock can implement for testing
@@ -178,74 +161,29 @@ type ToolSelector interface {
 	SelectTool(prompt string) (toolName string, args map[string]interface{}, err error)
 }
 
-// EvaluateToolSelection runs tool selection tests against a selector
+// EvaluateToolSelection runs tool selection tests against a selector.
 func EvaluateToolSelection(suite *ToolSelectionSuite, selector ToolSelector) (*EvalMetrics, []ToolSelectionResult) {
 	metrics := &EvalMetrics{
 		ByCategory:   make(map[string]*CategoryMetrics),
 		ByDifficulty: make(map[string]*CategoryMetrics),
 		ByTool:       make(map[string]*ToolMetrics),
 	}
-	var results []ToolSelectionResult
+	results := make([]ToolSelectionResult, 0, len(suite.Tests))
 
 	for _, test := range suite.Tests {
 		metrics.TotalTests++
-
-		// Initialize category metrics
-		if metrics.ByCategory[test.Category] == nil {
-			metrics.ByCategory[test.Category] = &CategoryMetrics{}
-		}
+		ensureCategory(metrics, test.Category)
 		metrics.ByCategory[test.Category].Total++
-
-		// Initialize difficulty metrics
 		if metrics.ByDifficulty[test.Difficulty] == nil {
 			metrics.ByDifficulty[test.Difficulty] = &CategoryMetrics{}
 		}
 		metrics.ByDifficulty[test.Difficulty].Total++
-
-		// Initialize tool metrics
-		if metrics.ByTool[test.ExpectedTool] == nil {
-			metrics.ByTool[test.ExpectedTool] = &ToolMetrics{}
-		}
+		ensureToolMetric(metrics, test.ExpectedTool)
 		metrics.ByTool[test.ExpectedTool].ExpectedCount++
 
-		// Run the selector
-		actualTool, _, err := selector.SelectTool(test.Prompt)
+		result := evaluateToolSelectionTest(test, selector)
+		recordToolMetrics(metrics, test, result)
 
-		result := ToolSelectionResult{
-			TestID:       test.ID,
-			Prompt:       test.Prompt,
-			ExpectedTool: test.ExpectedTool,
-			ActualTool:   actualTool,
-			Passed:       true,
-		}
-
-		if err != nil {
-			result.Passed = false
-			result.Errors = append(result.Errors, fmt.Sprintf("selector error: %v", err))
-		}
-
-		// Check tool selection
-		if actualTool != test.ExpectedTool {
-			result.Passed = false
-			result.Errors = append(result.Errors,
-				fmt.Sprintf("wrong tool: expected %s, got %s", test.ExpectedTool, actualTool))
-			metrics.ByTool[test.ExpectedTool].FalseNegatives++
-
-			if metrics.ByTool[actualTool] == nil {
-				metrics.ByTool[actualTool] = &ToolMetrics{}
-			}
-			metrics.ByTool[actualTool].FalsePositives++
-		} else {
-			metrics.ByTool[test.ExpectedTool].CorrectCount++
-		}
-
-		// Track selected count
-		if metrics.ByTool[actualTool] == nil {
-			metrics.ByTool[actualTool] = &ToolMetrics{}
-		}
-		metrics.ByTool[actualTool].SelectedCount++
-
-		// Update metrics
 		if result.Passed {
 			metrics.PassedTests++
 			metrics.ByCategory[test.Category].Passed++
@@ -257,18 +195,51 @@ func EvaluateToolSelection(suite *ToolSelectionSuite, selector ToolSelector) (*E
 			metrics.FailedDetails = append(metrics.FailedDetails,
 				fmt.Sprintf("[%s] %s: %s", test.ID, test.Prompt, strings.Join(result.Errors, "; ")))
 		}
-
 		results = append(results, result)
 	}
 
 	if metrics.TotalTests > 0 {
 		metrics.Accuracy = float64(metrics.PassedTests) / float64(metrics.TotalTests)
 	}
-
 	return metrics, results
 }
 
-// EvaluateConfusionPairs runs confusion pair tests against a selector
+// evaluateToolSelectionTest runs one ToolSelectionTest and returns a result.
+func evaluateToolSelectionTest(test ToolSelectionTest, selector ToolSelector) ToolSelectionResult {
+	actualTool, _, err := selector.SelectTool(test.Prompt)
+	result := ToolSelectionResult{
+		TestID:       test.ID,
+		Prompt:       test.Prompt,
+		ExpectedTool: test.ExpectedTool,
+		ActualTool:   actualTool,
+		Passed:       true,
+	}
+	if err != nil {
+		result.Passed = false
+		result.Errors = append(result.Errors, fmt.Sprintf("selector error: %v", err))
+	}
+	if actualTool != test.ExpectedTool {
+		result.Passed = false
+		result.Errors = append(result.Errors,
+			fmt.Sprintf("wrong tool: expected %s, got %s", test.ExpectedTool, actualTool))
+	}
+	return result
+}
+
+// recordToolMetrics updates per-tool counters (correct, false positive, false
+// negative, selected) based on a single tool-selection outcome.
+func recordToolMetrics(metrics *EvalMetrics, test ToolSelectionTest, result ToolSelectionResult) {
+	ensureToolMetric(metrics, result.ActualTool)
+	if result.ActualTool == test.ExpectedTool {
+		metrics.ByTool[test.ExpectedTool].CorrectCount++
+	} else {
+		metrics.ByTool[test.ExpectedTool].FalseNegatives++
+		metrics.ByTool[result.ActualTool].FalsePositives++
+	}
+	metrics.ByTool[result.ActualTool].SelectedCount++
+}
+
+// EvaluateConfusionPairs runs confusion pair tests against a selector.
 func EvaluateConfusionPairs(suite *ConfusionPairSuite, selector ToolSelector) (*EvalMetrics, []ConfusionPairResult) {
 	metrics := &EvalMetrics{
 		ByCategory: make(map[string]*CategoryMetrics),
@@ -277,54 +248,17 @@ func EvaluateConfusionPairs(suite *ConfusionPairSuite, selector ToolSelector) (*
 	var results []ConfusionPairResult
 
 	for _, pair := range suite.Pairs {
-		// Use tool pair as category key
 		pairKey := strings.Join(pair.Tools, " vs ")
-		if metrics.ByCategory[pairKey] == nil {
-			metrics.ByCategory[pairKey] = &CategoryMetrics{}
-		}
+		ensureCategory(metrics, pairKey)
 
 		for _, test := range pair.Tests {
 			metrics.TotalTests++
 			metrics.ByCategory[pairKey].Total++
-
-			// Initialize tool metrics
-			if metrics.ByTool[test.ExpectedTool] == nil {
-				metrics.ByTool[test.ExpectedTool] = &ToolMetrics{}
-			}
+			ensureToolMetric(metrics, test.ExpectedTool)
 			metrics.ByTool[test.ExpectedTool].ExpectedCount++
 
-			// Run the selector
-			actualTool, _, err := selector.SelectTool(test.Prompt)
-
-			result := ConfusionPairResult{
-				PairTools:    pair.Tools,
-				TestPrompt:   test.Prompt,
-				ExpectedTool: test.ExpectedTool,
-				ActualTool:   actualTool,
-				Rationale:    test.Rationale,
-				Passed:       err == nil && actualTool == test.ExpectedTool,
-			}
-
-			// Track metrics
-			if metrics.ByTool[actualTool] == nil {
-				metrics.ByTool[actualTool] = &ToolMetrics{}
-			}
-			metrics.ByTool[actualTool].SelectedCount++
-
-			if result.Passed {
-				metrics.PassedTests++
-				metrics.ByCategory[pairKey].Passed++
-				metrics.ByTool[test.ExpectedTool].CorrectCount++
-			} else {
-				metrics.FailedTests++
-				metrics.ByCategory[pairKey].Failed++
-				metrics.ByTool[test.ExpectedTool].FalseNegatives++
-				metrics.ByTool[actualTool].FalsePositives++
-				metrics.FailedDetails = append(metrics.FailedDetails,
-					fmt.Sprintf("[%s] %s: expected %s, got %s (%s)",
-						pairKey, test.Prompt, test.ExpectedTool, actualTool, test.Rationale))
-			}
-
+			result := evaluateConfusionTest(pair.Tools, test, selector)
+			recordConfusionResult(metrics, pairKey, test, result)
 			results = append(results, result)
 		}
 	}
@@ -332,148 +266,209 @@ func EvaluateConfusionPairs(suite *ConfusionPairSuite, selector ToolSelector) (*
 	if metrics.TotalTests > 0 {
 		metrics.Accuracy = float64(metrics.PassedTests) / float64(metrics.TotalTests)
 	}
-
 	return metrics, results
 }
 
-// EvaluateArguments runs argument correctness tests against a selector
+// evaluateConfusionTest runs one ConfusionPairTest and returns a result.
+func evaluateConfusionTest(pairTools []string, test ConfusionPairTest, selector ToolSelector) ConfusionPairResult {
+	actualTool, _, err := selector.SelectTool(test.Prompt)
+	return ConfusionPairResult{
+		PairTools:    pairTools,
+		TestPrompt:   test.Prompt,
+		ExpectedTool: test.ExpectedTool,
+		ActualTool:   actualTool,
+		Rationale:    test.Rationale,
+		Passed:       err == nil && actualTool == test.ExpectedTool,
+	}
+}
+
+// recordConfusionResult updates aggregate metrics for one confusion-pair outcome.
+func recordConfusionResult(metrics *EvalMetrics, pairKey string, test ConfusionPairTest, result ConfusionPairResult) {
+	ensureToolMetric(metrics, result.ActualTool)
+	metrics.ByTool[result.ActualTool].SelectedCount++
+
+	if result.Passed {
+		metrics.PassedTests++
+		metrics.ByCategory[pairKey].Passed++
+		metrics.ByTool[test.ExpectedTool].CorrectCount++
+		return
+	}
+	metrics.FailedTests++
+	metrics.ByCategory[pairKey].Failed++
+	metrics.ByTool[test.ExpectedTool].FalseNegatives++
+	metrics.ByTool[result.ActualTool].FalsePositives++
+	metrics.FailedDetails = append(metrics.FailedDetails,
+		fmt.Sprintf("[%s] %s: expected %s, got %s (%s)",
+			pairKey, test.Prompt, test.ExpectedTool, result.ActualTool, test.Rationale))
+}
+
+// EvaluateArguments runs argument correctness tests against a selector.
 func EvaluateArguments(suite *ArgumentSuite, selector ToolSelector) (*EvalMetrics, []ArgumentResult) {
 	metrics := &EvalMetrics{
 		ByCategory: make(map[string]*CategoryMetrics),
 		ByTool:     make(map[string]*ToolMetrics),
 	}
-	var results []ArgumentResult
+	results := make([]ArgumentResult, 0, len(suite.Tests))
 
 	for _, test := range suite.Tests {
 		metrics.TotalTests++
-
-		// Use category from test
-		if metrics.ByCategory[test.Category] == nil {
-			metrics.ByCategory[test.Category] = &CategoryMetrics{}
-		}
+		ensureCategory(metrics, test.Category)
 		metrics.ByCategory[test.Category].Total++
 
-		// Run the selector
-		actualTool, actualArgs, err := selector.SelectTool(test.Prompt)
-
-		result := ArgumentResult{
-			TestID:    test.ID,
-			Tool:      test.Tool,
-			Prompt:    test.Prompt,
-			Passed:    true,
-			WrongArgs: make(map[string]string),
-		}
-
-		if err != nil {
-			result.Passed = false
-			metrics.FailedTests++
-			metrics.ByCategory[test.Category].Failed++
-			results = append(results, result)
-			continue
-		}
-
-		// Check correct tool was selected first
-		if actualTool != test.Tool {
-			result.Passed = false
-			metrics.FailedTests++
-			metrics.ByCategory[test.Category].Failed++
-			results = append(results, result)
-			continue
-		}
-
-		// Check required arguments
-		for _, reqArg := range test.RequiredArgs {
-			if _, exists := actualArgs[reqArg]; !exists {
-				result.Passed = false
-				result.MissingArgs = append(result.MissingArgs, reqArg)
-			}
-		}
-
-		// Check expected argument values
-		for key, expectedValue := range test.ExpectedArgs {
-			actualValue, exists := actualArgs[key]
-			if !exists {
-				result.Passed = false
-				result.MissingArgs = append(result.MissingArgs, key)
-			} else if !compareValues(expectedValue, actualValue) {
-				result.Passed = false
-				result.WrongArgs[key] = fmt.Sprintf("expected %v, got %v", expectedValue, actualValue)
-			}
-		}
-
-		// Update metrics
-		if result.Passed {
-			metrics.PassedTests++
-			metrics.ByCategory[test.Category].Passed++
-		} else {
-			metrics.FailedTests++
-			metrics.ByCategory[test.Category].Failed++
-
-			var errDetails []string
-			if len(result.MissingArgs) > 0 {
-				errDetails = append(errDetails, fmt.Sprintf("missing: %v", result.MissingArgs))
-			}
-			for k, v := range result.WrongArgs {
-				errDetails = append(errDetails, fmt.Sprintf("%s: %s", k, v))
-			}
-			metrics.FailedDetails = append(metrics.FailedDetails,
-				fmt.Sprintf("[%s] %s: %s", test.ID, test.Prompt, strings.Join(errDetails, "; ")))
-		}
-
+		result := evaluateArgumentTest(test, selector)
+		recordArgumentResult(metrics, test, result)
 		results = append(results, result)
 	}
 
 	if metrics.TotalTests > 0 {
 		metrics.Accuracy = float64(metrics.PassedTests) / float64(metrics.TotalTests)
 	}
-
 	return metrics, results
 }
 
-// compareValues compares expected and actual values, handling type differences
-func compareValues(expected, actual interface{}) bool {
-	// Handle nil cases
-	if expected == nil && actual == nil {
-		return true
-	}
-	if expected == nil || actual == nil {
-		return false
+// evaluateArgumentTest runs one ArgumentTest and returns a result with all
+// missing/wrong-arg detail filled in. Pure of metrics bookkeeping.
+func evaluateArgumentTest(test ArgumentTest, selector ToolSelector) ArgumentResult {
+	result := ArgumentResult{
+		TestID:    test.ID,
+		Tool:      test.Tool,
+		Prompt:    test.Prompt,
+		Passed:    true,
+		WrongArgs: make(map[string]string),
 	}
 
-	// Use reflect for deep comparison
+	actualTool, actualArgs, err := selector.SelectTool(test.Prompt)
+	if err != nil || actualTool != test.Tool {
+		result.Passed = false
+		return result
+	}
+
+	checkRequiredArgs(actualArgs, test.RequiredArgs, &result)
+	checkExpectedArgs(actualArgs, test.ExpectedArgs, &result)
+	return result
+}
+
+// checkRequiredArgs marks any required-but-absent args as missing on result.
+func checkRequiredArgs(actualArgs map[string]interface{}, required []string, result *ArgumentResult) {
+	for _, reqArg := range required {
+		if _, exists := actualArgs[reqArg]; !exists {
+			result.Passed = false
+			result.MissingArgs = append(result.MissingArgs, reqArg)
+		}
+	}
+}
+
+// checkExpectedArgs verifies each expected arg is present and value-equal,
+// recording missing or mismatched entries on result.
+func checkExpectedArgs(actualArgs, expected map[string]interface{}, result *ArgumentResult) {
+	for key, expectedValue := range expected {
+		actualValue, exists := actualArgs[key]
+		if !exists {
+			result.Passed = false
+			result.MissingArgs = append(result.MissingArgs, key)
+			continue
+		}
+		if !compareValues(expectedValue, actualValue) {
+			result.Passed = false
+			result.WrongArgs[key] = fmt.Sprintf("expected %v, got %v", expectedValue, actualValue)
+		}
+	}
+}
+
+// recordArgumentResult updates aggregate metrics based on a single ArgumentResult.
+func recordArgumentResult(metrics *EvalMetrics, test ArgumentTest, result ArgumentResult) {
+	if result.Passed {
+		metrics.PassedTests++
+		metrics.ByCategory[test.Category].Passed++
+		return
+	}
+	metrics.FailedTests++
+	metrics.ByCategory[test.Category].Failed++
+	if details := formatArgumentFailure(result); details != "" {
+		metrics.FailedDetails = append(metrics.FailedDetails,
+			fmt.Sprintf("[%s] %s: %s", test.ID, test.Prompt, details))
+	}
+}
+
+// formatArgumentFailure renders a one-line summary of what went wrong.
+// Returns empty string when the failure was a wrong-tool / selector-error
+// (no per-arg detail), matching the original "skip details" behavior.
+func formatArgumentFailure(result ArgumentResult) string {
+	if len(result.MissingArgs) == 0 && len(result.WrongArgs) == 0 {
+		return ""
+	}
+	var parts []string
+	if len(result.MissingArgs) > 0 {
+		parts = append(parts, fmt.Sprintf("missing: %v", result.MissingArgs))
+	}
+	for k, v := range result.WrongArgs {
+		parts = append(parts, fmt.Sprintf("%s: %s", k, v))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// ensureCategory creates a CategoryMetrics entry if absent.
+func ensureCategory(metrics *EvalMetrics, name string) {
+	if metrics.ByCategory[name] == nil {
+		metrics.ByCategory[name] = &CategoryMetrics{}
+	}
+}
+
+// ensureToolMetric creates a ToolMetrics entry if absent.
+func ensureToolMetric(metrics *EvalMetrics, name string) {
+	if metrics.ByTool[name] == nil {
+		metrics.ByTool[name] = &ToolMetrics{}
+	}
+}
+
+// compareValues compares expected and actual values, tolerating the float64
+// coercion JSON unmarshaling applies to numbers.
+func compareValues(expected, actual interface{}) bool {
+	if expected == nil || actual == nil {
+		return expected == actual
+	}
+
 	ev := reflect.ValueOf(expected)
 	av := reflect.ValueOf(actual)
 
-	// Handle numeric type differences (JSON unmarshals to float64)
-	switch ev.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if av.Kind() == reflect.Float64 {
-			return float64(ev.Int()) == av.Float()
-		}
-	case reflect.Float32, reflect.Float64:
-		if av.Kind() == reflect.Float64 {
-			return ev.Float() == av.Float()
-		}
+	if equal, ok := compareNumeric(ev, av); ok {
+		return equal
 	}
-
-	// Handle slice comparison
 	if ev.Kind() == reflect.Slice && av.Kind() == reflect.Slice {
-		if ev.Len() != av.Len() {
-			return false
-		}
-		for i := 0; i < ev.Len(); i++ {
-			if !compareValues(ev.Index(i).Interface(), av.Index(i).Interface()) {
-				return false
-			}
-		}
-		return true
+		return compareSlices(ev, av)
 	}
-
-	// Default: use reflect.DeepEqual
 	return reflect.DeepEqual(expected, actual)
 }
 
-// FormatMetrics returns a human-readable summary of evaluation metrics
+// compareNumeric handles the JSON-unmarshals-numbers-to-float64 case. Returns
+// (equal, true) when ev is numeric and av is float64; (_, false) otherwise.
+func compareNumeric(ev, av reflect.Value) (bool, bool) {
+	if av.Kind() != reflect.Float64 {
+		return false, false
+	}
+	switch ev.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(ev.Int()) == av.Float(), true
+	case reflect.Float32, reflect.Float64:
+		return ev.Float() == av.Float(), true
+	}
+	return false, false
+}
+
+// compareSlices compares two slice reflect.Values element-by-element via compareValues.
+func compareSlices(ev, av reflect.Value) bool {
+	if ev.Len() != av.Len() {
+		return false
+	}
+	for i := 0; i < ev.Len(); i++ {
+		if !compareValues(ev.Index(i).Interface(), av.Index(i).Interface()) {
+			return false
+		}
+	}
+	return true
+}
+
+// FormatMetrics returns a human-readable summary of evaluation metrics.
 func FormatMetrics(metrics *EvalMetrics, suiteName string) string {
 	var b strings.Builder
 
@@ -482,39 +477,44 @@ func FormatMetrics(metrics *EvalMetrics, suiteName string) string {
 	b.WriteString(fmt.Sprintf("Passed: %d (%.1f%%)\n", metrics.PassedTests, metrics.Accuracy*100))
 	b.WriteString(fmt.Sprintf("Failed: %d\n", metrics.FailedTests))
 
-	if len(metrics.ByCategory) > 0 {
-		b.WriteString("\nBy Category:\n")
-		for cat, m := range metrics.ByCategory {
-			if m.Total > 0 {
-				acc := float64(m.Passed) / float64(m.Total) * 100
-				b.WriteString(fmt.Sprintf("  %-30s: %d/%d (%.0f%%)\n", cat, m.Passed, m.Total, acc))
-			}
-		}
-	}
-
-	if len(metrics.ByDifficulty) > 0 {
-		b.WriteString("\nBy Difficulty:\n")
-		for diff, m := range metrics.ByDifficulty {
-			if m.Total > 0 {
-				acc := float64(m.Passed) / float64(m.Total) * 100
-				b.WriteString(fmt.Sprintf("  %-10s: %d/%d (%.0f%%)\n", diff, m.Passed, m.Total, acc))
-			}
-		}
-	}
-
-	if len(metrics.FailedDetails) > 0 && len(metrics.FailedDetails) <= 10 {
-		b.WriteString("\nFailed Tests:\n")
-		for _, detail := range metrics.FailedDetails {
-			b.WriteString(fmt.Sprintf("  - %s\n", detail))
-		}
-	} else if len(metrics.FailedDetails) > 10 {
-		b.WriteString(fmt.Sprintf("\nFailed Tests (showing first 10 of %d):\n", len(metrics.FailedDetails)))
-		for _, detail := range metrics.FailedDetails[:10] {
-			b.WriteString(fmt.Sprintf("  - %s\n", detail))
-		}
-	}
+	writeBreakdown(&b, "By Category", metrics.ByCategory, 30)
+	writeBreakdown(&b, "By Difficulty", metrics.ByDifficulty, 10)
+	writeFailureSection(&b, metrics.FailedDetails)
 
 	return b.String()
+}
+
+// writeBreakdown renders one "By X" block with right-aligned padding.
+func writeBreakdown(b *strings.Builder, title string, breakdown map[string]*CategoryMetrics, padding int) {
+	if len(breakdown) == 0 {
+		return
+	}
+	b.WriteString("\n")
+	b.WriteString(title)
+	b.WriteString(":\n")
+	for name, m := range breakdown {
+		if m.Total > 0 {
+			acc := float64(m.Passed) / float64(m.Total) * 100
+			b.WriteString(fmt.Sprintf("  %-*s: %d/%d (%.0f%%)\n", padding, name, m.Passed, m.Total, acc))
+		}
+	}
+}
+
+// writeFailureSection renders the trailing "Failed Tests" block, capping at 10
+// entries with a count when truncated.
+func writeFailureSection(b *strings.Builder, details []string) {
+	if len(details) == 0 {
+		return
+	}
+	if len(details) <= 10 {
+		b.WriteString("\nFailed Tests:\n")
+	} else {
+		b.WriteString(fmt.Sprintf("\nFailed Tests (showing first 10 of %d):\n", len(details)))
+		details = details[:10]
+	}
+	for _, detail := range details {
+		b.WriteString(fmt.Sprintf("  - %s\n", detail))
+	}
 }
 
 // LoadAllEvals loads all evaluation suites from a directory

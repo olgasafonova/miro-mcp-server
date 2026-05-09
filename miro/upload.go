@@ -114,9 +114,12 @@ func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadI
 	}
 
 	// Make the request
-	respBody, err := c.requestMultipart(ctx, http.MethodPost,
-		"/boards/"+args.BoardID+"/images",
-		contentType, body)
+	respBody, err := c.requestMultipart(ctx, multipartRequest{
+		method:      http.MethodPost,
+		path:        "/boards/" + args.BoardID + "/images",
+		contentType: contentType,
+		body:        body,
+	})
 	if err != nil {
 		return UploadImageResult{}, err
 	}
@@ -197,9 +200,12 @@ func (c *Client) UploadDocument(ctx context.Context, args UploadDocumentArgs) (U
 	}
 
 	// Make the request
-	respBody, err := c.requestMultipart(ctx, http.MethodPost,
-		"/boards/"+args.BoardID+"/documents",
-		contentType, body)
+	respBody, err := c.requestMultipart(ctx, multipartRequest{
+		method:      http.MethodPost,
+		path:        "/boards/" + args.BoardID + "/documents",
+		contentType: contentType,
+		body:        body,
+	})
 	if err != nil {
 		return UploadDocumentResult{}, err
 	}
@@ -273,9 +279,12 @@ func (c *Client) UpdateImageFromFile(ctx context.Context, args UpdateImageFromFi
 		return UpdateImageFromFileResult{}, err
 	}
 
-	respBody, err := c.requestMultipart(ctx, http.MethodPatch,
-		"/boards/"+args.BoardID+"/images/"+args.ItemID,
-		contentType, body)
+	respBody, err := c.requestMultipart(ctx, multipartRequest{
+		method:      http.MethodPatch,
+		path:        "/boards/" + args.BoardID + "/images/" + args.ItemID,
+		contentType: contentType,
+		body:        body,
+	})
 	if err != nil {
 		return UpdateImageFromFileResult{}, err
 	}
@@ -353,9 +362,12 @@ func (c *Client) UpdateDocumentFromFile(ctx context.Context, args UpdateDocument
 		return UpdateDocumentFromFileResult{}, err
 	}
 
-	respBody, err := c.requestMultipart(ctx, http.MethodPatch,
-		"/boards/"+args.BoardID+"/documents/"+args.ItemID,
-		contentType, body)
+	respBody, err := c.requestMultipart(ctx, multipartRequest{
+		method:      http.MethodPatch,
+		path:        "/boards/" + args.BoardID + "/documents/" + args.ItemID,
+		contentType: contentType,
+		body:        body,
+	})
 	if err != nil {
 		return UpdateDocumentFromFileResult{}, err
 	}

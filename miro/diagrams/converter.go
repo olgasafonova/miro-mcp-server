@@ -68,136 +68,145 @@ func convertFlowchartToMiroWithOptions(diagram *Diagram, useStencils bool) *Miro
 		Frames:     make([]MiroFrame, 0),
 	}
 
-	// Map node IDs to shape indices
-	nodeToIndex := make(map[string]int)
+	nodeToIndex := appendFlowchartShapes(output, diagram, useStencils)
+	appendFlowchartConnectors(output, diagram, nodeToIndex)
+	appendFlowchartFrames(output, diagram)
+	return output
+}
 
-	// Convert nodes to shapes
+// appendFlowchartShapes converts each diagram node to a MiroShape (stencil or
+// plain) and appends to output. Returns the node-id→shape-index map needed by
+// the connector pass.
+func appendFlowchartShapes(output *MiroOutput, diagram *Diagram, useStencils bool) map[string]int {
+	nodeToIndex := make(map[string]int, len(diagram.Nodes))
 	for id, node := range diagram.Nodes {
-		var shape MiroShape
-
-		if useStencils {
-			shape = MiroShape{
-				Shape:       convertShapeToStencil(node.Shape),
-				Content:     node.Label,
-				X:           node.X + node.Width/2, // Miro uses center position
-				Y:           node.Y + node.Height/2,
-				Width:       node.Width,
-				Height:      node.Height,
-				Color:       getStencilColor(node.Shape),
-				IsStencil:   true,
-				BorderColor: getStencilBorderColor(node.Shape),
-			}
-		} else {
-			shape = MiroShape{
-				Shape:   convertShape(node.Shape),
-				Content: node.Label,
-				X:       node.X + node.Width/2, // Miro uses center position
-				Y:       node.Y + node.Height/2,
-				Width:   node.Width,
-				Height:  node.Height,
-				Color:   getShapeColor(node.Shape),
-			}
-		}
-
+		shape := buildFlowchartShape(node, useStencils)
 		if node.Color != "" {
 			shape.Color = node.Color
 		}
-
 		nodeToIndex[id] = len(output.Shapes)
 		output.Shapes = append(output.Shapes, shape)
 	}
+	return nodeToIndex
+}
 
-	// Convert edges to connectors
+// buildFlowchartShape produces a MiroShape for one diagram node, picking the
+// stencil or plain shape mapping. Caller may override Color afterward.
+func buildFlowchartShape(node *Node, useStencils bool) MiroShape {
+	base := MiroShape{
+		Content: node.Label,
+		X:       node.X + node.Width/2,
+		Y:       node.Y + node.Height/2,
+		Width:   node.Width,
+		Height:  node.Height,
+	}
+	if useStencils {
+		base.Shape = convertShapeToStencil(node.Shape)
+		base.Color = getStencilColor(node.Shape)
+		base.IsStencil = true
+		base.BorderColor = getStencilBorderColor(node.Shape)
+		return base
+	}
+	base.Shape = convertShape(node.Shape)
+	base.Color = getShapeColor(node.Shape)
+	return base
+}
+
+// appendFlowchartConnectors emits one MiroConnector per edge whose endpoints
+// were converted to shapes. Edges referencing missing nodes are skipped.
+func appendFlowchartConnectors(output *MiroOutput, diagram *Diagram, nodeToIndex map[string]int) {
 	for _, edge := range diagram.Edges {
 		startIdx, ok1 := nodeToIndex[edge.FromID]
 		endIdx, ok2 := nodeToIndex[edge.ToID]
-
 		if !ok1 || !ok2 {
 			continue
 		}
-
-		connector := MiroConnector{
+		output.Connectors = append(output.Connectors, MiroConnector{
 			StartItemIndex: startIdx,
 			EndItemIndex:   endIdx,
 			Caption:        edge.Label,
 			Style:          "elbowed",
 			StartCap:       convertArrowType(edge.StartCap),
 			EndCap:         convertArrowType(edge.EndCap),
-		}
-
-		output.Connectors = append(output.Connectors, connector)
+		})
 	}
+}
 
-	// Convert subgraphs to frames
+// appendFlowchartFrames emits one MiroFrame per non-empty subgraph, sized to
+// the bounding box of its member nodes plus a fixed padding.
+func appendFlowchartFrames(output *MiroOutput, diagram *Diagram) {
+	const padding = 40.0
+	const titleSpace = 30.0
 	for _, sg := range diagram.SubGraphs {
 		if len(sg.NodeIDs) == 0 {
 			continue
 		}
-
-		// Calculate bounding box of nodes in subgraph
-		minX, minY := float64(1e9), float64(1e9)
-		maxX, maxY := float64(-1e9), float64(-1e9)
-
-		for _, nodeID := range sg.NodeIDs {
-			node := diagram.Nodes[nodeID]
-			if node == nil {
-				continue
-			}
-
-			if node.X < minX {
-				minX = node.X
-			}
-			if node.Y < minY {
-				minY = node.Y
-			}
-			if node.X+node.Width > maxX {
-				maxX = node.X + node.Width
-			}
-			if node.Y+node.Height > maxY {
-				maxY = node.Y + node.Height
-			}
+		bbox, ok := subgraphBounds(diagram, sg.NodeIDs)
+		if !ok {
+			continue
 		}
-
-		padding := 40.0
-		frame := MiroFrame{
+		w := bbox.maxX - bbox.minX + 2*padding
+		h := bbox.maxY - bbox.minY + 2*padding + titleSpace
+		output.Frames = append(output.Frames, MiroFrame{
 			Title:  sg.Label,
-			X:      minX - padding + (maxX-minX+2*padding)/2,
-			Y:      minY - padding - 30 + (maxY-minY+2*padding+30)/2, // Extra space for title
-			Width:  maxX - minX + 2*padding,
-			Height: maxY - minY + 2*padding + 30,
+			X:      bbox.minX - padding + w/2,
+			Y:      bbox.minY - padding - titleSpace + h/2,
+			Width:  w,
+			Height: h,
 			Color:  "#F5F5F5",
-		}
-
-		output.Frames = append(output.Frames, frame)
+		})
 	}
+}
 
-	return output
+// bounds is the axis-aligned bounding box of a set of nodes.
+type bounds struct{ minX, minY, maxX, maxY float64 }
+
+// subgraphBounds returns the bounding box covering nodeIDs that exist in
+// diagram.Nodes. ok=false if every referenced node is missing.
+func subgraphBounds(diagram *Diagram, nodeIDs []string) (bounds, bool) {
+	bbox := bounds{minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9}
+	found := false
+	for _, id := range nodeIDs {
+		node := diagram.Nodes[id]
+		if node == nil {
+			continue
+		}
+		found = true
+		if node.X < bbox.minX {
+			bbox.minX = node.X
+		}
+		if node.Y < bbox.minY {
+			bbox.minY = node.Y
+		}
+		if node.X+node.Width > bbox.maxX {
+			bbox.maxX = node.X + node.Width
+		}
+		if node.Y+node.Height > bbox.maxY {
+			bbox.maxY = node.Y + node.Height
+		}
+	}
+	return bbox, found
+}
+
+// miroShapeNames maps internal shapes to Miro's shape vocabulary.
+var miroShapeNames = map[NodeShape]string{
+	ShapeRectangle:        "rectangle",
+	ShapeRoundedRectangle: "round_rectangle",
+	ShapeDiamond:          "rhombus",
+	ShapeCircle:           "circle",
+	ShapeStadium:          "pill",
+	ShapeCylinder:         "can",
+	ShapeParallelogram:    "parallelogram",
+	ShapeHexagon:          "hexagon",
+	ShapeTrapezoid:        "trapezoid",
 }
 
 // convertShape maps internal shape to Miro shape name.
 func convertShape(shape NodeShape) string {
-	switch shape {
-	case ShapeRectangle:
-		return "rectangle"
-	case ShapeRoundedRectangle:
-		return "round_rectangle"
-	case ShapeDiamond:
-		return "rhombus"
-	case ShapeCircle:
-		return "circle"
-	case ShapeStadium:
-		return "pill"
-	case ShapeCylinder:
-		return "can"
-	case ShapeParallelogram:
-		return "parallelogram"
-	case ShapeHexagon:
-		return "hexagon"
-	case ShapeTrapezoid:
-		return "trapezoid"
-	default:
-		return "rectangle"
+	if name, ok := miroShapeNames[shape]; ok {
+		return name
 	}
+	return "rectangle"
 }
 
 // convertArrowType maps internal arrow type to Miro cap style.
@@ -238,77 +247,71 @@ func getShapeColor(shape NodeShape) string {
 // Flowchart Stencil Shape Conversion (v2-experimental API)
 // =============================================================================
 
+// stencilShapeNames maps internal shapes to Miro flowchart stencil names
+// (v2-experimental API). Multiple internal shapes can map to the same stencil
+// (e.g. Rectangle and RoundedRectangle both map to flow_chart_process).
+var stencilShapeNames = map[NodeShape]string{
+	ShapeCircle:           "flow_chart_terminator",
+	ShapeStadium:          "flow_chart_terminator",
+	ShapeDiamond:          "flow_chart_decision",
+	ShapeRectangle:        "flow_chart_process",
+	ShapeRoundedRectangle: "flow_chart_process",
+	ShapeParallelogram:    "flow_chart_input_output",
+	ShapeHexagon:          "flow_chart_preparation",
+	ShapeCylinder:         "flow_chart_database",
+	ShapeTrapezoid:        "flow_chart_manual_operation",
+}
+
 // convertShapeToStencil maps internal shape to Miro flowchart stencil shape name.
 // These shapes require the v2-experimental API endpoint.
 func convertShapeToStencil(shape NodeShape) string {
-	switch shape {
-	case ShapeCircle:
-		return "flow_chart_terminator" // Stadium/pill shape for Start/End
-	case ShapeDiamond:
-		return "flow_chart_decision" // Diamond for decisions
-	case ShapeRectangle:
-		return "flow_chart_process" // Rectangle for process steps
-	case ShapeRoundedRectangle:
-		return "flow_chart_process" // Also process
-	case ShapeStadium:
-		return "flow_chart_terminator" // Stadium maps to terminator
-	case ShapeParallelogram:
-		return "flow_chart_input_output" // Parallelogram for I/O
-	case ShapeHexagon:
-		return "flow_chart_preparation" // Hexagon for preparation
-	case ShapeCylinder:
-		return "flow_chart_database" // Cylinder for database
-	case ShapeTrapezoid:
-		return "flow_chart_manual_operation" // Trapezoid for manual operation
-	default:
-		return "flow_chart_process" // Default to process
+	if name, ok := stencilShapeNames[shape]; ok {
+		return name
 	}
+	return "flow_chart_process"
 }
 
-// getStencilColor returns professional fill colors for flowchart stencil shapes.
-// Uses a cohesive color palette that works well with Miro's visual style.
+// stencilStyle pairs the fill and border color used together for a stencil shape.
+type stencilStyle struct {
+	fill   string
+	border string
+}
+
+var (
+	stencilStyleDefault = stencilStyle{fill: "#E3F2FD", border: "#1976D2"}
+
+	// stencilStyles maps a shape category to its cohesive fill+border palette.
+	// Adjacent categories share an entry: rectangles share with round-rectangles,
+	// circles share with stadiums.
+	stencilStyles = map[NodeShape]stencilStyle{
+		ShapeCircle:           {fill: "#C8E6C9", border: "#4CAF50"}, // terminator (start/end)
+		ShapeStadium:          {fill: "#C8E6C9", border: "#4CAF50"},
+		ShapeDiamond:          {fill: "#FFF9C4", border: "#FFC107"}, // decisions
+		ShapeRectangle:        {fill: "#BBDEFB", border: "#2196F3"}, // process
+		ShapeRoundedRectangle: {fill: "#BBDEFB", border: "#2196F3"},
+		ShapeParallelogram:    {fill: "#E1BEE7", border: "#9C27B0"}, // I/O
+		ShapeHexagon:          {fill: "#FFE0B2", border: "#FF9800"}, // preparation
+		ShapeCylinder:         {fill: "#B3E5FC", border: "#00BCD4"}, // database
+		ShapeTrapezoid:        {fill: "#FFCCBC", border: "#FF5722"}, // manual operation
+	}
+)
+
+// getStencilStyle returns the fill+border palette for a stencil shape.
+func getStencilStyle(shape NodeShape) stencilStyle {
+	if s, ok := stencilStyles[shape]; ok {
+		return s
+	}
+	return stencilStyleDefault
+}
+
+// getStencilColor returns the fill color for a flowchart stencil shape.
 func getStencilColor(shape NodeShape) string {
-	switch shape {
-	case ShapeCircle, ShapeStadium:
-		return "#C8E6C9" // Light green for Start/End (terminator)
-	case ShapeDiamond:
-		return "#FFF9C4" // Light yellow for decisions
-	case ShapeRectangle, ShapeRoundedRectangle:
-		return "#BBDEFB" // Light blue for process steps
-	case ShapeParallelogram:
-		return "#E1BEE7" // Light purple for I/O
-	case ShapeHexagon:
-		return "#FFE0B2" // Light orange for preparation
-	case ShapeCylinder:
-		return "#B3E5FC" // Cyan for database
-	case ShapeTrapezoid:
-		return "#FFCCBC" // Light coral for manual operation
-	default:
-		return "#E3F2FD" // Default light blue
-	}
+	return getStencilStyle(shape).fill
 }
 
-// getStencilBorderColor returns matching border colors for stencil shapes.
-// Darker variants of the fill colors for visual definition.
+// getStencilBorderColor returns the matching border color for a stencil shape.
 func getStencilBorderColor(shape NodeShape) string {
-	switch shape {
-	case ShapeCircle, ShapeStadium:
-		return "#4CAF50" // Green border for terminator
-	case ShapeDiamond:
-		return "#FFC107" // Amber border for decisions
-	case ShapeRectangle, ShapeRoundedRectangle:
-		return "#2196F3" // Blue border for process
-	case ShapeParallelogram:
-		return "#9C27B0" // Purple border for I/O
-	case ShapeHexagon:
-		return "#FF9800" // Orange border for preparation
-	case ShapeCylinder:
-		return "#00BCD4" // Cyan border for database
-	case ShapeTrapezoid:
-		return "#FF5722" // Deep orange border for manual operation
-	default:
-		return "#1976D2" // Default blue border
-	}
+	return getStencilStyle(shape).border
 }
 
 // =============================================================================
@@ -326,6 +329,14 @@ const (
 	seqAnchorColor       = "#90CAF9" // Match lifeline color so anchors blend in
 )
 
+// participantInfo carries one sequence-diagram participant alongside the index
+// at which its header shape lands in MiroOutput.Shapes.
+type participantInfo struct {
+	id    string
+	node  *Node
+	index int
+}
+
 // ConvertSequenceToMiro converts a sequence diagram to Miro items.
 // Creates: participant boxes, lifeline anchors, and message connectors.
 func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
@@ -335,22 +346,20 @@ func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
 		Frames:     make([]MiroFrame, 0),
 	}
 
-	// Collect and sort participants by their X position (order)
-	type participantInfo struct {
-		id    string
-		node  *Node
-		index int // Index in output.Shapes for this participant
-	}
+	participants := orderedParticipants(diagram)
+	participantCenterX := appendParticipantHeaders(output, participants)
+	appendLifelines(output, participants, diagram.Height, participantCenterX)
+	appendSequenceMessages(output, diagram.Edges, participantCenterX)
+
+	return output
+}
+
+// orderedParticipants returns the diagram's nodes sorted ascending by X.
+func orderedParticipants(diagram *Diagram) []participantInfo {
 	participants := make([]participantInfo, 0, len(diagram.Nodes))
-
 	for id, node := range diagram.Nodes {
-		participants = append(participants, participantInfo{
-			id:   id,
-			node: node,
-		})
+		participants = append(participants, participantInfo{id: id, node: node})
 	}
-
-	// Sort by X position (which was set based on Order in parser)
 	for i := 0; i < len(participants); i++ {
 		for j := i + 1; j < len(participants); j++ {
 			if participants[i].node.X > participants[j].node.X {
@@ -358,108 +367,93 @@ func ConvertSequenceToMiro(diagram *Diagram) *MiroOutput {
 			}
 		}
 	}
+	return participants
+}
 
-	// Map participant ID to their center X coordinate and shape index
-	participantCenterX := make(map[string]float64)
-	participantShapeIndex := make(map[string]int)
-
-	// Create participant header boxes
+// appendParticipantHeaders emits one header shape per participant and returns
+// a map from participant id to its center X coordinate.
+func appendParticipantHeaders(output *MiroOutput, participants []participantInfo) map[string]float64 {
+	centerX := make(map[string]float64, len(participants))
 	for i, p := range participants {
-		shape := MiroShape{
-			Shape:   "rectangle",
-			Content: p.node.Label,
-			X:       p.node.X + p.node.Width/2,
-			Y:       p.node.Y + p.node.Height/2,
-			Width:   p.node.Width,
-			Height:  p.node.Height,
-			Color:   "#E3F2FD", // Light blue for participants
-		}
-
-		if p.node.Shape == ShapeCircle {
-			// Actor represented as circle
-			shape.Shape = "circle"
-			shape.Color = "#FFF9C4" // Light yellow for actors
-		}
-
-		participantCenterX[p.id] = p.node.X + p.node.Width/2
-		participantShapeIndex[p.id] = len(output.Shapes)
+		shape := buildParticipantHeader(p.node)
+		centerX[p.id] = p.node.X + p.node.Width/2
 		participants[i].index = len(output.Shapes)
 		output.Shapes = append(output.Shapes, shape)
 	}
+	return centerX
+}
 
-	// Create lifeline shapes (thin vertical rectangles below each participant)
-	lifelineHeight := diagram.Height - seqParticipantHeight - 30
+// buildParticipantHeader returns the header shape for a participant. Actors
+// (shape=circle) get a circle + yellow palette; everyone else gets a rectangle
+// with the participant blue.
+func buildParticipantHeader(node *Node) MiroShape {
+	shape := MiroShape{
+		Shape:   "rectangle",
+		Content: node.Label,
+		X:       node.X + node.Width/2,
+		Y:       node.Y + node.Height/2,
+		Width:   node.Width,
+		Height:  node.Height,
+		Color:   "#E3F2FD",
+	}
+	if node.Shape == ShapeCircle {
+		shape.Shape = "circle"
+		shape.Color = "#FFF9C4"
+	}
+	return shape
+}
+
+// appendLifelines emits a thin vertical rectangle under each participant.
+func appendLifelines(output *MiroOutput, participants []participantInfo, diagramHeight float64, centerX map[string]float64) {
+	lifelineHeight := diagramHeight - seqParticipantHeight - 30
 	if lifelineHeight < 50 {
-		lifelineHeight = 100 // Minimum lifeline height
+		lifelineHeight = 100
 	}
-
 	for _, p := range participants {
-		lifeline := MiroShape{
-			Shape:   "rectangle",
-			Content: "", // No text on lifeline
-			X:       participantCenterX[p.id],
-			Y:       p.node.Y + p.node.Height + lifelineHeight/2 + 10,
-			Width:   seqLifelineWidth,
-			Height:  lifelineHeight,
-			Color:   seqLifelineColor, // Visible blue lifeline
-		}
-		output.Shapes = append(output.Shapes, lifeline)
+		output.Shapes = append(output.Shapes, MiroShape{
+			Shape:  "rectangle",
+			X:      centerX[p.id],
+			Y:      p.node.Y + p.node.Height + lifelineHeight/2 + 10,
+			Width:  seqLifelineWidth,
+			Height: lifelineHeight,
+			Color:  seqLifelineColor,
+		})
 	}
+}
 
-	// Create anchor points and connectors for each message
-	// We need small anchor shapes at each end of each message for connectors
-	for _, edge := range diagram.Edges {
-		fromX, fromExists := participantCenterX[edge.FromID]
-		toX, toExists := participantCenterX[edge.ToID]
-
+// appendSequenceMessages emits two anchor circles plus a connector for each
+// edge whose endpoints map to known participants.
+func appendSequenceMessages(output *MiroOutput, edges []*Edge, centerX map[string]float64) {
+	for _, edge := range edges {
+		fromX, fromExists := centerX[edge.FromID]
+		toX, toExists := centerX[edge.ToID]
 		if !fromExists || !toExists {
 			continue
 		}
-
-		// Create anchor shape at the "from" position
-		// Anchors are small circles that blend with lifeline color
-		fromAnchorIdx := len(output.Shapes)
-		fromAnchor := MiroShape{
-			Shape:   "circle",
-			Content: "",
-			X:       fromX,
-			Y:       edge.Y,
-			Width:   seqAnchorSize,
-			Height:  seqAnchorSize,
-			Color:   seqAnchorColor, // Match lifeline so it blends in
-		}
-		output.Shapes = append(output.Shapes, fromAnchor)
-
-		// Create anchor shape at the "to" position
-		toAnchorIdx := len(output.Shapes)
-		toAnchor := MiroShape{
-			Shape:   "circle",
-			Content: "",
-			X:       toX,
-			Y:       edge.Y,
-			Width:   seqAnchorSize,
-			Height:  seqAnchorSize,
-			Color:   seqAnchorColor,
-		}
-		output.Shapes = append(output.Shapes, toAnchor)
-
-		// Create connector between the anchors
-		connector := MiroConnector{
+		fromAnchorIdx := appendAnchor(output, fromX, edge.Y)
+		toAnchorIdx := appendAnchor(output, toX, edge.Y)
+		output.Connectors = append(output.Connectors, MiroConnector{
 			StartItemIndex: fromAnchorIdx,
 			EndItemIndex:   toAnchorIdx,
 			Caption:        edge.Label,
-			Style:          "straight", // Sequence messages are straight horizontal lines
+			Style:          "straight",
 			StartCap:       convertArrowType(edge.StartCap),
 			EndCap:         convertArrowType(edge.EndCap),
-		}
-
-		// Handle edge styles
-		if edge.Style == EdgeDotted {
-			connector.Style = "straight" // Miro doesn't have dotted style, keep straight
-		}
-
-		output.Connectors = append(output.Connectors, connector)
+		})
 	}
+}
 
-	return output
+// appendAnchor adds a small circle at (x,y) used as a connector endpoint, and
+// returns its index in output.Shapes.
+func appendAnchor(output *MiroOutput, x, y float64) int {
+	idx := len(output.Shapes)
+	output.Shapes = append(output.Shapes, MiroShape{
+		Shape:  "circle",
+		X:      x,
+		Y:      y,
+		Width:  seqAnchorSize,
+		Height: seqAnchorSize,
+		Color:  seqAnchorColor,
+	})
+	return idx
 }

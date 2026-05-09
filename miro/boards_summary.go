@@ -61,32 +61,13 @@ func (c *Client) GetBoardContent(ctx context.Context, args GetBoardContentArgs) 
 		return GetBoardContentResult{}, err
 	}
 
-	// Set defaults
-	maxItems := args.MaxItems
-	if maxItems <= 0 {
-		maxItems = 500
-	}
-	if maxItems > 2000 {
-		maxItems = 2000
-	}
+	maxItems := clampBoardContentMaxItems(args.MaxItems)
 
-	// Default to including connectors and tags
-	includeConnectors := true
-	includeTags := true
-	if !args.IncludeConnectors {
-		includeConnectors = false
-	}
-	if !args.IncludeTags {
-		includeTags = false
-	}
-
-	// Get board details
 	board, err := c.GetBoard(ctx, GetBoardArgs{BoardID: args.BoardID})
 	if err != nil {
 		return GetBoardContentResult{}, fmt.Errorf("failed to get board: %w", err)
 	}
 
-	// Get all items with full details
 	allItems, err := c.ListAllItems(ctx, ListAllItemsArgs{
 		BoardID:     args.BoardID,
 		MaxItems:    maxItems,
@@ -96,149 +77,210 @@ func (c *Client) GetBoardContent(ctx context.Context, args GetBoardContentArgs) 
 		return GetBoardContentResult{}, fmt.Errorf("failed to list items: %w", err)
 	}
 
-	// Build item counts and organize by type
-	counts := make(map[string]int)
-	itemsByType := ItemsByType{}
-	itemMap := make(map[string]ItemSummary) // For connector lookups
-	var allText []string
-	totalChars := 0
+	agg := aggregateBoardItems(allItems.Items)
+	frames := buildFrameHierarchy(allItems.Items)
 
-	for _, item := range allItems.Items {
-		counts[item.Type]++
-		itemMap[item.ID] = item
+	result := assembleBoardContentResult(board, allItems, agg, frames)
 
-		// Extract text content
+	if args.IncludeConnectors {
+		result.Connectors = c.loadConnectorContexts(ctx, args.BoardID, agg.itemMap)
+	}
+	if args.IncludeTags {
+		result.Tags = c.loadTagContexts(ctx, args.BoardID)
+	}
+
+	result.Message = buildBoardContentMessage(board.Name, allItems.Count, len(frames), len(result.Connectors), len(result.Tags))
+
+	return result, nil
+}
+
+// clampBoardContentMaxItems applies the [1, 2000] window with a 500 default.
+func clampBoardContentMaxItems(requested int) int {
+	const (
+		defaultMax = 500
+		hardCap    = 2000
+	)
+	if requested <= 0 {
+		return defaultMax
+	}
+	if requested > hardCap {
+		return hardCap
+	}
+	return requested
+}
+
+// boardItemAggregation bundles the per-item rollups computed in a single pass
+// over the board's items.
+type boardItemAggregation struct {
+	counts      map[string]int
+	itemsByType ItemsByType
+	itemMap     map[string]ItemSummary
+	allText     []string
+	totalChars  int
+}
+
+// aggregateBoardItems walks the items once, building counts, items-by-type,
+// an ID->item lookup map (for connector enrichment), and the text rollup.
+func aggregateBoardItems(items []ItemSummary) boardItemAggregation {
+	agg := boardItemAggregation{
+		counts:  make(map[string]int),
+		itemMap: make(map[string]ItemSummary),
+	}
+	for _, item := range items {
+		agg.counts[item.Type]++
+		agg.itemMap[item.ID] = item
 		if item.Content != "" {
-			allText = append(allText, item.Content)
-			totalChars += len(item.Content)
+			agg.allText = append(agg.allText, item.Content)
+			agg.totalChars += len(item.Content)
 		}
-
-		// Organize by type
-		switch item.Type {
-		case "sticky_note":
-			itemsByType.StickyNotes = append(itemsByType.StickyNotes, item)
-		case "shape":
-			itemsByType.Shapes = append(itemsByType.Shapes, item)
-		case "text":
-			itemsByType.Text = append(itemsByType.Text, item)
-		case "card":
-			itemsByType.Cards = append(itemsByType.Cards, item)
-		case "image":
-			itemsByType.Images = append(itemsByType.Images, item)
-		case "document":
-			itemsByType.Documents = append(itemsByType.Documents, item)
-		case "embed":
-			itemsByType.Embeds = append(itemsByType.Embeds, item)
-		default:
-			itemsByType.Other = append(itemsByType.Other, item)
-		}
+		appendItemByType(&agg.itemsByType, item)
 	}
+	return agg
+}
 
-	// Build frame hierarchy
+// appendItemByType pushes item onto the matching slice in itemsByType,
+// falling back to Other for unknown types.
+func appendItemByType(by *ItemsByType, item ItemSummary) {
+	switch item.Type {
+	case "sticky_note":
+		by.StickyNotes = append(by.StickyNotes, item)
+	case "shape":
+		by.Shapes = append(by.Shapes, item)
+	case "text":
+		by.Text = append(by.Text, item)
+	case "card":
+		by.Cards = append(by.Cards, item)
+	case "image":
+		by.Images = append(by.Images, item)
+	case "document":
+		by.Documents = append(by.Documents, item)
+	case "embed":
+		by.Embeds = append(by.Embeds, item)
+	default:
+		by.Other = append(by.Other, item)
+	}
+}
+
+// buildFrameHierarchy returns a FrameContext per frame item, with each frame's
+// children populated (items whose ParentID points at the frame).
+func buildFrameHierarchy(items []ItemSummary) []FrameContext {
 	var frames []FrameContext
-	for _, item := range allItems.Items {
-		if item.Type == "frame" {
-			frame := FrameContext{
-				ID:     item.ID,
-				Title:  item.Content,
-				X:      item.X,
-				Y:      item.Y,
-				Width:  item.Width,
-				Height: item.Height,
-			}
-			// Find children (items with this frame as parent)
-			for _, child := range allItems.Items {
-				if child.ParentID == item.ID {
-					frame.Children = append(frame.Children, child)
-				}
-			}
-			frames = append(frames, frame)
+	for _, item := range items {
+		if item.Type != "frame" {
+			continue
 		}
+		frame := FrameContext{
+			ID:     item.ID,
+			Title:  item.Content,
+			X:      item.X,
+			Y:      item.Y,
+			Width:  item.Width,
+			Height: item.Height,
+		}
+		for _, child := range items {
+			if child.ParentID == item.ID {
+				frame.Children = append(frame.Children, child)
+			}
+		}
+		frames = append(frames, frame)
 	}
+	return frames
+}
 
-	// Format timestamps
-	createdAt := ""
-	if !board.CreatedAt.IsZero() {
-		createdAt = board.CreatedAt.Format(time.RFC3339)
+// formatOptionalRFC3339 returns t formatted as RFC3339, or "" if t is zero.
+func formatOptionalRFC3339(t time.Time) string {
+	if t.IsZero() {
+		return ""
 	}
-	modifiedAt := ""
-	if !board.ModifiedAt.IsZero() {
-		modifiedAt = board.ModifiedAt.Format(time.RFC3339)
-	}
+	return t.Format(time.RFC3339)
+}
 
-	result := GetBoardContentResult{
+// assembleBoardContentResult builds the result struct from the components
+// gathered upstream. Connectors and tags are filled in by the caller after
+// this returns.
+func assembleBoardContentResult(board GetBoardResult, allItems ListAllItemsResult, agg boardItemAggregation, frames []FrameContext) GetBoardContentResult {
+	return GetBoardContentResult{
 		ID:          board.ID,
 		Name:        board.Name,
 		Description: board.Description,
 		ViewLink:    board.ViewLink,
-		CreatedAt:   createdAt,
-		ModifiedAt:  modifiedAt,
-		ItemCounts:  counts,
+		CreatedAt:   formatOptionalRFC3339(board.CreatedAt),
+		ModifiedAt:  formatOptionalRFC3339(board.ModifiedAt),
+		ItemCounts:  agg.counts,
 		TotalItems:  allItems.Count,
-		ItemsByType: itemsByType,
+		ItemsByType: agg.itemsByType,
 		Frames:      frames,
 		ContentSummary: ContentSummary{
-			AllText:       allText,
-			UniqueEntries: len(allText),
-			TotalChars:    totalChars,
+			AllText:       agg.allText,
+			UniqueEntries: len(agg.allText),
+			TotalChars:    agg.totalChars,
 		},
 		Truncated: allItems.Truncated,
 	}
+}
 
-	// Get connectors if requested
-	if includeConnectors {
-		connectors, err := c.ListConnectors(ctx, ListConnectorsArgs{
-			BoardID: args.BoardID,
-			Limit:   100,
+// loadConnectorContexts fetches connectors for the board and projects them
+// onto the lighter ConnectorContext shape used by GetBoardContent. Returns
+// nil on fetch error (errors are intentionally swallowed; connectors are an
+// enrichment, not load-bearing).
+func (c *Client) loadConnectorContexts(ctx context.Context, boardID string, itemMap map[string]ItemSummary) []ConnectorContext {
+	connectors, err := c.ListConnectors(ctx, ListConnectorsArgs{
+		BoardID: boardID,
+		Limit:   100,
+	})
+	if err != nil {
+		return nil
+	}
+	out := make([]ConnectorContext, 0, len(connectors.Connectors))
+	for _, conn := range connectors.Connectors {
+		cc := ConnectorContext{
+			ID:          conn.ID,
+			StartItemID: conn.StartItemID,
+			EndItemID:   conn.EndItemID,
+			Caption:     conn.Caption,
+		}
+		if startItem, ok := itemMap[conn.StartItemID]; ok {
+			cc.StartItemType = startItem.Type
+		}
+		if endItem, ok := itemMap[conn.EndItemID]; ok {
+			cc.EndItemType = endItem.Type
+		}
+		out = append(out, cc)
+	}
+	return out
+}
+
+// loadTagContexts fetches tag definitions for the board. Per-item tag
+// membership is intentionally not computed (would require an extra API call
+// per tag). Returns nil on fetch error.
+func (c *Client) loadTagContexts(ctx context.Context, boardID string) []TagContext {
+	tags, err := c.ListTags(ctx, ListTagsArgs{BoardID: boardID})
+	if err != nil {
+		return nil
+	}
+	out := make([]TagContext, 0, len(tags.Tags))
+	for _, tag := range tags.Tags {
+		out = append(out, TagContext{
+			ID:    tag.ID,
+			Title: tag.Title,
+			Color: tag.FillColor,
 		})
-		if err == nil {
-			for _, conn := range connectors.Connectors {
-				cc := ConnectorContext{
-					ID:          conn.ID,
-					StartItemID: conn.StartItemID,
-					EndItemID:   conn.EndItemID,
-					Caption:     conn.Caption,
-				}
-				// Add item types for context
-				if startItem, ok := itemMap[conn.StartItemID]; ok {
-					cc.StartItemType = startItem.Type
-				}
-				if endItem, ok := itemMap[conn.EndItemID]; ok {
-					cc.EndItemType = endItem.Type
-				}
-				result.Connectors = append(result.Connectors, cc)
-			}
-		}
 	}
+	return out
+}
 
-	// Get tags if requested
-	if includeTags {
-		tags, err := c.ListTags(ctx, ListTagsArgs{BoardID: args.BoardID})
-		if err == nil && len(tags.Tags) > 0 {
-			// For each tag, we'd need to check which items have it
-			// This is expensive, so we just return tag definitions for now
-			for _, tag := range tags.Tags {
-				result.Tags = append(result.Tags, TagContext{
-					ID:    tag.ID,
-					Title: tag.Title,
-					Color: tag.FillColor,
-				})
-			}
-		}
+// buildBoardContentMessage formats the human-readable summary line.
+// Frames / connectors / tags are appended only when present.
+func buildBoardContentMessage(boardName string, totalItems, framesCount, connectorsCount, tagsCount int) string {
+	parts := []string{fmt.Sprintf("Board '%s' has %d items", boardName, totalItems)}
+	if framesCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d frames", framesCount))
 	}
-
-	// Build message
-	parts := []string{fmt.Sprintf("Board '%s' has %d items", board.Name, allItems.Count)}
-	if len(frames) > 0 {
-		parts = append(parts, fmt.Sprintf("%d frames", len(frames)))
+	if connectorsCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d connectors", connectorsCount))
 	}
-	if len(result.Connectors) > 0 {
-		parts = append(parts, fmt.Sprintf("%d connectors", len(result.Connectors)))
+	if tagsCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d tags", tagsCount))
 	}
-	if len(result.Tags) > 0 {
-		parts = append(parts, fmt.Sprintf("%d tags", len(result.Tags)))
-	}
-	result.Message = strings.Join(parts, ", ")
-
-	return result, nil
+	return strings.Join(parts, ", ")
 }

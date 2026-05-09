@@ -70,238 +70,274 @@ func NewSequenceParser() *SequenceParser {
 	}
 }
 
+// sequenceLayout collects the spatial constants used to position participants
+// and messages on the canvas.
+const (
+	participantWidth   = 120.0
+	participantHeight  = 50.0
+	participantSpacing = 180.0
+	messageSpacing     = 60.0
+	startY             = 50.0
+	actorSize          = 50.0
+)
+
+// parseState carries the running state of a sequence-diagram parse.
+type parseState struct {
+	participants     map[string]*Participant
+	participantOrder int
+	messages         []Message
+	groupStack       []string
+	foundHeader      bool
+}
+
+// newParseState returns an empty parse state.
+func newParseState() *parseState {
+	return &parseState{participants: make(map[string]*Participant)}
+}
+
+// ensureParticipant adds a participant with the given id and label if absent.
+// Returns false when the id was already known.
+func (s *parseState) ensureParticipant(id, label, pType string) {
+	if _, exists := s.participants[id]; exists {
+		return
+	}
+	s.participants[id] = &Participant{
+		ID:    id,
+		Label: label,
+		Type:  pType,
+		Order: s.participantOrder,
+	}
+	s.participantOrder++
+}
+
 // Parse parses a Mermaid sequence diagram.
 func (p *SequenceParser) Parse(input string) (*Diagram, error) {
-	diagram := NewDiagram(TypeSequence)
-	diagram.Direction = LeftToRight // Sequence diagrams are horizontal
+	state := p.parseLines(strings.Split(input, "\n"))
 
-	lines := strings.Split(input, "\n")
-	participants := make(map[string]*Participant)
-	participantOrder := 0
-	var messages []Message
-	groupStack := []string{}
-	messageIndex := 0
-
-	foundHeader := false
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "%%") {
-			continue
-		}
-
-		// Check for header
-		if p.headerPattern.MatchString(line) {
-			foundHeader = true
-			continue
-		}
-
-		// Check for participant declaration
-		if matches := p.participantPattern.FindStringSubmatch(line); matches != nil {
-			pType := strings.ToLower(matches[1])
-			pID := matches[2]
-			pLabel := pID
-			if len(matches) > 3 && matches[3] != "" {
-				pLabel = matches[3]
-			}
-
-			if _, exists := participants[pID]; !exists {
-				participants[pID] = &Participant{
-					ID:    pID,
-					Label: pLabel,
-					Type:  pType,
-					Order: participantOrder,
-				}
-				participantOrder++
-			}
-			continue
-		}
-
-		// Check for message
-		if matches := p.messagePattern.FindStringSubmatch(line); matches != nil {
-			from := matches[1]
-			arrow := matches[2]
-			modifier := matches[3]
-			to := matches[4]
-			text := strings.TrimSpace(matches[5])
-
-			// Auto-create participants if not declared
-			if _, exists := participants[from]; !exists {
-				participants[from] = &Participant{
-					ID:    from,
-					Label: from,
-					Type:  "participant",
-					Order: participantOrder,
-				}
-				participantOrder++
-			}
-			if _, exists := participants[to]; !exists {
-				participants[to] = &Participant{
-					ID:    to,
-					Label: to,
-					Type:  "participant",
-					Order: participantOrder,
-				}
-				participantOrder++
-			}
-
-			msg := Message{
-				From: from,
-				To:   to,
-				Text: text,
-			}
-
-			// Determine message style
-			switch arrow {
-			case "->>", "->":
-				msg.Style = "sync"
-			case "-->>", "-->":
-				msg.Style = "async"
-			case "-)", "--)":
-				msg.Style = "async_open"
-			case "-x", "--x":
-				msg.Style = "cross"
-			}
-
-			// Handle activation modifiers
-			switch modifier {
-			case "+":
-				msg.Activate = true
-			case "-":
-				msg.Deactivate = true
-			}
-
-			messages = append(messages, msg)
-			messageIndex++
-			continue
-		}
-
-		// Check for notes
-		if matches := p.notePattern.FindStringSubmatch(line); matches != nil {
-			// Notes are converted to text shapes
-			// For now, we'll skip notes as they require special layout
-			continue
-		}
-
-		// Check for activate/deactivate
-		if matches := p.activatePattern.FindStringSubmatch(line); matches != nil {
-			// Activation bars are a visual enhancement - skip for basic implementation
-			continue
-		}
-
-		// Check for loop/rect/alt start
-		if matches := p.loopStartPattern.FindStringSubmatch(line); matches != nil {
-			groupType := strings.ToLower(matches[1])
-			groupStack = append(groupStack, groupType)
-			continue
-		}
-
-		// Check for else
-		if p.elsePattern.MatchString(line) {
-			continue
-		}
-
-		// Check for end
-		if p.loopEndPattern.MatchString(line) {
-			if len(groupStack) > 0 {
-				groupStack = groupStack[:len(groupStack)-1]
-			}
-			continue
-		}
-	}
-
-	if !foundHeader {
+	if !state.foundHeader {
 		return nil, fmt.Errorf("not a sequence diagram: missing 'sequenceDiagram' header")
 	}
-
-	if len(participants) == 0 {
+	if len(state.participants) == 0 {
 		return nil, fmt.Errorf("no participants found in sequence diagram")
 	}
 
-	// Layout constants
-	const (
-		participantWidth   = 120.0
-		participantHeight  = 50.0
-		participantSpacing = 180.0
-		messageSpacing     = 60.0
-		startY             = 50.0
-	)
+	diagram := NewDiagram(TypeSequence)
+	diagram.Direction = LeftToRight // Sequence diagrams are horizontal
 
-	// Create nodes for participants (positioned horizontally)
-	for _, p := range participants {
-		x := float64(p.Order) * participantSpacing
-
-		node := &Node{
-			ID:     p.ID,
-			Label:  p.Label,
-			Shape:  ShapeRectangle,
-			X:      x,
-			Y:      startY,
-			Width:  participantWidth,
-			Height: participantHeight,
-		}
-
-		if p.Type == "actor" {
-			node.Shape = ShapeCircle
-			node.Width = 50
-			node.Height = 50
-		}
-
-		diagram.AddNode(node)
-	}
-
-	// Create edges for messages with Y positions
-	for i, msg := range messages {
-		y := startY + participantHeight + 30 + float64(i)*messageSpacing
-
-		edge := &Edge{
-			ID:     fmt.Sprintf("msg_%d", i),
-			FromID: msg.From,
-			ToID:   msg.To,
-			Label:  msg.Text,
-			Y:      y, // Store Y position for sequence diagram rendering
-		}
-
-		// Set arrow styles based on message type
-		switch msg.Style {
-		case "sync":
-			edge.Style = EdgeSolid
-			edge.StartCap = ArrowNone
-			edge.EndCap = ArrowNormal
-		case "async":
-			edge.Style = EdgeDotted
-			edge.StartCap = ArrowNone
-			edge.EndCap = ArrowNormal
-		case "async_open":
-			edge.Style = EdgeDotted
-			edge.StartCap = ArrowNone
-			edge.EndCap = ArrowNormal
-		case "cross":
-			edge.Style = EdgeSolid
-			edge.StartCap = ArrowNone
-			edge.EndCap = ArrowCross
-		default:
-			edge.Style = EdgeSolid
-			edge.EndCap = ArrowNormal
-		}
-
-		diagram.AddEdge(edge)
-	}
-
-	// Calculate diagram dimensions
-	if len(participants) > 0 {
-		diagram.Width = float64(len(participants)-1)*participantSpacing + participantWidth
-	}
-	if len(messages) > 0 {
-		lastMessageY := startY + participantHeight + 30 + float64(len(messages)-1)*messageSpacing
-		diagram.Height = lastMessageY + messageSpacing // Add padding at bottom
-	} else {
-		diagram.Height = startY + participantHeight + 50
-	}
+	addParticipantNodes(diagram, state.participants)
+	addMessageEdges(diagram, state.messages)
+	setSequenceDimensions(diagram, len(state.participants), len(state.messages))
 
 	return diagram, nil
+}
+
+// parseLines walks the input lines and returns the accumulated parse state.
+func (p *SequenceParser) parseLines(lines []string) *parseState {
+	state := newParseState()
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if isIgnorableLine(line) {
+			continue
+		}
+		p.dispatchLine(line, state)
+	}
+	return state
+}
+
+// isIgnorableLine returns true for empty lines and Mermaid comments.
+func isIgnorableLine(line string) bool {
+	return line == "" || strings.HasPrefix(line, "%%")
+}
+
+// dispatchLine matches line against each known pattern in priority order and
+// updates state accordingly. Lines that match nothing are silently dropped
+// (matches the Mermaid-permissive behavior the original Parse had).
+func (p *SequenceParser) dispatchLine(line string, state *parseState) {
+	if p.headerPattern.MatchString(line) {
+		state.foundHeader = true
+		return
+	}
+	if p.tryParseParticipant(line, state) {
+		return
+	}
+	if p.tryParseMessage(line, state) {
+		return
+	}
+	if p.notePattern.MatchString(line) {
+		// Notes are visual enhancements; skipped in basic implementation.
+		return
+	}
+	if p.activatePattern.MatchString(line) {
+		// Activation bars are visual enhancements; skipped.
+		return
+	}
+	if matches := p.loopStartPattern.FindStringSubmatch(line); matches != nil {
+		state.groupStack = append(state.groupStack, strings.ToLower(matches[1]))
+		return
+	}
+	if p.elsePattern.MatchString(line) {
+		return
+	}
+	if p.loopEndPattern.MatchString(line) && len(state.groupStack) > 0 {
+		state.groupStack = state.groupStack[:len(state.groupStack)-1]
+	}
+}
+
+// tryParseParticipant attempts to match a "participant X" / "actor X as Y"
+// declaration. Returns true when matched.
+func (p *SequenceParser) tryParseParticipant(line string, state *parseState) bool {
+	matches := p.participantPattern.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	pType := strings.ToLower(matches[1])
+	pID := matches[2]
+	pLabel := pID
+	if len(matches) > 3 && matches[3] != "" {
+		pLabel = matches[3]
+	}
+	state.ensureParticipant(pID, pLabel, pType)
+	return true
+}
+
+// tryParseMessage attempts to match a "A->>B: text" message line. Auto-creates
+// participants that haven't been declared yet. Returns true when matched.
+func (p *SequenceParser) tryParseMessage(line string, state *parseState) bool {
+	matches := p.messagePattern.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	from, arrow, modifier, to := matches[1], matches[2], matches[3], matches[4]
+	text := strings.TrimSpace(matches[5])
+
+	state.ensureParticipant(from, from, "participant")
+	state.ensureParticipant(to, to, "participant")
+
+	msg := Message{
+		From:  from,
+		To:    to,
+		Text:  text,
+		Style: messageStyleForArrow(arrow),
+	}
+	applyMessageModifier(&msg, modifier)
+	state.messages = append(state.messages, msg)
+	return true
+}
+
+// messageStyleForArrow maps a Mermaid arrow token to the style key used by
+// the renderer.
+func messageStyleForArrow(arrow string) string {
+	switch arrow {
+	case "->>", "->":
+		return "sync"
+	case "-->>", "-->":
+		return "async"
+	case "-)", "--)":
+		return "async_open"
+	case "-x", "--x":
+		return "cross"
+	}
+	return ""
+}
+
+// applyMessageModifier sets Activate/Deactivate based on the +/- modifier.
+func applyMessageModifier(msg *Message, modifier string) {
+	switch modifier {
+	case "+":
+		msg.Activate = true
+	case "-":
+		msg.Deactivate = true
+	}
+}
+
+// addParticipantNodes adds one node per participant, positioned horizontally
+// by participant order.
+func addParticipantNodes(diagram *Diagram, participants map[string]*Participant) {
+	for _, p := range participants {
+		diagram.AddNode(buildParticipantNode(p))
+	}
+}
+
+// buildParticipantNode produces the node for a single participant, applying
+// the actor-specific shape/size where appropriate.
+func buildParticipantNode(p *Participant) *Node {
+	node := &Node{
+		ID:     p.ID,
+		Label:  p.Label,
+		Shape:  ShapeRectangle,
+		X:      float64(p.Order) * participantSpacing,
+		Y:      startY,
+		Width:  participantWidth,
+		Height: participantHeight,
+	}
+	if p.Type == "actor" {
+		node.Shape = ShapeCircle
+		node.Width = actorSize
+		node.Height = actorSize
+	}
+	return node
+}
+
+// addMessageEdges adds one edge per message, with Y positions stacked from
+// startY downward.
+func addMessageEdges(diagram *Diagram, messages []Message) {
+	for i, msg := range messages {
+		diagram.AddEdge(buildMessageEdge(i, msg))
+	}
+}
+
+// buildMessageEdge produces the edge for a single message, including style
+// and arrow caps derived from the message type.
+func buildMessageEdge(index int, msg Message) *Edge {
+	edge := &Edge{
+		ID:     fmt.Sprintf("msg_%d", index),
+		FromID: msg.From,
+		ToID:   msg.To,
+		Label:  msg.Text,
+		Y:      messageYPosition(index),
+	}
+	applyArrowStyleForMessage(edge, msg.Style)
+	return edge
+}
+
+// messageYPosition is the Y coordinate for the i-th message line.
+func messageYPosition(i int) float64 {
+	return startY + participantHeight + 30 + float64(i)*messageSpacing
+}
+
+// applyArrowStyleForMessage sets edge.Style and edge.{Start,End}Cap based on
+// the message's style key.
+func applyArrowStyleForMessage(edge *Edge, style string) {
+	switch style {
+	case "sync":
+		edge.Style = EdgeSolid
+		edge.StartCap = ArrowNone
+		edge.EndCap = ArrowNormal
+	case "async", "async_open":
+		edge.Style = EdgeDotted
+		edge.StartCap = ArrowNone
+		edge.EndCap = ArrowNormal
+	case "cross":
+		edge.Style = EdgeSolid
+		edge.StartCap = ArrowNone
+		edge.EndCap = ArrowCross
+	default:
+		edge.Style = EdgeSolid
+		edge.EndCap = ArrowNormal
+	}
+}
+
+// setSequenceDimensions populates diagram.Width and diagram.Height from the
+// participant and message counts.
+func setSequenceDimensions(diagram *Diagram, participantCount, messageCount int) {
+	if participantCount > 0 {
+		diagram.Width = float64(participantCount-1)*participantSpacing + participantWidth
+	}
+	if messageCount > 0 {
+		diagram.Height = messageYPosition(messageCount-1) + messageSpacing
+		return
+	}
+	diagram.Height = startY + participantHeight + 50
 }
 
 // ParseSequence is a convenience function to parse sequence diagram syntax.

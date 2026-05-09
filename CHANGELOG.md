@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-05-09
+
 ### Added
 - **Text alignment on shapes**: `miro_create_shape` and `miro_update_shape` now accept `text_align` (left/center/right) and `text_align_vertical` (top/middle/bottom). Previously, text on shapes rendered with the API's default alignment, which was particularly visible on triangles, hexagons, and other non-rectangular shapes where the bounding-box center is not the visual centroid. The new fields are validated against the allowed enums; invalid values fail at the SDK boundary with a clear error.
 - **`text_color` + alignment on `miro_bulk_create` shape items**: the bulk schema now accepts `text_color`, `text_align`, and `text_align_vertical` on shape items, closing the gap where these fields worked on single-create but were rejected by `bulk_create` validation.

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-05-09
+
+### Changed
+
+- **Internal code-health pass: 8 files lifted from Yellow to Green/Optimal on the CodeScene scale.** No behavior change for MCP callers; same tool list, same response shapes, same error wording. Release exists so existing users on `@latest` pick up the cleaner code on their next reinstall. Files: `main.go` (8.30 → 10.0), `miro/appcards.go` (8.34 → 10.0), `miro/items.go` (8.62 → 10.0), `miro/bulk.go` (8.26 → 9.38), `miro/diagrams/mermaid.go` (7.91 → 9.38), `miro/tags.go` (8.47 → 9.38), `miro/shape.go` (8.82 → 9.38), `miro/upload.go` (8.33 → 9.09).
+- **Auth-subcommand CLI error prefixes lowercased** (`Login failed:` → `login failed:`, `Logout failed:` → `logout failed:`) to satisfy Go's staticcheck ST1005 convention. CLI-only; never reaches MCP clients or LLM transcripts.
+
+### Decomposition recipes applied
+- Brain `Update*` methods (cc 19–24) → per-section body builders + shared `buildUpdatePosition` / `buildUpdateGeometry` / `updateParentPayload` helpers (preserving the empty-string-nulls-parent semantic).
+- Sibling `Create*` / `Update*` methods → shared validation, shared body skeletons, type-specific result wrappers preserved at the public-API boundary.
+- Inline anonymous JSON structs → named `raw*` types so parse helpers can be split out (`parseItemSummary` 81 LoC → `minimalItemSummary` + `addItemFullDetails`).
+- Per-call regex compilation and per-call map literals promoted to package-level (`edgeLabelPattern`, `tagColorAliases`).
+
 ## [1.20.0] - 2026-05-03
 
 ### Security

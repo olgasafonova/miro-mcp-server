@@ -24,9 +24,9 @@ type CreateMindmapNodeArgs struct {
 	BoardID  string  `json:"board_id" jsonschema:"Board ID"`
 	Content  string  `json:"content" jsonschema:"Text content of the node"`
 	ParentID string  `json:"parent_id,omitempty" jsonschema:"ID of the parent node (omit for root node)"`
-	NodeView string  `json:"node_view,omitempty" jsonschema:"Node style: text (default) or bubble"`
-	X        float64 `json:"x,omitempty" jsonschema:"X position (only for root nodes)"`
-	Y        float64 `json:"y,omitempty" jsonschema:"Y position (only for root nodes)"`
+	NodeView string  `json:"node_view,omitempty" jsonschema:"Node style: text (default). Other values may be rejected by the API."`
+	X        float64 `json:"x,omitempty" jsonschema:"X position. Required for root nodes. For child nodes, supply x/y to override the API's default placement-on-top-of-parent and avoid overlap when creating multiple siblings."`
+	Y        float64 `json:"y,omitempty" jsonschema:"Y position. Required for root nodes. For child nodes, supply x/y to override the API's default placement."`
 }
 
 // CreateMindmapNodeResult contains the created mindmap node.

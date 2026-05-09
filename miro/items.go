@@ -3,6 +3,7 @@ package miro
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -357,7 +358,21 @@ func updateParentPayload(parentID string) interface{} {
 	return map[string]interface{}{"id": parentID}
 }
 
-// DeleteItem deletes an item from a board.
+// shouldTryMindmapFallback returns true if the /items/{id} delete error looks
+// like a wrong-endpoint signal (400 or 404) rather than a permission/server
+// failure. Mindmap nodes live behind /mindmap_nodes/{id} and the generic items
+// endpoint rejects their IDs with one of those two status codes.
+func shouldTryMindmapFallback(err error) bool {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode == http.StatusBadRequest || apiErr.StatusCode == http.StatusNotFound
+}
+
+// DeleteItem deletes an item from a board. If the generic items endpoint
+// returns 400/404, retries via the experimental mindmap_nodes endpoint so
+// mindmap node IDs work transparently in DeleteItem and BulkDelete.
 func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteItemResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
 		return DeleteItemResult{}, err
@@ -375,10 +390,20 @@ func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteIte
 		}, nil
 	}
 
-	// Miro uses different endpoints for different item types
-	// We'll try the generic items endpoint first
 	_, err := c.request(ctx, http.MethodDelete, "/boards/"+args.BoardID+"/items/"+args.ItemID, nil)
 	if err != nil {
+		// Mindmap nodes are addressed at /mindmap_nodes/{id}; try that endpoint
+		// transparently before giving up so callers don't have to pre-classify IDs.
+		if shouldTryMindmapFallback(err) {
+			if _, mindErr := c.requestExperimental(ctx, http.MethodDelete, "/boards/"+args.BoardID+"/mindmap_nodes/"+args.ItemID, nil); mindErr == nil {
+				c.cache.InvalidateItem(args.BoardID, args.ItemID)
+				return DeleteItemResult{
+					Success: true,
+					ItemID:  args.ItemID,
+					Message: "Item deleted successfully (mindmap node)",
+				}, nil
+			}
+		}
 		return DeleteItemResult{
 			Success: false,
 			ItemID:  args.ItemID,

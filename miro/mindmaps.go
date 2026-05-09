@@ -44,13 +44,18 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 		},
 	}
 
-	// If parent is specified, this is a child node
+	// Parent is sent for child nodes; root nodes have no parent.
 	if args.ParentID != "" {
 		reqBody["parent"] = map[string]interface{}{
 			"id": args.ParentID,
 		}
-	} else {
-		// Root node - set position
+	}
+
+	// Position is sent whenever explicit coordinates are supplied. Root nodes
+	// always need it (default 0,0 if neither x nor y is given). For child nodes
+	// it's optional: when supplied, it overrides the API's default
+	// placement-on-top-of-parent so siblings don't all stack at the same point.
+	if args.ParentID == "" || args.X != 0 || args.Y != 0 {
 		reqBody["position"] = map[string]interface{}{
 			"x":      args.X,
 			"y":      args.Y,

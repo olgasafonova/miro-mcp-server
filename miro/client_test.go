@@ -10406,6 +10406,110 @@ func TestUpdateShape_WithTextAlign(t *testing.T) {
 	}
 }
 
+func TestDeleteItem_FallsBackToMindmapNodeOn404(t *testing.T) {
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		if strings.Contains(r.URL.Path, "/items/") {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message": "Item not found"}`))
+			return
+		}
+		if strings.Contains(r.URL.Path, "/mindmap_nodes/") {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		t.Fatalf("unexpected path: %s", r.URL.Path)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.DeleteItem(context.Background(), DeleteItemArgs{
+		BoardID: "board123",
+		ItemID:  "node-abc",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error after fallback: %v", err)
+	}
+	if !result.Success {
+		t.Errorf("Success = false, want true after mindmap fallback")
+	}
+	if len(calls) != 2 {
+		t.Errorf("expected 2 API calls (items then mindmap_nodes), got %d: %v", len(calls), calls)
+	}
+}
+
+func TestDeleteItem_NoFallbackOn500(t *testing.T) {
+	var calls []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.DeleteItem(context.Background(), DeleteItemArgs{
+		BoardID: "board123",
+		ItemID:  "item-xyz",
+	})
+	if err == nil {
+		t.Fatal("expected error on 500")
+	}
+	// Should NOT fall back on 5xx (and our HTTP layer may retry the same
+	// endpoint for 5xx, which is fine — the assertion is that we never call
+	// /mindmap_nodes/ for a non-4xx failure).
+	for _, c := range calls {
+		if strings.Contains(c, "/mindmap_nodes/") {
+			t.Errorf("did not expect mindmap_nodes call on 500, got: %v", calls)
+		}
+	}
+}
+
+func TestCreateMindmapNode_ChildAcceptsPosition(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if _, ok := body["parent"]; !ok {
+			t.Error("expected parent in request body for child node")
+		}
+		pos, ok := body["position"].(map[string]interface{})
+		if !ok {
+			t.Fatal("expected position in request body even with parent set")
+		}
+		if pos["x"] != float64(150) {
+			t.Errorf("position.x = %v, want 150", pos["x"])
+		}
+		if pos["y"] != float64(250) {
+			t.Errorf("position.y = %v, want 250", pos["y"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id": "child123",
+			"data": map[string]interface{}{
+				"isRoot":   false,
+				"nodeView": map[string]interface{}{"data": map[string]interface{}{"content": "Child"}},
+			},
+			"parent": map[string]interface{}{"id": "root123"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	_, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
+		BoardID:  "board123",
+		Content:  "Child",
+		ParentID: "root123",
+		X:        150,
+		Y:        250,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}

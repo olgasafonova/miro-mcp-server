@@ -229,7 +229,7 @@ FAILS WHEN: start_item_id or end_item_id don't exist on the board. Both endpoint
 USE WHEN: "create a frame", "add a container", "make a section for X"
 
 PARAMETERS:
-- color: Background color. Accepts a 6-char hex like "#006400" or a named color: red, orange, yellow, green, blue, purple, pink, gray, white, black.
+- color: Background color. Accepts a 6-char hex like "#006400" or a named color: red, orange, yellow, green, blue, purple, pink, gray, white, black. Note: frames use a smaller palette than stickies; sticky-only names like 'light_yellow' or 'light_green' are NOT valid for frames (use a hex value or a base named color instead).
 
 RETURNS: Frame ID, title, and view link.
 
@@ -255,7 +255,7 @@ VOICE-FRIENDLY: "Frame 'Sprint Planning' is 800x600 with 12 items inside"`,
 		Description: `Update a frame's title, position, size, or color. At least one field must be provided.
 
 PARAMETERS:
-- color: Background color. Accepts a 6-char hex like "#006400" or a named color: red, orange, yellow, green, blue, purple, pink, gray, white, black.
+- color: Background color. Accepts a 6-char hex like "#006400" or a named color: red, orange, yellow, green, blue, purple, pink, gray, white, black. Note: frames use a smaller palette than stickies; sticky-only names like 'light_yellow' or 'light_green' are NOT valid for frames (use a hex value or a base named color instead).
 
 RETURNS: Confirmation with frame ID.
 
@@ -1017,10 +1017,11 @@ VOICE-FRIENDLY: "Updated John's role to editor"`,
 
 USE WHEN: "add a mindmap node", "create root node", "add child to mindmap"
 
-LIMITATION: Children created via API do NOT auto-arrange spatially. Multiple children of the same parent stack at the same default position and overlap. For a clean tree, prefer miro_create_shape + miro_create_connector with explicit positions, or arrange the resulting mindmap manually in the Miro UI.
+LAYOUT: Multiple children of the same parent stack at the same default position if x/y are omitted. To avoid overlap when creating siblings, supply explicit x/y for each child (canvas-absolute coordinates). For a fully manual tree, prefer miro_create_shape + miro_create_connector with explicit positions.
 
 PARAMETERS:
 - node_view: Currently only "text" is reliably supported. Other values may return 400.
+- x, y: Required for root nodes. Optional for children, but recommended when creating multiple siblings to override the API's default placement.
 
 RETURNS: Node ID, parent node ID, and view link.
 

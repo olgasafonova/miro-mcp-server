@@ -107,6 +107,16 @@ func (n *CamelToSnakeNormalizer) ConvertKey(key string) (string, bool) {
 	return key, false
 }
 
+// shouldInsertUnderscoreBeforeUpper reports whether an underscore separator
+// should precede the uppercase rune at index i. Returns false at the start of
+// the string and after another uppercase rune (so "ID" stays as "id").
+func shouldInsertUnderscoreBeforeUpper(s string, i int) bool {
+	if i == 0 {
+		return false
+	}
+	return !unicode.IsUpper(rune(s[i-1]))
+}
+
 // camelToSnake converts a camelCase string to snake_case.
 func camelToSnake(s string) string {
 	if s == "" {
@@ -117,18 +127,14 @@ func camelToSnake(s string) string {
 	result.Grow(len(s) + 4) // Typical overhead for underscores
 
 	for i, r := range s {
-		if unicode.IsUpper(r) {
-			if i > 0 {
-				// Don't add underscore between consecutive uppercase (e.g., "ID" stays as "id")
-				prev := rune(s[i-1])
-				if !unicode.IsUpper(prev) {
-					result.WriteRune('_')
-				}
-			}
-			result.WriteRune(unicode.ToLower(r))
-		} else {
+		if !unicode.IsUpper(r) {
 			result.WriteRune(r)
+			continue
 		}
+		if shouldInsertUnderscoreBeforeUpper(s, i) {
+			result.WriteRune('_')
+		}
+		result.WriteRune(unicode.ToLower(r))
 	}
 
 	return result.String()
@@ -212,6 +218,19 @@ type WhitespaceNormalizer struct{}
 
 func (n *WhitespaceNormalizer) Name() string { return "whitespace" }
 
+// isWrappedInMatchingQuotes reports whether s starts and ends with the same
+// quote character (single or double) and is at least 2 characters long.
+func isWrappedInMatchingQuotes(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+	first, last := s[0], s[len(s)-1]
+	if first != last {
+		return false
+	}
+	return first == '"' || first == '\''
+}
+
 func (n *WhitespaceNormalizer) Normalize(paramName string, rawValue any) (any, NormalizationResult) {
 	str, ok := rawValue.(string)
 	if !ok {
@@ -221,12 +240,9 @@ func (n *WhitespaceNormalizer) Normalize(paramName string, rawValue any) (any, N
 	cleaned := strings.TrimSpace(str)
 
 	// Strip surrounding quotes that agents sometimes add
-	if len(cleaned) >= 2 {
-		if (cleaned[0] == '"' && cleaned[len(cleaned)-1] == '"') ||
-			(cleaned[0] == '\'' && cleaned[len(cleaned)-1] == '\'') {
-			cleaned = cleaned[1 : len(cleaned)-1]
-			cleaned = strings.TrimSpace(cleaned) // Trim again after removing quotes
-		}
+	if isWrappedInMatchingQuotes(cleaned) {
+		cleaned = cleaned[1 : len(cleaned)-1]
+		cleaned = strings.TrimSpace(cleaned) // Trim again after removing quotes
 	}
 
 	if cleaned != str {

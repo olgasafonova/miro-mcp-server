@@ -185,51 +185,74 @@ func (c *Cache) Size() int {
 }
 
 // evictOldest removes the oldest entries to make room (must be called with lock held).
+// Strategy: drop expired entries first; if none, drop ~10% of oldest-accessed.
 func (c *Cache) evictOldest() {
-	// Find entries to evict: expired first, then oldest accessed
-	now := time.Now()
-	toEvict := make([]string, 0)
+	toEvict := c.findExpiredKeys()
+	if len(toEvict) == 0 {
+		toEvict = c.findOldestAccessKeys(c.evictionTargetCount())
+	}
+	c.removeEntries(toEvict)
+	c.rebuildAccessList()
+}
 
-	// First pass: find expired entries
+// findExpiredKeys returns the keys whose entries are past their TTL.
+func (c *Cache) findExpiredKeys() []string {
+	now := time.Now()
+	expired := make([]string, 0)
 	for key, entry := range c.entries {
 		if now.After(entry.ExpiresAt) {
-			toEvict = append(toEvict, key)
+			expired = append(expired, key)
 		}
 	}
+	return expired
+}
 
-	// If not enough expired, evict oldest accessed
-	if len(toEvict) == 0 && len(c.accessList) > 0 {
-		// Evict 10% of entries or at least 1
-		evictCount := len(c.entries) / 10
-		if evictCount < 1 {
-			evictCount = 1
+// evictionTargetCount returns how many entries to evict when no expired entries
+// are available: 10% of current size, but at least 1.
+func (c *Cache) evictionTargetCount() int {
+	count := len(c.entries) / 10
+	if count < 1 {
+		count = 1
+	}
+	return count
+}
+
+// findOldestAccessKeys returns up to count keys from the head of accessList
+// (oldest first). Skips keys no longer present in entries.
+func (c *Cache) findOldestAccessKeys(count int) []string {
+	if count <= 0 || len(c.accessList) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, count)
+	for _, key := range c.accessList {
+		if _, ok := c.entries[key]; !ok {
+			continue
 		}
-
-		// Find oldest entries from access list
-		for _, key := range c.accessList {
-			if _, ok := c.entries[key]; ok {
-				toEvict = append(toEvict, key)
-				if len(toEvict) >= evictCount {
-					break
-				}
-			}
+		keys = append(keys, key)
+		if len(keys) >= count {
+			break
 		}
 	}
+	return keys
+}
 
-	// Evict
-	for _, key := range toEvict {
+// removeEntries deletes the given keys from entries and bumps the eviction stat.
+func (c *Cache) removeEntries(keys []string) {
+	for _, key := range keys {
 		delete(c.entries, key)
 		c.stats.Evictions++
 	}
+}
 
-	// Rebuild access list
-	newAccessList := make([]string, 0, len(c.entries))
+// rebuildAccessList drops keys from accessList that no longer exist in entries.
+func (c *Cache) rebuildAccessList() {
+	newList := make([]string, 0, len(c.entries))
 	for _, key := range c.accessList {
 		if _, ok := c.entries[key]; ok {
-			newAccessList = append(newAccessList, key)
+			newList = append(newList, key)
 		}
 	}
-	c.accessList = newAccessList
+	c.accessList = newList
 }
 
 // =============================================================================

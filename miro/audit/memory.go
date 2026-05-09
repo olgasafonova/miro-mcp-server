@@ -58,46 +58,53 @@ func (l *MemoryLogger) Query(ctx context.Context, opts QueryOptions) (*QueryResu
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
-	// Collect matching events
+	matches := l.collectMatches(opts)
+	reverseEvents(matches) // most recent first
+
+	total := len(matches)
+	page, hasMore := paginate(matches, opts.Offset, opts.Limit)
+
+	return &QueryResult{
+		Events:  page,
+		Total:   total,
+		HasMore: hasMore,
+	}, nil
+}
+
+// collectMatches walks the ring buffer in oldest-to-newest order and returns
+// the events that satisfy opts. Caller must hold the read lock.
+func (l *MemoryLogger) collectMatches(opts QueryOptions) []Event {
 	var matches []Event
 	for i := 0; i < l.count; i++ {
-		// Read from oldest to newest
 		idx := (l.writePos - l.count + i + l.maxSize) % l.maxSize
 		event := l.events[idx]
-
 		if matchesQuery(event, opts) {
 			matches = append(matches, event)
 		}
 	}
+	return matches
+}
 
-	// Sort by timestamp descending (most recent first)
-	for i, j := 0, len(matches)-1; i < j; i, j = i+1, j-1 {
-		matches[i], matches[j] = matches[j], matches[i]
+// reverseEvents reverses events in place.
+func reverseEvents(events []Event) {
+	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
+		events[i], events[j] = events[j], events[i]
 	}
+}
 
-	total := len(matches)
-
-	// Apply offset
-	if opts.Offset > 0 {
-		if opts.Offset >= len(matches) {
-			matches = nil
-		} else {
-			matches = matches[opts.Offset:]
+// paginate applies offset and limit to events. Returns the page slice and
+// whether more matches exist beyond the page.
+func paginate(events []Event, offset, limit int) ([]Event, bool) {
+	if offset > 0 {
+		if offset >= len(events) {
+			return nil, false
 		}
+		events = events[offset:]
 	}
-
-	// Apply limit
-	hasMore := false
-	if opts.Limit > 0 && len(matches) > opts.Limit {
-		matches = matches[:opts.Limit]
-		hasMore = true
+	if limit > 0 && len(events) > limit {
+		return events[:limit], true
 	}
-
-	return &QueryResult{
-		Events:  matches,
-		Total:   total,
-		HasMore: hasMore,
-	}, nil
+	return events, false
 }
 
 // Flush is a no-op for MemoryLogger (events are written synchronously).
@@ -135,15 +142,23 @@ func (l *MemoryLogger) Clear() {
 
 // matchesQuery checks if an event matches the query options.
 func matchesQuery(event Event, opts QueryOptions) bool {
-	// Time range
+	return matchesTimeRange(event, opts) && matchesFieldFilters(event, opts)
+}
+
+// matchesTimeRange checks the Since / Until bounds.
+func matchesTimeRange(event Event, opts QueryOptions) bool {
 	if !opts.Since.IsZero() && event.Timestamp.Before(opts.Since) {
 		return false
 	}
 	if !opts.Until.IsZero() && event.Timestamp.After(opts.Until) {
 		return false
 	}
+	return true
+}
 
-	// Field filters
+// matchesFieldFilters checks the exact-match field filters (tool, method,
+// user, board, action, success).
+func matchesFieldFilters(event Event, opts QueryOptions) bool {
 	if opts.Tool != "" && event.Tool != opts.Tool {
 		return false
 	}
@@ -162,7 +177,6 @@ func matchesQuery(event Event, opts QueryOptions) bool {
 	if opts.Success != nil && event.Success != *opts.Success {
 		return false
 	}
-
 	return true
 }
 
@@ -193,23 +207,8 @@ func (l *MemoryLogger) GetStats() Stats {
 	for i := 0; i < l.count; i++ {
 		idx := (l.writePos - l.count + i + l.maxSize) % l.maxSize
 		event := l.events[idx]
-
-		if event.Success {
-			stats.SuccessCount++
-		} else {
-			stats.ErrorCount++
-		}
-
-		stats.ByTool[event.Tool]++
-		stats.ByAction[event.Action]++
+		accumulateEventIntoStats(&stats, event)
 		totalDuration += event.DurationMs
-
-		if stats.OldestEvent.IsZero() || event.Timestamp.Before(stats.OldestEvent) {
-			stats.OldestEvent = event.Timestamp
-		}
-		if stats.NewestEvent.IsZero() || event.Timestamp.After(stats.NewestEvent) {
-			stats.NewestEvent = event.Timestamp
-		}
 	}
 
 	if l.count > 0 {
@@ -217,4 +216,27 @@ func (l *MemoryLogger) GetStats() Stats {
 	}
 
 	return stats
+}
+
+// accumulateEventIntoStats folds a single event into the running Stats:
+// success/error tally, by-tool / by-action counts, and oldest/newest bounds.
+func accumulateEventIntoStats(stats *Stats, event Event) {
+	if event.Success {
+		stats.SuccessCount++
+	} else {
+		stats.ErrorCount++
+	}
+	stats.ByTool[event.Tool]++
+	stats.ByAction[event.Action]++
+	updateTimestampRange(stats, event.Timestamp)
+}
+
+// updateTimestampRange expands the oldest/newest window to include ts.
+func updateTimestampRange(stats *Stats, ts time.Time) {
+	if stats.OldestEvent.IsZero() || ts.Before(stats.OldestEvent) {
+		stats.OldestEvent = ts
+	}
+	if stats.NewestEvent.IsZero() || ts.After(stats.NewestEvent) {
+		stats.NewestEvent = ts
+	}
 }

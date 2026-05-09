@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.1] - 2026-05-09
+
+### Changed
+
+- **Internal code-health pass: 6 files lifted from Yellow to Green on the CodeScene scale.** No behavior change for MCP callers; same tool list, same response shapes, same error wording. Release exists so existing users on `@latest` pick up the cleaner code on their next reinstall. Files: `miro/shape.go` (8.54 → 9.38), `miro/cache.go` (8.47 → 9.38), `miro/desirepath/normalizers.go` (8.81 → 9.68), `miro/audit/memory.go` (8.72 → 9.68), `miro/boards_summary.go` (8.53 → 9.61), `miro/diagrams.go` (8.62 → 9.68), `miro/diagrams/sequence.go` (8.74 → 9.09).
+
+### Decomposition recipes applied
+- Brain `Parse` / `GenerateDiagram` / `GetBoardContent` methods (cc 35–38, 150–206 LoC) decomposed into per-phase helpers: argument normalization → input aggregation → result assembly → optional enrichment → message build. Same shape as the v1.20.1 `mermaid.go` lift.
+- Five-argument `applyOptionalEnum` / `applyOptionalEnumPtr` collapsed to three by bundling `{styleKey, errorTag, allowed}` into an `enumField` value object; `shapeTextAlignField` / `shapeTextAlignVerticalField` promoted to package-level enums so call sites no longer pass primitive triplets.
+- Duplicate `args → shapeCoreBody` mapping between `CreateShape` and `CreateShapeExperimental` replaced by per-args `toCoreBody()` methods plus a shared `validateShapeCreateArgs` validator.
+- Brain Method `evictOldest` (cc 12, depth 4) split into `findExpiredKeys` / `findOldestAccessKeys` / `evictionTargetCount` / `removeEntries` / `rebuildAccessList`, preserving the expired-first then ~10%-of-oldest-accessed eviction order.
+- Sequence-diagram `Parse` line dispatch extracted to `parseState` + `dispatchLine` + per-pattern `tryParse*` handlers, with output-side helpers (`buildParticipantNode`, `buildMessageEdge`, `messageStyleForArrow`, `applyArrowStyleForMessage`, `setSequenceDimensions`) split out of the parser.
+
+### Documentation
+
+- README: added `miro_get_desire_paths` to the **All 92 Tools** category listing (the tool was registered in `tools/definitions.go` but missing from the README); health-check JSON example bumped from `1.15.2` to current.
+
+After this pass, only `miro/diagrams/layout.go` (8.18) remains in Yellow; the Sugiyama-style layered-graph layout algorithm is intrinsically high-cyclomatic and was deferred until golden-file tests can guard the output against drift.
+
 ## [1.21.0] - 2026-05-09
 
 ### Added

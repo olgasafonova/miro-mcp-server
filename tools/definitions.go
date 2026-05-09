@@ -319,6 +319,10 @@ VOICE-FRIENDLY: "Created 5 items on the board"`,
 		Category: "update",
 		Description: `Update multiple items at once (max 20). Only provide fields you want to change.
 
+USE WHEN: "update positions for these items", "rename these stickies", "move several items into a frame".
+
+NOT FOR: Type-specific styling like text_align, text_color, or shape geometry. bulk_update goes through the generic /items endpoint, which doesn't accept style fields beyond color. For text alignment, font color, or shape-specific properties, use miro_update_shape (or the type-specific update tool) per item.
+
 RETURNS: Count of updated items and their IDs.
 
 FAILS WHEN: More than 20 items. Empty items list. Individual items may fail while others succeed; check errors in response.

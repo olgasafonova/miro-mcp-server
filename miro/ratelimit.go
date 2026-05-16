@@ -95,6 +95,36 @@ func NewAdaptiveRateLimiter(config RateLimiterConfig) *AdaptiveRateLimiter {
 	}
 }
 
+// parseIntHeader returns the parsed int when the header is a valid integer
+// at or above min, and (0, false) otherwise.
+func parseIntHeader(value string, min int) (int, bool) {
+	if value == "" {
+		return 0, false
+	}
+	v, err := strconv.Atoi(value)
+	if err != nil || v < min {
+		return 0, false
+	}
+	return v, true
+}
+
+// parseResetAt converts an X-RateLimit-Reset header into an absolute time.
+// Values greater than 1e9 are treated as Unix timestamps; smaller values are
+// treated as seconds-until-reset.
+func parseResetAt(value string, now time.Time) (time.Time, bool) {
+	if value == "" {
+		return time.Time{}, false
+	}
+	v, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+	if v > 1000000000 {
+		return time.Unix(v, 0), true
+	}
+	return now.Add(time.Duration(v) * time.Second), true
+}
+
 // UpdateFromResponse updates the rate limit state from response headers.
 // Standard headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
 func (r *AdaptiveRateLimiter) UpdateFromResponse(resp *http.Response) {
@@ -105,31 +135,17 @@ func (r *AdaptiveRateLimiter) UpdateFromResponse(resp *http.Response) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Parse rate limit headers
-	if limit := resp.Header.Get("X-RateLimit-Limit"); limit != "" {
-		if v, err := strconv.Atoi(limit); err == nil && v > 0 {
-			r.state.Limit = v
-		}
+	if v, ok := parseIntHeader(resp.Header.Get("X-RateLimit-Limit"), 1); ok {
+		r.state.Limit = v
 	}
-
-	if remaining := resp.Header.Get("X-RateLimit-Remaining"); remaining != "" {
-		if v, err := strconv.Atoi(remaining); err == nil && v >= 0 {
-			r.state.Remaining = v
-		}
+	if v, ok := parseIntHeader(resp.Header.Get("X-RateLimit-Remaining"), 0); ok {
+		r.state.Remaining = v
 	}
-
-	if reset := resp.Header.Get("X-RateLimit-Reset"); reset != "" {
-		// Reset can be a Unix timestamp or seconds until reset
-		if v, err := strconv.ParseInt(reset, 10, 64); err == nil {
-			if v > 1000000000 { // Looks like a Unix timestamp
-				r.state.ResetAt = time.Unix(v, 0)
-			} else { // Seconds until reset
-				r.state.ResetAt = time.Now().Add(time.Duration(v) * time.Second)
-			}
-		}
+	now := time.Now()
+	if t, ok := parseResetAt(resp.Header.Get("X-RateLimit-Reset"), now); ok {
+		r.state.ResetAt = t
 	}
-
-	r.state.UpdatedAt = time.Now()
+	r.state.UpdatedAt = now
 }
 
 // Wait blocks until it's safe to make a request, or ctx is cancelled.
@@ -167,34 +183,38 @@ func (r *AdaptiveRateLimiter) Wait(ctx context.Context) (time.Duration, error) {
 	}
 }
 
+// proportionalSlowdownDelay computes a delay that grows as the remaining
+// budget approaches the slowdown threshold.
+func proportionalSlowdownDelay(state RateLimitState, config RateLimiterConfig) time.Duration {
+	percentRemaining := state.PercentRemaining()
+	if percentRemaining >= config.SlowdownThreshold {
+		return 0
+	}
+	ratio := 1.0 - (percentRemaining / config.SlowdownThreshold)
+	return time.Duration(float64(config.MaxDelay-config.MinDelay)*ratio) + config.MinDelay
+}
+
+// waitUntilReset returns the time remaining until ResetAt, capped at MaxDelay.
+// Returns 0 if ResetAt is unset or already in the past.
+func waitUntilReset(state RateLimitState, config RateLimiterConfig) time.Duration {
+	if state.ResetAt.IsZero() || !state.ResetAt.After(time.Now()) {
+		return 0
+	}
+	waitTime := time.Until(state.ResetAt)
+	if waitTime > config.MaxDelay {
+		return config.MaxDelay
+	}
+	return waitTime
+}
+
 // calculateDelay determines the appropriate delay based on current state.
 func (r *AdaptiveRateLimiter) calculateDelay(state RateLimitState, config RateLimiterConfig) time.Duration {
-	// If we have remaining requests above buffer, no delay needed
 	if state.Remaining > config.ProactiveBuffer {
-		percentRemaining := state.PercentRemaining()
-
-		// Only slow down if below threshold
-		if percentRemaining >= config.SlowdownThreshold {
-			return 0
-		}
-
-		// Calculate delay proportional to how close we are to the limit
-		// As remaining approaches 0, delay approaches MaxDelay
-		ratio := 1.0 - (percentRemaining / config.SlowdownThreshold)
-		delay := time.Duration(float64(config.MaxDelay-config.MinDelay)*ratio) + config.MinDelay
-		return delay
+		return proportionalSlowdownDelay(state, config)
 	}
-
-	// If remaining is at or below buffer, wait until reset
-	if !state.ResetAt.IsZero() && state.ResetAt.After(time.Now()) {
-		waitTime := time.Until(state.ResetAt)
-		if waitTime > config.MaxDelay {
-			return config.MaxDelay
-		}
-		return waitTime
+	if wait := waitUntilReset(state, config); wait > 0 {
+		return wait
 	}
-
-	// Fallback: apply max delay when at buffer threshold
 	return config.MaxDelay
 }
 

@@ -61,6 +61,40 @@ func NewHealthChecker(client *Client, serverName, version string) *HealthChecker
 	}
 }
 
+// shallowAPIComponent returns the cached API health for shallow checks.
+func (h *HealthChecker) shallowAPIComponent() ComponentHealth {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.lastAPICheck.IsZero() {
+		return ComponentHealth{
+			Status:  HealthStatusHealthy,
+			Message: "not yet checked (use ?deep=true)",
+		}
+	}
+	return ComponentHealth{
+		Status:      h.lastAPIStatus,
+		Message:     h.lastAPIError,
+		LastChecked: h.lastAPICheck,
+		Latency:     h.lastAPILatency.String(),
+	}
+}
+
+// overallStatus rolls component statuses into a single overall verdict.
+// Any Unhealthy component flips the result to Unhealthy; otherwise a single
+// Degraded component yields Degraded; otherwise Healthy.
+func overallStatus(components map[string]ComponentHealth) HealthStatus {
+	status := HealthStatusHealthy
+	for _, comp := range components {
+		if comp.Status == HealthStatusUnhealthy {
+			return HealthStatusUnhealthy
+		}
+		if comp.Status == HealthStatusDegraded {
+			status = HealthStatusDegraded
+		}
+	}
+	return status
+}
+
 // Check performs a health check and returns a report
 // If deep is true, it also tests the Miro API connectivity
 func (h *HealthChecker) Check(ctx context.Context, deep bool) HealthReport {
@@ -74,42 +108,14 @@ func (h *HealthChecker) Check(ctx context.Context, deep bool) HealthReport {
 		Components: make(map[string]ComponentHealth),
 	}
 
-	// Config component check
 	report.Components["config"] = h.checkConfig()
-
-	// API component check (deep check)
 	if deep {
 		report.Components["miro_api"] = h.checkAPI(ctx)
 	} else {
-		// Report last known status for shallow checks
-		h.mu.RLock()
-		if h.lastAPICheck.IsZero() {
-			report.Components["miro_api"] = ComponentHealth{
-				Status:  HealthStatusHealthy,
-				Message: "not yet checked (use ?deep=true)",
-			}
-		} else {
-			report.Components["miro_api"] = ComponentHealth{
-				Status:      h.lastAPIStatus,
-				Message:     h.lastAPIError,
-				LastChecked: h.lastAPICheck,
-				Latency:     h.lastAPILatency.String(),
-			}
-		}
-		h.mu.RUnlock()
+		report.Components["miro_api"] = h.shallowAPIComponent()
 	}
 
-	// Determine overall status
-	for _, comp := range report.Components {
-		if comp.Status == HealthStatusUnhealthy {
-			report.Status = HealthStatusUnhealthy
-			break
-		}
-		if comp.Status == HealthStatusDegraded && report.Status == HealthStatusHealthy {
-			report.Status = HealthStatusDegraded
-		}
-	}
-
+	report.Status = overallStatus(report.Components)
 	return report
 }
 

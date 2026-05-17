@@ -14,6 +14,73 @@ import (
 // Board Search
 // =============================================================================
 
+// searchBoardItem is the partial item shape needed for content search.
+type searchBoardItem struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Position *struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	} `json:"position"`
+	Data struct {
+		Content string `json:"content"`
+		Title   string `json:"title"`
+	} `json:"data"`
+}
+
+// searchBoardLimit clamps the user-supplied limit to the configured bounds.
+func searchBoardLimit(requested int) int {
+	if requested > 0 && requested < MaxSearchLimit {
+		return requested
+	}
+	return DefaultSearchLimit
+}
+
+// searchBoardPath builds the GET path with type/limit query parameters.
+func searchBoardPath(boardID, itemType string, limit int) string {
+	params := url.Values{}
+	if itemType != "" {
+		params.Set("type", itemType)
+	}
+	params.Set("limit", strconv.Itoa(limit))
+	return "/boards/" + boardID + "/items?" + params.Encode()
+}
+
+// boardItemMatch returns a populated ItemMatch when the item's content or
+// title contains queryLower, or nil otherwise. raw is parsed in place.
+func boardItemMatch(raw json.RawMessage, query, queryLower string) *ItemMatch {
+	var item searchBoardItem
+	if err := json.Unmarshal(raw, &item); err != nil {
+		return nil
+	}
+	content := item.Data.Content
+	if content == "" {
+		content = item.Data.Title
+	}
+	if content == "" || !strings.Contains(strings.ToLower(content), queryLower) {
+		return nil
+	}
+	match := ItemMatch{
+		ID:      item.ID,
+		Type:    item.Type,
+		Content: content,
+		Snippet: createSnippet(content, query, 50),
+	}
+	if item.Position != nil {
+		match.X = item.Position.X
+		match.Y = item.Position.Y
+	}
+	return &match
+}
+
+// searchBoardMessage composes the human-readable result message.
+func searchBoardMessage(count int, query string) string {
+	if count == 0 {
+		return fmt.Sprintf("No items found matching '%s'", query)
+	}
+	return fmt.Sprintf("Found %d items matching '%s'", count, query)
+}
+
 // SearchBoard searches for items containing specific text.
 func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchBoardResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -23,23 +90,7 @@ func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchB
 		return SearchBoardResult{}, fmt.Errorf("query is required")
 	}
 
-	limit := DefaultSearchLimit
-	if args.Limit > 0 && args.Limit < MaxSearchLimit {
-		limit = args.Limit
-	}
-
-	// Fetch items from the board
-	params := url.Values{}
-	if args.Type != "" {
-		params.Set("type", args.Type)
-	}
-	params.Set("limit", strconv.Itoa(limit))
-
-	path := "/boards/" + args.BoardID + "/items"
-	if len(params) > 0 {
-		path += "?" + params.Encode()
-	}
-
+	path := searchBoardPath(args.BoardID, args.Type, searchBoardLimit(args.Limit))
 	respBody, err := c.request(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return SearchBoardResult{}, err
@@ -52,58 +103,19 @@ func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchB
 		return SearchBoardResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Search through items for matching content
 	queryLower := strings.ToLower(args.Query)
 	var matches []ItemMatch
-
 	for _, raw := range resp.Data {
-		var item struct {
-			ID       string `json:"id"`
-			Type     string `json:"type"`
-			Position *struct {
-				X float64 `json:"x"`
-				Y float64 `json:"y"`
-			} `json:"position"`
-			Data struct {
-				Content string `json:"content"`
-				Title   string `json:"title"`
-			} `json:"data"`
+		if m := boardItemMatch(raw, args.Query, queryLower); m != nil {
+			matches = append(matches, *m)
 		}
-		if err := json.Unmarshal(raw, &item); err != nil {
-			continue
-		}
-
-		// Check content and title for matches
-		content := item.Data.Content
-		if content == "" {
-			content = item.Data.Title
-		}
-
-		if content != "" && strings.Contains(strings.ToLower(content), queryLower) {
-			match := ItemMatch{
-				ID:      item.ID,
-				Type:    item.Type,
-				Content: content,
-				Snippet: createSnippet(content, args.Query, 50),
-			}
-			if item.Position != nil {
-				match.X = item.Position.X
-				match.Y = item.Position.Y
-			}
-			matches = append(matches, match)
-		}
-	}
-
-	message := fmt.Sprintf("Found %d items matching '%s'", len(matches), args.Query)
-	if len(matches) == 0 {
-		message = fmt.Sprintf("No items found matching '%s'", args.Query)
 	}
 
 	return SearchBoardResult{
 		Matches: matches,
 		Count:   len(matches),
 		Query:   args.Query,
-		Message: message,
+		Message: searchBoardMessage(len(matches), args.Query),
 	}, nil
 }
 

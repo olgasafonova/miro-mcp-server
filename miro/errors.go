@@ -61,33 +61,33 @@ func (e *APIError) IsServerError() bool {
 // feedbackURL is the pre-filled issue link shown on setup/auth errors.
 const feedbackURL = "https://github.com/olgasafonova/miro-mcp-server/issues/new?template=bug_report.yml"
 
+// staticSuggestions maps status codes to non-parameterized suggestion text.
+var staticSuggestions = map[int]string{
+	http.StatusUnauthorized:        "Check that MIRO_ACCESS_TOKEN is set and valid. Get a token at https://miro.com/app/settings/user-profile/apps — Still stuck? " + feedbackURL,
+	http.StatusForbidden:           "Your token may lack the required scopes. Check board sharing permissions or regenerate your token with correct scopes. Still stuck? " + feedbackURL,
+	http.StatusNotFound:            "The board or item may have been deleted, or the ID may be incorrect. Verify the ID exists.",
+	http.StatusBadRequest:          "Check that all required parameters are provided and valid.",
+	http.StatusConflict:            "The operation conflicts with the current state. The resource may already exist.",
+	413:                            "Request payload is too large. Reduce content size or split into multiple requests.",
+	http.StatusInternalServerError: "Miro API server error. Try again later.",
+	http.StatusServiceUnavailable:  "Miro API is temporarily unavailable. Try again in a few minutes.",
+}
+
+// rateLimitSuggestion produces the 429 message, formatted with RetryAfter
+// when present.
+func (e *APIError) rateLimitSuggestion() string {
+	if e.RetryAfter > 0 {
+		return fmt.Sprintf("Rate limit exceeded. Wait %d seconds before retrying.", e.RetryAfter)
+	}
+	return "Rate limit exceeded. Wait a moment before retrying, or reduce request frequency."
+}
+
 // Suggestion returns actionable guidance for resolving the error.
 func (e *APIError) Suggestion() string {
-	switch e.StatusCode {
-	case http.StatusUnauthorized:
-		return "Check that MIRO_ACCESS_TOKEN is set and valid. Get a token at https://miro.com/app/settings/user-profile/apps — Still stuck? " + feedbackURL
-	case http.StatusForbidden:
-		return "Your token may lack the required scopes. Check board sharing permissions or regenerate your token with correct scopes. Still stuck? " + feedbackURL
-	case http.StatusNotFound:
-		return "The board or item may have been deleted, or the ID may be incorrect. Verify the ID exists."
-	case http.StatusTooManyRequests:
-		if e.RetryAfter > 0 {
-			return fmt.Sprintf("Rate limit exceeded. Wait %d seconds before retrying.", e.RetryAfter)
-		}
-		return "Rate limit exceeded. Wait a moment before retrying, or reduce request frequency."
-	case http.StatusBadRequest:
-		return "Check that all required parameters are provided and valid."
-	case http.StatusConflict:
-		return "The operation conflicts with the current state. The resource may already exist."
-	case 413: // Request Entity Too Large
-		return "Request payload is too large. Reduce content size or split into multiple requests."
-	case http.StatusInternalServerError:
-		return "Miro API server error. Try again later."
-	case http.StatusServiceUnavailable:
-		return "Miro API is temporarily unavailable. Try again in a few minutes."
-	default:
-		return ""
+	if e.StatusCode == http.StatusTooManyRequests {
+		return e.rateLimitSuggestion()
 	}
+	return staticSuggestions[e.StatusCode]
 }
 
 // =============================================================================

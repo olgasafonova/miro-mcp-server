@@ -10,6 +10,17 @@ import (
 // Board Search by Name
 // =============================================================================
 
+// findFirstBoardMatch returns the first board whose name (case-insensitive)
+// satisfies match. nameLower must already be lowercased.
+func findFirstBoardMatch(boards []BoardSummary, nameLower string, match func(boardName, target string) bool) *BoardSummary {
+	for i := range boards {
+		if match(strings.ToLower(boards[i].Name), nameLower) {
+			return &boards[i]
+		}
+	}
+	return nil
+}
+
 // FindBoardByName finds a board by exact or partial name match.
 // Returns the best matching board, preferring exact matches.
 func (c *Client) FindBoardByName(ctx context.Context, name string) (*BoardSummary, error) {
@@ -17,43 +28,25 @@ func (c *Client) FindBoardByName(ctx context.Context, name string) (*BoardSummar
 		return nil, fmt.Errorf("board name is required")
 	}
 
-	// Search for boards with the given name
-	result, err := c.ListBoards(ctx, ListBoardsArgs{
-		Query: name,
-		Limit: 20,
-	})
+	result, err := c.ListBoards(ctx, ListBoardsArgs{Query: name, Limit: 20})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search boards: %w", err)
 	}
-
 	if len(result.Boards) == 0 {
 		return nil, fmt.Errorf("no board found matching '%s'", name)
 	}
 
 	nameLower := strings.ToLower(name)
-
-	// First pass: exact match
-	for i := range result.Boards {
-		if strings.ToLower(result.Boards[i].Name) == nameLower {
-			return &result.Boards[i], nil
+	matchers := []func(string, string) bool{
+		func(a, b string) bool { return a == b },
+		strings.HasPrefix,
+		strings.Contains,
+	}
+	for _, m := range matchers {
+		if hit := findFirstBoardMatch(result.Boards, nameLower, m); hit != nil {
+			return hit, nil
 		}
 	}
-
-	// Second pass: starts with match
-	for i := range result.Boards {
-		if strings.HasPrefix(strings.ToLower(result.Boards[i].Name), nameLower) {
-			return &result.Boards[i], nil
-		}
-	}
-
-	// Third pass: contains match
-	for i := range result.Boards {
-		if strings.Contains(strings.ToLower(result.Boards[i].Name), nameLower) {
-			return &result.Boards[i], nil
-		}
-	}
-
-	// Return first result as fallback
 	return &result.Boards[0], nil
 }
 

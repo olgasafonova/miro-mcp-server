@@ -126,29 +126,26 @@ func (f *AuthFlow) Status(ctx context.Context) (*TokenSet, error) {
 	return tokens, nil
 }
 
+// revokeIfPresent revokes a non-empty token, logging (but not propagating)
+// failures. Empty tokens are a no-op.
+func (f *AuthFlow) revokeIfPresent(ctx context.Context, token, label string) {
+	if token == "" {
+		return
+	}
+	if err := f.provider.RevokeToken(ctx, token); err != nil {
+		f.logger.Warn("Failed to revoke "+label, "error", err)
+	}
+}
+
 // Logout revokes tokens and clears storage.
 func (f *AuthFlow) Logout(ctx context.Context) error {
-	tokens, err := f.tokenStore.Load(ctx)
-	if err == nil && tokens != nil {
-		// Revoke access token
-		if tokens.AccessToken != "" {
-			if err := f.provider.RevokeToken(ctx, tokens.AccessToken); err != nil {
-				f.logger.Warn("Failed to revoke access token", "error", err)
-			}
-		}
-		// Revoke refresh token
-		if tokens.RefreshToken != "" {
-			if err := f.provider.RevokeToken(ctx, tokens.RefreshToken); err != nil {
-				f.logger.Warn("Failed to revoke refresh token", "error", err)
-			}
-		}
+	if tokens, err := f.tokenStore.Load(ctx); err == nil && tokens != nil {
+		f.revokeIfPresent(ctx, tokens.AccessToken, "access token")
+		f.revokeIfPresent(ctx, tokens.RefreshToken, "refresh token")
 	}
-
-	// Delete stored tokens
 	if err := f.tokenStore.Delete(ctx); err != nil {
 		return fmt.Errorf("failed to delete tokens: %w", err)
 	}
-
 	f.logger.Info("Logged out successfully")
 	return nil
 }

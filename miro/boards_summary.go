@@ -161,28 +161,39 @@ func appendItemByType(by *ItemsByType, item ItemSummary) {
 	}
 }
 
+// childrenOf returns items whose ParentID matches the given frame ID.
+func childrenOf(items []ItemSummary, frameID string) []ItemSummary {
+	var children []ItemSummary
+	for _, child := range items {
+		if child.ParentID == frameID {
+			children = append(children, child)
+		}
+	}
+	return children
+}
+
+// frameContextFromItem builds a FrameContext from a frame item plus its
+// child items.
+func frameContextFromItem(item ItemSummary, items []ItemSummary) FrameContext {
+	return FrameContext{
+		ID:       item.ID,
+		Title:    item.Content,
+		X:        item.X,
+		Y:        item.Y,
+		Width:    item.Width,
+		Height:   item.Height,
+		Children: childrenOf(items, item.ID),
+	}
+}
+
 // buildFrameHierarchy returns a FrameContext per frame item, with each frame's
 // children populated (items whose ParentID points at the frame).
 func buildFrameHierarchy(items []ItemSummary) []FrameContext {
 	var frames []FrameContext
 	for _, item := range items {
-		if item.Type != "frame" {
-			continue
+		if item.Type == "frame" {
+			frames = append(frames, frameContextFromItem(item, items))
 		}
-		frame := FrameContext{
-			ID:     item.ID,
-			Title:  item.Content,
-			X:      item.X,
-			Y:      item.Y,
-			Width:  item.Width,
-			Height: item.Height,
-		}
-		for _, child := range items {
-			if child.ParentID == item.ID {
-				frame.Children = append(frame.Children, child)
-			}
-		}
-		frames = append(frames, frame)
 	}
 	return frames
 }

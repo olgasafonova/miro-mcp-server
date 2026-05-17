@@ -95,30 +95,37 @@ func (m *MetricsCollector) RecordRetry() {
 	m.retriesTotal++
 }
 
+// apiErrorCategories maps explicit HTTP codes to their metrics category.
+var apiErrorCategories = map[int]string{
+	429: "rate_limit",
+	401: "auth",
+	403: "forbidden",
+	404: "not_found",
+}
+
+// categorizeAPIError returns the metrics category for an *APIError, falling
+// back to range buckets for unmapped codes.
+func categorizeAPIError(apiErr *APIError) string {
+	if cat, ok := apiErrorCategories[apiErr.StatusCode]; ok {
+		return cat
+	}
+	if apiErr.StatusCode >= 500 {
+		return "server"
+	}
+	if apiErr.StatusCode >= 400 {
+		return "client"
+	}
+	return "unknown"
+}
+
 // categorizeError categorizes an error for metrics
 func categorizeError(err error) string {
 	if err == nil {
 		return "none"
 	}
-
-	// Check for API errors
 	if apiErr, ok := err.(*APIError); ok {
-		switch {
-		case apiErr.StatusCode == 429:
-			return "rate_limit"
-		case apiErr.StatusCode == 401:
-			return "auth"
-		case apiErr.StatusCode == 403:
-			return "forbidden"
-		case apiErr.StatusCode == 404:
-			return "not_found"
-		case apiErr.StatusCode >= 500:
-			return "server"
-		case apiErr.StatusCode >= 400:
-			return "client"
-		}
+		return categorizeAPIError(apiErr)
 	}
-
 	return "unknown"
 }
 

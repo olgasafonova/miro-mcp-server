@@ -26,46 +26,65 @@ func NewLogger(config Config) (Logger, error) {
 	return NewFileLogger(config)
 }
 
+// envBoolean parses a boolean-style env value ("true" / "1"). Empty input
+// leaves dst untouched.
+func envBoolean(name string, dst *bool) {
+	val := os.Getenv(name)
+	if val == "" {
+		return
+	}
+	*dst = strings.ToLower(val) == "true" || val == "1"
+}
+
+// envString assigns a non-empty env value to dst.
+func envString(name string, dst *string) {
+	if val := os.Getenv(name); val != "" {
+		*dst = val
+	}
+}
+
+// envRetentionDays parses MIRO_AUDIT_RETENTION as a day-suffixed duration.
+func envRetentionDays(name string, dst *int) {
+	val := os.Getenv(name)
+	if val == "" {
+		return
+	}
+	if days := parseDuration(val); days > 0 {
+		*dst = days
+	}
+}
+
+// envMaxSize parses MIRO_AUDIT_MAX_SIZE as a K/M/G-suffixed byte size.
+func envMaxSize(name string, dst *int64) {
+	val := os.Getenv(name)
+	if val == "" {
+		return
+	}
+	if size := parseSize(val); size > 0 {
+		*dst = size
+	}
+}
+
+// envNonNegativeInt parses a non-negative integer env value.
+func envNonNegativeInt(name string, dst *int) {
+	val := os.Getenv(name)
+	if val == "" {
+		return
+	}
+	if size, err := strconv.Atoi(val); err == nil && size >= 0 {
+		*dst = size
+	}
+}
+
 // LoadConfigFromEnv loads audit configuration from environment variables.
 func LoadConfigFromEnv() Config {
 	config := DefaultConfig()
-
-	// MIRO_AUDIT_ENABLED
-	if val := os.Getenv("MIRO_AUDIT_ENABLED"); val != "" {
-		config.Enabled = strings.ToLower(val) == "true" || val == "1"
-	}
-
-	// MIRO_AUDIT_PATH
-	if val := os.Getenv("MIRO_AUDIT_PATH"); val != "" {
-		config.Path = val
-	}
-
-	// MIRO_AUDIT_RETENTION
-	if val := os.Getenv("MIRO_AUDIT_RETENTION"); val != "" {
-		if days := parseDuration(val); days > 0 {
-			config.RetentionDays = days
-		}
-	}
-
-	// MIRO_AUDIT_MAX_SIZE
-	if val := os.Getenv("MIRO_AUDIT_MAX_SIZE"); val != "" {
-		if size := parseSize(val); size > 0 {
-			config.MaxSizeBytes = size
-		}
-	}
-
-	// MIRO_AUDIT_BUFFER_SIZE
-	if val := os.Getenv("MIRO_AUDIT_BUFFER_SIZE"); val != "" {
-		if size, err := strconv.Atoi(val); err == nil && size >= 0 {
-			config.BufferSize = size
-		}
-	}
-
-	// MIRO_AUDIT_SANITIZE
-	if val := os.Getenv("MIRO_AUDIT_SANITIZE"); val != "" {
-		config.SanitizeInput = strings.ToLower(val) == "true" || val == "1"
-	}
-
+	envBoolean("MIRO_AUDIT_ENABLED", &config.Enabled)
+	envString("MIRO_AUDIT_PATH", &config.Path)
+	envRetentionDays("MIRO_AUDIT_RETENTION", &config.RetentionDays)
+	envMaxSize("MIRO_AUDIT_MAX_SIZE", &config.MaxSizeBytes)
+	envNonNegativeInt("MIRO_AUDIT_BUFFER_SIZE", &config.BufferSize)
+	envBoolean("MIRO_AUDIT_SANITIZE", &config.SanitizeInput)
 	return config
 }
 
@@ -231,28 +250,40 @@ var (
 // Action Detection
 // =============================================================================
 
+// actionPrefixes maps each Action to the method-name prefixes that signal it.
+// Order matters only between rows; within a row, any prefix triggers the row's
+// Action.
+var actionPrefixes = []struct {
+	action   Action
+	prefixes []string
+}{
+	{ActionCreate, []string{"create", "bulk"}},
+	{ActionRead, []string{"list", "get", "search", "find"}},
+	{ActionUpdate, []string{"update"}},
+	{ActionDelete, []string{"delete", "ungroup", "detach"}},
+	{ActionExport, []string{"export"}},
+	{ActionAuth, []string{"validate", "share"}},
+}
+
+// hasAnyPrefix reports whether s starts with any of the given prefixes.
+func hasAnyPrefix(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // DetectAction infers the action type from the method name.
 func DetectAction(method string) Action {
 	method = strings.ToLower(method)
-
-	switch {
-	case strings.HasPrefix(method, "create") || strings.HasPrefix(method, "bulk"):
-		return ActionCreate
-	case strings.HasPrefix(method, "list") || strings.HasPrefix(method, "get") ||
-		strings.HasPrefix(method, "search") || strings.HasPrefix(method, "find"):
-		return ActionRead
-	case strings.HasPrefix(method, "update"):
-		return ActionUpdate
-	case strings.HasPrefix(method, "delete") || strings.HasPrefix(method, "ungroup") ||
-		strings.HasPrefix(method, "detach"):
-		return ActionDelete
-	case strings.HasPrefix(method, "export"):
-		return ActionExport
-	case strings.HasPrefix(method, "validate") || strings.HasPrefix(method, "share"):
-		return ActionAuth
-	default:
-		return ActionRead
+	for _, row := range actionPrefixes {
+		if hasAnyPrefix(method, row.prefixes) {
+			return row.action
+		}
 	}
+	return ActionRead
 }
 
 // FormatDuration returns a human-readable duration.

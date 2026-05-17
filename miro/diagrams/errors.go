@@ -172,38 +172,99 @@ func ParseDiagramSyntaxError(line int, content string, reason string) *DiagramEr
 	).WithLine(line).WithInput(content).WithSuggestion("Check Mermaid syntax at https://mermaid.js.org/syntax/flowchart.html")
 }
 
+// looksLikeMisformattedArrow reports whether the input uses '->' without the
+// flowchart '-->' or sequence '->>' arrow forms.
+func looksLikeMisformattedArrow(input string) bool {
+	return strings.Contains(input, "->") && !strings.Contains(input, "-->")
+}
+
+// hasSubgraphWithoutFlowchartHeader reports whether 'subgraph' appears without
+// a flowchart/graph header.
+func hasSubgraphWithoutFlowchartHeader(input string) bool {
+	if !strings.Contains(input, "subgraph") {
+		return false
+	}
+	return !strings.HasPrefix(input, "flowchart") && !strings.HasPrefix(input, "graph")
+}
+
+// arrowHint returns the appropriate arrow-syntax hint.
+func arrowHint(input string) string {
+	if strings.Contains(input, "sequencediagram") {
+		return "Sequence diagrams use '->>': A->>B: message"
+	}
+	return "Flowcharts use '-->': A --> B"
+}
+
 // DiagramTypeHint returns a helpful hint based on the input content.
 func DiagramTypeHint(input string) string {
 	input = strings.ToLower(strings.TrimSpace(input))
 
-	// Check for common mistakes
-	if strings.Contains(input, "->") && !strings.Contains(input, "-->") {
-		if strings.Contains(input, "sequencediagram") {
-			return "Sequence diagrams use '->>': A->>B: message"
-		}
-		return "Flowcharts use '-->': A --> B"
+	if looksLikeMisformattedArrow(input) {
+		return arrowHint(input)
 	}
-
 	if strings.Contains(input, "participant") && !strings.HasPrefix(input, "sequencediagram") {
 		return "Sequence diagrams must start with 'sequenceDiagram'"
 	}
-
-	if strings.Contains(input, "subgraph") && !strings.HasPrefix(input, "flowchart") && !strings.HasPrefix(input, "graph") {
+	if hasSubgraphWithoutFlowchartHeader(input) {
 		return "Flowcharts with subgraphs must start with 'flowchart TB' or 'graph TD'"
 	}
-
 	return ""
+}
+
+// checkLineLengths returns the first offending-line error, or nil.
+func checkLineLengths(lines []string) error {
+	for i, line := range lines {
+		if len(line) > MaxLineLength {
+			return ErrLineTooLongError(i+1, len(line))
+		}
+	}
+	return nil
+}
+
+// isValidHeaderLine reports whether the line (already lowercase-trimmed)
+// is one of the supported diagram headers.
+func isValidHeaderLine(lineLower string) bool {
+	return strings.HasPrefix(lineLower, "flowchart") ||
+		strings.HasPrefix(lineLower, "graph") ||
+		lineLower == "sequencediagram"
+}
+
+// missingHeaderError builds the structured error for a missing/invalid header.
+func missingHeaderError(input string) error {
+	err := NewDiagramError(
+		ErrCodeMissingHeader,
+		"diagram must start with a valid header",
+	).WithSuggestion("Use 'flowchart TB', 'flowchart LR', 'graph TD', or 'sequenceDiagram'")
+
+	if hint := DiagramTypeHint(input); hint != "" {
+		err.Suggestion += ". " + hint
+	}
+	return err
+}
+
+// validateHeader scans the first non-empty, non-comment line for a valid
+// diagram header.
+func validateHeader(lines []string, input string) error {
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "%%") {
+			continue
+		}
+		if isValidHeaderLine(strings.ToLower(line)) {
+			return nil
+		}
+		return missingHeaderError(input)
+	}
+	return nil
 }
 
 // ValidateDiagramInput performs validation on diagram input including ReDoS protection.
 func ValidateDiagramInput(input string) error {
-	// Check total input size (ReDoS protection)
 	if len(input) > MaxDiagramInputSize {
 		return ErrInputTooLarge
 	}
 
 	input = strings.TrimSpace(input)
-
 	if input == "" {
 		return ErrEmptyDiagram
 	}
@@ -212,46 +273,11 @@ func ValidateDiagramInput(input string) error {
 	if len(lines) == 0 {
 		return ErrEmptyDiagram
 	}
-
-	// Check line count (ReDoS protection)
 	if len(lines) > MaxDiagramLines {
 		return ErrTooManyLinesError(len(lines))
 	}
-
-	// Check individual line lengths (ReDoS protection)
-	for i, line := range lines {
-		if len(line) > MaxLineLength {
-			return ErrLineTooLongError(i+1, len(line))
-		}
-	}
-
-	// Check first non-empty, non-comment line
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "%%") {
-			continue
-		}
-
-		lineLower := strings.ToLower(line)
-		if strings.HasPrefix(lineLower, "flowchart") ||
-			strings.HasPrefix(lineLower, "graph") ||
-			lineLower == "sequencediagram" {
-			return nil // Valid header found
-		}
-
-		// No valid header found
-		hint := DiagramTypeHint(input)
-		err := NewDiagramError(
-			ErrCodeMissingHeader,
-			"diagram must start with a valid header",
-		).WithSuggestion("Use 'flowchart TB', 'flowchart LR', 'graph TD', or 'sequenceDiagram'")
-
-		if hint != "" {
-			err.Suggestion += ". " + hint
-		}
-
+	if err := checkLineLengths(lines); err != nil {
 		return err
 	}
-
-	return nil
+	return validateHeader(lines, input)
 }

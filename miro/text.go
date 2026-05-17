@@ -80,25 +80,8 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 	}, nil
 }
 
-// UpdateText updates a text item using the dedicated text endpoint.
-func (c *Client) UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTextResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateTextResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateTextResult{}, fmt.Errorf("invalid item_id: %w", err)
-	}
-
-	reqBody := make(map[string]interface{})
-
-	// Build data section
-	if args.Content != nil {
-		reqBody["data"] = map[string]interface{}{
-			"content": *args.Content,
-		}
-	}
-
-	// Build style section
+// buildTextStyleSection returns the optional "style" map for a text update.
+func buildTextStyleSection(args UpdateTextArgs) (map[string]interface{}, error) {
 	style := make(map[string]interface{})
 	if args.FontSize != nil {
 		style["fontSize"] = fmt.Sprintf("%d", *args.FontSize)
@@ -109,42 +92,82 @@ func (c *Client) UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTex
 	if args.Color != nil {
 		color, err := normalizeColor(*args.Color)
 		if err != nil {
-			return UpdateTextResult{}, fmt.Errorf("color: %w", err)
+			return nil, fmt.Errorf("color: %w", err)
 		}
 		style["color"] = color
+	}
+	return style, nil
+}
+
+// buildPositionSection returns the optional "position" map when X or Y is set.
+func buildPositionSection(x, y *float64) map[string]interface{} {
+	if x == nil && y == nil {
+		return nil
+	}
+	pos := map[string]interface{}{"origin": "center"}
+	if x != nil {
+		pos["x"] = *x
+	}
+	if y != nil {
+		pos["y"] = *y
+	}
+	return pos
+}
+
+// applyParentField sets the "parent" key on reqBody if parentID is non-nil.
+// An empty string clears the parent (assigns nil).
+func applyParentField(reqBody map[string]interface{}, parentID *string) {
+	if parentID == nil {
+		return
+	}
+	if *parentID == "" {
+		reqBody["parent"] = nil
+		return
+	}
+	reqBody["parent"] = map[string]interface{}{"id": *parentID}
+}
+
+// buildUpdateTextBody assembles the full PATCH body for a text update.
+func buildUpdateTextBody(args UpdateTextArgs) (map[string]interface{}, error) {
+	reqBody := make(map[string]interface{})
+
+	if args.Content != nil {
+		reqBody["data"] = map[string]interface{}{"content": *args.Content}
+	}
+
+	style, err := buildTextStyleSection(args)
+	if err != nil {
+		return nil, err
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style
 	}
 
-	// Build position section
-	if args.X != nil || args.Y != nil {
-		pos := map[string]interface{}{"origin": "center"}
-		if args.X != nil {
-			pos["x"] = *args.X
-		}
-		if args.Y != nil {
-			pos["y"] = *args.Y
-		}
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
 
-	// Build geometry section
 	if args.Width != nil {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": *args.Width,
-		}
+		reqBody["geometry"] = map[string]interface{}{"width": *args.Width}
 	}
 
-	// Build parent section
-	if args.ParentID != nil {
-		if *args.ParentID == "" {
-			reqBody["parent"] = nil
-		} else {
-			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
-		}
+	applyParentField(reqBody, args.ParentID)
+	return reqBody, nil
+}
+
+// UpdateText updates a text item using the dedicated text endpoint.
+func (c *Client) UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTextResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateTextResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateTextResult{}, fmt.Errorf("invalid item_id: %w", err)
 	}
 
+	reqBody, err := buildUpdateTextBody(args)
+	if err != nil {
+		return UpdateTextResult{}, err
+	}
 	if len(reqBody) == 0 {
 		return UpdateTextResult{
 			ID:      args.ItemID,

@@ -9,25 +9,44 @@ import (
 // Retry Logic
 // =============================================================================
 
-// isRetriableError returns true if the error/status code should be retried.
-func isRetriableError(statusCode int, err error) bool {
-	// Retry on transient server errors
-	if statusCode == http.StatusBadGateway || // 502
-		statusCode == http.StatusServiceUnavailable || // 503
-		statusCode == http.StatusGatewayTimeout || // 504
-		statusCode == http.StatusTooManyRequests { // 429
-		return true
+// retriableStatusCodes lists HTTP status codes considered transient.
+var retriableStatusCodes = map[int]bool{
+	http.StatusBadGateway:         true, // 502
+	http.StatusServiceUnavailable: true, // 503
+	http.StatusGatewayTimeout:     true, // 504
+	http.StatusTooManyRequests:    true, // 429
+}
+
+// retriableNetworkErrorSubstrings names lower-level network-error markers.
+var retriableNetworkErrorSubstrings = []string{
+	"connection reset",
+	"connection refused",
+	"i/o timeout",
+	"no such host",
+	"EOF",
+}
+
+// isRetriableNetworkError reports whether err is one of the transient
+// network failures we retry.
+func isRetriableNetworkError(err error) bool {
+	if err == nil {
+		return false
 	}
-	// Retry on network errors (connection reset, timeout, etc.)
-	if err != nil {
-		errStr := err.Error()
-		return contains(errStr, "connection reset") ||
-			contains(errStr, "connection refused") ||
-			contains(errStr, "i/o timeout") ||
-			contains(errStr, "no such host") ||
-			contains(errStr, "EOF")
+	errStr := err.Error()
+	for _, sub := range retriableNetworkErrorSubstrings {
+		if contains(errStr, sub) {
+			return true
+		}
 	}
 	return false
+}
+
+// isRetriableError returns true if the error/status code should be retried.
+func isRetriableError(statusCode int, err error) bool {
+	if retriableStatusCodes[statusCode] {
+		return true
+	}
+	return isRetriableNetworkError(err)
 }
 
 // contains is a simple string contains helper.

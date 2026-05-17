@@ -77,18 +77,10 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 	}, nil
 }
 
-// UpdateSticky updates a sticky note using the dedicated sticky_notes endpoint.
-func (c *Client) UpdateSticky(ctx context.Context, args UpdateStickyArgs) (UpdateStickyResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateStickyResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateStickyResult{}, fmt.Errorf("invalid item_id: %w", err)
-	}
-
+// buildUpdateStickyBody assembles the PATCH body for a sticky update.
+func buildUpdateStickyBody(args UpdateStickyArgs) map[string]interface{} {
 	reqBody := make(map[string]interface{})
 
-	// Build data section
 	data := make(map[string]interface{})
 	if args.Content != nil {
 		data["content"] = *args.Content
@@ -100,41 +92,32 @@ func (c *Client) UpdateSticky(ctx context.Context, args UpdateStickyArgs) (Updat
 		reqBody["data"] = data
 	}
 
-	// Build style section
 	if args.Color != nil {
-		reqBody["style"] = map[string]interface{}{
-			"fillColor": *args.Color,
-		}
+		reqBody["style"] = map[string]interface{}{"fillColor": *args.Color}
 	}
 
-	// Build position section
-	if args.X != nil || args.Y != nil {
-		pos := map[string]interface{}{"origin": "center"}
-		if args.X != nil {
-			pos["x"] = *args.X
-		}
-		if args.Y != nil {
-			pos["y"] = *args.Y
-		}
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
 
-	// Build geometry section
 	if args.Width != nil {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": *args.Width,
-		}
+		reqBody["geometry"] = map[string]interface{}{"width": *args.Width}
 	}
 
-	// Build parent section
-	if args.ParentID != nil {
-		if *args.ParentID == "" {
-			reqBody["parent"] = nil
-		} else {
-			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
-		}
+	applyParentField(reqBody, args.ParentID)
+	return reqBody
+}
+
+// UpdateSticky updates a sticky note using the dedicated sticky_notes endpoint.
+func (c *Client) UpdateSticky(ctx context.Context, args UpdateStickyArgs) (UpdateStickyResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateStickyResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateStickyResult{}, fmt.Errorf("invalid item_id: %w", err)
 	}
 
+	reqBody := buildUpdateStickyBody(args)
 	if len(reqBody) == 0 {
 		return UpdateStickyResult{
 			ID:      args.ItemID,

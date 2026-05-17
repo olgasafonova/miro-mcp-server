@@ -78,18 +78,26 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 	}, nil
 }
 
-// UpdateEmbed updates an embed using the dedicated embeds endpoint.
-func (c *Client) UpdateEmbed(ctx context.Context, args UpdateEmbedArgs) (UpdateEmbedResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateEmbedResult{}, err
+// buildWHGeometry returns a geometry map containing width and/or height when
+// either is set.
+func buildWHGeometry(width, height *float64) map[string]interface{} {
+	geom := make(map[string]interface{})
+	if width != nil {
+		geom["width"] = *width
 	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateEmbedResult{}, fmt.Errorf("invalid item_id: %w", err)
+	if height != nil {
+		geom["height"] = *height
 	}
+	if len(geom) == 0 {
+		return nil
+	}
+	return geom
+}
 
+// buildUpdateEmbedBody assembles the PATCH body for an embed update.
+func buildUpdateEmbedBody(args UpdateEmbedArgs) map[string]interface{} {
 	reqBody := make(map[string]interface{})
 
-	// Build data section
 	data := make(map[string]interface{})
 	if args.URL != nil {
 		data["url"] = *args.URL
@@ -101,39 +109,26 @@ func (c *Client) UpdateEmbed(ctx context.Context, args UpdateEmbedArgs) (UpdateE
 		reqBody["data"] = data
 	}
 
-	// Build position section
-	if args.X != nil || args.Y != nil {
-		pos := map[string]interface{}{"origin": "center"}
-		if args.X != nil {
-			pos["x"] = *args.X
-		}
-		if args.Y != nil {
-			pos["y"] = *args.Y
-		}
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
-
-	// Build geometry section
-	geom := make(map[string]interface{})
-	if args.Width != nil {
-		geom["width"] = *args.Width
-	}
-	if args.Height != nil {
-		geom["height"] = *args.Height
-	}
-	if len(geom) > 0 {
+	if geom := buildWHGeometry(args.Width, args.Height); geom != nil {
 		reqBody["geometry"] = geom
 	}
+	applyParentField(reqBody, args.ParentID)
+	return reqBody
+}
 
-	// Build parent section
-	if args.ParentID != nil {
-		if *args.ParentID == "" {
-			reqBody["parent"] = nil
-		} else {
-			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
-		}
+// UpdateEmbed updates an embed using the dedicated embeds endpoint.
+func (c *Client) UpdateEmbed(ctx context.Context, args UpdateEmbedArgs) (UpdateEmbedResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateEmbedResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateEmbedResult{}, fmt.Errorf("invalid item_id: %w", err)
 	}
 
+	reqBody := buildUpdateEmbedBody(args)
 	if len(reqBody) == 0 {
 		return UpdateEmbedResult{
 			ID:      args.ItemID,

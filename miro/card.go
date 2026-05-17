@@ -73,18 +73,9 @@ func (c *Client) CreateCard(ctx context.Context, args CreateCardArgs) (CreateCar
 	}, nil
 }
 
-// UpdateCard updates a card using the dedicated cards endpoint.
-func (c *Client) UpdateCard(ctx context.Context, args UpdateCardArgs) (UpdateCardResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateCardResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateCardResult{}, fmt.Errorf("invalid item_id: %w", err)
-	}
-
-	reqBody := make(map[string]interface{})
-
-	// Build data section
+// buildCardDataSection returns the optional "data" map for a card update.
+// dueDate may be cleared by passing an empty string.
+func buildCardDataSection(args UpdateCardArgs) map[string]interface{} {
 	data := make(map[string]interface{})
 	if args.Title != nil {
 		data["title"] = *args.Title
@@ -99,38 +90,35 @@ func (c *Client) UpdateCard(ctx context.Context, args UpdateCardArgs) (UpdateCar
 			data["dueDate"] = *args.DueDate
 		}
 	}
-	if len(data) > 0 {
+	return data
+}
+
+// buildUpdateCardBody assembles the PATCH body for a card update.
+func buildUpdateCardBody(args UpdateCardArgs) map[string]interface{} {
+	reqBody := make(map[string]interface{})
+	if data := buildCardDataSection(args); len(data) > 0 {
 		reqBody["data"] = data
 	}
-
-	// Build position section
-	if args.X != nil || args.Y != nil {
-		pos := map[string]interface{}{"origin": "center"}
-		if args.X != nil {
-			pos["x"] = *args.X
-		}
-		if args.Y != nil {
-			pos["y"] = *args.Y
-		}
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
-
-	// Build geometry section
 	if args.Width != nil {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": *args.Width,
-		}
+		reqBody["geometry"] = map[string]interface{}{"width": *args.Width}
+	}
+	applyParentField(reqBody, args.ParentID)
+	return reqBody
+}
+
+// UpdateCard updates a card using the dedicated cards endpoint.
+func (c *Client) UpdateCard(ctx context.Context, args UpdateCardArgs) (UpdateCardResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateCardResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateCardResult{}, fmt.Errorf("invalid item_id: %w", err)
 	}
 
-	// Build parent section
-	if args.ParentID != nil {
-		if *args.ParentID == "" {
-			reqBody["parent"] = nil
-		} else {
-			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
-		}
-	}
-
+	reqBody := buildUpdateCardBody(args)
 	if len(reqBody) == 0 {
 		return UpdateCardResult{
 			ID:      args.ItemID,

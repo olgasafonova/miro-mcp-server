@@ -11,6 +11,16 @@ import (
 // Mindmap Operations
 // =============================================================================
 
+// shouldSendMindmapPosition reports whether the request body should include
+// an explicit position block. Root nodes (no parent) always carry position;
+// child nodes only when X or Y is non-zero, to override default stacking.
+func shouldSendMindmapPosition(args CreateMindmapNodeArgs) bool {
+	if args.ParentID == "" {
+		return true
+	}
+	return args.X != 0 || args.Y != 0
+}
+
 // CreateMindmapNode creates a mindmap node on a board.
 func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeArgs) (CreateMindmapNodeResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -55,7 +65,7 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 	// always need it (default 0,0 if neither x nor y is given). For child nodes
 	// it's optional: when supplied, it overrides the API's default
 	// placement-on-top-of-parent so siblings don't all stack at the same point.
-	if args.ParentID == "" || args.X != 0 || args.Y != 0 {
+	if shouldSendMindmapPosition(args) {
 		reqBody["position"] = map[string]interface{}{
 			"x":      args.X,
 			"y":      args.Y,

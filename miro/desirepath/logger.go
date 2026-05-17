@@ -125,6 +125,66 @@ type PatternSummary struct {
 	Count     int    `json:"count"`
 }
 
+// patternKey identifies a unique rule/tool/parameter triple.
+type patternKey struct {
+	rule, tool, param string
+}
+
+// ringIndex maps a logical position (0 = oldest) onto the ring-buffer slot.
+func (l *Logger) ringIndex(i int) int {
+	return (l.writePos - l.count + i + l.maxSize) % l.maxSize
+}
+
+// tallyByDimension increments report counters for one event.
+func tallyByDimension(report *Report, event Event) {
+	report.ByRule[event.Rule]++
+	report.ByTool[event.Tool]++
+	report.ByParam[event.Parameter]++
+}
+
+// recordPattern updates the running pattern counter for event.
+func recordPattern(patternCounts map[patternKey]*PatternSummary, event Event) {
+	key := patternKey{event.Rule, event.Tool, event.Parameter}
+	if ps, ok := patternCounts[key]; ok {
+		ps.Count++
+		return
+	}
+	patternCounts[key] = &PatternSummary{
+		Rule:      event.Rule,
+		Tool:      event.Tool,
+		Parameter: event.Parameter,
+		Example:   event.RawValue + " -> " + event.NormalizedTo,
+		Count:     1,
+	}
+}
+
+// topPatterns flattens, sorts (descending count), and truncates to limit.
+func topPatterns(patternCounts map[patternKey]*PatternSummary, limit int) []PatternSummary {
+	patterns := make([]PatternSummary, 0, len(patternCounts))
+	for _, ps := range patternCounts {
+		patterns = append(patterns, *ps)
+	}
+	// Simple insertion sort (small N).
+	for i := 1; i < len(patterns); i++ {
+		for j := i; j > 0 && patterns[j].Count > patterns[j-1].Count; j-- {
+			patterns[j], patterns[j-1] = patterns[j-1], patterns[j]
+		}
+	}
+	if len(patterns) > limit {
+		patterns = patterns[:limit]
+	}
+	return patterns
+}
+
+// recentEvents returns up to max most-recent events, newest first.
+func (l *Logger) recentEvents(max int) []Event {
+	recent := make([]Event, 0, max)
+	for i := l.count - 1; i >= 0 && len(recent) < max; i-- {
+		recent = append(recent, l.events[l.ringIndex(i)])
+	}
+	return recent
+}
+
 // Report generates a summary of all recorded desire path events.
 func (l *Logger) Report() Report {
 	l.mu.RLock()
@@ -137,58 +197,15 @@ func (l *Logger) Report() Report {
 		ByParam:     make(map[string]int),
 	}
 
-	// Pattern key: rule|tool|param
-	type patternKey struct {
-		rule, tool, param string
-	}
 	patternCounts := make(map[patternKey]*PatternSummary)
-
 	for i := 0; i < l.count; i++ {
-		idx := (l.writePos - l.count + i + l.maxSize) % l.maxSize
-		event := l.events[idx]
-
-		report.ByRule[event.Rule]++
-		report.ByTool[event.Tool]++
-		report.ByParam[event.Parameter]++
-
-		key := patternKey{event.Rule, event.Tool, event.Parameter}
-		if ps, ok := patternCounts[key]; ok {
-			ps.Count++
-		} else {
-			patternCounts[key] = &PatternSummary{
-				Rule:      event.Rule,
-				Tool:      event.Tool,
-				Parameter: event.Parameter,
-				Example:   event.RawValue + " -> " + event.NormalizedTo,
-				Count:     1,
-			}
-		}
+		event := l.events[l.ringIndex(i)]
+		tallyByDimension(&report, event)
+		recordPattern(patternCounts, event)
 	}
 
-	// Sort patterns by count (descending), take top 10
-	patterns := make([]PatternSummary, 0, len(patternCounts))
-	for _, ps := range patternCounts {
-		patterns = append(patterns, *ps)
-	}
-	// Simple insertion sort (small N)
-	for i := 1; i < len(patterns); i++ {
-		for j := i; j > 0 && patterns[j].Count > patterns[j-1].Count; j-- {
-			patterns[j], patterns[j-1] = patterns[j-1], patterns[j]
-		}
-	}
-	if len(patterns) > 10 {
-		patterns = patterns[:10]
-	}
-	report.TopPatterns = patterns
-
-	// Add 5 most recent events
-	recent := make([]Event, 0, 5)
-	for i := l.count - 1; i >= 0 && len(recent) < 5; i-- {
-		idx := (l.writePos - l.count + i + l.maxSize) % l.maxSize
-		recent = append(recent, l.events[idx])
-	}
-	report.RecentOnes = recent
-
+	report.TopPatterns = topPatterns(patternCounts, 10)
+	report.RecentOnes = l.recentEvents(5)
 	return report
 }
 

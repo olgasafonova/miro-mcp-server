@@ -136,18 +136,10 @@ func (c *Client) GetDocument(ctx context.Context, args GetDocumentArgs) (GetDocu
 	return result, nil
 }
 
-// UpdateDocument updates a document using the dedicated documents endpoint.
-func (c *Client) UpdateDocument(ctx context.Context, args UpdateDocumentArgs) (UpdateDocumentResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateDocumentResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateDocumentResult{}, fmt.Errorf("invalid item_id: %w", err)
-	}
-
+// buildUpdateDocumentBody assembles the PATCH body for a document update.
+func buildUpdateDocumentBody(args UpdateDocumentArgs) map[string]interface{} {
 	reqBody := make(map[string]interface{})
 
-	// Build data section
 	data := make(map[string]interface{})
 	if args.Title != nil {
 		data["title"] = *args.Title
@@ -159,34 +151,26 @@ func (c *Client) UpdateDocument(ctx context.Context, args UpdateDocumentArgs) (U
 		reqBody["data"] = data
 	}
 
-	// Build position section
-	if args.X != nil || args.Y != nil {
-		pos := map[string]interface{}{"origin": "center"}
-		if args.X != nil {
-			pos["x"] = *args.X
-		}
-		if args.Y != nil {
-			pos["y"] = *args.Y
-		}
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
-
-	// Build geometry section
 	if args.Width != nil {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": *args.Width,
-		}
+		reqBody["geometry"] = map[string]interface{}{"width": *args.Width}
+	}
+	applyParentField(reqBody, args.ParentID)
+	return reqBody
+}
+
+// UpdateDocument updates a document using the dedicated documents endpoint.
+func (c *Client) UpdateDocument(ctx context.Context, args UpdateDocumentArgs) (UpdateDocumentResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateDocumentResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return UpdateDocumentResult{}, fmt.Errorf("invalid item_id: %w", err)
 	}
 
-	// Build parent section
-	if args.ParentID != nil {
-		if *args.ParentID == "" {
-			reqBody["parent"] = nil
-		} else {
-			reqBody["parent"] = map[string]interface{}{"id": *args.ParentID}
-		}
-	}
-
+	reqBody := buildUpdateDocumentBody(args)
 	if len(reqBody) == 0 {
 		return UpdateDocumentResult{
 			ID:      args.ItemID,

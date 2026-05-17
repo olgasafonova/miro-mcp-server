@@ -36,6 +36,15 @@ func classifyPathPart(part string) string {
 	return "{id}"
 }
 
+// duplicatesLastIDPlaceholder reports whether appending seg would create
+// consecutive "{id}" placeholders.
+func duplicatesLastIDPlaceholder(parts []string, seg string) bool {
+	if seg != "{id}" || len(parts) == 0 {
+		return false
+	}
+	return parts[len(parts)-1] == "{id}"
+}
+
 // extractEndpoint extracts a normalized endpoint from a path for circuit breaker.
 // For example: /boards/abc123/items/xyz -> /boards/{id}/items/{id}
 func extractEndpoint(path string) string {
@@ -45,8 +54,7 @@ func extractEndpoint(path string) string {
 		if seg == "" {
 			continue
 		}
-		// Avoid consecutive {id} entries.
-		if seg == "{id}" && len(parts) > 0 && parts[len(parts)-1] == "{id}" {
+		if duplicatesLastIDPlaceholder(parts, seg) {
 			continue
 		}
 		parts = append(parts, seg)

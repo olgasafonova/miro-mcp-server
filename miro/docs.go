@@ -145,6 +145,31 @@ func (c *Client) DeleteDocFormat(ctx context.Context, args DeleteDocFormatArgs) 
 
 // UpdateDocFormat updates a doc format item's content.
 // The Miro REST API does not support PATCH on doc_format items, so this
+// findAndReplaceContent applies a find-and-replace per ReplaceAll and returns
+// the new content plus the number of occurrences replaced.
+func findAndReplaceContent(content string, args UpdateDocFormatArgs) (string, int, error) {
+	if !strings.Contains(content, args.OldContent) {
+		return "", 0, fmt.Errorf("old_content not found in document")
+	}
+	if args.ReplaceAll {
+		count := strings.Count(content, args.OldContent)
+		return strings.ReplaceAll(content, args.OldContent, args.NewContent), count, nil
+	}
+	return strings.Replace(content, args.OldContent, args.NewContent, 1), 1, nil
+}
+
+// resolveDocFormatContent picks the new doc content based on which args are
+// set (find-and-replace vs full replacement) and validates the inputs.
+func resolveDocFormatContent(currentContent string, args UpdateDocFormatArgs) (string, int, error) {
+	if args.OldContent != "" {
+		return findAndReplaceContent(currentContent, args)
+	}
+	if args.Content != "" {
+		return args.Content, 0, nil
+	}
+	return "", 0, fmt.Errorf("either content (full replace) or old_content+new_content (find-and-replace) is required")
+}
+
 // reads the current doc, applies changes, deletes the original, and
 // recreates it at the same position with the new content.
 func (c *Client) UpdateDocFormat(ctx context.Context, args UpdateDocFormatArgs) (UpdateDocFormatResult, error) {
@@ -165,31 +190,9 @@ func (c *Client) UpdateDocFormat(ctx context.Context, args UpdateDocFormatArgs) 
 	}
 
 	// Step 2: Determine new content
-	var newContent string
-	var replaced int
-
-	if args.OldContent != "" {
-		// Find-and-replace mode
-		if args.ReplaceAll {
-			replaced = strings.Count(getResult.Content, args.OldContent)
-			newContent = strings.ReplaceAll(getResult.Content, args.OldContent, args.NewContent)
-		} else {
-			if strings.Contains(getResult.Content, args.OldContent) {
-				replaced = 1
-				newContent = strings.Replace(getResult.Content, args.OldContent, args.NewContent, 1)
-			} else {
-				return UpdateDocFormatResult{}, fmt.Errorf("old_content not found in document")
-			}
-		}
-		if replaced == 0 {
-			return UpdateDocFormatResult{}, fmt.Errorf("old_content not found in document")
-		}
-	} else if args.Content != "" {
-		// Full content replacement mode
-		newContent = args.Content
-		replaced = 0
-	} else {
-		return UpdateDocFormatResult{}, fmt.Errorf("either content (full replace) or old_content+new_content (find-and-replace) is required")
+	newContent, replaced, err := resolveDocFormatContent(getResult.Content, args)
+	if err != nil {
+		return UpdateDocFormatResult{}, err
 	}
 
 	// Step 3: Delete original

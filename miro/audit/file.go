@@ -163,62 +163,83 @@ func (l *FileLogger) cleanupOldFiles() {
 	}
 }
 
-// Query retrieves audit events matching the specified criteria.
-func (l *FileLogger) Query(ctx context.Context, opts QueryOptions) (*QueryResult, error) {
+// flushBufferIfNeeded writes any buffered events to disk before a query.
+func (l *FileLogger) flushBufferIfNeeded() {
 	l.mu.Lock()
-	// Flush buffer first to ensure all events are written
+	defer l.mu.Unlock()
 	if len(l.buffer) > 0 {
 		l.flushLocked()
 	}
-	l.mu.Unlock()
+}
 
-	// Find all log files
+// listJSONLFilesSorted returns the absolute paths of all .jsonl files in the
+// audit log directory, sorted ascending by filename.
+func (l *FileLogger) listJSONLFilesSorted() ([]string, error) {
 	entries, err := os.ReadDir(l.config.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read audit log directory: %w", err)
 	}
-
-	// Sort files by name (timestamp order)
-	var files []string
+	files := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".jsonl" {
-			files = append(files, filepath.Join(l.config.Path, entry.Name()))
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".jsonl" {
+			continue
 		}
+		files = append(files, filepath.Join(l.config.Path, entry.Name()))
 	}
 	sort.Strings(files)
+	return files, nil
+}
 
-	// Read and filter events from all files
+// collectMatchingEvents reads every file and returns events that satisfy opts,
+// silently skipping files that fail to open.
+func (l *FileLogger) collectMatchingEvents(ctx context.Context, files []string, opts QueryOptions) []Event {
 	var matches []Event
 	for _, filePath := range files {
 		events, err := l.readEventsFromFile(ctx, filePath, opts)
 		if err != nil {
-			continue // Skip files that can't be read
+			continue
 		}
 		matches = append(matches, events...)
 	}
-
-	// Sort by timestamp descending (most recent first)
 	sort.Slice(matches, func(i, j int) bool {
 		return matches[i].Timestamp.After(matches[j].Timestamp)
 	})
+	return matches
+}
 
+// applyOffset returns events[opts.Offset:] without panicking on overshoot.
+func applyOffset(events []Event, offset int) []Event {
+	if offset <= 0 {
+		return events
+	}
+	if offset >= len(events) {
+		return nil
+	}
+	return events[offset:]
+}
+
+// applyLimit trims events to opts.Limit and reports whether anything was cut.
+func applyLimit(events []Event, limit int) ([]Event, bool) {
+	if limit > 0 && len(events) > limit {
+		return events[:limit], true
+	}
+	return events, false
+}
+
+// Query retrieves audit events matching the specified criteria.
+func (l *FileLogger) Query(ctx context.Context, opts QueryOptions) (*QueryResult, error) {
+	l.flushBufferIfNeeded()
+
+	files, err := l.listJSONLFilesSorted()
+	if err != nil {
+		return nil, err
+	}
+
+	matches := l.collectMatchingEvents(ctx, files, opts)
 	total := len(matches)
 
-	// Apply offset
-	if opts.Offset > 0 {
-		if opts.Offset >= len(matches) {
-			matches = nil
-		} else {
-			matches = matches[opts.Offset:]
-		}
-	}
-
-	// Apply limit
-	hasMore := false
-	if opts.Limit > 0 && len(matches) > opts.Limit {
-		matches = matches[:opts.Limit]
-		hasMore = true
-	}
+	matches = applyOffset(matches, opts.Offset)
+	matches, hasMore := applyLimit(matches, opts.Limit)
 
 	return &QueryResult{
 		Events:  matches,

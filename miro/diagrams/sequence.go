@@ -149,37 +149,56 @@ func isIgnorableLine(line string) bool {
 	return line == "" || strings.HasPrefix(line, "%%")
 }
 
+// tryParseHeader marks the header as found when line matches the header
+// pattern.
+func (p *SequenceParser) tryParseHeader(line string, state *parseState) bool {
+	if !p.headerPattern.MatchString(line) {
+		return false
+	}
+	state.foundHeader = true
+	return true
+}
+
+// tryParseLoopStart pushes a new group onto the stack when line opens a loop.
+func (p *SequenceParser) tryParseLoopStart(line string, state *parseState) bool {
+	matches := p.loopStartPattern.FindStringSubmatch(line)
+	if matches == nil {
+		return false
+	}
+	state.groupStack = append(state.groupStack, strings.ToLower(matches[1]))
+	return true
+}
+
+// tryParseLoopEnd pops a group off the stack when line closes a loop.
+func (p *SequenceParser) tryParseLoopEnd(line string, state *parseState) bool {
+	if !p.loopEndPattern.MatchString(line) {
+		return false
+	}
+	if len(state.groupStack) > 0 {
+		state.groupStack = state.groupStack[:len(state.groupStack)-1]
+	}
+	return true
+}
+
 // dispatchLine matches line against each known pattern in priority order and
 // updates state accordingly. Lines that match nothing are silently dropped
 // (matches the Mermaid-permissive behavior the original Parse had).
 func (p *SequenceParser) dispatchLine(line string, state *parseState) {
-	if p.headerPattern.MatchString(line) {
-		state.foundHeader = true
-		return
+	handlers := []func(string, *parseState) bool{
+		p.tryParseHeader,
+		p.tryParseParticipant,
+		p.tryParseMessage,
+		// Notes and activation bars are visual enhancements; skipped.
+		func(l string, _ *parseState) bool { return p.notePattern.MatchString(l) },
+		func(l string, _ *parseState) bool { return p.activatePattern.MatchString(l) },
+		p.tryParseLoopStart,
+		func(l string, _ *parseState) bool { return p.elsePattern.MatchString(l) },
+		p.tryParseLoopEnd,
 	}
-	if p.tryParseParticipant(line, state) {
-		return
-	}
-	if p.tryParseMessage(line, state) {
-		return
-	}
-	if p.notePattern.MatchString(line) {
-		// Notes are visual enhancements; skipped in basic implementation.
-		return
-	}
-	if p.activatePattern.MatchString(line) {
-		// Activation bars are visual enhancements; skipped.
-		return
-	}
-	if matches := p.loopStartPattern.FindStringSubmatch(line); matches != nil {
-		state.groupStack = append(state.groupStack, strings.ToLower(matches[1]))
-		return
-	}
-	if p.elsePattern.MatchString(line) {
-		return
-	}
-	if p.loopEndPattern.MatchString(line) && len(state.groupStack) > 0 {
-		state.groupStack = state.groupStack[:len(state.groupStack)-1]
+	for _, h := range handlers {
+		if h(line, state) {
+			return
+		}
 	}
 }
 

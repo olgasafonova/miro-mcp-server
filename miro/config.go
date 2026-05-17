@@ -104,6 +104,63 @@ func loadTeamIDFromTokensFile() string {
 	return tokens.TeamID
 }
 
+// validateAccessToken returns an error if the access token is missing or
+// malformed.
+func (c *Config) validateAccessToken() error {
+	if c.AccessToken == "" {
+		return &ValidationError{
+			Field:   "AccessToken",
+			Message: "access token is required. Get one at https://miro.com/app/settings/user-profile/apps",
+		}
+	}
+	if !isValidTokenFormat(c.AccessToken) {
+		return &ValidationError{
+			Field:   "AccessToken",
+			Message: "access token format appears invalid. Expected JWT or API token format",
+		}
+	}
+	return nil
+}
+
+// validateAndDefaultTimeout checks the timeout range and applies the default
+// when zero.
+func (c *Config) validateAndDefaultTimeout() error {
+	if c.Timeout < 0 {
+		return &ValidationError{
+			Field:   "Timeout",
+			Message: fmt.Sprintf("timeout cannot be negative: %v", c.Timeout),
+		}
+	}
+	if c.Timeout == 0 {
+		c.Timeout = DefaultTimeout
+		return nil
+	}
+	if c.Timeout < MinTimeout {
+		return &ValidationError{
+			Field:   "Timeout",
+			Message: fmt.Sprintf("timeout %v is below minimum %v", c.Timeout, MinTimeout),
+		}
+	}
+	if c.Timeout > MaxTimeout {
+		return &ValidationError{
+			Field:   "Timeout",
+			Message: fmt.Sprintf("timeout %v exceeds maximum %v", c.Timeout, MaxTimeout),
+		}
+	}
+	return nil
+}
+
+// validateTeamID returns an error if a non-empty TeamID is in the wrong format.
+func (c *Config) validateTeamID() error {
+	if c.TeamID == "" || isValidTeamID(c.TeamID) {
+		return nil
+	}
+	return &ValidationError{
+		Field:   "TeamID",
+		Message: "team ID format appears invalid. Expected numeric string",
+	}
+}
+
 // Validate checks if the Config is valid and applies defaults for optional fields.
 // Returns an error describing the first validation failure found.
 func (c *Config) Validate() error {
@@ -113,58 +170,16 @@ func (c *Config) Validate() error {
 			Message: "configuration is nil",
 		}
 	}
-
-	// Validate access token (required)
-	if c.AccessToken == "" {
-		return &ValidationError{
-			Field:   "AccessToken",
-			Message: "access token is required. Get one at https://miro.com/app/settings/user-profile/apps",
-		}
+	if err := c.validateAccessToken(); err != nil {
+		return err
 	}
-
-	// Basic token format validation (should look like a JWT or API token)
-	if !isValidTokenFormat(c.AccessToken) {
-		return &ValidationError{
-			Field:   "AccessToken",
-			Message: "access token format appears invalid. Expected JWT or API token format",
-		}
+	if err := c.validateAndDefaultTimeout(); err != nil {
+		return err
 	}
-
-	// Validate timeout range
-	if c.Timeout < 0 {
-		return &ValidationError{
-			Field:   "Timeout",
-			Message: fmt.Sprintf("timeout cannot be negative: %v", c.Timeout),
-		}
-	}
-	if c.Timeout == 0 {
-		c.Timeout = DefaultTimeout
-	} else if c.Timeout < MinTimeout {
-		return &ValidationError{
-			Field:   "Timeout",
-			Message: fmt.Sprintf("timeout %v is below minimum %v", c.Timeout, MinTimeout),
-		}
-	} else if c.Timeout > MaxTimeout {
-		return &ValidationError{
-			Field:   "Timeout",
-			Message: fmt.Sprintf("timeout %v exceeds maximum %v", c.Timeout, MaxTimeout),
-		}
-	}
-
-	// Apply default user agent if not set
 	if c.UserAgent == "" {
 		c.UserAgent = "miro-mcp-server/1.0"
 	}
-
-	// TeamID is optional but validate format if provided
-	if c.TeamID != "" && !isValidTeamID(c.TeamID) {
-		return &ValidationError{
-			Field:   "TeamID",
-			Message: "team ID format appears invalid. Expected numeric string",
-		}
-	}
-
-	return nil
+	return c.validateTeamID()
 }
 
 // ValidateConfig checks if the configuration is valid.

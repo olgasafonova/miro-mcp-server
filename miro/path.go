@@ -14,28 +14,42 @@ var knownPathSegments = map[string]bool{
 	"orgs": true, "users": true, "me": true, "teams": true,
 }
 
+// stripQuery returns part with any trailing "?..." removed.
+func stripQuery(part string) string {
+	if idx := indexOf(part, "?"); idx != -1 {
+		return part[:idx]
+	}
+	return part
+}
+
+// classifyPathPart returns the normalized segment for an endpoint, or "" if the
+// segment is empty after query-string stripping. Unknown segments collapse to
+// "{id}" placeholders.
+func classifyPathPart(part string) string {
+	part = stripQuery(part)
+	if part == "" {
+		return ""
+	}
+	if knownPathSegments[part] {
+		return part
+	}
+	return "{id}"
+}
+
 // extractEndpoint extracts a normalized endpoint from a path for circuit breaker.
 // For example: /boards/abc123/items/xyz -> /boards/{id}/items/{id}
 func extractEndpoint(path string) string {
 	parts := make([]string, 0)
-	for _, part := range splitPath(path) {
-		// Skip query strings
-		if idx := indexOf(part, "?"); idx != -1 {
-			part = part[:idx]
-		}
-		if part == "" {
+	for _, raw := range splitPath(path) {
+		seg := classifyPathPart(raw)
+		if seg == "" {
 			continue
 		}
-		// Check if this is a known path segment
-		if knownPathSegments[part] {
-			parts = append(parts, part)
-		} else {
-			// This is likely an ID - replace with placeholder
-			// Avoid consecutive {id} entries
-			if len(parts) == 0 || parts[len(parts)-1] != "{id}" {
-				parts = append(parts, "{id}")
-			}
+		// Avoid consecutive {id} entries.
+		if seg == "{id}" && len(parts) > 0 && parts[len(parts)-1] == "{id}" {
+			continue
 		}
+		parts = append(parts, seg)
 	}
 	return "/" + joinPath(parts)
 }

@@ -391,14 +391,20 @@ func splitString(s, sep string) []string {
 	return result
 }
 
+// isASCIIWhitespace reports whether b is one of the ASCII whitespace bytes
+// recognized by trimSpace.
+func isASCIIWhitespace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+}
+
 // trimSpace removes leading/trailing whitespace
 func trimSpace(s string) string {
 	start := 0
 	end := len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n' || s[start] == '\r') {
+	for start < end && isASCIIWhitespace(s[start]) {
 		start++
 	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n' || s[end-1] == '\r') {
+	for end > start && isASCIIWhitespace(s[end-1]) {
 		end--
 	}
 	return s[start:end]

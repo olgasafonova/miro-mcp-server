@@ -141,6 +141,20 @@ go install github.com/olgasafonova/miro-cli/cmd/miro-cli@latest
 
 ---
 
+## Companion MCP Apps server: `miro-mcp-apps`
+
+If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Six tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 92-tool CRUD surface, that one for visual at-a-glance views.
+
+| You want… | Use |
+|---|---|
+| Programmatic control: create/update/move/connect items, generate diagrams | `miro-mcp-server` (this repo) |
+| Visual board summaries, sticky color clusters, connector graphs rendered inline | [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps) |
+| Same in bash, CI, or a Makefile | [`miro-cli`](https://github.com/olgasafonova/miro-cli) |
+
+The MCP Apps pattern is TypeScript-only today (Go SDK has no `ext-apps` helpers), which is why this companion lives in a separate repo instead of bolting onto the Go server.
+
+---
+
 ## Token Efficiency
 
 The full tool surface (92 tools) costs roughly **15.5K tokens** of preload — about 7.8% of a 200K Claude context. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.

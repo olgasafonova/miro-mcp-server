@@ -125,6 +125,22 @@ The badge above is awarded by [SkillCheck Pro](https://getskillcheck.com); this 
 
 ---
 
+## Companion CLI: `miro-cli`
+
+For shell-first usage, this server has a sibling: [`miro-cli`](https://github.com/olgasafonova/miro-cli). Same author, same Miro API coverage, different runtime. One verb per endpoint, JSON in and out, plus a local SQLite mirror for offline search. Reach for it when you're scripting Miro in CI, bulk-migrating stickies between boards, or querying boards offline without burning API quota.
+
+The MCP server and the CLI overlap deliberately. Use the MCP server when an agent runtime is in the loop (Claude Code, Claude Desktop, Cursor). Use the CLI when bash, Makefiles, or CI are. Use both if you want.
+
+Install:
+
+```bash
+brew install olgasafonova/tap/miro-cli
+# or
+go install github.com/olgasafonova/miro-cli/cmd/miro-cli@latest
+```
+
+---
+
 ## Token Efficiency
 
 The full tool surface (92 tools) costs roughly **15.5K tokens** of preload — about 7.8% of a 200K Claude context. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.

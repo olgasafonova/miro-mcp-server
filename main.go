@@ -230,12 +230,18 @@ func loadShareAllowlist(user *miro.UserInfo, logger *slog.Logger) *tools.ShareAl
 		fallbackEmail = user.Email
 	}
 	shareAllowlist := tools.LoadShareAllowlistFromEnv(fallbackEmail)
-	if shareAllowlist.IsEmpty() {
+	switch {
+	case shareAllowlist.IsEmpty():
 		logger.Warn("miro_share_board allowlist is empty; all share invitations will be rejected",
-			"fix", "set MIRO_SHARE_ALLOWED_DOMAINS to a comma-separated list of permitted domains",
+			"fix", "set MIRO_SHARE_ALLOWED_EMAILS (exact-email, tighter) or MIRO_SHARE_ALLOWED_DOMAINS (domain)",
 			"source", shareAllowlist.Source())
-	} else {
-		logger.Info("miro_share_board allowlist configured",
+	case len(shareAllowlist.Emails()) > 0:
+		// Exact-email layer is authoritative; the domain layer is not consulted.
+		logger.Info("miro_share_board allowlist configured (exact-email, authoritative)",
+			"emails", shareAllowlist.Emails(),
+			"source", shareAllowlist.EmailSource())
+	default:
+		logger.Info("miro_share_board allowlist configured (domain)",
 			"domains", shareAllowlist.Domains(),
 			"source", shareAllowlist.Source())
 	}

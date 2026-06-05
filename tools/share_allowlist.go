@@ -1,11 +1,33 @@
 // Package tools provides MCP tool handlers for the Miro MCP server.
 //
-// share_allowlist.go implements the email-domain allowlist used by the
+// share_allowlist.go implements the recipient allowlist used by the
 // miro_share_board tool. Sharing a Miro board grants access to an external
 // party; a prompt-injected agent could therefore exfiltrate board content by
 // inviting an attacker-controlled address. The allowlist is the server-side
-// guardrail: only emails whose domain matches the allowlist are permitted
-// through to the Miro API, regardless of what the agent was told to do.
+// guardrail: only emails permitted by the allowlist are passed through to the
+// Miro API, regardless of what the agent was told to do.
+//
+// Two layers, with precedence:
+//
+//   - Exact-email allowlist (MIRO_SHARE_ALLOWED_EMAILS): when set, the
+//     recipient must match one of these addresses exactly. This is the
+//     identity-binding layer per the HG-3/HG-4 "destination-binding is not
+//     identity-binding" extension: a destination filter answers *where* data
+//     goes, never *whose account* receives it, so an allowed domain plus an
+//     off-team recipient (attacker@allowed-domain.com) otherwise slips through.
+//     When this layer is configured it is authoritative and the domain layer
+//     is ignored — a strict tightening that never weakens.
+//   - Domain allowlist (MIRO_SHARE_ALLOWED_DOMAINS): the fallback when no
+//     exact-email allowlist is configured. The recipient's domain must match.
+//
+// Ideally the recipient would be bound to Miro team membership (MIRO_TEAM_ID),
+// but Miro's team/org member-lookup endpoints are Enterprise-plan + Company-
+// Admin only (https://developers.miro.com/reference/enterprise-get-team-members);
+// the server authenticates with a personal access token, so a membership gate
+// would fail-closed against almost every real caller. The exact-email allowlist
+// is the degraded identity binding that works on any plan. See bead
+// miro-mcp-server-related ag5g (claude-code-config) and rules/code-review-prompts.md
+// HG-3/HG-4 extension.
 //
 // Scope: the allowlist enforces at the MCP handler boundary
 // (HandlerRegistry.ShareBoard). Direct callers of miro.Client.ShareBoard
@@ -27,14 +49,42 @@ import (
 // allowlist of domains permitted to receive board-share invitations.
 const ShareAllowlistEnvVar = "MIRO_SHARE_ALLOWED_DOMAINS"
 
-// ShareAllowlist holds the set of email domains that miro_share_board is
-// permitted to invite. Domains are stored lowercased and compared
+// ShareEmailAllowlistEnvVar is the environment variable that configures the
+// exact-email allowlist. When set, it is authoritative: a recipient must match
+// one of these addresses exactly, and the domain allowlist is ignored. This is
+// the identity-binding layer that defends against the "approved domain"
+// exfiltration gap (an attacker-controlled address inside an allowed domain).
+const ShareEmailAllowlistEnvVar = "MIRO_SHARE_ALLOWED_EMAILS"
+
+// ShareAllowlist holds the recipients that miro_share_board is permitted to
+// invite, across two layers. Entries are stored lowercased and compared
 // case-insensitively. A zero-value allowlist rejects every email.
 type ShareAllowlist struct {
-	// domains is the set of allowed lowercase domains. Empty means "block all".
+	// domains is the set of allowed lowercase domains. Empty means "block all"
+	// unless an exact-email allowlist is configured.
 	domains map[string]struct{}
-	// source describes where the allowlist came from (for error messages).
+	// source describes where the domain allowlist came from (for error messages).
 	source string
+	// emails is the set of allowed exact lowercase addresses. When non-empty it
+	// is authoritative and the domain layer is bypassed.
+	emails map[string]struct{}
+	// emailSource describes where the exact-email allowlist came from.
+	emailSource string
+}
+
+// normalizeSet trims, lowercases, deduplicates, and drops empty entries from a
+// list of allowlist values (domains or emails), returning a set. Shared by the
+// domain and exact-email constructors so both layers normalize identically.
+func normalizeSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(strings.ToLower(v))
+		if v == "" {
+			continue
+		}
+		set[v] = struct{}{}
+	}
+	return set
 }
 
 // NewShareAllowlist builds an allowlist from an explicit list of domains.
@@ -42,27 +92,49 @@ type ShareAllowlist struct {
 // skipped. The source string is surfaced in rejection errors so the user
 // knows which config to adjust.
 func NewShareAllowlist(domains []string, source string) *ShareAllowlist {
-	set := make(map[string]struct{}, len(domains))
-	for _, d := range domains {
-		d = strings.TrimSpace(strings.ToLower(d))
-		if d == "" {
-			continue
-		}
-		set[d] = struct{}{}
-	}
-	return &ShareAllowlist{domains: set, source: source}
+	return &ShareAllowlist{domains: normalizeSet(domains), source: source}
 }
 
-// LoadShareAllowlistFromEnv reads MIRO_SHARE_ALLOWED_DOMAINS (comma-separated)
-// and returns a populated ShareAllowlist. If the env var is unset and a
-// non-empty fallbackUserEmail is provided, the allowlist defaults to the
-// domain of that email. If neither is available, the returned allowlist is
-// empty (blocks all sharing) and the caller should warn the user to set the
-// env var.
+// WithEmails attaches an exact-email allowlist to the receiver and returns it
+// for chaining. Entries are trimmed, lowercased, and deduplicated; empty
+// entries are skipped. When the resulting set is non-empty it becomes the
+// authoritative layer in Validate (the domain allowlist is then ignored). The
+// source string is surfaced in rejection errors.
+func (a *ShareAllowlist) WithEmails(emails []string, source string) *ShareAllowlist {
+	a.emails = normalizeSet(emails)
+	a.emailSource = source
+	return a
+}
+
+// LoadShareAllowlistFromEnv reads MIRO_SHARE_ALLOWED_EMAILS and
+// MIRO_SHARE_ALLOWED_DOMAINS (both comma-separated) and returns a populated
+// ShareAllowlist.
+//
+//   - If MIRO_SHARE_ALLOWED_EMAILS is set, those exact addresses are the
+//     authoritative layer (the domain layer below is then ignored at Validate
+//     time). This is the tighter identity binding.
+//   - Otherwise the domain layer applies: MIRO_SHARE_ALLOWED_DOMAINS if set,
+//     else the domain of fallbackUserEmail (a fail-safe for single-user
+//     deployments), else empty.
+//
+// If no layer is configured and no fallback is available, the returned
+// allowlist is empty (blocks all sharing) and the caller should warn the user.
 //
 // This is a conservative fail-closed default: an agent cannot quietly invite
 // external parties unless the operator explicitly opts in.
 func LoadShareAllowlistFromEnv(fallbackUserEmail string) *ShareAllowlist {
+	allowlist := loadDomainLayerFromEnv(fallbackUserEmail)
+
+	if rawEmails := strings.TrimSpace(os.Getenv(ShareEmailAllowlistEnvVar)); rawEmails != "" {
+		allowlist = allowlist.WithEmails(strings.Split(rawEmails, ","), ShareEmailAllowlistEnvVar)
+	}
+
+	return allowlist
+}
+
+// loadDomainLayerFromEnv builds the domain-layer allowlist (the historic
+// behaviour) without consulting the exact-email layer.
+func loadDomainLayerFromEnv(fallbackUserEmail string) *ShareAllowlist {
 	raw := strings.TrimSpace(os.Getenv(ShareAllowlistEnvVar))
 	if raw != "" {
 		return NewShareAllowlist(strings.Split(raw, ","), ShareAllowlistEnvVar)
@@ -79,31 +151,55 @@ func LoadShareAllowlistFromEnv(fallbackUserEmail string) *ShareAllowlist {
 	return NewShareAllowlist(nil, "unset")
 }
 
-// Domains returns a sorted snapshot of the allowed domains. Primarily for
-// logging and error-message construction.
-func (a *ShareAllowlist) Domains() []string {
-	out := make([]string, 0, len(a.domains))
-	for d := range a.domains {
-		out = append(out, d)
+// snapshotSet returns an unordered snapshot of a set's keys. Callers that care
+// about ordering sort the result themselves (tests do); no sort here keeps deps
+// minimal. Shared by Domains and Emails.
+func snapshotSet(set map[string]struct{}) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
 	}
-	// Small N; simple insertion-free sort via slice helpers avoided to keep deps minimal.
-	// Callers that care about ordering can sort themselves; tests do.
 	return out
 }
 
-// Source returns a human-readable description of where the allowlist came from.
+// Domains returns an unordered snapshot of the allowed domains. Primarily for
+// logging and error-message construction.
+func (a *ShareAllowlist) Domains() []string {
+	return snapshotSet(a.domains)
+}
+
+// Source returns a human-readable description of where the domain allowlist
+// came from.
 func (a *ShareAllowlist) Source() string {
 	return a.source
 }
 
-// IsEmpty reports whether the allowlist has no domains (blocks all sharing).
-func (a *ShareAllowlist) IsEmpty() bool {
-	return len(a.domains) == 0
+// Emails returns an unordered snapshot of the exact-email allowlist. Primarily
+// for logging and error-message construction. Empty when no exact-email layer
+// is configured.
+func (a *ShareAllowlist) Emails() []string {
+	return snapshotSet(a.emails)
 }
 
-// Validate checks whether email's domain is permitted. It returns nil on
-// success, or a descriptive error that names the offending domain and the
-// configured source so the operator can fix it.
+// EmailSource returns a human-readable description of where the exact-email
+// allowlist came from. Empty when no exact-email layer is configured.
+func (a *ShareAllowlist) EmailSource() string {
+	return a.emailSource
+}
+
+// IsEmpty reports whether the allowlist has no configured layer (blocks all
+// sharing). An exact-email layer alone is enough to make it non-empty.
+func (a *ShareAllowlist) IsEmpty() bool {
+	return len(a.domains) == 0 && len(a.emails) == 0
+}
+
+// Validate checks whether email is permitted to receive a board-share
+// invitation. It returns nil on success, or a descriptive error that names the
+// offending value and the configured source so the operator can fix it.
+//
+// Precedence: when an exact-email allowlist is configured it is authoritative —
+// the recipient must match one of those addresses exactly, and the domain layer
+// is not consulted. Otherwise the domain allowlist applies.
 func (a *ShareAllowlist) Validate(email string) error {
 	email = strings.TrimSpace(email)
 	if email == "" {
@@ -114,11 +210,28 @@ func (a *ShareAllowlist) Validate(email string) error {
 		return fmt.Errorf("invalid email address %q: missing '@' or domain", email)
 	}
 
+	// Exact-email allowlist is authoritative when configured. A domain match
+	// must NOT rescue an address that is not in the exact list — that is the
+	// "approved domain" exfiltration gap this layer exists to close.
+	if len(a.emails) > 0 {
+		normalized := strings.ToLower(email)
+		if _, allowed := a.emails[normalized]; allowed {
+			return nil
+		}
+		return fmt.Errorf(
+			"email %q is not in the miro_share_board exact-email allowlist (source: %s). "+
+				"Add it to %s (comma-separated) and restart the server, or ask the operator to do so",
+			email, a.emailSource, ShareEmailAllowlistEnvVar,
+		)
+	}
+
+	// Domain allowlist fallback.
 	if len(a.domains) == 0 {
 		return fmt.Errorf(
 			"miro_share_board is blocked: the allowlist is empty (source: %s). "+
-				"Set %s to a comma-separated list of permitted domains (for example, \"tietoevry.com,tieto.com\") and restart the server",
-			a.source, ShareAllowlistEnvVar,
+				"Set %s to a comma-separated list of permitted domains (for example, \"tietoevry.com,tieto.com\"), "+
+				"or %s to an exact-email allowlist, and restart the server",
+			a.source, ShareAllowlistEnvVar, ShareEmailAllowlistEnvVar,
 		)
 	}
 

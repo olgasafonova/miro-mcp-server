@@ -87,6 +87,7 @@ func TestShareAllowlist_NormalizesEntries(t *testing.T) {
 }
 
 func TestLoadShareAllowlistFromEnv_UsesEnvVarWhenSet(t *testing.T) {
+	t.Setenv(ShareEmailAllowlistEnvVar, "") // isolate from ambient exact-email env
 	t.Setenv(ShareAllowlistEnvVar, "tietoevry.com, tieto.com ,tieto.no")
 
 	allow := LoadShareAllowlistFromEnv("ignored@example.com")
@@ -105,6 +106,7 @@ func TestLoadShareAllowlistFromEnv_UsesEnvVarWhenSet(t *testing.T) {
 }
 
 func TestLoadShareAllowlistFromEnv_FallsBackToUserEmailDomain(t *testing.T) {
+	t.Setenv(ShareEmailAllowlistEnvVar, "") // isolate from ambient exact-email env
 	t.Setenv(ShareAllowlistEnvVar, "")
 
 	allow := LoadShareAllowlistFromEnv("olga@tietoevry.com")
@@ -121,6 +123,7 @@ func TestLoadShareAllowlistFromEnv_FallsBackToUserEmailDomain(t *testing.T) {
 }
 
 func TestLoadShareAllowlistFromEnv_EmptyWhenNoEnvNoUser(t *testing.T) {
+	t.Setenv(ShareEmailAllowlistEnvVar, "") // isolate from ambient exact-email env
 	t.Setenv(ShareAllowlistEnvVar, "")
 
 	allow := LoadShareAllowlistFromEnv("")
@@ -135,10 +138,117 @@ func TestLoadShareAllowlistFromEnv_EmptyWhenNoEnvNoUser(t *testing.T) {
 
 func TestLoadShareAllowlistFromEnv_InvalidFallbackEmailYieldsEmpty(t *testing.T) {
 	t.Setenv(ShareAllowlistEnvVar, "")
+	t.Setenv(ShareEmailAllowlistEnvVar, "")
 
 	allow := LoadShareAllowlistFromEnv("not-an-email")
 
 	if !allow.IsEmpty() {
 		t.Error("fallback with malformed email should leave the allowlist empty (fail closed)")
+	}
+}
+
+func TestShareAllowlist_ExactEmailAllowsExactMatch(t *testing.T) {
+	allow := NewShareAllowlist(nil, "unset").
+		WithEmails([]string{"jane@tietoevry.com"}, "test")
+
+	cases := []string{
+		"jane@tietoevry.com",
+		"JANE@TietoEvry.com", // mixed case
+		"  jane@tietoevry.com  ",
+	}
+	for _, email := range cases {
+		if err := allow.Validate(email); err != nil {
+			t.Errorf("Validate(%q) returned error %v; want nil", email, err)
+		}
+	}
+}
+
+// TestShareAllowlist_ExactEmailIsAuthoritative_NoWeakening is the core guarantee
+// of the HG-3/HG-4 identity-binding extension: when an exact-email allowlist is
+// configured, a recipient whose DOMAIN would pass the domain layer must still be
+// rejected if it is not in the exact list. A domain match must never rescue an
+// off-list address — that is the "approved domain" exfiltration gap.
+func TestShareAllowlist_ExactEmailIsAuthoritative_NoWeakening(t *testing.T) {
+	allow := NewShareAllowlist([]string{"tietoevry.com"}, "domain-test").
+		WithEmails([]string{"jane@tietoevry.com"}, "email-test")
+
+	if err := allow.Validate("jane@tietoevry.com"); err != nil {
+		t.Errorf("exact-listed recipient should pass; got %v", err)
+	}
+
+	// attacker@tietoevry.com shares the allowlisted domain but is NOT in the
+	// exact list. The domain match must not rescue it.
+	err := allow.Validate("attacker@tietoevry.com")
+	if err == nil {
+		t.Fatal("recipient in allowlisted domain but absent from exact-email list must be rejected")
+	}
+	if !strings.Contains(err.Error(), ShareEmailAllowlistEnvVar) {
+		t.Errorf("rejection should point at the exact-email env var; got %q", err)
+	}
+}
+
+func TestShareAllowlist_ExactEmailRejectionNamesEmailAndSource(t *testing.T) {
+	allow := NewShareAllowlist(nil, "unset").
+		WithEmails([]string{"jane@tietoevry.com"}, "unit test")
+
+	err := allow.Validate("attacker@evil.example")
+	if err == nil {
+		t.Fatal("expected rejection")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "attacker@evil.example") {
+		t.Errorf("error should name the offending email; got %q", msg)
+	}
+	if !strings.Contains(msg, "unit test") {
+		t.Errorf("error should name the exact-email source; got %q", msg)
+	}
+}
+
+func TestShareAllowlist_ExactEmailAloneIsNotEmpty(t *testing.T) {
+	allow := NewShareAllowlist(nil, "unset").
+		WithEmails([]string{"jane@tietoevry.com"}, "test")
+
+	if allow.IsEmpty() {
+		t.Error("an exact-email layer alone should make the allowlist non-empty")
+	}
+	if err := allow.Validate("jane@tietoevry.com"); err != nil {
+		t.Errorf("exact-listed recipient should pass even with no domain layer; got %v", err)
+	}
+}
+
+func TestLoadShareAllowlistFromEnv_ExactEmailAuthoritativeOverDomain(t *testing.T) {
+	t.Setenv(ShareAllowlistEnvVar, "tietoevry.com")
+	t.Setenv(ShareEmailAllowlistEnvVar, "jane@tietoevry.com")
+
+	allow := LoadShareAllowlistFromEnv("ignored@example.com")
+
+	if len(allow.Emails()) == 0 {
+		t.Fatal("exact-email env var should populate the exact-email layer")
+	}
+	if err := allow.Validate("jane@tietoevry.com"); err != nil {
+		t.Errorf("exact-listed recipient should pass; got %v", err)
+	}
+	// Same domain as MIRO_SHARE_ALLOWED_DOMAINS, but not in the exact list.
+	if err := allow.Validate("bob@tietoevry.com"); err == nil {
+		t.Error("domain match must not rescue an off-list recipient when exact-email layer is set")
+	}
+}
+
+func TestLoadShareAllowlistFromEnv_ExactEmailOnly(t *testing.T) {
+	t.Setenv(ShareAllowlistEnvVar, "")
+	t.Setenv(ShareEmailAllowlistEnvVar, "jane@tietoevry.com, bob@tieto.com")
+
+	allow := LoadShareAllowlistFromEnv("")
+
+	if allow.IsEmpty() {
+		t.Fatal("exact-email env var alone should produce a non-empty allowlist")
+	}
+	for _, email := range []string{"jane@tietoevry.com", "bob@tieto.com"} {
+		if err := allow.Validate(email); err != nil {
+			t.Errorf("exact-listed recipient %q should pass; got %v", email, err)
+		}
+	}
+	if err := allow.Validate("carol@tietoevry.com"); err == nil {
+		t.Error("recipient absent from the exact-email list must be rejected even with no domain layer")
 	}
 }

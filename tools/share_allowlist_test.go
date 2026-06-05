@@ -234,6 +234,38 @@ func TestLoadShareAllowlistFromEnv_ExactEmailAuthoritativeOverDomain(t *testing.
 	}
 }
 
+// TestShareAllowlist_ConfiguredButEmptyEmailLayerFailsClosed guards the 2xy7
+// hardening: when the exact-email layer is configured (WithEmails called) but
+// normalizes to zero entries, Validate must fail closed rather than silently
+// downgrading to the weaker domain layer. A recipient the domain layer WOULD
+// permit must still be rejected.
+func TestShareAllowlist_ConfiguredButEmptyEmailLayerFailsClosed(t *testing.T) {
+	allow := NewShareAllowlist([]string{"corp.com"}, "domain-test").
+		WithEmails([]string{" ", "", "\t"}, "email-test") // all skipped -> empty
+
+	err := allow.Validate("attacker@corp.com")
+	if err == nil {
+		t.Fatal("configured-but-empty exact-email layer must fail closed, not fall back to the domain allowlist")
+	}
+	if !strings.Contains(err.Error(), ShareEmailAllowlistEnvVar) {
+		t.Errorf("error should name the misconfigured env var; got %q", err)
+	}
+}
+
+func TestLoadShareAllowlistFromEnv_MalformedEmailValueFailsClosed(t *testing.T) {
+	// "," survives the rawEmails != "" guard (TrimSpace leaves the comma) but
+	// normalizes to zero entries. With a domain allowlist also set, the old
+	// behavior would silently permit any address in corp.com.
+	t.Setenv(ShareAllowlistEnvVar, "corp.com")
+	t.Setenv(ShareEmailAllowlistEnvVar, " , ")
+
+	allow := LoadShareAllowlistFromEnv("")
+
+	if err := allow.Validate("attacker@corp.com"); err == nil {
+		t.Fatal("malformed MIRO_SHARE_ALLOWED_EMAILS must fail closed, not fall back to the domain allowlist")
+	}
+}
+
 func TestLoadShareAllowlistFromEnv_ExactEmailOnly(t *testing.T) {
 	t.Setenv(ShareAllowlistEnvVar, "")
 	t.Setenv(ShareEmailAllowlistEnvVar, "jane@tietoevry.com, bob@tieto.com")

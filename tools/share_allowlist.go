@@ -193,6 +193,16 @@ func (a *ShareAllowlist) IsEmpty() bool {
 	return len(a.domains) == 0 && len(a.emails) == 0
 }
 
+// emailLayerConfigured reports whether the exact-email layer was explicitly
+// configured (WithEmails was called), regardless of whether it ended up with
+// any valid entries. emailSource is set only by WithEmails, so a non-empty
+// source is the reliable "operator opted into the exact-email layer" signal.
+// A configured-but-empty layer is treated as a fail-closed misconfiguration in
+// Validate, not a silent fall-through to the weaker domain layer.
+func (a *ShareAllowlist) emailLayerConfigured() bool {
+	return a.emailSource != ""
+}
+
 // Validate checks whether email is permitted to receive a board-share
 // invitation. It returns nil on success, or a descriptive error that names the
 // offending value and the configured source so the operator can fix it.
@@ -213,7 +223,18 @@ func (a *ShareAllowlist) Validate(email string) error {
 	// Exact-email allowlist is authoritative when configured. A domain match
 	// must NOT rescue an address that is not in the exact list — that is the
 	// "approved domain" exfiltration gap this layer exists to close.
-	if len(a.emails) > 0 {
+	if a.emailLayerConfigured() {
+		// Configured but empty after normalization (e.g. MIRO_SHARE_ALLOWED_EMAILS=","
+		// or whitespace-only entries) is operator misconfiguration. Fail closed
+		// rather than silently downgrading to the weaker domain layer.
+		if len(a.emails) == 0 {
+			return fmt.Errorf(
+				"miro_share_board is blocked: %s is set (source: %s) but contains no valid "+
+					"addresses after normalization. Provide at least one valid email, or unset "+
+					"%s to fall back to the domain allowlist, and restart the server",
+				ShareEmailAllowlistEnvVar, a.emailSource, ShareEmailAllowlistEnvVar,
+			)
+		}
 		normalized := strings.ToLower(email)
 		if _, allowed := a.emails[normalized]; allowed {
 			return nil

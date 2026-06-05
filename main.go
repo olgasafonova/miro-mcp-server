@@ -231,6 +231,13 @@ func loadShareAllowlist(user *miro.UserInfo, logger *slog.Logger) *tools.ShareAl
 	}
 	shareAllowlist := tools.LoadShareAllowlistFromEnv(fallbackEmail)
 	switch {
+	case shareAllowlist.EmailSource() != "" && len(shareAllowlist.Emails()) == 0:
+		// Operator set MIRO_SHARE_ALLOWED_EMAILS to a value that normalized to
+		// nothing (e.g. "," or whitespace). Fail closed loudly rather than letting
+		// the weaker domain layer take over silently.
+		logger.Warn("miro_share_board MIRO_SHARE_ALLOWED_EMAILS is set but has no valid addresses after normalization; all share invitations will be rejected (fail-closed)",
+			"fix", "provide at least one valid email, or unset MIRO_SHARE_ALLOWED_EMAILS to use the domain allowlist",
+			"source", shareAllowlist.EmailSource())
 	case shareAllowlist.IsEmpty():
 		logger.Warn("miro_share_board allowlist is empty; all share invitations will be rejected",
 			"fix", "set MIRO_SHARE_ALLOWED_EMAILS (exact-email, tighter) or MIRO_SHARE_ALLOWED_DOMAINS (domain)",

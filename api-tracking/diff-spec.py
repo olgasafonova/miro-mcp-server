@@ -28,6 +28,23 @@ from dataclasses import dataclass, field
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
 
+def _combinator_signature(p):
+    """Return a oneOf/anyOf/allOf composition signature, or None if not composed."""
+    for combinator in ("oneOf", "anyOf", "allOf"):
+        if combinator in p:
+            parts = ",".join(prop_signature(s) for s in p[combinator])
+            return f"{combinator}<{parts}>"
+    return None
+
+
+def _scalar_signature(p):
+    """Return the type/format/nullable signature for a scalar schema."""
+    t = p.get("type")
+    fmt = p.get("format")
+    nullable = "?" if p.get("nullable") else ""
+    return f"{t or '?'}{f'({fmt})' if fmt else ''}{nullable}"
+
+
 def prop_signature(p):
     """Return a stable comparable string describing a property/parameter type.
 
@@ -39,19 +56,16 @@ def prop_signature(p):
         return repr(p)
     if "$ref" in p:
         return f"ref:{p['$ref'].split('/')[-1]}"
-    for combinator in ("oneOf", "anyOf", "allOf"):
-        if combinator in p:
-            parts = ",".join(prop_signature(s) for s in p[combinator])
-            return f"{combinator}<{parts}>"
+    combined = _combinator_signature(p)
+    if combined is not None:
+        return combined
     t = p.get("type")
     if t == "array":
         return f"array<{prop_signature(p.get('items', {}))}>"
     if t == "object" and "properties" in p:
         names = ",".join(sorted(p["properties"].keys()))
         return f"object<{names}>"
-    fmt = p.get("format")
-    nullable = "?" if p.get("nullable") else ""
-    return f"{t or '?'}{f'({fmt})' if fmt else ''}{nullable}"
+    return _scalar_signature(p)
 
 
 def prop_enum(p):

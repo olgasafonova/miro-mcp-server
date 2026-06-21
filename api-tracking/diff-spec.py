@@ -138,10 +138,15 @@ def categorize_endpoint(method, path):
     return "standard"
 
 
-def diff_endpoint_pair(old, new):
-    """Compare one endpoint's old/new dict; return (breaking, additive, cosmetic)."""
-    breaking, additive, cosmetic = [], [], []
+def enum_delta(old_enum, new_enum):
+    """Return (added, removed) sorted lists of enum values between two sets."""
+    old_set = old_enum or set()
+    new_set = new_enum or set()
+    return sorted(new_set - old_set), sorted(old_set - new_set)
 
+
+def _diff_endpoint_metadata(old, new, breaking, additive, cosmetic):
+    """Diff deprecated/request-body/response/summary/tags into the buckets."""
     if old.get("deprecated") != new.get("deprecated"):
         msg = f"deprecated: {old.get('deprecated')} -> {new.get('deprecated')}"
         (additive if new.get("deprecated") else breaking).append(msg)
@@ -158,44 +163,47 @@ def diff_endpoint_pair(old, new):
         if ov != nv:
             breaking.append(f"response {code} schema: {ov} -> {nv}")
 
-    old_p = {p["name"]: p for p in old.get("parameters", [])}
-    new_p = {p["name"]: p for p in new.get("parameters", [])}
-    for name in sorted(set(old_p) | set(new_p)):
-        op, np = old_p.get(name), new_p.get(name)
-        if op is None:
-            (breaking if np.get("required") else additive).append(
-                f"new param `{name}` ({np.get('in')}, {np.get('type')}, "
-                f"required={np.get('required')})"
-            )
-        elif np is None:
-            breaking.append(f"removed param `{name}`")
-        else:
-            if op.get("type") != np.get("type"):
-                breaking.append(
-                    f"param `{name}` type: {op.get('type')} -> {np.get('type')}"
-                )
-            if op.get("required") != np.get("required"):
-                msg = (
-                    f"param `{name}` required: {op.get('required')} -> "
-                    f"{np.get('required')}"
-                )
-                (breaking if np.get("required") else additive).append(msg)
-            if op.get("enum") != np.get("enum"):
-                added_e = (np.get("enum") or set()) - (op.get("enum") or set())
-                removed_e = (op.get("enum") or set()) - (np.get("enum") or set())
-                if removed_e:
-                    breaking.append(
-                        f"param `{name}` removed enum values: {sorted(removed_e)}"
-                    )
-                if added_e:
-                    additive.append(
-                        f"param `{name}` new enum values: {sorted(added_e)}"
-                    )
-
     if old.get("summary") != new.get("summary"):
         cosmetic.append(f"summary: {old.get('summary')!r} -> {new.get('summary')!r}")
     if old.get("tags") != new.get("tags"):
         cosmetic.append(f"tags: {old.get('tags')} -> {new.get('tags')}")
+
+
+def _diff_one_param(name, op, np, breaking, additive):
+    """Diff a single parameter (old op, new np) into the breaking/additive buckets."""
+    if op is None:
+        (breaking if np.get("required") else additive).append(
+            f"new param `{name}` ({np.get('in')}, {np.get('type')}, "
+            f"required={np.get('required')})"
+        )
+        return
+    if np is None:
+        breaking.append(f"removed param `{name}`")
+        return
+
+    if op.get("type") != np.get("type"):
+        breaking.append(f"param `{name}` type: {op.get('type')} -> {np.get('type')}")
+    if op.get("required") != np.get("required"):
+        msg = f"param `{name}` required: {op.get('required')} -> {np.get('required')}"
+        (breaking if np.get("required") else additive).append(msg)
+    if op.get("enum") != np.get("enum"):
+        added_e, removed_e = enum_delta(op.get("enum"), np.get("enum"))
+        if removed_e:
+            breaking.append(f"param `{name}` removed enum values: {removed_e}")
+        if added_e:
+            additive.append(f"param `{name}` new enum values: {added_e}")
+
+
+def diff_endpoint_pair(old, new):
+    """Compare one endpoint's old/new dict; return (breaking, additive, cosmetic)."""
+    breaking, additive, cosmetic = [], [], []
+
+    _diff_endpoint_metadata(old, new, breaking, additive, cosmetic)
+
+    old_p = {p["name"]: p for p in old.get("parameters", [])}
+    new_p = {p["name"]: p for p in new.get("parameters", [])}
+    for name in sorted(set(old_p) | set(new_p)):
+        _diff_one_param(name, old_p.get(name), new_p.get(name), breaking, additive)
 
     return breaking, additive, cosmetic
 

@@ -208,6 +208,50 @@ def diff_endpoint_pair(old, new):
     return breaking, additive, cosmetic
 
 
+def _diff_one_property(prop, op, np, breaking, additive):
+    """Diff a single schema property (old op, new np) into the buckets."""
+    if op is None:
+        additive.append(f"new property `{prop}`: {np.get('type')}")
+        return
+    if np is None:
+        breaking.append(f"removed property `{prop}`: was {op.get('type')}")
+        return
+
+    if op.get("type") != np.get("type"):
+        breaking.append(f"property `{prop}` type: {op.get('type')} -> {np.get('type')}")
+    if op.get("enum") != np.get("enum"):
+        added_e, removed_e = enum_delta(op.get("enum"), np.get("enum"))
+        if removed_e:
+            breaking.append(f"property `{prop}` removed enum values: {removed_e}")
+        if added_e:
+            additive.append(f"property `{prop}` new enum values: {added_e}")
+
+
+def _diff_required(old, new, breaking, additive):
+    """Diff the required-property sets into the buckets."""
+    old_req = old.get("required", frozenset())
+    new_req = new.get("required", frozenset())
+    if old_req == new_req:
+        return
+    added_r = new_req - old_req
+    removed_r = old_req - new_req
+    if added_r:
+        breaking.append(f"newly required properties: {sorted(added_r)}")
+    if removed_r:
+        additive.append(f"no-longer-required properties: {sorted(removed_r)}")
+
+
+def _diff_top_enum(old, new, breaking, additive):
+    """Diff the schema's top-level enum into the buckets."""
+    if old.get("top_enum") == new.get("top_enum"):
+        return
+    added_e, removed_e = enum_delta(old.get("top_enum"), new.get("top_enum"))
+    if removed_e:
+        breaking.append(f"removed top-level enum values: {removed_e}")
+    if added_e:
+        additive.append(f"new top-level enum values: {added_e}")
+
+
 def diff_schema_pair(old, new):
     """Compare one schema's old/new dict; return (breaking, additive, cosmetic)."""
     breaking, additive, cosmetic = [], [], []
@@ -215,45 +259,10 @@ def diff_schema_pair(old, new):
     old_props = old.get("properties", {})
     new_props = new.get("properties", {})
     for prop in sorted(set(old_props) | set(new_props)):
-        op, np = old_props.get(prop), new_props.get(prop)
-        if op is None:
-            additive.append(f"new property `{prop}`: {np.get('type')}")
-        elif np is None:
-            breaking.append(f"removed property `{prop}`: was {op.get('type')}")
-        else:
-            if op.get("type") != np.get("type"):
-                breaking.append(
-                    f"property `{prop}` type: {op.get('type')} -> {np.get('type')}"
-                )
-            if op.get("enum") != np.get("enum"):
-                added_e = (np.get("enum") or set()) - (op.get("enum") or set())
-                removed_e = (op.get("enum") or set()) - (np.get("enum") or set())
-                if removed_e:
-                    breaking.append(
-                        f"property `{prop}` removed enum values: {sorted(removed_e)}"
-                    )
-                if added_e:
-                    additive.append(
-                        f"property `{prop}` new enum values: {sorted(added_e)}"
-                    )
+        _diff_one_property(prop, old_props.get(prop), new_props.get(prop), breaking, additive)
 
-    old_req = old.get("required", frozenset())
-    new_req = new.get("required", frozenset())
-    if old_req != new_req:
-        added_r = new_req - old_req
-        removed_r = old_req - new_req
-        if added_r:
-            breaking.append(f"newly required properties: {sorted(added_r)}")
-        if removed_r:
-            additive.append(f"no-longer-required properties: {sorted(removed_r)}")
-
-    if old.get("top_enum") != new.get("top_enum"):
-        added_e = (new.get("top_enum") or set()) - (old.get("top_enum") or set())
-        removed_e = (old.get("top_enum") or set()) - (new.get("top_enum") or set())
-        if removed_e:
-            breaking.append(f"removed top-level enum values: {sorted(removed_e)}")
-        if added_e:
-            additive.append(f"new top-level enum values: {sorted(added_e)}")
+    _diff_required(old, new, breaking, additive)
+    _diff_top_enum(old, new, breaking, additive)
 
     return breaking, additive, cosmetic
 

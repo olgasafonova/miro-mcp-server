@@ -151,14 +151,29 @@ def enum_delta(old_enum, new_enum):
     return sorted(new_set - old_set), sorted(old_set - new_set)
 
 
-def _diff_endpoint_metadata(old, new, breaking, additive, cosmetic):
+@dataclass
+class Buckets:
+    """Accumulator for diff messages grouped by impact."""
+
+    breaking: list = field(default_factory=list)
+    additive: list = field(default_factory=list)
+    cosmetic: list = field(default_factory=list)
+
+    def any(self):
+        return bool(self.breaking or self.additive or self.cosmetic)
+
+    def as_tuple(self):
+        return self.breaking, self.additive, self.cosmetic
+
+
+def _diff_endpoint_metadata(old, new, b):
     """Diff deprecated/request-body/response/summary/tags into the buckets."""
     if old.get("deprecated") != new.get("deprecated"):
         msg = f"deprecated: {old.get('deprecated')} -> {new.get('deprecated')}"
-        (additive if new.get("deprecated") else breaking).append(msg)
+        (b.additive if new.get("deprecated") else b.breaking).append(msg)
 
     if old.get("request_body") != new.get("request_body"):
-        breaking.append(
+        b.breaking.append(
             f"request body schema: {old.get('request_body')} -> {new.get('request_body')}"
         )
 
@@ -167,73 +182,73 @@ def _diff_endpoint_metadata(old, new, breaking, additive, cosmetic):
     for code in sorted(set(old_resp) | set(new_resp)):
         ov, nv = old_resp.get(code), new_resp.get(code)
         if ov != nv:
-            breaking.append(f"response {code} schema: {ov} -> {nv}")
+            b.breaking.append(f"response {code} schema: {ov} -> {nv}")
 
     if old.get("summary") != new.get("summary"):
-        cosmetic.append(f"summary: {old.get('summary')!r} -> {new.get('summary')!r}")
+        b.cosmetic.append(f"summary: {old.get('summary')!r} -> {new.get('summary')!r}")
     if old.get("tags") != new.get("tags"):
-        cosmetic.append(f"tags: {old.get('tags')} -> {new.get('tags')}")
+        b.cosmetic.append(f"tags: {old.get('tags')} -> {new.get('tags')}")
 
 
-def _diff_one_param(name, op, np, breaking, additive):
-    """Diff a single parameter (old op, new np) into the breaking/additive buckets."""
+def _diff_one_param(name, op, np, b):
+    """Diff a single parameter (old op, new np) into the buckets."""
     if op is None:
-        (breaking if np.get("required") else additive).append(
+        (b.breaking if np.get("required") else b.additive).append(
             f"new param `{name}` ({np.get('in')}, {np.get('type')}, "
             f"required={np.get('required')})"
         )
         return
     if np is None:
-        breaking.append(f"removed param `{name}`")
+        b.breaking.append(f"removed param `{name}`")
         return
 
     if op.get("type") != np.get("type"):
-        breaking.append(f"param `{name}` type: {op.get('type')} -> {np.get('type')}")
+        b.breaking.append(f"param `{name}` type: {op.get('type')} -> {np.get('type')}")
     if op.get("required") != np.get("required"):
         msg = f"param `{name}` required: {op.get('required')} -> {np.get('required')}"
-        (breaking if np.get("required") else additive).append(msg)
+        (b.breaking if np.get("required") else b.additive).append(msg)
     if op.get("enum") != np.get("enum"):
         added_e, removed_e = enum_delta(op.get("enum"), np.get("enum"))
         if removed_e:
-            breaking.append(f"param `{name}` removed enum values: {removed_e}")
+            b.breaking.append(f"param `{name}` removed enum values: {removed_e}")
         if added_e:
-            additive.append(f"param `{name}` new enum values: {added_e}")
+            b.additive.append(f"param `{name}` new enum values: {added_e}")
 
 
 def diff_endpoint_pair(old, new):
     """Compare one endpoint's old/new dict; return (breaking, additive, cosmetic)."""
-    breaking, additive, cosmetic = [], [], []
+    b = Buckets()
 
-    _diff_endpoint_metadata(old, new, breaking, additive, cosmetic)
+    _diff_endpoint_metadata(old, new, b)
 
     old_p = {p["name"]: p for p in old.get("parameters", [])}
     new_p = {p["name"]: p for p in new.get("parameters", [])}
     for name in sorted(set(old_p) | set(new_p)):
-        _diff_one_param(name, old_p.get(name), new_p.get(name), breaking, additive)
+        _diff_one_param(name, old_p.get(name), new_p.get(name), b)
 
-    return breaking, additive, cosmetic
+    return b.as_tuple()
 
 
-def _diff_one_property(prop, op, np, breaking, additive):
+def _diff_one_property(prop, op, np, b):
     """Diff a single schema property (old op, new np) into the buckets."""
     if op is None:
-        additive.append(f"new property `{prop}`: {np.get('type')}")
+        b.additive.append(f"new property `{prop}`: {np.get('type')}")
         return
     if np is None:
-        breaking.append(f"removed property `{prop}`: was {op.get('type')}")
+        b.breaking.append(f"removed property `{prop}`: was {op.get('type')}")
         return
 
     if op.get("type") != np.get("type"):
-        breaking.append(f"property `{prop}` type: {op.get('type')} -> {np.get('type')}")
+        b.breaking.append(f"property `{prop}` type: {op.get('type')} -> {np.get('type')}")
     if op.get("enum") != np.get("enum"):
         added_e, removed_e = enum_delta(op.get("enum"), np.get("enum"))
         if removed_e:
-            breaking.append(f"property `{prop}` removed enum values: {removed_e}")
+            b.breaking.append(f"property `{prop}` removed enum values: {removed_e}")
         if added_e:
-            additive.append(f"property `{prop}` new enum values: {added_e}")
+            b.additive.append(f"property `{prop}` new enum values: {added_e}")
 
 
-def _diff_required(old, new, breaking, additive):
+def _diff_required(old, new, b):
     """Diff the required-property sets into the buckets."""
     old_req = old.get("required", frozenset())
     new_req = new.get("required", frozenset())
@@ -242,35 +257,35 @@ def _diff_required(old, new, breaking, additive):
     added_r = new_req - old_req
     removed_r = old_req - new_req
     if added_r:
-        breaking.append(f"newly required properties: {sorted(added_r)}")
+        b.breaking.append(f"newly required properties: {sorted(added_r)}")
     if removed_r:
-        additive.append(f"no-longer-required properties: {sorted(removed_r)}")
+        b.additive.append(f"no-longer-required properties: {sorted(removed_r)}")
 
 
-def _diff_top_enum(old, new, breaking, additive):
+def _diff_top_enum(old, new, b):
     """Diff the schema's top-level enum into the buckets."""
     if old.get("top_enum") == new.get("top_enum"):
         return
     added_e, removed_e = enum_delta(old.get("top_enum"), new.get("top_enum"))
     if removed_e:
-        breaking.append(f"removed top-level enum values: {removed_e}")
+        b.breaking.append(f"removed top-level enum values: {removed_e}")
     if added_e:
-        additive.append(f"new top-level enum values: {added_e}")
+        b.additive.append(f"new top-level enum values: {added_e}")
 
 
 def diff_schema_pair(old, new):
     """Compare one schema's old/new dict; return (breaking, additive, cosmetic)."""
-    breaking, additive, cosmetic = [], [], []
+    b = Buckets()
 
     old_props = old.get("properties", {})
     new_props = new.get("properties", {})
     for prop in sorted(set(old_props) | set(new_props)):
-        _diff_one_property(prop, old_props.get(prop), new_props.get(prop), breaking, additive)
+        _diff_one_property(prop, old_props.get(prop), new_props.get(prop), b)
 
-    _diff_required(old, new, breaking, additive)
-    _diff_top_enum(old, new, breaking, additive)
+    _diff_required(old, new, b)
+    _diff_top_enum(old, new, b)
 
-    return breaking, additive, cosmetic
+    return b.as_tuple()
 
 
 def format_endpoint_table(rows, source_endpoints):
@@ -434,9 +449,9 @@ def _diff_collection(baseline, current, diff_pair):
     removed = sorted(base_keys - cur_keys)
     changes = {}
     for key in sorted(base_keys & cur_keys):
-        b, a, c = diff_pair(baseline[key], current[key])
-        if b or a or c:
-            changes[key] = (b, a, c)
+        result = diff_pair(baseline[key], current[key])
+        if any(result):
+            changes[key] = result
     return added, removed, changes
 
 

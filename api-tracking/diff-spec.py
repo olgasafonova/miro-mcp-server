@@ -23,6 +23,7 @@ the main report (collapsed at the bottom) to keep noise out of the issue.
 import json
 import sys
 from collections import defaultdict
+from dataclasses import dataclass, field
 
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
@@ -79,6 +80,26 @@ def response_refs(details):
     return out
 
 
+def extract_parameters(details):
+    """Extract inlined parameter metadata for one endpoint operation."""
+    params = []
+    for p in details.get("parameters", []):
+        # Skip $ref-only parameters that aren't inlined; they have no name.
+        if not p.get("name"):
+            continue
+        schema = p.get("schema", {})
+        params.append(
+            {
+                "name": p.get("name"),
+                "in": p.get("in"),
+                "required": p.get("required", False),
+                "type": prop_signature(schema),
+                "enum": prop_enum(schema),
+            }
+        )
+    return params
+
+
 def extract_endpoints(spec):
     """Extract per-endpoint metadata sufficient for behavioral diffing."""
     endpoints = {}
@@ -86,27 +107,12 @@ def extract_endpoints(spec):
         for method, details in methods.items():
             if method not in HTTP_METHODS:
                 continue
-            params = []
-            for p in details.get("parameters", []):
-                # Skip $ref-only parameters that aren't inlined; they have no name.
-                if not p.get("name"):
-                    continue
-                schema = p.get("schema", {})
-                params.append(
-                    {
-                        "name": p.get("name"),
-                        "in": p.get("in"),
-                        "required": p.get("required", False),
-                        "type": prop_signature(schema),
-                        "enum": prop_enum(schema),
-                    }
-                )
             endpoints[(method.upper(), path)] = {
                 "operationId": details.get("operationId", ""),
                 "summary": details.get("summary", ""),
                 "tags": details.get("tags", []),
                 "deprecated": details.get("deprecated", False),
-                "parameters": params,
+                "parameters": extract_parameters(details),
                 "request_body": request_body_ref(details),
                 "responses": response_refs(details),
             }
@@ -286,27 +292,118 @@ def format_endpoint_table(rows, source_endpoints):
     return out
 
 
-def format_report(
-    ep_added,
-    ep_removed,
-    ep_changes,
-    sc_added,
-    sc_removed,
-    sc_changes,
-    current_endpoints,
-    baseline_endpoints,
-):
+@dataclass
+class DiffResult:
+    """All computed diffs between two specs, ready for report formatting."""
+
+    ep_added: list = field(default_factory=list)
+    ep_removed: list = field(default_factory=list)
+    ep_changes: dict = field(default_factory=dict)
+    sc_added: list = field(default_factory=list)
+    sc_removed: list = field(default_factory=list)
+    sc_changes: dict = field(default_factory=dict)
+    current_endpoints: dict = field(default_factory=dict)
+    baseline_endpoints: dict = field(default_factory=dict)
+
+    def breaking_eps(self):
+        return [(k, b) for k, (b, _, _) in self.ep_changes.items() if b]
+
+    def additive_eps(self):
+        return [(k, a) for k, (_, a, _) in self.ep_changes.items() if a]
+
+    def cosmetic_eps(self):
+        return [(k, c) for k, (_, _, c) in self.ep_changes.items() if c]
+
+    def breaking_sc(self):
+        return [(n, b) for n, (b, _, _) in self.sc_changes.items() if b]
+
+    def additive_sc(self):
+        return [(n, a) for n, (_, a, _) in self.sc_changes.items() if a]
+
+
+def _render_diff_blocks(lines, header, entries, label_fn):
+    """Render a '### header' followed by per-entry '#### label / - diff' blocks."""
+    if not entries:
+        return
+    lines.append(f"### {header} ({len(entries)})\n")
+    for key, diffs in entries:
+        lines.append(f"#### `{label_fn(key)}`\n")
+        for d in diffs:
+            lines.append(f"- {d}")
+        lines.append("")
+
+
+def _render_named_list(lines, header, names):
+    """Render a '### header' followed by a flat bullet list of names."""
+    if not names:
+        return
+    lines.append(f"### {header} ({len(names)})\n")
+    for name in names:
+        lines.append(f"- `{name}`")
+    lines.append("")
+
+
+def _ep_label(key):
+    method, path = key
+    return f"{method} {path}"
+
+
+def _render_breaking_section(lines, diff):
+    """Render the breaking-changes section."""
+    lines.append("## :rotating_light: Breaking changes\n")
+    lines.append(
+        "_Investigate these before the next release; they may affect existing tools._\n"
+    )
+    if diff.ep_removed:
+        lines.append(f"### Removed endpoints ({len(diff.ep_removed)})\n")
+        lines.extend(format_endpoint_table(diff.ep_removed, diff.baseline_endpoints))
+    _render_named_list(lines, "Removed schemas", diff.sc_removed)
+    _render_diff_blocks(lines, "Endpoints with breaking changes", diff.breaking_eps(), _ep_label)
+    _render_diff_blocks(lines, "Schemas with breaking changes", diff.breaking_sc(), str)
+
+
+def _render_additive_section(lines, diff):
+    """Render the additive-changes section."""
+    lines.append("## :sparkles: Additive changes\n")
+    lines.append("_New surface; safe for existing callers but may unlock new tools._\n")
+    if diff.ep_added:
+        lines.append(f"### New endpoints ({len(diff.ep_added)})\n")
+        lines.extend(format_endpoint_table(diff.ep_added, diff.current_endpoints))
+    _render_named_list(lines, "New schemas", diff.sc_added)
+    _render_diff_blocks(lines, "Endpoints with additive changes", diff.additive_eps(), _ep_label)
+    _render_diff_blocks(lines, "Schemas with additive changes", diff.additive_sc(), str)
+
+
+def _render_cosmetic_section(lines, cosmetic_eps):
+    """Render the collapsed cosmetic-changes section."""
+    lines.append("<details>")
+    lines.append(
+        f"<summary>Cosmetic changes ({len(cosmetic_eps)} endpoints) - "
+        "tag/summary churn, no behavior impact</summary>\n"
+    )
+    for (method, path), diffs in cosmetic_eps:
+        lines.append(f"- `{method} {path}`")
+        for d in diffs:
+            lines.append(f"  - {d}")
+    lines.append("\n</details>")
+
+
+def format_report(diff):
     """Format a Markdown report grouped by impact (breaking, additive, cosmetic)."""
     lines = ["# Miro API Spec Diff Report\n"]
 
-    breaking_eps = [(k, b) for k, (b, _, _) in ep_changes.items() if b]
-    additive_eps = [(k, a) for k, (_, a, _) in ep_changes.items() if a]
-    cosmetic_eps = [(k, c) for k, (_, _, c) in ep_changes.items() if c]
-    breaking_sc = [(n, b) for n, (b, _, _) in sc_changes.items() if b]
-    additive_sc = [(n, a) for n, (_, a, _) in sc_changes.items() if a]
+    breaking_eps = diff.breaking_eps()
+    breaking_sc = diff.breaking_sc()
+    additive_eps = diff.additive_eps()
+    additive_sc = diff.additive_sc()
+    cosmetic_eps = diff.cosmetic_eps()
 
-    breaking_count = len(ep_removed) + len(sc_removed) + len(breaking_eps) + len(breaking_sc)
-    additive_count = len(ep_added) + len(sc_added) + len(additive_eps) + len(additive_sc)
+    breaking_count = (
+        len(diff.ep_removed) + len(diff.sc_removed) + len(breaking_eps) + len(breaking_sc)
+    )
+    additive_count = (
+        len(diff.ep_added) + len(diff.sc_added) + len(additive_eps) + len(additive_sc)
+    )
     cosmetic_count = len(cosmetic_eps)
     total = breaking_count + additive_count + cosmetic_count
 
@@ -320,82 +417,65 @@ def format_report(
     )
 
     if breaking_count:
-        lines.append("## :rotating_light: Breaking changes\n")
-        lines.append(
-            "_Investigate these before the next release; they may affect existing tools._\n"
-        )
-
-        if ep_removed:
-            lines.append(f"### Removed endpoints ({len(ep_removed)})\n")
-            lines.extend(format_endpoint_table(ep_removed, baseline_endpoints))
-
-        if sc_removed:
-            lines.append(f"### Removed schemas ({len(sc_removed)})\n")
-            for name in sc_removed:
-                lines.append(f"- `{name}`")
-            lines.append("")
-
-        if breaking_eps:
-            lines.append(f"### Endpoints with breaking changes ({len(breaking_eps)})\n")
-            for (method, path), diffs in breaking_eps:
-                lines.append(f"#### `{method} {path}`\n")
-                for d in diffs:
-                    lines.append(f"- {d}")
-                lines.append("")
-
-        if breaking_sc:
-            lines.append(f"### Schemas with breaking changes ({len(breaking_sc)})\n")
-            for name, diffs in breaking_sc:
-                lines.append(f"#### `{name}`\n")
-                for d in diffs:
-                    lines.append(f"- {d}")
-                lines.append("")
-
+        _render_breaking_section(lines, diff)
     if additive_count:
-        lines.append("## :sparkles: Additive changes\n")
-        lines.append(
-            "_New surface; safe for existing callers but may unlock new tools._\n"
-        )
-
-        if ep_added:
-            lines.append(f"### New endpoints ({len(ep_added)})\n")
-            lines.extend(format_endpoint_table(ep_added, current_endpoints))
-
-        if sc_added:
-            lines.append(f"### New schemas ({len(sc_added)})\n")
-            for name in sc_added:
-                lines.append(f"- `{name}`")
-            lines.append("")
-
-        if additive_eps:
-            lines.append(f"### Endpoints with additive changes ({len(additive_eps)})\n")
-            for (method, path), diffs in additive_eps:
-                lines.append(f"#### `{method} {path}`\n")
-                for d in diffs:
-                    lines.append(f"- {d}")
-                lines.append("")
-
-        if additive_sc:
-            lines.append(f"### Schemas with additive changes ({len(additive_sc)})\n")
-            for name, diffs in additive_sc:
-                lines.append(f"#### `{name}`\n")
-                for d in diffs:
-                    lines.append(f"- {d}")
-                lines.append("")
-
+        _render_additive_section(lines, diff)
     if cosmetic_eps:
-        lines.append("<details>")
-        lines.append(
-            f"<summary>Cosmetic changes ({len(cosmetic_eps)} endpoints) - "
-            "tag/summary churn, no behavior impact</summary>\n"
-        )
-        for (method, path), diffs in cosmetic_eps:
-            lines.append(f"- `{method} {path}`")
-            for d in diffs:
-                lines.append(f"  - {d}")
-        lines.append("\n</details>")
+        _render_cosmetic_section(lines, cosmetic_eps)
 
     return "\n".join(lines)
+
+
+def _diff_collection(baseline, current, diff_pair):
+    """Diff two name->dict collections; return (added, removed, changes)."""
+    base_keys = set(baseline)
+    cur_keys = set(current)
+    added = sorted(cur_keys - base_keys)
+    removed = sorted(base_keys - cur_keys)
+    changes = {}
+    for key in sorted(base_keys & cur_keys):
+        b, a, c = diff_pair(baseline[key], current[key])
+        if b or a or c:
+            changes[key] = (b, a, c)
+    return added, removed, changes
+
+
+def compute_diff(baseline_spec, current_spec):
+    """Compute the full DiffResult between two parsed specs."""
+    baseline_endpoints = extract_endpoints(baseline_spec)
+    current_endpoints = extract_endpoints(current_spec)
+    baseline_schemas = extract_schemas(baseline_spec)
+    current_schemas = extract_schemas(current_spec)
+
+    ep_added, ep_removed, ep_changes = _diff_collection(
+        baseline_endpoints, current_endpoints, diff_endpoint_pair
+    )
+    sc_added, sc_removed, sc_changes = _diff_collection(
+        baseline_schemas, current_schemas, diff_schema_pair
+    )
+
+    return DiffResult(
+        ep_added=ep_added,
+        ep_removed=ep_removed,
+        ep_changes=ep_changes,
+        sc_added=sc_added,
+        sc_removed=sc_removed,
+        sc_changes=sc_changes,
+        current_endpoints=current_endpoints,
+        baseline_endpoints=baseline_endpoints,
+    )
+
+
+def diff_total(diff):
+    """Return the total number of detected differences."""
+    return (
+        len(diff.ep_added)
+        + len(diff.ep_removed)
+        + len(diff.ep_changes)
+        + len(diff.sc_added)
+        + len(diff.sc_removed)
+        + len(diff.sc_changes)
+    )
 
 
 def main():
@@ -408,52 +488,9 @@ def main():
     with open(sys.argv[2]) as f:
         current_spec = json.load(f)
 
-    baseline_endpoints = extract_endpoints(baseline_spec)
-    current_endpoints = extract_endpoints(current_spec)
-    baseline_schemas = extract_schemas(baseline_spec)
-    current_schemas = extract_schemas(current_spec)
-
-    base_keys = set(baseline_endpoints)
-    cur_keys = set(current_endpoints)
-    ep_added = sorted(cur_keys - base_keys)
-    ep_removed = sorted(base_keys - cur_keys)
-    ep_changes = {}
-    for key in sorted(base_keys & cur_keys):
-        b, a, c = diff_endpoint_pair(baseline_endpoints[key], current_endpoints[key])
-        if b or a or c:
-            ep_changes[key] = (b, a, c)
-
-    base_schemas_keys = set(baseline_schemas)
-    cur_schemas_keys = set(current_schemas)
-    sc_added = sorted(cur_schemas_keys - base_schemas_keys)
-    sc_removed = sorted(base_schemas_keys - cur_schemas_keys)
-    sc_changes = {}
-    for name in sorted(base_schemas_keys & cur_schemas_keys):
-        b, a, c = diff_schema_pair(baseline_schemas[name], current_schemas[name])
-        if b or a or c:
-            sc_changes[name] = (b, a, c)
-
-    report = format_report(
-        ep_added,
-        ep_removed,
-        ep_changes,
-        sc_added,
-        sc_removed,
-        sc_changes,
-        current_endpoints,
-        baseline_endpoints,
-    )
-    print(report)
-
-    total = (
-        len(ep_added)
-        + len(ep_removed)
-        + len(ep_changes)
-        + len(sc_added)
-        + len(sc_removed)
-        + len(sc_changes)
-    )
-    sys.exit(1 if total > 0 else 0)
+    diff = compute_diff(baseline_spec, current_spec)
+    print(format_report(diff))
+    sys.exit(1 if diff_total(diff) > 0 else 0)
 
 
 if __name__ == "__main__":

@@ -18,7 +18,9 @@ jobs:
 
       - name: Download latest Miro OpenAPI spec
         run: |
+          # Retry on transient failures (e.g. raw.githubusercontent.com 429 rate limits)
           curl -fsSL \
+            --retry 5 --retry-delay 10 --retry-all-errors \
             "https://raw.githubusercontent.com/miroapp/api-clients/main/packages/generator/spec.json" \
             -o /tmp/miro-spec-latest.json
 

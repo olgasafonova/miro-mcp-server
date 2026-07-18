@@ -62,6 +62,11 @@ jobs:
         with:
           version: v2.7.2
           args: --timeout=5m
+          # Skip `golangci-lint config verify`, which fetches a JSON schema
+          # from golangci-lint.run at runtime and intermittently fails the job
+          # with "context deadline exceeded" when that host is slow/unreachable.
+          # The config is already validated by the lint run itself.
+          verify: false
 
   build:
     runs-on: ubuntu-latest

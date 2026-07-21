@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.olgasafonova/miro-mcp-server",
-  "description": "Control Miro whiteboards with AI. 77 tools for boards, diagrams, mindmaps.",
+  "description": "Control Miro whiteboards with AI. 98 tools for boards, diagrams, mindmaps, code widgets.",
   "title": "Miro",
   "repository": {
     "url": "https://github.com/olgasafonova/miro-mcp-server",
@@ -29,7 +29,9 @@
       "fileSha256": "PLACEHOLDER_SHA256",
       "runtime": {
         "type": "native",
-        "platforms": ["darwin-arm64"]
+        "platforms": [
+          "darwin-arm64"
+        ]
       },
       "transport": {
         "type": "stdio"
@@ -48,7 +50,9 @@
       "fileSha256": "PLACEHOLDER_SHA256",
       "runtime": {
         "type": "native",
-        "platforms": ["darwin-amd64"]
+        "platforms": [
+          "darwin-amd64"
+        ]
       },
       "transport": {
         "type": "stdio"
@@ -67,7 +71,9 @@
       "fileSha256": "PLACEHOLDER_SHA256",
       "runtime": {
         "type": "native",
-        "platforms": ["linux-amd64"]
+        "platforms": [
+          "linux-amd64"
+        ]
       },
       "transport": {
         "type": "stdio"
@@ -86,7 +92,9 @@
       "fileSha256": "PLACEHOLDER_SHA256",
       "runtime": {
         "type": "native",
-        "platforms": ["linux-arm64"]
+        "platforms": [
+          "linux-arm64"
+        ]
       },
       "transport": {
         "type": "stdio"
@@ -105,7 +113,9 @@
       "fileSha256": "PLACEHOLDER_SHA256",
       "runtime": {
         "type": "native",
-        "platforms": ["windows-amd64"]
+        "platforms": [
+          "windows-amd64"
+        ]
       },
       "transport": {
         "type": "stdio"

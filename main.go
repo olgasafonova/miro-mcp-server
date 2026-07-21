@@ -29,7 +29,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.19.0"
+	ServerVersion = "1.22.0"
 )
 
 // runtimeFlags bundles parsed CLI flags and the configured logger.

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-07-21
+
 ### Added
 
 - **Code widget tools (6, v2-experimental)**: `miro_create_code_widget`, `miro_get_code_widget`, `miro_list_code_widgets`, `miro_update_code_widget`, `miro_move_code_widget`, `miro_delete_code_widget` — syntax-highlighted code snippets on boards, mapped 1:1 to Miro's six `/v2-experimental/boards/{board_id}/code_widgets` endpoints (detected by the api-tracking workflow on 27-04-2026). Field caps validated client-side per the spec (code ≤ 6000 chars, title ≤ 100). List responses return 80-char code previews with cursor pagination (default 50, max 100); full source via the get tool. 403/404 responses from these endpoints carry an added hint that the experimental API may be unavailable for the account or plan, since a plain 404 is ambiguous there. Delete supports `dry_run=true` and is annotated `Destructive`. Tool count: 92 → 98. Closes bead `miro-mcp-server-yl6`.

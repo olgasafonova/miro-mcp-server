@@ -1073,6 +1073,92 @@ RETURNS: Confirmation with deleted node ID.`,
 	},
 
 	// ==========================================================================
+	// Code Widget Tools (v2-experimental)
+	// ==========================================================================
+	{
+		Name:     "miro_create_code_widget",
+		Method:   "CreateCodeWidget",
+		Title:    "Create Code Widget",
+		Category: "create",
+		Description: `Create a code widget: a syntax-highlighted code snippet on the board. Uses v2-experimental API. May change or become unavailable before GA.
+
+USE WHEN: "add a code snippet", "put this code on the board", "create a code block"
+
+PARAMETERS:
+- code: The source code (max 6000 characters). Required.
+- language: For syntax highlighting (e.g. javascript, go, python). Optional.
+- title: Widget header text (max 100 characters). Optional.
+
+RETURNS: Widget ID and view link.
+
+FAILS WHEN: code exceeds 6000 characters. board_id not found. Account lacks access to the experimental API.`,
+	},
+	{
+		Name:     "miro_get_code_widget",
+		Method:   "GetCodeWidget",
+		Title:    "Get Code Widget",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Get code widget details including full source code, language, and position. Uses v2-experimental API. May change or become unavailable before GA.
+
+USE WHEN: "show the code in this widget", "read that code snippet"
+
+RETURNS: Widget ID, full code, language, title, line-number setting, position, size, and parent frame ID.`,
+	},
+	{
+		Name:     "miro_list_code_widgets",
+		Method:   "ListCodeWidgets",
+		Title:    "List Code Widgets",
+		Category: "read",
+		ReadOnly: true,
+		Description: `List code widgets on a board with truncated code previews. Uses v2-experimental API. May change or become unavailable before GA.
+
+USE WHEN: "what code snippets are on this board", "find the code widgets"
+
+RETURNS: Array of widgets with IDs, titles, languages, and 80-char code previews. Use miro_get_code_widget for full source. Paginated via cursor.`,
+	},
+	{
+		Name:       "miro_update_code_widget",
+		Method:     "UpdateCodeWidget",
+		Title:      "Update Code Widget",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Update a code widget's content, language, title, line numbers, size, or parent frame. Uses v2-experimental API. May change or become unavailable before GA.
+
+USE WHEN: "change the code in that widget", "fix the snippet", "retitle the code block"
+
+NOTE: To move the widget to a new position, use miro_move_code_widget instead. Omitted fields keep their current values.
+
+RETURNS: Confirmation with widget ID.`,
+	},
+	{
+		Name:       "miro_move_code_widget",
+		Method:     "MoveCodeWidget",
+		Title:      "Move Code Widget",
+		Category:   "update",
+		Idempotent: true,
+		Description: `Move a code widget to a new x/y position on the board. Uses v2-experimental API. May change or become unavailable before GA.
+
+USE WHEN: "move the code widget", "reposition that snippet"
+
+NOTE: Position only (center origin). To change content or size, use miro_update_code_widget instead.
+
+RETURNS: Confirmation with widget ID and new coordinates.`,
+	},
+	{
+		Name:        "miro_delete_code_widget",
+		Method:      "DeleteCodeWidget",
+		Title:       "Delete Code Widget",
+		Category:    "delete",
+		Destructive: true,
+		Description: `Delete a code widget from a board. Uses v2-experimental API. May change or become unavailable before GA.
+
+WARNING: Cannot be undone. Use dry_run=true to preview first.
+
+RETURNS: Confirmation with deleted widget ID.`,
+	},
+
+	// ==========================================================================
 	// Export Tools
 	// ==========================================================================
 	{

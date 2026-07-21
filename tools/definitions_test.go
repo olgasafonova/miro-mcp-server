@@ -126,7 +126,8 @@ func TestToolCount(t *testing.T) {
 	// v1.15.0: -1 miro_ungroup (merged into miro_delete_group) = 88
 	// v1.16.0: +1 update_doc + 2 table tools (list_tables, get_table) = 91
 	// v1.17.0: +1 miro_tool_search discovery meta-tool = 92
-	expectedCount := 92
+	// v1.22.0: +6 code widget tools (create, get, list, update, move, delete; v2-experimental) = 98
+	expectedCount := 98
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

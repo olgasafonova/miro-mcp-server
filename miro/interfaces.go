@@ -110,6 +110,16 @@ type MindmapService interface {
 	DeleteMindmapNode(ctx context.Context, args DeleteMindmapNodeArgs) (DeleteMindmapNodeResult, error)
 }
 
+// CodeWidgetService handles code widget operations (v2-experimental).
+type CodeWidgetService interface {
+	CreateCodeWidget(ctx context.Context, args CreateCodeWidgetArgs) (CreateCodeWidgetResult, error)
+	GetCodeWidget(ctx context.Context, args GetCodeWidgetArgs) (GetCodeWidgetResult, error)
+	ListCodeWidgets(ctx context.Context, args ListCodeWidgetsArgs) (ListCodeWidgetsResult, error)
+	UpdateCodeWidget(ctx context.Context, args UpdateCodeWidgetArgs) (UpdateCodeWidgetResult, error)
+	MoveCodeWidget(ctx context.Context, args MoveCodeWidgetArgs) (MoveCodeWidgetResult, error)
+	DeleteCodeWidget(ctx context.Context, args DeleteCodeWidgetArgs) (DeleteCodeWidgetResult, error)
+}
+
 // FrameService handles frame-specific operations (beyond create).
 type FrameService interface {
 	GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error)
@@ -180,6 +190,7 @@ type MiroClient interface {
 	GroupService
 	MemberService
 	MindmapService
+	CodeWidgetService
 	FrameService
 	TokenService
 	ExportService

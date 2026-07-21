@@ -429,25 +429,30 @@ sequenceDiagram
 
 ## Official vs Community
 
-Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025. Here's how they compare:
+Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025 and has grown it substantially since. Comparison refreshed 21-07-2026 against their [current tool documentation](https://developers.miro.com/docs/miro-mcp-prompts) (31 documented tools):
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Last changelog entry** | April 2026 | January 2026 |
-| **Tools** | 98 (or 15 in `essentials` profile) | 13 |
-| **Transport** | stdio + HTTP | HTTPS only (hosted) |
+| **Tools** | 98 (or 15 in `essentials` profile) | 31 |
+| **Transport** | stdio + HTTP | HTTPS only (hosted at mcp.miro.com) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
-| **Auth** | Token + OAuth2 | OAuth 2.1 (admin approval) |
-| **Diagram generation** | Mermaid syntax | Custom DSL (flowchart, UML, ER) |
-| **AI context** | No | Yes (exploration, summaries, code workflows) |
-| **Bulk operations** | Yes | No |
+| **Auth** | Token + OAuth2 | OAuth 2.1, dynamic client registration (Enterprise orgs need admin enablement) |
+| **Diagram generation** | Mermaid syntax | Custom DSL (architecture, sequence, ER) |
+| **AI context** | No | Yes (context_explore, context_get) |
+| **Code widgets** | 6 tools incl. position move (v2-experimental) | 5 tools (no move) |
+| **Comments** | No | Yes (list, reply, resolve) |
+| **Docs & Tables** | Doc formats + table read | Doc create/update + table create/sync |
+| **Prototypes** | No | Yes (read, create) |
+| **Bulk operations** | Yes | Partial (table_sync_rows upsert only) |
 | **Mindmaps** | Yes | No |
 | **Tags & Groups** | Yes | No |
 | **Connectors CRUD** | Yes | No |
+| **Item-level CRUD** | Yes (sticky, shape, text, card, image, document, embed, frame) | Layout DSL, not per-item verbs |
+| **Board sharing / members** | Yes (allowlist-gated) | No |
 | **Export** | Yes (PDF/SVG) | No |
 | **MCP Resources** | 3 | No |
-| **MCP Prompts** | 5 workflows | 2 (code-focused) |
+| **MCP Prompts** | 5 workflows | Bundled agent skills (browse, code-review, diagram, doc, table) |
 | **Runtime** | Single Go binary | Hosted (closed-source) |
 | **Rate limiting** | Adaptive | N/A (hosted) |
 | **Caching** | Built-in (2min TTL) | N/A |
@@ -456,7 +461,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, AI-powered board context extraction, or code-to-board workflows.
 
-**When to use this server:** You need full API coverage (98 vs 13 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
+**When to use this server:** You need full API coverage (98 vs 31 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
 
 Both can coexist — use different MCP server names in your config.
 

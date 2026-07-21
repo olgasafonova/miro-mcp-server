@@ -100,6 +100,14 @@ type MockClient struct {
 	ListMindmapNodesFn  func(ctx context.Context, args miro.ListMindmapNodesArgs) (miro.ListMindmapNodesResult, error)
 	DeleteMindmapNodeFn func(ctx context.Context, args miro.DeleteMindmapNodeArgs) (miro.DeleteMindmapNodeResult, error)
 
+	// Code widget operations
+	CreateCodeWidgetFn func(ctx context.Context, args miro.CreateCodeWidgetArgs) (miro.CreateCodeWidgetResult, error)
+	GetCodeWidgetFn    func(ctx context.Context, args miro.GetCodeWidgetArgs) (miro.GetCodeWidgetResult, error)
+	ListCodeWidgetsFn  func(ctx context.Context, args miro.ListCodeWidgetsArgs) (miro.ListCodeWidgetsResult, error)
+	UpdateCodeWidgetFn func(ctx context.Context, args miro.UpdateCodeWidgetArgs) (miro.UpdateCodeWidgetResult, error)
+	MoveCodeWidgetFn   func(ctx context.Context, args miro.MoveCodeWidgetArgs) (miro.MoveCodeWidgetResult, error)
+	DeleteCodeWidgetFn func(ctx context.Context, args miro.DeleteCodeWidgetArgs) (miro.DeleteCodeWidgetResult, error)
+
 	// Frame operations (beyond create)
 	GetFrameFn      func(ctx context.Context, args miro.GetFrameArgs) (miro.GetFrameResult, error)
 	UpdateFrameFn   func(ctx context.Context, args miro.UpdateFrameArgs) (miro.UpdateFrameResult, error)
@@ -1112,6 +1120,91 @@ func (m *MockClient) DeleteMindmapNode(ctx context.Context, args miro.DeleteMind
 		Success: true,
 		ID:      args.NodeID,
 		Message: "Mindmap node deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// CodeWidgetService Implementation
+// =============================================================================
+
+func (m *MockClient) CreateCodeWidget(ctx context.Context, args miro.CreateCodeWidgetArgs) (miro.CreateCodeWidgetResult, error) {
+	m.recordCall("CreateCodeWidget", args)
+	if m.CreateCodeWidgetFn != nil {
+		return m.CreateCodeWidgetFn(ctx, args)
+	}
+	return miro.CreateCodeWidgetResult{
+		ID:       "code-widget-123",
+		Title:    args.Title,
+		Language: args.Language,
+		Message:  "Created code widget 'test'",
+	}, nil
+}
+
+func (m *MockClient) GetCodeWidget(ctx context.Context, args miro.GetCodeWidgetArgs) (miro.GetCodeWidgetResult, error) {
+	m.recordCall("GetCodeWidget", args)
+	if m.GetCodeWidgetFn != nil {
+		return m.GetCodeWidgetFn(ctx, args)
+	}
+	return miro.GetCodeWidgetResult{
+		ID:       args.ItemID,
+		Code:     `console.log("hello");`,
+		Language: "javascript",
+		Title:    "Test Snippet",
+		X:        100,
+		Y:        200,
+		Message:  fmt.Sprintf("Retrieved code widget %s", args.ItemID),
+	}, nil
+}
+
+func (m *MockClient) ListCodeWidgets(ctx context.Context, args miro.ListCodeWidgetsArgs) (miro.ListCodeWidgetsResult, error) {
+	m.recordCall("ListCodeWidgets", args)
+	if m.ListCodeWidgetsFn != nil {
+		return m.ListCodeWidgetsFn(ctx, args)
+	}
+	return miro.ListCodeWidgetsResult{
+		Widgets: []miro.CodeWidgetSummary{
+			{ID: "cw-1", Title: "Snippet A", Language: "go", CodePreview: "package main"},
+			{ID: "cw-2", Title: "Snippet B", Language: "python", CodePreview: "print('hi')"},
+		},
+		Count:   2,
+		HasMore: false,
+		Message: "Found 2 code widgets",
+	}, nil
+}
+
+func (m *MockClient) UpdateCodeWidget(ctx context.Context, args miro.UpdateCodeWidgetArgs) (miro.UpdateCodeWidgetResult, error) {
+	m.recordCall("UpdateCodeWidget", args)
+	if m.UpdateCodeWidgetFn != nil {
+		return m.UpdateCodeWidgetFn(ctx, args)
+	}
+	return miro.UpdateCodeWidgetResult{
+		ID:      args.ItemID,
+		Message: "Code widget updated successfully",
+	}, nil
+}
+
+func (m *MockClient) MoveCodeWidget(ctx context.Context, args miro.MoveCodeWidgetArgs) (miro.MoveCodeWidgetResult, error) {
+	m.recordCall("MoveCodeWidget", args)
+	if m.MoveCodeWidgetFn != nil {
+		return m.MoveCodeWidgetFn(ctx, args)
+	}
+	return miro.MoveCodeWidgetResult{
+		ID:      args.ItemID,
+		X:       args.X,
+		Y:       args.Y,
+		Message: "Moved code widget to (100, 200)",
+	}, nil
+}
+
+func (m *MockClient) DeleteCodeWidget(ctx context.Context, args miro.DeleteCodeWidgetArgs) (miro.DeleteCodeWidgetResult, error) {
+	m.recordCall("DeleteCodeWidget", args)
+	if m.DeleteCodeWidgetFn != nil {
+		return m.DeleteCodeWidgetFn(ctx, args)
+	}
+	return miro.DeleteCodeWidgetResult{
+		Success: true,
+		ID:      args.ItemID,
+		Message: "Code widget deleted successfully",
 	}, nil
 }
 

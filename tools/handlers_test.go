@@ -776,6 +776,98 @@ func TestCreateMindmapNodeHandler(t *testing.T) {
 }
 
 // =============================================================================
+// Code Widget Handler Tests
+// =============================================================================
+
+func TestCodeWidgetHandlers(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("create", func(t *testing.T) {
+		mock := &MockClient{}
+		result, err := mock.CreateCodeWidget(ctx, miro.CreateCodeWidgetArgs{
+			BoardID:  "board123",
+			Code:     `fmt.Println("hi")`,
+			Language: "go",
+			Title:    "Snippet",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.ID == "" {
+			t.Error("ID should not be empty")
+		}
+		if len(mock.Calls) != 1 || mock.Calls[0].Method != "CreateCodeWidget" {
+			t.Errorf("expected one recorded CreateCodeWidget call, got %+v", mock.Calls)
+		}
+	})
+
+	t.Run("get returns full code", func(t *testing.T) {
+		mock := &MockClient{}
+		result, err := mock.GetCodeWidget(ctx, miro.GetCodeWidgetArgs{BoardID: "board123", ItemID: "cw-1"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.Code == "" {
+			t.Error("Code should not be empty")
+		}
+	})
+
+	t.Run("list returns summaries", func(t *testing.T) {
+		mock := &MockClient{}
+		result, err := mock.ListCodeWidgets(ctx, miro.ListCodeWidgetsArgs{BoardID: "board123"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.Count != len(result.Widgets) {
+			t.Errorf("Count = %d, widgets = %d", result.Count, len(result.Widgets))
+		}
+	})
+
+	t.Run("update", func(t *testing.T) {
+		mock := &MockClient{}
+		result, err := mock.UpdateCodeWidget(ctx, miro.UpdateCodeWidgetArgs{
+			BoardID: "board123",
+			ItemID:  "cw-1",
+			Code:    "updated",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.ID != "cw-1" {
+			t.Errorf("ID = %q, want 'cw-1'", result.ID)
+		}
+	})
+
+	t.Run("move echoes coordinates", func(t *testing.T) {
+		mock := &MockClient{}
+		result, err := mock.MoveCodeWidget(ctx, miro.MoveCodeWidgetArgs{
+			BoardID: "board123",
+			ItemID:  "cw-1",
+			X:       50,
+			Y:       -25,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result.X != 50 || result.Y != -25 {
+			t.Errorf("position = (%v, %v), want (50, -25)", result.X, result.Y)
+		}
+	})
+
+	t.Run("delete propagates errors", func(t *testing.T) {
+		mock := &MockClient{
+			DeleteCodeWidgetFn: func(ctx context.Context, args miro.DeleteCodeWidgetArgs) (miro.DeleteCodeWidgetResult, error) {
+				return miro.DeleteCodeWidgetResult{Success: false, ID: args.ItemID}, errors.New("simulated API failure")
+			},
+		}
+		_, err := mock.DeleteCodeWidget(ctx, miro.DeleteCodeWidgetArgs{BoardID: "board123", ItemID: "cw-1"})
+		if err == nil {
+			t.Fatal("expected error to propagate")
+		}
+	})
+}
+
+// =============================================================================
 // Error Handling Tests
 // =============================================================================
 

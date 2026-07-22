@@ -340,6 +340,10 @@ func bearerTokenMiddleware(token string) func(http.Handler) http.Handler {
 
 // runHTTPServer starts the MCP server with HTTP transport and graceful shutdown.
 func runHTTPServer(opts httpServerOpts) {
+	if err := validateHTTPSecurity(opts.addr, opts.bearerToken); err != nil {
+		log.Fatalf("HTTP security validation failed: %v", err)
+	}
+
 	mux := buildHTTPMux(opts)
 
 	httpServer := &http.Server{
@@ -436,14 +440,37 @@ func wrapNoStore(next http.Handler) http.Handler {
 	})
 }
 
+// isLoopbackAddr reports whether addr binds only the local loopback interface.
+// A bare port (":8080") or "0.0.0.0" binds all interfaces and is treated as
+// externally reachable. IPv6 loopback is deliberately not special-cased: when
+// in doubt, the address is treated as external so authentication is required.
+func isLoopbackAddr(addr string) bool {
+	return strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "localhost")
+}
+
+// validateHTTPSecurity refuses to start an externally-reachable HTTP server that
+// has no authentication configured. Binding to a non-loopback interface without
+// a bearer token would expose every tool unauthenticated, so it is a startup
+// error rather than a warning. Loopback binds keep the softer warn-and-start
+// behavior for local development (see logHTTPSecurityWarnings).
+func validateHTTPSecurity(addr, bearerToken string) error {
+	if isLoopbackAddr(addr) || bearerToken != "" {
+		return nil
+	}
+	return fmt.Errorf("refusing to start: HTTP server binds to non-loopback address %q without --bearer-token; "+
+		"set --bearer-token to require authentication, or bind to 127.0.0.1/localhost for local-only access", addr)
+}
+
 // logHTTPSecurityWarnings emits warnings about exposed-but-unauthenticated
-// configurations: missing bearer token, or binding to a non-loopback interface.
+// configurations that are permitted but still worth flagging. The fail-closed
+// non-loopback + no-token case is rejected earlier by validateHTTPSecurity, so
+// a missing token here only ever means a loopback bind.
 func logHTTPSecurityWarnings(opts httpServerOpts) {
 	if opts.bearerToken == "" {
-		opts.logger.Warn("HTTP mode without --bearer-token. All tools accessible without authentication.")
+		opts.logger.Warn("HTTP mode without --bearer-token on a loopback bind. Tools are accessible without authentication to local processes.")
 	}
-	if !strings.HasPrefix(opts.addr, "127.0.0.1") && !strings.HasPrefix(opts.addr, "localhost") {
-		opts.logger.Warn("Server binding to external interface. Ensure you're behind HTTPS proxy in production.")
+	if !isLoopbackAddr(opts.addr) {
+		opts.logger.Warn("Server binding to external interface. Ensure you're behind an HTTPS proxy in production.")
 	}
 }
 

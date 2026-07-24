@@ -12,15 +12,9 @@ import (
 // Text Operations - Create, Update
 // =============================================================================
 
-// CreateText creates a text item on a board.
-func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTextResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return CreateTextResult{}, err
-	}
-	if args.Content == "" {
-		return CreateTextResult{}, fmt.Errorf("content is required")
-	}
-
+// buildCreateTextBody assembles the POST body for a text create, including
+// the optional style, geometry, and parent sections.
+func buildCreateTextBody(args CreateTextArgs) (map[string]interface{}, error) {
 	reqBody := map[string]interface{}{
 		"data": map[string]interface{}{
 			"content": args.Content,
@@ -32,16 +26,9 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 		},
 	}
 
-	style := make(map[string]interface{})
-	if args.FontSize > 0 {
-		style["fontSize"] = strconv.Itoa(args.FontSize)
-	}
-	if args.Color != "" {
-		color, err := normalizeColor(args.Color)
-		if err != nil {
-			return CreateTextResult{}, fmt.Errorf("color: %w", err)
-		}
-		style["color"] = color
+	style, err := buildCreateTextStyle(args)
+	if err != nil {
+		return nil, err
 	}
 	if len(style) > 0 {
 		reqBody["style"] = style
@@ -52,11 +39,60 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 			"width": args.Width,
 		}
 	}
-
 	if args.ParentID != "" {
 		reqBody["parent"] = map[string]interface{}{
 			"id": args.ParentID,
 		}
+	}
+	return reqBody, nil
+}
+
+// buildCreateTextStyle assembles the optional style block for a text create
+// by lifting the set fields into the shared optional-style builder.
+func buildCreateTextStyle(args CreateTextArgs) (map[string]interface{}, error) {
+	var fontSize *int
+	if args.FontSize > 0 {
+		fontSize = &args.FontSize
+	}
+	var color *string
+	if args.Color != "" {
+		color = &args.Color
+	}
+	return textStyle(fontSize, nil, color)
+}
+
+// textStyle builds a style map from the optional font size, alignment, and
+// color shared by text create and update.
+func textStyle(fontSize *int, textAlign, color *string) (map[string]interface{}, error) {
+	style := make(map[string]interface{})
+	if fontSize != nil {
+		style["fontSize"] = strconv.Itoa(*fontSize)
+	}
+	if textAlign != nil {
+		style["textAlign"] = *textAlign
+	}
+	if color != nil {
+		normalized, err := normalizeColor(*color)
+		if err != nil {
+			return nil, fmt.Errorf("color: %w", err)
+		}
+		style["color"] = normalized
+	}
+	return style, nil
+}
+
+// CreateText creates a text item on a board.
+func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTextResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateTextResult{}, err
+	}
+	if args.Content == "" {
+		return CreateTextResult{}, fmt.Errorf("content is required")
+	}
+
+	reqBody, err := buildCreateTextBody(args)
+	if err != nil {
+		return CreateTextResult{}, err
 	}
 
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/texts", reqBody)
@@ -82,21 +118,7 @@ func (c *Client) CreateText(ctx context.Context, args CreateTextArgs) (CreateTex
 
 // buildTextStyleSection returns the optional "style" map for a text update.
 func buildTextStyleSection(args UpdateTextArgs) (map[string]interface{}, error) {
-	style := make(map[string]interface{})
-	if args.FontSize != nil {
-		style["fontSize"] = fmt.Sprintf("%d", *args.FontSize)
-	}
-	if args.TextAlign != nil {
-		style["textAlign"] = *args.TextAlign
-	}
-	if args.Color != nil {
-		color, err := normalizeColor(*args.Color)
-		if err != nil {
-			return nil, fmt.Errorf("color: %w", err)
-		}
-		style["color"] = color
-	}
-	return style, nil
+	return textStyle(args.FontSize, args.TextAlign, args.Color)
 }
 
 // buildPositionSection returns the optional "position" map when X or Y is set.

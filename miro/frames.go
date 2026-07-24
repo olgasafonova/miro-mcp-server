@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // =============================================================================
@@ -96,40 +95,27 @@ func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResul
 		return GetFrameResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	result := GetFrameResult{
-		ID:      frame.ID,
-		Title:   frame.Data.Title,
-		Message: fmt.Sprintf("Retrieved frame '%s'", frame.Data.Title),
-	}
+	return frameDetails(frame), nil
+}
 
-	// Extract position
+// frameDetails projects a full frame object onto the get result.
+func frameDetails(frame Frame) GetFrameResult {
+	result := GetFrameResult{
+		ID:         frame.ID,
+		Title:      frame.Data.Title,
+		Color:      frame.Style.FillColor,
+		ChildCount: len(frame.Children),
+		CreatedAt:  formatTimestamp(frame.CreatedAt),
+		ModifiedAt: formatTimestamp(frame.ModifiedAt),
+		Message:    fmt.Sprintf("Retrieved frame '%s'", frame.Data.Title),
+	}
 	if frame.Position != nil {
 		result.X = frame.Position.X
 		result.Y = frame.Position.Y
 	}
-
-	// Extract geometry
 	if frame.Geometry != nil {
 		result.Width = frame.Geometry.Width
 		result.Height = frame.Geometry.Height
-	}
-
-	// Extract style
-	if frame.Style.FillColor != "" {
-		result.Color = frame.Style.FillColor
-	}
-
-	// Count children if available
-	if len(frame.Children) > 0 {
-		result.ChildCount = len(frame.Children)
-	}
-
-	// Format timestamps
-	if !frame.CreatedAt.IsZero() {
-		result.CreatedAt = frame.CreatedAt.Format(time.RFC3339)
-	}
-	if !frame.ModifiedAt.IsZero() {
-		result.ModifiedAt = frame.ModifiedAt.Format(time.RFC3339)
 	}
 	if frame.CreatedBy != nil {
 		result.CreatedBy = frame.CreatedBy.ID
@@ -137,8 +123,58 @@ func (c *Client) GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResul
 	if frame.ModifiedBy != nil {
 		result.ModifiedBy = frame.ModifiedBy.ID
 	}
+	return result
+}
 
-	return result, nil
+// buildUpdateFrameBody assembles the request body for a frame update; an
+// empty map means no updatable field was supplied.
+func buildUpdateFrameBody(args UpdateFrameArgs) (map[string]interface{}, error) {
+	reqBody := make(map[string]interface{})
+	if args.Title != nil {
+		reqBody["data"] = map[string]interface{}{
+			"title": *args.Title,
+		}
+	}
+	if position := buildOptionalPointBody(args.X, args.Y); len(position) > 0 {
+		reqBody["position"] = position
+	}
+	if geometry := buildOptionalSizeBody(args.Width, args.Height); len(geometry) > 0 {
+		reqBody["geometry"] = geometry
+	}
+	if args.Color != nil {
+		fillColor, err := normalizeColor(*args.Color)
+		if err != nil {
+			return nil, fmt.Errorf("color: %w", err)
+		}
+		reqBody["style"] = map[string]interface{}{
+			"fillColor": fillColor,
+		}
+	}
+	return reqBody, nil
+}
+
+// buildOptionalPointBody collects the position fields that were supplied.
+func buildOptionalPointBody(x, y *float64) map[string]interface{} {
+	position := make(map[string]interface{})
+	if x != nil {
+		position["x"] = *x
+	}
+	if y != nil {
+		position["y"] = *y
+	}
+	return position
+}
+
+// buildOptionalSizeBody collects the geometry fields that were supplied.
+func buildOptionalSizeBody(width, height *float64) map[string]interface{} {
+	geometry := make(map[string]interface{})
+	if width != nil {
+		geometry["width"] = *width
+	}
+	if height != nil {
+		geometry["height"] = *height
+	}
+	return geometry
 }
 
 // UpdateFrame updates an existing frame.
@@ -150,58 +186,16 @@ func (c *Client) UpdateFrame(ctx context.Context, args UpdateFrameArgs) (UpdateF
 		return UpdateFrameResult{}, fmt.Errorf("frame_id is required")
 	}
 
-	reqBody := make(map[string]interface{})
-
-	// Build data object for title
-	if args.Title != nil {
-		reqBody["data"] = map[string]interface{}{
-			"title": *args.Title,
-		}
+	reqBody, err := buildUpdateFrameBody(args)
+	if err != nil {
+		return UpdateFrameResult{}, err
 	}
-
-	// Build position object
-	position := make(map[string]interface{})
-	if args.X != nil {
-		position["x"] = *args.X
-	}
-	if args.Y != nil {
-		position["y"] = *args.Y
-	}
-	if len(position) > 0 {
-		reqBody["position"] = position
-	}
-
-	// Build geometry object
-	geometry := make(map[string]interface{})
-	if args.Width != nil {
-		geometry["width"] = *args.Width
-	}
-	if args.Height != nil {
-		geometry["height"] = *args.Height
-	}
-	if len(geometry) > 0 {
-		reqBody["geometry"] = geometry
-	}
-
-	// Build style object
-	if args.Color != nil {
-		fillColor, err := normalizeColor(*args.Color)
-		if err != nil {
-			return UpdateFrameResult{}, fmt.Errorf("color: %w", err)
-		}
-		reqBody["style"] = map[string]interface{}{
-			"fillColor": fillColor,
-		}
-	}
-
-	// If nothing to update, return error
 	if len(reqBody) == 0 {
 		return UpdateFrameResult{}, fmt.Errorf("at least one update field is required")
 	}
 
 	path := fmt.Sprintf("/boards/%s/frames/%s", args.BoardID, args.FrameID)
-	_, err := c.request(ctx, http.MethodPatch, path, reqBody)
-	if err != nil {
+	if _, err := c.request(ctx, http.MethodPatch, path, reqBody); err != nil {
 		return UpdateFrameResult{}, err
 	}
 
@@ -263,13 +257,7 @@ func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (Get
 		return GetFrameItemsResult{}, fmt.Errorf("frame_id is required")
 	}
 
-	limit := args.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 100 {
-		limit = 100
-	}
+	limit := clampFrameItemsLimit(args.Limit)
 
 	// Use the items endpoint with parent_item_id filter to get items within a frame.
 	// The /frames/{id}/items path does not exist in Miro API v2 and returns 404.
@@ -295,24 +283,38 @@ func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (Get
 		return GetFrameItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Check if full details are requested
-	fullDetails := strings.EqualFold(args.DetailLevel, "full")
+	items := parseFrameItems(resp.Data, strings.EqualFold(args.DetailLevel, "full"))
 
-	// Parse items into summaries using shared helper
-	items := make([]ItemSummary, 0, len(resp.Data))
-	for _, raw := range resp.Data {
+	return GetFrameItemsResult{
+		Items:   items,
+		Count:   len(items),
+		HasMore: resp.Cursor != "",
+		Cursor:  resp.Cursor,
+		Message: fmt.Sprintf("Found %d items in frame", len(items)),
+	}, nil
+}
+
+// clampFrameItemsLimit normalizes a requested page size to the items
+// endpoint's bounds.
+func clampFrameItemsLimit(limit int) int {
+	if limit <= 0 {
+		return 50
+	}
+	if limit > 100 {
+		return 100
+	}
+	return limit
+}
+
+// parseFrameItems converts raw item entries into summaries using the shared
+// helper, skipping entries that fail to parse.
+func parseFrameItems(entries []json.RawMessage, fullDetails bool) []ItemSummary {
+	items := make([]ItemSummary, 0, len(entries))
+	for _, raw := range entries {
 		item := parseItemSummary(raw, fullDetails)
 		if item.ID != "" {
 			items = append(items, item)
 		}
 	}
-
-	hasMore := resp.Cursor != ""
-	return GetFrameItemsResult{
-		Items:   items,
-		Count:   len(items),
-		HasMore: hasMore,
-		Cursor:  resp.Cursor,
-		Message: fmt.Sprintf("Found %d items in frame", len(items)),
-	}, nil
+	return items
 }

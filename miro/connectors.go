@@ -12,22 +12,43 @@ import (
 // Connector Operations - List, Get, Create, Update, Delete
 // =============================================================================
 
+// clampConnectorLimit normalizes a requested page size to the connector
+// endpoint's bounds (Miro API minimum 10, maximum 100).
+func clampConnectorLimit(limit int) int {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit < 10 {
+		return 10
+	}
+	if limit > 100 {
+		return 100
+	}
+	return limit
+}
+
+// summarizeConnectors projects full connector objects to list summaries.
+func summarizeConnectors(data []Connector) []ConnectorSummary {
+	connectors := make([]ConnectorSummary, len(data))
+	for i, c := range data {
+		connectors[i] = ConnectorSummary{
+			ID:          c.ID,
+			StartItemID: c.StartItem.ItemID,
+			EndItemID:   c.EndItem.ItemID,
+			Style:       c.Shape,
+			Caption:     extractCaption(c.Captions),
+		}
+	}
+	return connectors
+}
+
 // ListConnectors returns a list of connectors on a board.
 func (c *Client) ListConnectors(ctx context.Context, args ListConnectorsArgs) (ListConnectorsResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
 		return ListConnectorsResult{}, err
 	}
 
-	limit := args.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit < 10 {
-		limit = 10 // Miro API minimum for connectors
-	}
-	if limit > 100 {
-		limit = 100
-	}
+	limit := clampConnectorLimit(args.Limit)
 
 	path := fmt.Sprintf("/boards/%s/connectors?limit=%d", args.BoardID, limit)
 	if args.Cursor != "" {
@@ -48,22 +69,12 @@ func (c *Client) ListConnectors(ctx context.Context, args ListConnectorsArgs) (L
 		return ListConnectorsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	connectors := make([]ConnectorSummary, len(resp.Data))
-	for i, c := range resp.Data {
-		connectors[i] = ConnectorSummary{
-			ID:          c.ID,
-			StartItemID: c.StartItem.ItemID,
-			EndItemID:   c.EndItem.ItemID,
-			Style:       c.Shape,
-			Caption:     extractCaption(c.Captions),
-		}
-	}
+	connectors := summarizeConnectors(resp.Data)
 
-	hasMore := resp.Cursor != ""
 	return ListConnectorsResult{
 		Connectors: connectors,
 		Count:      len(connectors),
-		HasMore:    hasMore,
+		HasMore:    resp.Cursor != "",
 		Cursor:     resp.Cursor,
 		Message:    fmt.Sprintf("Found %d connectors", len(connectors)),
 	}, nil
@@ -97,47 +108,39 @@ func (c *Client) GetConnector(ctx context.Context, args GetConnectorArgs) (GetCo
 		return GetConnectorResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	return connectorDetails(connector), nil
+}
+
+// connectorDetails projects a full connector object onto the get result,
+// including optional style details and formatted timestamps.
+func connectorDetails(connector Connector) GetConnectorResult {
 	result := GetConnectorResult{
 		ID:          connector.ID,
 		StartItemID: connector.StartItem.ItemID,
 		EndItemID:   connector.EndItem.ItemID,
 		Style:       connector.Shape,
 		Caption:     extractCaption(connector.Captions),
+		StartCap:    connector.Style.StartStrokeCap,
+		EndCap:      connector.Style.EndStrokeCap,
+		Color:       connector.Style.Color,
 		Message:     "Retrieved connector details",
 	}
-
-	// Extract style details if present
-	if connector.Style.StartStrokeCap != "" {
-		result.StartCap = connector.Style.StartStrokeCap
-	}
-	if connector.Style.EndStrokeCap != "" {
-		result.EndCap = connector.Style.EndStrokeCap
-	}
-	if connector.Style.Color != "" {
-		result.Color = connector.Style.Color
-	}
-
-	// Format timestamps
-	if !connector.CreatedAt.IsZero() {
-		result.CreatedAt = connector.CreatedAt.Format(time.RFC3339)
-	}
-	if !connector.ModifiedAt.IsZero() {
-		result.ModifiedAt = connector.ModifiedAt.Format(time.RFC3339)
-	}
-
-	return result, nil
+	result.CreatedAt = formatTimestamp(connector.CreatedAt)
+	result.ModifiedAt = formatTimestamp(connector.ModifiedAt)
+	return result
 }
 
-// CreateConnector creates a connector between two items.
-func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) (CreateConnectorResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return CreateConnectorResult{}, err
+// formatTimestamp renders a timestamp as RFC3339, or empty when unset.
+func formatTimestamp(t time.Time) string {
+	if t.IsZero() {
+		return ""
 	}
-	if args.StartItemID == "" || args.EndItemID == "" {
-		return CreateConnectorResult{}, fmt.Errorf("start_item_id and end_item_id are required")
-	}
+	return t.Format(time.RFC3339)
+}
 
-	// Default style
+// buildCreateConnectorBody assembles the request body for a connector
+// create call, applying the default shape and end cap.
+func buildCreateConnectorBody(args CreateConnectorArgs) map[string]interface{} {
 	style := args.Style
 	if style == "" {
 		style = "elbowed"
@@ -162,16 +165,26 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 	} else {
 		connectorStyle["endStrokeCap"] = "arrow" // Default arrow at end
 	}
-	if len(connectorStyle) > 0 {
-		reqBody["style"] = connectorStyle
-	}
+	reqBody["style"] = connectorStyle
 
 	if args.Caption != "" {
 		reqBody["captions"] = []map[string]interface{}{
 			{"content": args.Caption},
 		}
 	}
+	return reqBody
+}
 
+// CreateConnector creates a connector between two items.
+func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) (CreateConnectorResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateConnectorResult{}, err
+	}
+	if args.StartItemID == "" || args.EndItemID == "" {
+		return CreateConnectorResult{}, fmt.Errorf("start_item_id and end_item_id are required")
+	}
+
+	reqBody := buildCreateConnectorBody(args)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/connectors", reqBody)
 	if err != nil {
 		return CreateConnectorResult{}, err
@@ -192,23 +205,32 @@ func (c *Client) CreateConnector(ctx context.Context, args CreateConnectorArgs) 
 	}, nil
 }
 
-// UpdateConnector updates an existing connector.
-func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) (UpdateConnectorResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateConnectorResult{}, err
-	}
-	if args.ConnectorID == "" {
-		return UpdateConnectorResult{}, fmt.Errorf("connector_id is required")
-	}
-
+// buildUpdateConnectorBody assembles the request body for a connector
+// update call; an empty map means no updatable field was supplied.
+func buildUpdateConnectorBody(args UpdateConnectorArgs) (map[string]interface{}, error) {
 	reqBody := make(map[string]interface{})
-
-	// Set shape (style) if provided
 	if args.Style != "" {
 		reqBody["shape"] = args.Style
 	}
 
-	// Build style object for caps and color
+	connectorStyle, err := buildConnectorStyle(args)
+	if err != nil {
+		return nil, err
+	}
+	if len(connectorStyle) > 0 {
+		reqBody["style"] = connectorStyle
+	}
+
+	if args.Caption != "" {
+		reqBody["captions"] = []map[string]interface{}{
+			{"content": args.Caption},
+		}
+	}
+	return reqBody, nil
+}
+
+// buildConnectorStyle assembles the caps-and-color style block for an update.
+func buildConnectorStyle(args UpdateConnectorArgs) (map[string]interface{}, error) {
 	connectorStyle := make(map[string]interface{})
 	if args.StartCap != "" {
 		connectorStyle["startStrokeCap"] = args.StartCap
@@ -219,30 +241,33 @@ func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) 
 	if args.Color != "" {
 		strokeColor, err := normalizeColor(args.Color)
 		if err != nil {
-			return UpdateConnectorResult{}, fmt.Errorf("color: %w", err)
+			return nil, fmt.Errorf("color: %w", err)
 		}
 		connectorStyle["strokeColor"] = strokeColor
 	}
-	if len(connectorStyle) > 0 {
-		reqBody["style"] = connectorStyle
+	return connectorStyle, nil
+}
+
+// UpdateConnector updates an existing connector.
+func (c *Client) UpdateConnector(ctx context.Context, args UpdateConnectorArgs) (UpdateConnectorResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return UpdateConnectorResult{}, err
+	}
+	if args.ConnectorID == "" {
+		return UpdateConnectorResult{}, fmt.Errorf("connector_id is required")
 	}
 
-	// Set caption if provided
-	if args.Caption != "" {
-		reqBody["captions"] = []map[string]interface{}{
-			{"content": args.Caption},
-		}
+	reqBody, err := buildUpdateConnectorBody(args)
+	if err != nil {
+		return UpdateConnectorResult{}, err
 	}
-
-	// If nothing to update, return error
 	if len(reqBody) == 0 {
 		return UpdateConnectorResult{}, fmt.Errorf("at least one update field is required")
 	}
 
 	path := fmt.Sprintf("/boards/%s/connectors/%s", args.BoardID, args.ConnectorID)
 
-	_, err := c.request(ctx, http.MethodPatch, path, reqBody)
-	if err != nil {
+	if _, err := c.request(ctx, http.MethodPatch, path, reqBody); err != nil {
 		return UpdateConnectorResult{}, err
 	}
 

@@ -11,6 +11,36 @@ import (
 // Document Operations - Create, Get, Update
 // =============================================================================
 
+// buildCreateDocumentBody assembles the POST body for a document create.
+func buildCreateDocumentBody(args CreateDocumentArgs) map[string]interface{} {
+	data := map[string]interface{}{
+		"url": args.URL,
+	}
+	if args.Title != "" {
+		data["title"] = args.Title
+	}
+
+	reqBody := map[string]interface{}{
+		"data": data,
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+	}
+	if args.Width > 0 {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": args.Width,
+		}
+	}
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+	return reqBody
+}
+
 // CreateDocument creates a document on a board from a URL.
 func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (CreateDocumentResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -20,34 +50,7 @@ func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (C
 		return CreateDocumentResult{}, fmt.Errorf("url is required")
 	}
 
-	reqBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"url": args.URL,
-		},
-		"position": map[string]interface{}{
-			"x":      args.X,
-			"y":      args.Y,
-			"origin": "center",
-		},
-	}
-
-	if args.Title != "" {
-		data := reqBody["data"].(map[string]interface{})
-		data["title"] = args.Title
-	}
-
-	if args.Width > 0 {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": args.Width,
-		}
-	}
-
-	if args.ParentID != "" {
-		reqBody["parent"] = map[string]interface{}{
-			"id": args.ParentID,
-		}
-	}
-
+	reqBody := buildCreateDocumentBody(args)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/documents", reqBody)
 	if err != nil {
 		return CreateDocumentResult{}, err
@@ -95,26 +98,37 @@ func (c *Client) GetDocument(ctx context.Context, args GetDocumentArgs) (GetDocu
 		return GetDocumentResult{}, err
 	}
 
-	var resp struct {
-		ID       string `json:"id"`
-		Position *struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-		} `json:"position"`
-		Geometry *struct {
-			Width  float64 `json:"width"`
-			Height float64 `json:"height"`
-		} `json:"geometry"`
-		Data struct {
-			Title       string `json:"title"`
-			DocumentURL string `json:"documentUrl"`
-		} `json:"data"`
-		ParentID string `json:"parentId"`
-	}
+	var resp documentItemResponse
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return GetDocumentResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	result := documentDetails(resp)
+	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
+
+	return result, nil
+}
+
+// documentItemResponse mirrors the API's document item payload.
+type documentItemResponse struct {
+	ID       string `json:"id"`
+	Position *struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	} `json:"position"`
+	Geometry *struct {
+		Width  float64 `json:"width"`
+		Height float64 `json:"height"`
+	} `json:"geometry"`
+	Data struct {
+		Title       string `json:"title"`
+		DocumentURL string `json:"documentUrl"`
+	} `json:"data"`
+	ParentID string `json:"parentId"`
+}
+
+// documentDetails projects the API payload onto the get result.
+func documentDetails(resp documentItemResponse) GetDocumentResult {
 	result := GetDocumentResult{
 		ID:          resp.ID,
 		Title:       resp.Data.Title,
@@ -130,10 +144,7 @@ func (c *Client) GetDocument(ctx context.Context, args GetDocumentArgs) (GetDocu
 		result.Width = resp.Geometry.Width
 		result.Height = resp.Geometry.Height
 	}
-
-	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
-
-	return result, nil
+	return result
 }
 
 // buildUpdateDocumentBody assembles the PATCH body for a document update.

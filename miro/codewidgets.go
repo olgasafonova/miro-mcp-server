@@ -34,10 +34,22 @@ func wrapExperimentalCodeWidgetErr(err error) error {
 		return nil
 	}
 	var apiErr *APIError
-	if errors.As(err, &apiErr) && (apiErr.IsNotFound() || apiErr.IsForbidden()) {
+	if !errors.As(err, &apiErr) {
+		return err
+	}
+	if isExperimentalAccessDenied(apiErr) {
 		return fmt.Errorf("%w (note: code_widgets is a v2-experimental Miro API and may be unavailable for your account or plan)", err)
 	}
 	return err
+}
+
+// isExperimentalAccessDenied reports whether an API error is the ambiguous
+// 403/404 shape that may indicate missing v2-experimental access.
+func isExperimentalAccessDenied(apiErr *APIError) bool {
+	if apiErr.IsNotFound() {
+		return true
+	}
+	return apiErr.IsForbidden()
 }
 
 // validateCodeWidgetData checks the API-documented field caps shared by
@@ -83,27 +95,66 @@ func buildCodeWidgetData(code, language, title string, lineNumbersVisible *bool)
 	return data
 }
 
-// CreateCodeWidget creates a code widget on a board.
-// Uses the v2-experimental API.
-func (c *Client) CreateCodeWidget(ctx context.Context, args CreateCodeWidgetArgs) (CreateCodeWidgetResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return CreateCodeWidgetResult{}, err
+// validateCodeWidgetWriteArgs checks the ID formats and field caps shared by
+// create and update requests.
+func validateCodeWidgetWriteArgs(boardID, code, title, parentID string) error {
+	if err := ValidateBoardID(boardID); err != nil {
+		return err
+	}
+	if err := validateCodeWidgetData(code, title); err != nil {
+		return err
+	}
+	return validateOptionalParentID(parentID)
+}
+
+// validateCreateCodeWidgetArgs checks required fields and ID formats before
+// a create request is issued.
+func validateCreateCodeWidgetArgs(args CreateCodeWidgetArgs) error {
+	if err := validateCodeWidgetWriteArgs(args.BoardID, args.Code, args.Title, args.ParentID); err != nil {
+		return err
 	}
 	if args.Code == "" {
-		return CreateCodeWidgetResult{}, fmt.Errorf("code is required")
+		return fmt.Errorf("code is required")
 	}
-	if err := validateCodeWidgetData(args.Code, args.Title); err != nil {
-		return CreateCodeWidgetResult{}, err
-	}
-	if args.ParentID != "" {
-		if err := ValidateItemID(args.ParentID); err != nil {
-			return CreateCodeWidgetResult{}, fmt.Errorf("invalid parent_id: %w", err)
-		}
-	}
+	return nil
+}
 
-	reqBody := map[string]interface{}{
-		"data": buildCodeWidgetData(args.Code, args.Language, args.Title, args.LineNumbersVisible),
+// validateOptionalParentID validates a parent item ID when one is supplied.
+func validateOptionalParentID(parentID string) error {
+	if parentID == "" {
+		return nil
 	}
+	if err := ValidateItemID(parentID); err != nil {
+		return fmt.Errorf("invalid parent_id: %w", err)
+	}
+	return nil
+}
+
+// buildCodeWidgetWriteBody assembles the data/geometry/parent fields shared
+// by create and update request bodies.
+func buildCodeWidgetWriteBody(data, geo map[string]interface{}, parentID string) map[string]interface{} {
+	reqBody := map[string]interface{}{}
+	if data != nil {
+		reqBody["data"] = data
+	}
+	if geo != nil {
+		reqBody["geometry"] = geo
+	}
+	if parentID != "" {
+		reqBody["parent"] = map[string]interface{}{"id": parentID}
+	}
+	return reqBody
+}
+
+// buildCreateCodeWidgetBody assembles the request body for a create call.
+// Create runs after validation, so the code field (and thus the data block)
+// is always present.
+func buildCreateCodeWidgetBody(args CreateCodeWidgetArgs) map[string]interface{} {
+	reqBody := buildCodeWidgetWriteBody(
+		buildCodeWidgetData(args.Code, args.Language, args.Title, args.LineNumbersVisible),
+		buildCodeWidgetGeometry(args.Width, args.Height),
+		args.ParentID,
+	)
 	if args.X != 0 || args.Y != 0 {
 		reqBody["position"] = map[string]interface{}{
 			"x":      args.X,
@@ -111,13 +162,26 @@ func (c *Client) CreateCodeWidget(ctx context.Context, args CreateCodeWidgetArgs
 			"origin": "center",
 		}
 	}
-	if geo := buildCodeWidgetGeometry(args.Width, args.Height); geo != nil {
-		reqBody["geometry"] = geo
+	return reqBody
+}
+
+// codeWidgetLabel picks the display label for a created widget: the title
+// when present, otherwise a short excerpt of the code.
+func codeWidgetLabel(title, code string) string {
+	if title != "" {
+		return title
 	}
-	if args.ParentID != "" {
-		reqBody["parent"] = map[string]interface{}{"id": args.ParentID}
+	return truncateCodeWidget(code, 30)
+}
+
+// CreateCodeWidget creates a code widget on a board.
+// Uses the v2-experimental API.
+func (c *Client) CreateCodeWidget(ctx context.Context, args CreateCodeWidgetArgs) (CreateCodeWidgetResult, error) {
+	if err := validateCreateCodeWidgetArgs(args); err != nil {
+		return CreateCodeWidgetResult{}, err
 	}
 
+	reqBody := buildCreateCodeWidgetBody(args)
 	respBody, err := c.requestExperimental(ctx, http.MethodPost, "/boards/"+args.BoardID+"/code_widgets", reqBody)
 	if err != nil {
 		return CreateCodeWidgetResult{}, wrapExperimentalCodeWidgetErr(err)
@@ -136,10 +200,7 @@ func (c *Client) CreateCodeWidget(ctx context.Context, args CreateCodeWidgetArgs
 
 	c.cache.InvalidatePrefix("items:" + args.BoardID)
 
-	label := widget.Data.Title
-	if label == "" {
-		label = truncateCodeWidget(args.Code, 30)
-	}
+	label := codeWidgetLabel(widget.Data.Title, args.Code)
 	return CreateCodeWidgetResult{
 		ID:       widget.ID,
 		ItemURL:  BuildItemURL(args.BoardID, widget.ID),
@@ -231,41 +292,11 @@ func (c *Client) GetCodeWidget(ctx context.Context, args GetCodeWidgetArgs) (Get
 	return result, nil
 }
 
-// ListCodeWidgets retrieves code widgets on a board with cursor pagination.
-// Uses the v2-experimental API.
-func (c *Client) ListCodeWidgets(ctx context.Context, args ListCodeWidgetsArgs) (ListCodeWidgetsResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return ListCodeWidgetsResult{}, err
-	}
-
-	limit := args.Limit
-	if limit <= 0 {
-		limit = DefaultItemLimit
-	}
-	if limit > MaxItemLimitExtended {
-		limit = MaxItemLimitExtended
-	}
-
-	path := fmt.Sprintf("/boards/%s/code_widgets?limit=%d", args.BoardID, limit)
-	if args.Cursor != "" {
-		path += "&cursor=" + args.Cursor
-	}
-
-	respBody, err := c.requestExperimental(ctx, http.MethodGet, path, nil)
-	if err != nil {
-		return ListCodeWidgetsResult{}, wrapExperimentalCodeWidgetErr(err)
-	}
-
-	var resp struct {
-		Data   []json.RawMessage `json:"data"`
-		Cursor string            `json:"cursor,omitempty"`
-	}
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return ListCodeWidgetsResult{}, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	widgets := make([]CodeWidgetSummary, 0, len(resp.Data))
-	for _, raw := range resp.Data {
+// parseCodeWidgetSummaries converts raw list entries into summaries,
+// skipping entries that fail to parse.
+func parseCodeWidgetSummaries(entries []json.RawMessage) []CodeWidgetSummary {
+	widgets := make([]CodeWidgetSummary, 0, len(entries))
+	for _, raw := range entries {
 		var widget struct {
 			ID   string `json:"id"`
 			Data struct {
@@ -292,6 +323,48 @@ func (c *Client) ListCodeWidgets(ctx context.Context, args ListCodeWidgetsArgs) 
 		}
 		widgets = append(widgets, summary)
 	}
+	return widgets
+}
+
+// clampCodeWidgetLimit normalizes a requested page size to the API bounds.
+func clampCodeWidgetLimit(limit int) int {
+	if limit <= 0 {
+		return DefaultItemLimit
+	}
+	if limit > MaxItemLimitExtended {
+		return MaxItemLimitExtended
+	}
+	return limit
+}
+
+// ListCodeWidgets retrieves code widgets on a board with cursor pagination.
+// Uses the v2-experimental API.
+func (c *Client) ListCodeWidgets(ctx context.Context, args ListCodeWidgetsArgs) (ListCodeWidgetsResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return ListCodeWidgetsResult{}, err
+	}
+
+	limit := clampCodeWidgetLimit(args.Limit)
+
+	path := fmt.Sprintf("/boards/%s/code_widgets?limit=%d", args.BoardID, limit)
+	if args.Cursor != "" {
+		path += "&cursor=" + args.Cursor
+	}
+
+	respBody, err := c.requestExperimental(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return ListCodeWidgetsResult{}, wrapExperimentalCodeWidgetErr(err)
+	}
+
+	var resp struct {
+		Data   []json.RawMessage `json:"data"`
+		Cursor string            `json:"cursor,omitempty"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return ListCodeWidgetsResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	widgets := parseCodeWidgetSummaries(resp.Data)
 
 	return ListCodeWidgetsResult{
 		Widgets: widgets,
@@ -302,34 +375,33 @@ func (c *Client) ListCodeWidgets(ctx context.Context, args ListCodeWidgetsArgs) 
 	}, nil
 }
 
+// validateUpdateCodeWidgetArgs checks ID formats and field caps before an
+// update request is issued.
+func validateUpdateCodeWidgetArgs(args UpdateCodeWidgetArgs) error {
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return fmt.Errorf("invalid item_id: %w", err)
+	}
+	return validateCodeWidgetWriteArgs(args.BoardID, args.Code, args.Title, args.ParentID)
+}
+
+// buildUpdateCodeWidgetBody assembles the request body for an update call;
+// empty map means no updatable field was supplied.
+func buildUpdateCodeWidgetBody(args UpdateCodeWidgetArgs) map[string]interface{} {
+	return buildCodeWidgetWriteBody(
+		buildCodeWidgetData(args.Code, args.Language, args.Title, args.LineNumbersVisible),
+		buildCodeWidgetGeometry(args.Width, args.Height),
+		args.ParentID,
+	)
+}
+
 // UpdateCodeWidget updates a code widget's content, appearance, or parent.
 // Position moves go through MoveCodeWidget. Uses the v2-experimental API.
 func (c *Client) UpdateCodeWidget(ctx context.Context, args UpdateCodeWidgetArgs) (UpdateCodeWidgetResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateUpdateCodeWidgetArgs(args); err != nil {
 		return UpdateCodeWidgetResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateCodeWidgetResult{}, fmt.Errorf("invalid item_id: %w", err)
-	}
-	if err := validateCodeWidgetData(args.Code, args.Title); err != nil {
-		return UpdateCodeWidgetResult{}, err
-	}
-	if args.ParentID != "" {
-		if err := ValidateItemID(args.ParentID); err != nil {
-			return UpdateCodeWidgetResult{}, fmt.Errorf("invalid parent_id: %w", err)
-		}
 	}
 
-	reqBody := map[string]interface{}{}
-	if data := buildCodeWidgetData(args.Code, args.Language, args.Title, args.LineNumbersVisible); data != nil {
-		reqBody["data"] = data
-	}
-	if geo := buildCodeWidgetGeometry(args.Width, args.Height); geo != nil {
-		reqBody["geometry"] = geo
-	}
-	if args.ParentID != "" {
-		reqBody["parent"] = map[string]interface{}{"id": args.ParentID}
-	}
+	reqBody := buildUpdateCodeWidgetBody(args)
 	if len(reqBody) == 0 {
 		return UpdateCodeWidgetResult{}, fmt.Errorf("no fields to update; supply at least one of code, language, title, line_numbers_visible, width, height, or parent_id (use miro_move_code_widget to change position)")
 	}

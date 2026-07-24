@@ -21,26 +21,25 @@ func shouldSendMindmapPosition(args CreateMindmapNodeArgs) bool {
 	return args.X != 0 || args.Y != 0
 }
 
-// CreateMindmapNode creates a mindmap node on a board.
-func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeArgs) (CreateMindmapNodeResult, error) {
+// validateCreateMindmapNodeArgs checks the board ID and required content.
+func validateCreateMindmapNodeArgs(args CreateMindmapNodeArgs) error {
 	if err := ValidateBoardID(args.BoardID); err != nil {
-		return CreateMindmapNodeResult{}, err
+		return err
 	}
 	if args.Content == "" {
-		return CreateMindmapNodeResult{}, fmt.Errorf("content is required")
+		return fmt.Errorf("content is required")
 	}
-	if err := ValidateContent(args.Content); err != nil {
-		return CreateMindmapNodeResult{}, err
-	}
+	return ValidateContent(args.Content)
+}
 
-	// Build request body with correct nested structure
-	// Miro v2-experimental mindmap API uses: data.nodeView.data.content
-	nodeViewData := map[string]interface{}{
-		"content": args.Content,
-	}
-
+// buildCreateMindmapNodeBody assembles the request body with the nested
+// structure the v2-experimental mindmap API expects
+// (data.nodeView.data.content).
+func buildCreateMindmapNodeBody(args CreateMindmapNodeArgs) map[string]interface{} {
 	nodeView := map[string]interface{}{
-		"data": nodeViewData,
+		"data": map[string]interface{}{
+			"content": args.Content,
+		},
 	}
 
 	// Set node view type (text or bubble)
@@ -72,7 +71,16 @@ func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeAr
 			"origin": "center",
 		}
 	}
+	return reqBody
+}
 
+// CreateMindmapNode creates a mindmap node on a board.
+func (c *Client) CreateMindmapNode(ctx context.Context, args CreateMindmapNodeArgs) (CreateMindmapNodeResult, error) {
+	if err := validateCreateMindmapNodeArgs(args); err != nil {
+		return CreateMindmapNodeResult{}, err
+	}
+
+	reqBody := buildCreateMindmapNodeBody(args)
 	respBody, err := c.requestExperimental(ctx, http.MethodPost, "/boards/"+args.BoardID+"/mindmap_nodes", reqBody)
 	if err != nil {
 		return CreateMindmapNodeResult{}, err
@@ -140,42 +148,51 @@ func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (G
 		return GetMindmapNodeResult{}, err
 	}
 
-	var node struct {
-		ID       string `json:"id"`
-		Position *struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-		} `json:"position"`
-		Data struct {
-			IsRoot   bool `json:"isRoot"`
-			NodeView struct {
-				Type string `json:"type"`
-				Data struct {
-					Content string `json:"content"`
-				} `json:"data"`
-			} `json:"nodeView"`
-		} `json:"data"`
-		Parent *struct {
-			ID string `json:"id"`
-		} `json:"parent"`
-		Children []struct {
-			ID string `json:"id"`
-		} `json:"children"`
-		CreatedAt  string `json:"createdAt"`
-		ModifiedAt string `json:"modifiedAt"`
-	}
+	var node mindmapNodeResponse
 	if err := json.Unmarshal(respBody, &node); err != nil {
 		return GetMindmapNodeResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	result := GetMindmapNodeResult{
-		ID:       node.ID,
-		Content:  node.Data.NodeView.Data.Content,
-		NodeView: node.Data.NodeView.Type,
-		IsRoot:   node.Data.IsRoot,
-		Message:  fmt.Sprintf("Retrieved mindmap node '%s'", truncateMindmap(node.Data.NodeView.Data.Content, 30)),
-	}
+	return mindmapNodeDetails(node), nil
+}
 
+// mindmapNodeResponse mirrors the API's mindmap node payload.
+type mindmapNodeResponse struct {
+	ID       string `json:"id"`
+	Position *struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	} `json:"position"`
+	Data struct {
+		IsRoot   bool `json:"isRoot"`
+		NodeView struct {
+			Type string `json:"type"`
+			Data struct {
+				Content string `json:"content"`
+			} `json:"data"`
+		} `json:"nodeView"`
+	} `json:"data"`
+	Parent *struct {
+		ID string `json:"id"`
+	} `json:"parent"`
+	Children []struct {
+		ID string `json:"id"`
+	} `json:"children"`
+	CreatedAt  string `json:"createdAt"`
+	ModifiedAt string `json:"modifiedAt"`
+}
+
+// mindmapNodeDetails projects the API payload onto the get result.
+func mindmapNodeDetails(node mindmapNodeResponse) GetMindmapNodeResult {
+	result := GetMindmapNodeResult{
+		ID:         node.ID,
+		Content:    node.Data.NodeView.Data.Content,
+		NodeView:   node.Data.NodeView.Type,
+		IsRoot:     node.Data.IsRoot,
+		CreatedAt:  node.CreatedAt,
+		ModifiedAt: node.ModifiedAt,
+		Message:    fmt.Sprintf("Retrieved mindmap node '%s'", truncateMindmap(node.Data.NodeView.Data.Content, 30)),
+	}
 	if node.Position != nil {
 		result.X = node.Position.X
 		result.Y = node.Position.Y
@@ -189,10 +206,7 @@ func (c *Client) GetMindmapNode(ctx context.Context, args GetMindmapNodeArgs) (G
 			result.ChildIDs[i] = child.ID
 		}
 	}
-	result.CreatedAt = node.CreatedAt
-	result.ModifiedAt = node.ModifiedAt
-
-	return result, nil
+	return result
 }
 
 // ListMindmapNodes retrieves all mindmap nodes on a board.
@@ -201,13 +215,7 @@ func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs
 		return ListMindmapNodesResult{}, err
 	}
 
-	limit := args.Limit
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 100 {
-		limit = 100
-	}
+	limit := clampFrameItemsLimit(args.Limit)
 
 	path := fmt.Sprintf("/boards/%s/mindmap_nodes?limit=%d", args.BoardID, limit)
 	if args.Cursor != "" {
@@ -227,22 +235,23 @@ func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs
 		return ListMindmapNodesResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	nodes := make([]MindmapNodeSummary, 0, len(resp.Data))
-	for _, raw := range resp.Data {
-		var node struct {
-			ID   string `json:"id"`
-			Data struct {
-				IsRoot   bool `json:"isRoot"`
-				NodeView struct {
-					Data struct {
-						Content string `json:"content"`
-					} `json:"data"`
-				} `json:"nodeView"`
-			} `json:"data"`
-			Parent *struct {
-				ID string `json:"id"`
-			} `json:"parent"`
-		}
+	nodes := parseMindmapNodeSummaries(resp.Data)
+
+	return ListMindmapNodesResult{
+		Nodes:   nodes,
+		Count:   len(nodes),
+		HasMore: resp.Cursor != "",
+		Cursor:  resp.Cursor,
+		Message: fmt.Sprintf("Found %d mindmap nodes", len(nodes)),
+	}, nil
+}
+
+// parseMindmapNodeSummaries converts raw list entries into summaries,
+// skipping entries that fail to parse.
+func parseMindmapNodeSummaries(entries []json.RawMessage) []MindmapNodeSummary {
+	nodes := make([]MindmapNodeSummary, 0, len(entries))
+	for _, raw := range entries {
+		var node mindmapNodeResponse
 		if err := json.Unmarshal(raw, &node); err != nil {
 			continue
 		}
@@ -257,14 +266,7 @@ func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs
 		}
 		nodes = append(nodes, summary)
 	}
-
-	return ListMindmapNodesResult{
-		Nodes:   nodes,
-		Count:   len(nodes),
-		HasMore: resp.Cursor != "",
-		Cursor:  resp.Cursor,
-		Message: fmt.Sprintf("Found %d mindmap nodes", len(nodes)),
-	}, nil
+	return nodes
 }
 
 // DeleteMindmapNode removes a mindmap node.

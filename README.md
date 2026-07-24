@@ -10,6 +10,8 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 [![lint](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml)
 [![CodeScene Average Code Health](https://codescene.io/projects/82990/status-badges/average-code-health)](https://codescene.io/projects/82990)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Reference](https://pkg.go.dev/badge/github.com/olgasafonova/miro-mcp-server.svg)](https://pkg.go.dev/github.com/olgasafonova/miro-mcp-server)
+[![codecov](https://codecov.io/gh/olgasafonova/miro-mcp-server/branch/main/graph/badge.svg)](https://codecov.io/gh/olgasafonova/miro-mcp-server)
 [![MCP context](badges/mcp-tokens.svg?v=2)](#token-efficiency)
 
 <video src="https://github.com/user-attachments/assets/a27c535e-f3b5-4a3a-ac3c-bea5fe7ebd0b" width="100%" autoplay loop muted playsinline></video>

@@ -11,6 +11,36 @@ import (
 // Image Operations - Create, Get, Update
 // =============================================================================
 
+// buildCreateImageBody assembles the POST body for an image create.
+func buildCreateImageBody(args CreateImageArgs) map[string]interface{} {
+	data := map[string]interface{}{
+		"url": args.URL,
+	}
+	if args.Title != "" {
+		data["title"] = args.Title
+	}
+
+	reqBody := map[string]interface{}{
+		"data": data,
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+	}
+	if args.Width > 0 {
+		reqBody["geometry"] = map[string]interface{}{
+			"width": args.Width,
+		}
+	}
+	if args.ParentID != "" {
+		reqBody["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+	return reqBody
+}
+
 // CreateImage creates an image on a board from a URL.
 func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateImageResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -20,34 +50,7 @@ func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateI
 		return CreateImageResult{}, fmt.Errorf("url is required")
 	}
 
-	reqBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"url": args.URL,
-		},
-		"position": map[string]interface{}{
-			"x":      args.X,
-			"y":      args.Y,
-			"origin": "center",
-		},
-	}
-
-	if args.Title != "" {
-		data := reqBody["data"].(map[string]interface{})
-		data["title"] = args.Title
-	}
-
-	if args.Width > 0 {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": args.Width,
-		}
-	}
-
-	if args.ParentID != "" {
-		reqBody["parent"] = map[string]interface{}{
-			"id": args.ParentID,
-		}
-	}
-
+	reqBody := buildCreateImageBody(args)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/images", reqBody)
 	if err != nil {
 		return CreateImageResult{}, err
@@ -96,26 +99,37 @@ func (c *Client) GetImage(ctx context.Context, args GetImageArgs) (GetImageResul
 		return GetImageResult{}, err
 	}
 
-	var resp struct {
-		ID       string `json:"id"`
-		Position *struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-		} `json:"position"`
-		Geometry *struct {
-			Width  float64 `json:"width"`
-			Height float64 `json:"height"`
-		} `json:"geometry"`
-		Data struct {
-			Title    string `json:"title"`
-			ImageURL string `json:"imageUrl"`
-		} `json:"data"`
-		ParentID string `json:"parentId"`
-	}
+	var resp imageItemResponse
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return GetImageResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	result := imageDetails(resp)
+	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
+
+	return result, nil
+}
+
+// imageItemResponse mirrors the API's image item payload.
+type imageItemResponse struct {
+	ID       string `json:"id"`
+	Position *struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	} `json:"position"`
+	Geometry *struct {
+		Width  float64 `json:"width"`
+		Height float64 `json:"height"`
+	} `json:"geometry"`
+	Data struct {
+		Title    string `json:"title"`
+		ImageURL string `json:"imageUrl"`
+	} `json:"data"`
+	ParentID string `json:"parentId"`
+}
+
+// imageDetails projects the API payload onto the get result.
+func imageDetails(resp imageItemResponse) GetImageResult {
 	result := GetImageResult{
 		ID:       resp.ID,
 		Title:    resp.Data.Title,
@@ -131,10 +145,7 @@ func (c *Client) GetImage(ctx context.Context, args GetImageArgs) (GetImageResul
 		result.Width = resp.Geometry.Width
 		result.Height = resp.Geometry.Height
 	}
-
-	c.cache.Set(cacheKey, result, c.cacheConfig.ItemTTL)
-
-	return result, nil
+	return result
 }
 
 // buildUpdateImageBody assembles the PATCH body for an image update.

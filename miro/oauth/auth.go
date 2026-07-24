@@ -48,42 +48,15 @@ func (f *AuthFlow) Login(ctx context.Context) (*TokenSet, error) {
 	server.Start()
 	defer server.Stop(ctx)
 
-	// Get authorization URL
-	authURL := f.provider.GetAuthorizationURL(state)
-
-	// Open browser
-	f.logger.Info("Opening browser for authorization...", "url", authURL)
-	if err := openBrowser(authURL); err != nil {
-		f.logger.Warn("Failed to open browser automatically", "error", err)
-		fmt.Printf("\nPlease open this URL in your browser:\n%s\n\n", authURL)
-	}
-
-	// Wait for callback
-	f.logger.Info("Waiting for authorization...", "timeout", "5m")
-	result, err := server.WaitForCallback(ctx, 5*time.Minute)
+	// Run the browser round trip, then trade the code for stored tokens
+	code, err := f.authorize(ctx, server, state)
 	if err != nil {
-		return nil, fmt.Errorf("authorization failed: %w", err)
+		return nil, err
 	}
 
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	// Verify state
-	if result.State != state.State {
-		return nil, fmt.Errorf("state mismatch: possible CSRF attack")
-	}
-
-	// Exchange code for tokens
-	f.logger.Info("Exchanging code for tokens...")
-	tokens, err := f.provider.ExchangeCode(ctx, result.Code, state.CodeVerifier)
+	tokens, err := f.exchangeAndStore(ctx, code, state)
 	if err != nil {
-		return nil, fmt.Errorf("token exchange failed: %w", err)
-	}
-
-	// Store tokens
-	if err := f.tokenStore.Save(ctx, tokens); err != nil {
-		return nil, fmt.Errorf("failed to save tokens: %w", err)
+		return nil, err
 	}
 
 	f.logger.Info("Authorization successful!",
@@ -92,6 +65,46 @@ func (f *AuthFlow) Login(ctx context.Context) (*TokenSet, error) {
 		"expires_at", tokens.ExpiresAt.Format(time.RFC3339),
 	)
 
+	return tokens, nil
+}
+
+// authorize opens the browser for the consent screen and waits for the
+// verified callback, returning the authorization code.
+func (f *AuthFlow) authorize(ctx context.Context, server *CallbackServer, state *AuthorizationState) (string, error) {
+	authURL := f.provider.GetAuthorizationURL(state)
+
+	f.logger.Info("Opening browser for authorization...", "url", authURL)
+	if err := openBrowser(authURL); err != nil {
+		f.logger.Warn("Failed to open browser automatically", "error", err)
+		fmt.Printf("\nPlease open this URL in your browser:\n%s\n\n", authURL)
+	}
+
+	f.logger.Info("Waiting for authorization...", "timeout", "5m")
+	result, err := server.WaitForCallback(ctx, 5*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("authorization failed: %w", err)
+	}
+	if result.Error != nil {
+		return "", result.Error
+	}
+	if result.State != state.State {
+		return "", fmt.Errorf("state mismatch: possible CSRF attack")
+	}
+	return result.Code, nil
+}
+
+// exchangeAndStore trades the authorization code for tokens and persists
+// them in the token store.
+func (f *AuthFlow) exchangeAndStore(ctx context.Context, code string, state *AuthorizationState) (*TokenSet, error) {
+	f.logger.Info("Exchanging code for tokens...")
+	tokens, err := f.provider.ExchangeCode(ctx, code, state.CodeVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("token exchange failed: %w", err)
+	}
+
+	if err := f.tokenStore.Save(ctx, tokens); err != nil {
+		return nil, fmt.Errorf("failed to save tokens: %w", err)
+	}
 	return tokens, nil
 }
 

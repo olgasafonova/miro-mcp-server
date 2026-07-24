@@ -333,6 +333,22 @@ func updateBulkItem(ctx context.Context, c *Client, boardID string, item BulkUpd
 	}
 }
 
+// runBulkOp is the shared skeleton for bulk create/update: it applies the
+// operation timeout, runs the per-item action in parallel, and aggregates
+// successes and failures. Callers validate the batch size first.
+func runBulkOp[T any](
+	ctx context.Context,
+	items []T,
+	action func(context.Context, int, T) (string, error),
+	formatErr func(idx int, id string, err error) string,
+) bulkAggregation {
+	ctx, cancel := context.WithTimeout(ctx, BulkOperationTimeout)
+	defer cancel()
+
+	resultSlice := runBulkInParallel(ctx, items, action)
+	return processBulkResults(resultSlice, formatErr)
+}
+
 // BulkCreate creates multiple items in one operation.
 // Items are created in parallel using goroutines, with concurrency
 // controlled by the client's semaphore (MaxConcurrentRequests).
@@ -341,18 +357,14 @@ func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreat
 		return BulkCreateResult{}, err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, BulkOperationTimeout)
-	defer cancel()
-
-	resultSlice := runBulkInParallel(ctx, args.Items, func(ctx context.Context, _ int, item BulkCreateItem) (string, error) {
-		return createBulkItem(ctx, c, args.BoardID, item)
-	})
-
-	agg := processBulkResults(resultSlice, func(idx int, _ string, err error) string {
-		return fmt.Sprintf("item %d: %v", idx+1, err)
-	})
+	agg := runBulkOp(ctx, args.Items,
+		func(ctx context.Context, _ int, item BulkCreateItem) (string, error) {
+			return createBulkItem(ctx, c, args.BoardID, item)
+		},
+		func(idx int, _ string, err error) string {
+			return fmt.Sprintf("item %d: %v", idx+1, err)
+		})
 	retriableIDs := retriableIndexes(agg.failedItems)
-
 	return BulkCreateResult{
 		Created:      len(agg.successIDs),
 		ItemIDs:      agg.successIDs,
@@ -372,18 +384,14 @@ func (c *Client) BulkUpdate(ctx context.Context, args BulkUpdateArgs) (BulkUpdat
 		return BulkUpdateResult{}, err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, BulkOperationTimeout)
-	defer cancel()
-
-	resultSlice := runBulkInParallel(ctx, args.Items, func(ctx context.Context, _ int, item BulkUpdateItem) (string, error) {
-		return updateBulkItem(ctx, c, args.BoardID, item)
-	})
-
-	agg := processBulkResults(resultSlice, func(idx int, id string, err error) string {
-		return fmt.Sprintf("item %d (%s): %v", idx+1, id, err)
-	})
+	agg := runBulkOp(ctx, args.Items,
+		func(ctx context.Context, _ int, item BulkUpdateItem) (string, error) {
+			return updateBulkItem(ctx, c, args.BoardID, item)
+		},
+		func(idx int, id string, err error) string {
+			return fmt.Sprintf("item %d (%s): %v", idx+1, id, err)
+		})
 	retriableIDs := retriableItemIDs(agg.failedItems)
-
 	return BulkUpdateResult{
 		Updated:      len(agg.successIDs),
 		ItemIDs:      agg.successIDs,

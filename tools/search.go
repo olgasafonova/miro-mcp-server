@@ -78,26 +78,29 @@ func (h *HandlerRegistry) SearchTools(_ context.Context, args ToolSearchArgs) (T
 	}, nil
 }
 
-// scoreTools is the deterministic ranking step. Exposed for testability.
-func scoreTools(args ToolSearchArgs, tools []ToolSpec) []ToolSearchMatch {
-	limit := args.Limit
+// scoredTool pairs a tool spec with its relevance score during ranking.
+type scoredTool struct {
+	spec  ToolSpec
+	score float64
+}
+
+// clampSearchLimit bounds the result count with a default of 10, max 50.
+func clampSearchLimit(limit int) int {
 	switch {
 	case limit <= 0:
-		limit = 10
+		return 10
 	case limit > 50:
-		limit = 50
+		return 50
+	default:
+		return limit
 	}
+}
 
-	query := strings.ToLower(strings.TrimSpace(args.Query))
-	terms := tokenize(query)
-	categoryFilter := strings.ToLower(strings.TrimSpace(args.Category))
-
-	type scored struct {
-		spec  ToolSpec
-		score float64
-	}
-
-	candidates := make([]scored, 0, len(tools))
+// collectCandidates filters and scores the tool specs for a query. When the
+// query is empty, every tool in the category is kept at score 0 so the
+// caller's sort falls back to alphabetical order.
+func collectCandidates(tools []ToolSpec, terms []string, query, categoryFilter string) []scoredTool {
+	candidates := make([]scoredTool, 0, len(tools))
 	for _, t := range tools {
 		// Don't recommend the search tool itself; that's a recursion trap.
 		if t.Name == ToolSearchName {
@@ -109,14 +112,26 @@ func scoreTools(args ToolSearchArgs, tools []ToolSpec) []ToolSearchMatch {
 		s := computeScore(t, terms)
 		// When there's no query, fall back to alphabetical within the category.
 		if query == "" {
-			candidates = append(candidates, scored{spec: t, score: 0})
+			candidates = append(candidates, scoredTool{spec: t, score: 0})
 			continue
 		}
 		if s == 0 {
 			continue
 		}
-		candidates = append(candidates, scored{spec: t, score: s})
+		candidates = append(candidates, scoredTool{spec: t, score: s})
 	}
+	return candidates
+}
+
+// scoreTools is the deterministic ranking step. Exposed for testability.
+func scoreTools(args ToolSearchArgs, tools []ToolSpec) []ToolSearchMatch {
+	limit := clampSearchLimit(args.Limit)
+
+	query := strings.ToLower(strings.TrimSpace(args.Query))
+	terms := tokenize(query)
+	categoryFilter := strings.ToLower(strings.TrimSpace(args.Category))
+
+	candidates := collectCandidates(tools, terms, query, categoryFilter)
 
 	sort.SliceStable(candidates, func(i, j int) bool {
 		if candidates[i].score != candidates[j].score {
@@ -234,18 +249,37 @@ func shortenDescription(desc string, maxLen int) string {
 
 // buildSearchMessage produces a short status string for voice/log output.
 func buildSearchMessage(args ToolSearchArgs, matches []ToolSearchMatch) string {
+	if len(matches) == 0 {
+		if msg := noMatchMessage(args); msg != "" {
+			return msg
+		}
+	}
+	return foundMessage(args, len(matches))
+}
+
+// noMatchMessage describes an empty result. Returns "" when neither a query
+// nor a category was supplied, so the caller reports the generic count.
+func noMatchMessage(args ToolSearchArgs) string {
 	switch {
-	case len(matches) == 0 && args.Query != "" && args.Category != "":
+	case args.Query != "" && args.Category != "":
 		return fmt.Sprintf("No tools matched query %q in category %q", args.Query, args.Category)
-	case len(matches) == 0 && args.Query != "":
+	case args.Query != "":
 		return fmt.Sprintf("No tools matched query %q", args.Query)
-	case len(matches) == 0 && args.Category != "":
-		return fmt.Sprintf("No tools in category %q", args.Category)
-	case args.Query == "" && args.Category != "":
-		return fmt.Sprintf("Found %d tools in category %q", len(matches), args.Category)
 	case args.Category != "":
-		return fmt.Sprintf("Found %d tools matching %q in category %q", len(matches), args.Query, args.Category)
+		return fmt.Sprintf("No tools in category %q", args.Category)
 	default:
-		return fmt.Sprintf("Found %d tools matching %q", len(matches), args.Query)
+		return ""
+	}
+}
+
+// foundMessage describes a non-empty (or unfiltered) result.
+func foundMessage(args ToolSearchArgs, count int) string {
+	switch {
+	case args.Query == "" && args.Category != "":
+		return fmt.Sprintf("Found %d tools in category %q", count, args.Category)
+	case args.Category != "":
+		return fmt.Sprintf("Found %d tools matching %q in category %q", count, args.Query, args.Category)
+	default:
+		return fmt.Sprintf("Found %d tools matching %q", count, args.Query)
 	}
 }

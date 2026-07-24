@@ -59,13 +59,16 @@ type AttachTagArgs struct {
 	TagID   string `json:"tag_id" jsonschema:"ID of the tag to attach"`
 }
 
-// AttachTagResult confirms tag attachment.
-type AttachTagResult struct {
+// TagItemResult is the shared outcome of attaching or detaching a tag.
+type TagItemResult struct {
 	Success bool   `json:"success"`
 	ItemID  string `json:"item_id"`
 	TagID   string `json:"tag_id"`
 	Message string `json:"message"`
 }
+
+// AttachTagResult confirms tag attachment.
+type AttachTagResult = TagItemResult
 
 // =============================================================================
 // Detach Tag
@@ -79,12 +82,7 @@ type DetachTagArgs struct {
 }
 
 // DetachTagResult confirms tag removal.
-type DetachTagResult struct {
-	Success bool   `json:"success"`
-	ItemID  string `json:"item_id"`
-	TagID   string `json:"tag_id"`
-	Message string `json:"message"`
-}
+type DetachTagResult = TagItemResult
 
 // =============================================================================
 // Get Item Tags

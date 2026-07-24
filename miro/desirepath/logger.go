@@ -71,6 +71,24 @@ type QueryOptions struct {
 	Limit int       // Max events to return (0 = all)
 }
 
+// matchesQuery reports whether an event passes the query filters.
+func matchesQuery(event Event, opts QueryOptions) bool {
+	if opts.Tool != "" && event.Tool != opts.Tool {
+		return false
+	}
+	if opts.Rule != "" && event.Rule != opts.Rule {
+		return false
+	}
+	return opts.Since.IsZero() || !event.Timestamp.Before(opts.Since)
+}
+
+// reverseEvents reverses the slice in place to most-recent-first order.
+func reverseEvents(events []Event) {
+	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
+		events[i], events[j] = events[j], events[i]
+	}
+}
+
 // Query retrieves events matching the specified criteria.
 func (l *Logger) Query(opts QueryOptions) []Event {
 	l.mu.RLock()
@@ -80,24 +98,12 @@ func (l *Logger) Query(opts QueryOptions) []Event {
 	for i := 0; i < l.count; i++ {
 		idx := (l.writePos - l.count + i + l.maxSize) % l.maxSize
 		event := l.events[idx]
-
-		if opts.Tool != "" && event.Tool != opts.Tool {
-			continue
+		if matchesQuery(event, opts) {
+			matches = append(matches, event)
 		}
-		if opts.Rule != "" && event.Rule != opts.Rule {
-			continue
-		}
-		if !opts.Since.IsZero() && event.Timestamp.Before(opts.Since) {
-			continue
-		}
-
-		matches = append(matches, event)
 	}
 
-	// Reverse to most-recent-first
-	for i, j := 0, len(matches)-1; i < j; i, j = i+1, j-1 {
-		matches[i], matches[j] = matches[j], matches[i]
-	}
+	reverseEvents(matches)
 
 	if opts.Limit > 0 && len(matches) > opts.Limit {
 		matches = matches[:opts.Limit]

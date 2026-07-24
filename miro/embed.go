@@ -11,15 +11,9 @@ import (
 // Embed Operations - Create, Update
 // =============================================================================
 
-// CreateEmbed creates an embedded content item on a board.
-func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateEmbedResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return CreateEmbedResult{}, err
-	}
-	if args.URL == "" {
-		return CreateEmbedResult{}, fmt.Errorf("url is required")
-	}
-
+// buildCreateEmbedBody assembles the POST body for an embed create,
+// defaulting the mode to inline.
+func buildCreateEmbedBody(args CreateEmbedArgs) map[string]interface{} {
 	mode := args.Mode
 	if mode == "" {
 		mode = "inline"
@@ -37,25 +31,41 @@ func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateE
 		},
 	}
 
-	// For embeds with fixed aspect ratio (like YouTube), only send width
-	// Miro will calculate height automatically. Sending both causes an error.
-	if args.Width > 0 {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": args.Width,
-		}
-	} else if args.Height > 0 {
-		reqBody["geometry"] = map[string]interface{}{
-			"height": args.Height,
-		}
+	if geo := embedCreateGeometry(args); geo != nil {
+		reqBody["geometry"] = geo
 	}
-	// If neither specified, let Miro use defaults
-
 	if args.ParentID != "" {
 		reqBody["parent"] = map[string]interface{}{
 			"id": args.ParentID,
 		}
 	}
+	return reqBody
+}
 
+// embedCreateGeometry picks a single dimension for the geometry block. For
+// embeds with fixed aspect ratio (like YouTube), only one of width/height is
+// sent and Miro calculates the other; sending both causes an error. Nil when
+// neither is specified, letting Miro use defaults.
+func embedCreateGeometry(args CreateEmbedArgs) map[string]interface{} {
+	if args.Width > 0 {
+		return map[string]interface{}{"width": args.Width}
+	}
+	if args.Height > 0 {
+		return map[string]interface{}{"height": args.Height}
+	}
+	return nil
+}
+
+// CreateEmbed creates an embedded content item on a board.
+func (c *Client) CreateEmbed(ctx context.Context, args CreateEmbedArgs) (CreateEmbedResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return CreateEmbedResult{}, err
+	}
+	if args.URL == "" {
+		return CreateEmbedResult{}, fmt.Errorf("url is required")
+	}
+
+	reqBody := buildCreateEmbedBody(args)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/embeds", reqBody)
 	if err != nil {
 		return CreateEmbedResult{}, err

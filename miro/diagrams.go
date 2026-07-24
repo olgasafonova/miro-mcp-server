@@ -55,9 +55,9 @@ func (c *Client) GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) 
 
 	switch result.OutputMode {
 	case "grouped":
-		c.finalizeGroupedDiagram(ctx, args.BoardID, allItemIDs, totalItems, &result)
+		c.finalizeGroupedDiagram(ctx, args.BoardID, allItemIDs, &result)
 	case "framed":
-		c.finalizeFramedDiagram(ctx, args, diagram, totalItems, &result)
+		c.finalizeFramedDiagram(ctx, args, diagram, &result)
 	default:
 		result.Message = buildDiscreteDiagramMessage(len(nodeIDs), len(connectorIDs), len(frameIDs))
 	}
@@ -237,7 +237,8 @@ func normalizeOutputMode(mode string) string {
 
 // finalizeGroupedDiagram bundles all created items into a single Miro group
 // (when at least two items exist).
-func (c *Client) finalizeGroupedDiagram(ctx context.Context, boardID string, allItemIDs []string, totalItems int, result *GenerateDiagramResult) {
+func (c *Client) finalizeGroupedDiagram(ctx context.Context, boardID string, allItemIDs []string, result *GenerateDiagramResult) {
+	totalItems := result.TotalItems
 	if len(allItemIDs) < 2 {
 		result.Message = fmt.Sprintf("Created diagram with %d items (too few items to group)", totalItems)
 		return
@@ -259,7 +260,8 @@ func (c *Client) finalizeGroupedDiagram(ctx context.Context, boardID string, all
 
 // finalizeFramedDiagram wraps the created items in a containing frame sized
 // to the diagram bounds plus padding.
-func (c *Client) finalizeFramedDiagram(ctx context.Context, args GenerateDiagramArgs, diagram *diagrams.Diagram, totalItems int, result *GenerateDiagramResult) {
+func (c *Client) finalizeFramedDiagram(ctx context.Context, args GenerateDiagramArgs, diagram *diagrams.Diagram, result *GenerateDiagramResult) {
+	totalItems := result.TotalItems
 	const padding = 40.0
 	frameWidth := diagram.Width + padding*2
 	frameHeight := diagram.Height + padding*2

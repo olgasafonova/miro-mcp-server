@@ -195,51 +195,63 @@ func (c *Client) UpdateDocFormat(ctx context.Context, args UpdateDocFormatArgs) 
 		return UpdateDocFormatResult{}, err
 	}
 
-	// Step 3: Delete original
-	_, err = c.request(ctx, http.MethodDelete, fmt.Sprintf("/boards/%s/items/%s", args.BoardID, args.ItemID), nil)
+	// Step 3+4: Delete original and recreate at the same position
+	newID, err := c.recreateDoc(ctx, args, newContent, getResult)
 	if err != nil {
-		return UpdateDocFormatResult{}, fmt.Errorf("failed to delete original doc: %w", err)
+		return UpdateDocFormatResult{}, err
 	}
 
-	// Step 4: Recreate at same position with new content
+	// Invalidate cache
+	c.cache.InvalidatePrefix("items:" + args.BoardID)
+
+	return UpdateDocFormatResult{
+		ID:       newID,
+		OldID:    args.ItemID,
+		Content:  newContent,
+		ItemURL:  BuildItemURL(args.BoardID, newID),
+		Replaced: replaced,
+		Message:  docFormatUpdateMessage(replaced),
+	}, nil
+}
+
+// recreateDoc deletes the original doc item and recreates it at the same
+// position with the new content, returning the new item's ID.
+func (c *Client) recreateDoc(ctx context.Context, args UpdateDocFormatArgs, newContent string, original GetDocFormatResult) (string, error) {
+	_, err := c.request(ctx, http.MethodDelete, fmt.Sprintf("/boards/%s/items/%s", args.BoardID, args.ItemID), nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete original doc: %w", err)
+	}
+
 	reqBody := map[string]interface{}{
 		"data": map[string]interface{}{
 			"contentType": "markdown",
 			"content":     newContent,
 		},
 		"position": map[string]interface{}{
-			"x":      getResult.X,
-			"y":      getResult.Y,
+			"x":      original.X,
+			"y":      original.Y,
 			"origin": "center",
 		},
 	}
 
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/docs", reqBody)
 	if err != nil {
-		return UpdateDocFormatResult{}, fmt.Errorf("failed to recreate doc with updated content: %w", err)
+		return "", fmt.Errorf("failed to recreate doc with updated content: %w", err)
 	}
 
 	var resp struct {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return UpdateDocFormatResult{}, fmt.Errorf("failed to parse response: %w", err)
+		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
+	return resp.ID, nil
+}
 
-	// Invalidate cache
-	c.cache.InvalidatePrefix("items:" + args.BoardID)
-
-	msg := "Updated doc format item"
+// docFormatUpdateMessage describes the outcome of a doc format update.
+func docFormatUpdateMessage(replaced int) string {
 	if replaced > 0 {
-		msg = fmt.Sprintf("Replaced %d occurrence(s) in doc format item", replaced)
+		return fmt.Sprintf("Replaced %d occurrence(s) in doc format item", replaced)
 	}
-
-	return UpdateDocFormatResult{
-		ID:       resp.ID,
-		OldID:    args.ItemID,
-		Content:  newContent,
-		ItemURL:  BuildItemURL(args.BoardID, resp.ID),
-		Replaced: replaced,
-		Message:  msg,
-	}, nil
+	return "Updated doc format item"
 }

@@ -422,6 +422,14 @@ func (h *HandlerRegistry) logExecution(spec ToolSpec, args, result any) {
 // argAttrs extracts log attributes specific to known argument types. Returns
 // nil for types that don't carry loggable context.
 func argAttrs(args any) []any {
+	if attrs := readArgAttrs(args); attrs != nil {
+		return attrs
+	}
+	return writeArgAttrs(args)
+}
+
+// readArgAttrs covers read/list argument types.
+func readArgAttrs(args any) []any {
 	switch a := args.(type) {
 	case miro.ListBoardsArgs:
 		if a.Query != "" {
@@ -429,12 +437,19 @@ func argAttrs(args any) []any {
 		}
 	case miro.GetBoardArgs:
 		return []any{"board_id", a.BoardID}
+	case miro.ListItemsArgs:
+		return []any{"board_id", a.BoardID, "type", a.Type}
+	}
+	return nil
+}
+
+// writeArgAttrs covers create/delete argument types.
+func writeArgAttrs(args any) []any {
+	switch a := args.(type) {
 	case miro.CreateStickyArgs:
 		return []any{"board_id", a.BoardID, "content_len", len(a.Content)}
 	case miro.CreateShapeArgs:
 		return []any{"board_id", a.BoardID, "shape", a.Shape}
-	case miro.ListItemsArgs:
-		return []any{"board_id", a.BoardID, "type", a.Type}
 	case miro.BulkCreateArgs:
 		return []any{"board_id", a.BoardID, "items_count", len(a.Items)}
 	case miro.DeleteItemArgs:

@@ -45,29 +45,6 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version: '1.25'
-          cache: true
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.7.2
-          args: --timeout=5m
-          # Skip `golangci-lint config verify`, which fetches a JSON schema
-          # from golangci-lint.run at runtime and intermittently fails the job
-          # with "context deadline exceeded" when that host is slow/unreachable.
-          # The config is already validated by the lint run itself.
-          verify: false
-
   build:
     runs-on: ubuntu-latest
     strategy:

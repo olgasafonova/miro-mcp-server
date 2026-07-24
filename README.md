@@ -10,8 +10,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 [![lint](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml)
 [![CodeScene Average Code Health](https://codescene.io/projects/82990/status-badges/average-code-health)](https://codescene.io/projects/82990)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP Context — full](badges/mcp-tokens.svg)](#token-efficiency)
-[![MCP Context — essentials](badges/mcp-tokens-essentials.svg)](#token-efficiency)
+[![MCP context](badges/mcp-tokens.svg?v=2)](#token-efficiency)
 
 <video src="https://github.com/user-attachments/assets/a27c535e-f3b5-4a3a-ac3c-bea5fe7ebd0b" width="100%" autoplay loop muted playsinline></video>
 
@@ -159,12 +158,12 @@ The MCP Apps pattern is TypeScript-only today (Go SDK has no `ext-apps` helpers)
 
 ## Token Efficiency
 
-The full tool surface (98 tools) costs roughly **17.2K tokens** of preload — about 8.6% of a 200K Claude context. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
+The full tool surface (98 tools) costs roughly **17.2K tokens** of preload; the `essentials` profile trims that to ~2.6K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
 
-| Profile | Tools | Preload tokens (est.) | % of 200K context |
-|---|---|---|---|
-| `full` (default) | 98 | ~17,240 | 8.6% |
-| `essentials` | 15 | ~2,570 | 1.3% |
+| Profile | Tools | Preload tokens (est.) |
+|---|---|---|
+| `full` (default) | 98 | ~17,240 |
+| `essentials` | 15 | ~2,570 |
 
 Savings: **~14,700 tokens (85.1% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
 

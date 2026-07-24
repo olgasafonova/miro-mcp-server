@@ -1,7 +1,8 @@
 // Command token-count estimates the MCP context token cost of registering
-// Miro MCP tools and generates shields.io-style SVG badges, one per
-// MIRO_TOOLS_PROFILE option (full / essentials). Always prints a comparison
-// to stdout so the savings claim is reproducible from the repo.
+// Miro MCP tools and generates a single shields.io-style SVG badge showing
+// the context-window range across MIRO_TOOLS_PROFILE options (essentials →
+// full). Always prints a per-profile comparison to stdout so the savings
+// claim is reproducible from the repo.
 //
 // Usage:
 //
@@ -11,7 +12,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 
@@ -27,6 +27,11 @@ const avgSchemaBytesPerTool = 200
 
 // charsPerToken is the approximate character-to-token ratio for cl100k_base on JSON.
 const charsPerToken = 4
+
+// badgeValueColor is shields.io green: the badge leads with the achievable
+// lean footprint, so the value reads as a positive (configurable) signal
+// rather than a fixed price tag.
+const badgeValueColor = "#4c1"
 
 // mcpTool mirrors the MCP wire format for tools/list responses.
 type mcpTool struct {
@@ -88,31 +93,25 @@ func measureProfile(profile tools.Profile) (profileMeasurement, error) {
 	}, nil
 }
 
-// badgeFilename returns the relative output path for a profile's SVG badge.
-// The default profile keeps the historical filename so existing README
-// references don't break.
-func badgeFilename(profile tools.Profile) string {
-	if profile == tools.ProfileFull {
-		return filepath.Join("badges", "mcp-tokens.svg")
-	}
-	return filepath.Join("badges", "mcp-tokens-"+string(profile)+".svg")
+// formatTokens renders a token count as a compact "~K" string, e.g.
+// 2571 -> "2.6K", 17236 -> "17.2K". Rounded to the nearest 100.
+func formatTokens(n int) string {
+	rounded := (n + 50) / 100 * 100
+	return fmt.Sprintf("%.1fK", float64(rounded)/1000)
 }
 
-func writeBadge(m profileMeasurement) (string, error) {
-	displayTokens := int(math.Round(float64(m.TotalTokens)/100) * 100)
-	displayK := fmt.Sprintf("~%dK", displayTokens/1000)
-	if displayTokens < 1000 {
-		displayK = fmt.Sprintf("~%d", displayTokens)
-	}
+// writeRangeBadge writes a single badge spanning the leanest profile to the
+// fullest, e.g. "MCP context | 2.6K–17.2K tokens". Leading with the low end
+// frames the footprint as configurable (opt into essentials) rather than a
+// fixed price. Token counts are model-agnostic — unlike a "% of context"
+// figure, they don't go stale as context-window sizes change. The default
+// filename is kept so existing README references hold.
+func writeRangeBadge(low, high profileMeasurement) (string, error) {
+	label := "MCP context"
+	value := fmt.Sprintf("%s–%s tokens", formatTokens(low.TotalTokens), formatTokens(high.TotalTokens))
+	svg := generateBadge(label, value, badgeValueColor)
 
-	label := "MCP Context"
-	if m.Profile != tools.ProfileFull {
-		label = fmt.Sprintf("MCP Context (%s)", m.Profile)
-	}
-	value := fmt.Sprintf("%s tokens (%.1f%%)", displayK, m.Percentage)
-	svg := generateBadge(label, value)
-
-	path := badgeFilename(m.Profile)
+	path := filepath.Join("badges", "mcp-tokens.svg")
 	if err := os.WriteFile(path, []byte(svg), 0600); err != nil {
 		return "", err
 	}
@@ -131,14 +130,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	fullBadge, err := writeBadge(full)
+	badge, err := writeRangeBadge(essentials, full)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "writing full badge:", err)
-		os.Exit(1)
-	}
-	essBadge, err := writeBadge(essentials)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "writing essentials badge:", err)
+		fmt.Fprintln(os.Stderr, "writing badge:", err)
 		os.Exit(1)
 	}
 
@@ -154,19 +148,20 @@ func main() {
 	fmt.Println()
 	fmt.Printf("Savings (essentials vs full): %d tokens (%.1f%% reduction)\n", saved, pct)
 	fmt.Println()
-	fmt.Println("Badges written:")
-	fmt.Println("  ", fullBadge)
-	fmt.Println("  ", essBadge)
+	fmt.Println("Badge written:")
+	fmt.Println("  ", badge)
 }
 
-// generateBadge creates a shields.io-style SVG badge.
-func generateBadge(label, value string) string {
+// generateBadge creates a shields.io-style SVG badge with the given value color.
+func generateBadge(label, value, valueColor string) string {
 	// Approximate text widths using Verdana 11px metrics (~6.5px per char).
 	const charWidth = 6.5
 	const padding = 10.0
 
-	labelWidth := float64(len(label))*charWidth + 2*padding
-	valueWidth := float64(len(value))*charWidth + 2*padding
+	// Count runes, not bytes, so a multibyte glyph (the en dash) doesn't
+	// over-pad the value box.
+	labelWidth := float64(len([]rune(label)))*charWidth + 2*padding
+	valueWidth := float64(len([]rune(value)))*charWidth + 2*padding
 	totalWidth := labelWidth + valueWidth
 
 	return fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%.0f" height="20" role="img" aria-label="%s: %s">
@@ -180,7 +175,7 @@ func generateBadge(label, value string) string {
   </clipPath>
   <g clip-path="url(#r)">
     <rect width="%.0f" height="20" fill="#555"/>
-    <rect x="%.0f" width="%.0f" height="20" fill="#007ec6"/>
+    <rect x="%.0f" width="%.0f" height="20" fill="%s"/>
     <rect width="%.0f" height="20" fill="url(#s)"/>
   </g>
   <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="11">
@@ -194,7 +189,7 @@ func generateBadge(label, value string) string {
 		label, value,
 		totalWidth,
 		labelWidth,
-		labelWidth, valueWidth,
+		labelWidth, valueWidth, valueColor,
 		totalWidth,
 		labelWidth/2, label,
 		labelWidth/2, label,

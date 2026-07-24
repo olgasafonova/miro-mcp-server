@@ -17,102 +17,73 @@ func NewRegistry() *Registry {
 	return &Registry{}
 }
 
+// promptSpec pairs a prompt definition with its handler for registration.
+type promptSpec struct {
+	prompt  *mcp.Prompt
+	handler mcp.PromptHandler
+}
+
+// arg builds a prompt argument definition.
+func arg(name, description string, required bool) *mcp.PromptArgument {
+	return &mcp.PromptArgument{Name: name, Description: description, Required: required}
+}
+
+// specs lists every Miro workflow prompt and its handler.
+func (r *Registry) specs() []promptSpec {
+	return []promptSpec{
+		{&mcp.Prompt{
+			Name:        "create-sprint-board",
+			Title:       "Create Sprint Board",
+			Description: "Create a sprint planning board with standard sections for backlog, in progress, review, and done.",
+			Arguments: []*mcp.PromptArgument{
+				arg("board_name", "Name for the new sprint board", true),
+				arg("sprint_number", "Sprint number (e.g., '42')", false),
+			},
+		}, r.handleSprintBoard},
+		{&mcp.Prompt{
+			Name:        "create-retrospective",
+			Title:       "Create Retrospective Board",
+			Description: "Create a retrospective board with sections for what went well, what could improve, and action items.",
+			Arguments: []*mcp.PromptArgument{
+				arg("board_id", "Board ID to add retrospective sections to (creates new if not provided)", false),
+				arg("team_name", "Team name for the retrospective", false),
+			},
+		}, r.handleRetrospective},
+		{&mcp.Prompt{
+			Name:        "create-brainstorm",
+			Title:       "Create Brainstorming Session",
+			Description: "Set up a brainstorming board with a central topic and space for ideas.",
+			Arguments: []*mcp.PromptArgument{
+				arg("topic", "Central topic or question for brainstorming", true),
+				arg("board_id", "Existing board ID (creates new if not provided)", false),
+			},
+		}, r.handleBrainstorm},
+		{&mcp.Prompt{
+			Name:        "create-story-map",
+			Title:       "Create User Story Map",
+			Description: "Create a user story mapping board with activities, user tasks, and story cards.",
+			Arguments: []*mcp.PromptArgument{
+				arg("product_name", "Name of the product being mapped", true),
+				arg("board_id", "Existing board ID (creates new if not provided)", false),
+			},
+		}, r.handleStoryMap},
+		{&mcp.Prompt{
+			Name:        "create-kanban",
+			Title:       "Create Kanban Board",
+			Description: "Create a kanban board with customizable columns for workflow management.",
+			Arguments: []*mcp.PromptArgument{
+				arg("board_name", "Name for the kanban board", true),
+				arg("columns", "Comma-separated column names (default: To Do,In Progress,Review,Done)", false),
+			},
+		}, r.handleKanban},
+	}
+}
+
 // RegisterAll registers all Miro prompts with the MCP server.
 func (r *Registry) RegisterAll(server *mcp.Server) {
-	// Sprint Board prompt
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "create-sprint-board",
-		Title:       "Create Sprint Board",
-		Description: "Create a sprint planning board with standard sections for backlog, in progress, review, and done.",
-		Arguments: []*mcp.PromptArgument{
-			{
-				Name:        "board_name",
-				Description: "Name for the new sprint board",
-				Required:    true,
-			},
-			{
-				Name:        "sprint_number",
-				Description: "Sprint number (e.g., '42')",
-				Required:    false,
-			},
-		},
-	}, r.handleSprintBoard)
-
-	// Retrospective prompt
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "create-retrospective",
-		Title:       "Create Retrospective Board",
-		Description: "Create a retrospective board with sections for what went well, what could improve, and action items.",
-		Arguments: []*mcp.PromptArgument{
-			{
-				Name:        "board_id",
-				Description: "Board ID to add retrospective sections to (creates new if not provided)",
-				Required:    false,
-			},
-			{
-				Name:        "team_name",
-				Description: "Team name for the retrospective",
-				Required:    false,
-			},
-		},
-	}, r.handleRetrospective)
-
-	// Brainstorming prompt
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "create-brainstorm",
-		Title:       "Create Brainstorming Session",
-		Description: "Set up a brainstorming board with a central topic and space for ideas.",
-		Arguments: []*mcp.PromptArgument{
-			{
-				Name:        "topic",
-				Description: "Central topic or question for brainstorming",
-				Required:    true,
-			},
-			{
-				Name:        "board_id",
-				Description: "Existing board ID (creates new if not provided)",
-				Required:    false,
-			},
-		},
-	}, r.handleBrainstorm)
-
-	// User Story Map prompt
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "create-story-map",
-		Title:       "Create User Story Map",
-		Description: "Create a user story mapping board with activities, user tasks, and story cards.",
-		Arguments: []*mcp.PromptArgument{
-			{
-				Name:        "product_name",
-				Description: "Name of the product being mapped",
-				Required:    true,
-			},
-			{
-				Name:        "board_id",
-				Description: "Existing board ID (creates new if not provided)",
-				Required:    false,
-			},
-		},
-	}, r.handleStoryMap)
-
-	// Kanban Board prompt
-	server.AddPrompt(&mcp.Prompt{
-		Name:        "create-kanban",
-		Title:       "Create Kanban Board",
-		Description: "Create a kanban board with customizable columns for workflow management.",
-		Arguments: []*mcp.PromptArgument{
-			{
-				Name:        "board_name",
-				Description: "Name for the kanban board",
-				Required:    true,
-			},
-			{
-				Name:        "columns",
-				Description: "Comma-separated column names (default: To Do,In Progress,Review,Done)",
-				Required:    false,
-			},
-		},
-	}, r.handleKanban)
+	for _, spec := range r.specs() {
+		server.AddPrompt(spec.prompt, spec.handler)
+	}
 }
 
 // handleSprintBoard generates a sprint board creation prompt

@@ -157,22 +157,19 @@ func matchesTimeRange(event Event, opts QueryOptions) bool {
 }
 
 // matchesFieldFilters checks the exact-match field filters (tool, method,
-// user, board, action, success).
+// user, board, action, success). An empty filter value matches everything.
 func matchesFieldFilters(event Event, opts QueryOptions) bool {
-	if opts.Tool != "" && event.Tool != opts.Tool {
-		return false
+	filters := []struct{ want, got string }{
+		{opts.Tool, event.Tool},
+		{opts.Method, event.Method},
+		{opts.UserID, event.UserID},
+		{opts.BoardID, event.BoardID},
+		{string(opts.Action), string(event.Action)},
 	}
-	if opts.Method != "" && event.Method != opts.Method {
-		return false
-	}
-	if opts.UserID != "" && event.UserID != opts.UserID {
-		return false
-	}
-	if opts.BoardID != "" && event.BoardID != opts.BoardID {
-		return false
-	}
-	if opts.Action != "" && event.Action != opts.Action {
-		return false
+	for _, f := range filters {
+		if f.want != "" && f.got != f.want {
+			return false
+		}
 	}
 	if opts.Success != nil && event.Success != *opts.Success {
 		return false

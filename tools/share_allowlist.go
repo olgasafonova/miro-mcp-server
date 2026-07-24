@@ -273,8 +273,20 @@ func (a *ShareAllowlist) Validate(email string) error {
 func extractDomain(email string) (string, bool) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	at := strings.Index(email, "@")
-	if at <= 0 || at != strings.LastIndex(email, "@") || at == len(email)-1 {
+	if malformedEmailShape(email, at) {
 		return "", false
 	}
 	return email[at+1:], true
+}
+
+// malformedEmailShape reports whether the '@' position marks an invalid
+// address: missing or leading '@', multiple '@'s, or nothing after it.
+func malformedEmailShape(email string, at int) bool {
+	if at <= 0 {
+		return true
+	}
+	if at != strings.LastIndex(email, "@") {
+		return true
+	}
+	return at == len(email)-1
 }

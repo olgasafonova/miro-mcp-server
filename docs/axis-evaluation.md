@@ -193,3 +193,29 @@ Each is a candidate follow-up bead. None is implemented here.
 3. Run both servers with identical scenarios and identical agent adapters. Record all four sub-scores plus the baseline, never the composite alone.
 4. Repeat each scenario enough times to report variance. AXIS reports none by default and the optimistic default makes single runs unreliable.
 5. Add "time to first agreed decision" as a second metric alongside the AXIS sub-scores, per the note appended to the bead on 22-07-2026. That is Miro's own published yardstick and it holds the comparison to the vendor's stated criterion rather than to cost and turns alone.
+
+## Runnable config for a local Gate 2 run
+
+Prerequisites on the workstation: Node 18 or newer, a real `MIRO_ACCESS_TOKEN` scoped to a throwaway board (Gate 2 scenarios include destructive CRUD), and either `ANTHROPIC_API_KEY` or a completed `claude login` under a non-isolated `$HOME`.
+
+```jsonc
+// axis.config.json
+{
+  "scenarios": "./scenarios",
+  "agents": ["claude-code"],                 // add "codex"/"gemini" only if those CLIs are installed
+  "judging": { "agents": ["claude-code"] },  // pin ONE judge across both servers; do not self-judge
+  "mcp_servers": {
+    "miro": {
+      "type": "stdio",
+      "command": "/absolute/path/to/miro-server",
+      "env": { "MIRO_ACCESS_TOKEN": "<token>" }
+    }
+  }
+}
+```
+
+Run with `npx @netlify/axis run`. Reports land in `.axis/reports/`.
+
+Run the same scenario set twice: once against the config above (this server, granular tool surface), once against the official Miro MCP server (13 read-focused tools). The scenario set needs to exercise create sticky/shape, connect items, read/search board, tag plus group, and one multi-step "build a kanban" task. The Necessity sub-score has no signal on single-call tasks, which is why the multi-step scenario is required rather than optional.
+
+Why the sandbox run was deferred, so nobody retries it the same way: no Miro credential (the server falls back to inspection mode and every tool call fails), no agent credential inside AXIS's isolated home, and the environment forbids nested headless agents. None of the three is a property of this server.

@@ -89,7 +89,12 @@ func (c *Client) GetBoardContent(ctx context.Context, args GetBoardContentArgs) 
 		result.Tags = c.loadTagContexts(ctx, args.BoardID)
 	}
 
-	result.Message = buildBoardContentMessage(board.Name, allItems.Count, len(frames), len(result.Connectors), len(result.Tags))
+	result.Message = buildBoardContentMessage(board.Name, boardContentCounts{
+		items:      allItems.Count,
+		frames:     len(frames),
+		connectors: len(result.Connectors),
+		tags:       len(result.Tags),
+	})
 
 	return result, nil
 }
@@ -280,18 +285,26 @@ func (c *Client) loadTagContexts(ctx context.Context, boardID string) []TagConte
 	return out
 }
 
+// boardContentCounts holds the per-kind item counts for the summary line.
+type boardContentCounts struct {
+	items      int
+	frames     int
+	connectors int
+	tags       int
+}
+
 // buildBoardContentMessage formats the human-readable summary line.
 // Frames / connectors / tags are appended only when present.
-func buildBoardContentMessage(boardName string, totalItems, framesCount, connectorsCount, tagsCount int) string {
-	parts := []string{fmt.Sprintf("Board '%s' has %d items", boardName, totalItems)}
-	if framesCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d frames", framesCount))
+func buildBoardContentMessage(boardName string, counts boardContentCounts) string {
+	parts := []string{fmt.Sprintf("Board '%s' has %d items", boardName, counts.items)}
+	if counts.frames > 0 {
+		parts = append(parts, fmt.Sprintf("%d frames", counts.frames))
 	}
-	if connectorsCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d connectors", connectorsCount))
+	if counts.connectors > 0 {
+		parts = append(parts, fmt.Sprintf("%d connectors", counts.connectors))
 	}
-	if tagsCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d tags", tagsCount))
+	if counts.tags > 0 {
+		parts = append(parts, fmt.Sprintf("%d tags", counts.tags))
 	}
 	return strings.Join(parts, ", ")
 }

@@ -20,10 +20,7 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 	}
 
 	params := url.Values{}
-	limit := DefaultItemLimit
-	if args.Limit > 0 && args.Limit <= MaxItemLimitExtended {
-		limit = args.Limit
-	}
+	limit := clampGroupItemsLimit(args.Limit)
 	params.Set("limit", strconv.Itoa(limit))
 	if args.Offset != "" {
 		params.Set("offset", args.Offset)
@@ -45,17 +42,21 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 		return ListBoardMembersResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	message := fmt.Sprintf("Found %d board members", len(resp.Data))
-	if len(resp.Data) == 0 {
-		message = "No members found on this board"
-	}
-
 	return ListBoardMembersResult{
 		Members: resp.Data,
 		Count:   len(resp.Data),
 		HasMore: resp.Offset > 0 && len(resp.Data) >= limit,
-		Message: message,
+		Message: boardMembersMessage(len(resp.Data)),
 	}, nil
+}
+
+// boardMembersMessage describes a member listing, with an explicit
+// zero-result message.
+func boardMembersMessage(count int) string {
+	if count == 0 {
+		return "No members found on this board"
+	}
+	return fmt.Sprintf("Found %d board members", count)
 }
 
 // ShareBoard shares a board with a user by email.

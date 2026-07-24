@@ -11,6 +11,15 @@ import (
 // Group Operations
 // =============================================================================
 
+// groupItemsBody builds the request body shared by group create and update.
+func groupItemsBody(itemIDs []string) map[string]interface{} {
+	return map[string]interface{}{
+		"data": map[string]interface{}{
+			"items": itemIDs,
+		},
+	}
+}
+
 // CreateGroup groups multiple items together on a board.
 func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateGroupResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -20,13 +29,7 @@ func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateG
 		return CreateGroupResult{}, fmt.Errorf("at least %d items are required to create a group", MinGroupItems)
 	}
 
-	reqBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"items": args.ItemIDs,
-		},
-	}
-
-	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/groups", reqBody)
+	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/groups", groupItemsBody(args.ItemIDs))
 	if err != nil {
 		return CreateGroupResult{}, err
 	}
@@ -51,10 +54,7 @@ func (c *Client) ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroup
 		return ListGroupsResult{}, err
 	}
 
-	limit := DefaultItemLimit
-	if args.Limit > 0 && args.Limit <= MaxItemLimitExtended {
-		limit = args.Limit
-	}
+	limit := clampGroupItemsLimit(args.Limit)
 
 	path := fmt.Sprintf("/boards/%s/groups?limit=%d", args.BoardID, limit)
 	if args.Cursor != "" {
@@ -83,13 +83,22 @@ func (c *Client) ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroup
 	}, nil
 }
 
+// validateGroupRef validates the (board, group) identifier pair shared by
+// the group read/update/delete operations.
+func validateGroupRef(boardID, groupID string) error {
+	if err := ValidateBoardID(boardID); err != nil {
+		return err
+	}
+	if err := ValidateItemID(groupID); err != nil {
+		return fmt.Errorf("invalid group_id: %w", err)
+	}
+	return nil
+}
+
 // GetGroup retrieves a specific group by ID.
 func (c *Client) GetGroup(ctx context.Context, args GetGroupArgs) (GetGroupResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateGroupRef(args.BoardID, args.GroupID); err != nil {
 		return GetGroupResult{}, err
-	}
-	if err := ValidateItemID(args.GroupID); err != nil {
-		return GetGroupResult{}, fmt.Errorf("invalid group_id: %w", err)
 	}
 
 	path := "/boards/" + args.BoardID + "/groups/" + args.GroupID
@@ -113,17 +122,11 @@ func (c *Client) GetGroup(ctx context.Context, args GetGroupArgs) (GetGroupResul
 
 // GetGroupItems retrieves the items in a group.
 func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (GetGroupItemsResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateGroupRef(args.BoardID, args.GroupID); err != nil {
 		return GetGroupItemsResult{}, err
 	}
-	if err := ValidateItemID(args.GroupID); err != nil {
-		return GetGroupItemsResult{}, fmt.Errorf("invalid group_id: %w", err)
-	}
 
-	limit := DefaultItemLimit
-	if args.Limit > 0 && args.Limit <= MaxItemLimitExtended {
-		limit = args.Limit
-	}
+	limit := clampGroupItemsLimit(args.Limit)
 
 	path := fmt.Sprintf("/boards/%s/groups/%s/items?limit=%d", args.BoardID, args.GroupID, limit)
 	if args.Cursor != "" {
@@ -143,9 +146,30 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 		return GetGroupItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Convert to summaries
-	items := make([]ItemSummary, 0, len(resp.Data))
-	for _, raw := range resp.Data {
+	items := parseGroupItemSummaries(resp.Data)
+
+	return GetGroupItemsResult{
+		Items:   items,
+		Count:   len(items),
+		HasMore: resp.Cursor != "",
+		Message: fmt.Sprintf("Found %d items in group", len(items)),
+	}, nil
+}
+
+// clampGroupItemsLimit normalizes a requested page size; out-of-range values
+// (including values above the extended maximum) fall back to the default.
+func clampGroupItemsLimit(limit int) int {
+	if limit > 0 && limit <= MaxItemLimitExtended {
+		return limit
+	}
+	return DefaultItemLimit
+}
+
+// parseGroupItemSummaries converts raw group item entries into summaries,
+// skipping entries that fail to parse.
+func parseGroupItemSummaries(entries []json.RawMessage) []ItemSummary {
+	items := make([]ItemSummary, 0, len(entries))
+	for _, raw := range entries {
 		var item struct {
 			ID   string `json:"id"`
 			Type string `json:"type"`
@@ -162,36 +186,21 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 			Content: item.Data.Content,
 		})
 	}
-
-	return GetGroupItemsResult{
-		Items:   items,
-		Count:   len(items),
-		HasMore: resp.Cursor != "",
-		Message: fmt.Sprintf("Found %d items in group", len(items)),
-	}, nil
+	return items
 }
 
 // UpdateGroup updates a group's items.
 func (c *Client) UpdateGroup(ctx context.Context, args UpdateGroupArgs) (UpdateGroupResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateGroupRef(args.BoardID, args.GroupID); err != nil {
 		return UpdateGroupResult{}, err
-	}
-	if err := ValidateItemID(args.GroupID); err != nil {
-		return UpdateGroupResult{}, fmt.Errorf("invalid group_id: %w", err)
 	}
 	if len(args.ItemIDs) < MinGroupItems {
 		return UpdateGroupResult{}, fmt.Errorf("at least %d items are required in a group", MinGroupItems)
 	}
 
-	reqBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"items": args.ItemIDs,
-		},
-	}
-
 	path := "/boards/" + args.BoardID + "/groups/" + args.GroupID
 
-	respBody, err := c.request(ctx, http.MethodPut, path, reqBody)
+	respBody, err := c.request(ctx, http.MethodPut, path, groupItemsBody(args.ItemIDs))
 	if err != nil {
 		return UpdateGroupResult{}, err
 	}
@@ -210,23 +219,16 @@ func (c *Client) UpdateGroup(ctx context.Context, args UpdateGroupArgs) (UpdateG
 
 // DeleteGroup deletes a group (items can optionally be deleted too).
 func (c *Client) DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteGroupResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+	if err := validateGroupRef(args.BoardID, args.GroupID); err != nil {
 		return DeleteGroupResult{}, err
-	}
-	if err := ValidateItemID(args.GroupID); err != nil {
-		return DeleteGroupResult{}, fmt.Errorf("invalid group_id: %w", err)
 	}
 
 	// Dry-run mode: return preview without deleting
 	if args.DryRun {
-		msg := "[DRY RUN] Would delete group " + args.GroupID + ", items would be ungrouped"
-		if args.DeleteItems {
-			msg = "[DRY RUN] Would delete group " + args.GroupID + " and its items"
-		}
 		return DeleteGroupResult{
 			Success: true,
 			GroupID: args.GroupID,
-			Message: msg,
+			Message: deleteGroupDryRunMessage(args),
 		}, nil
 	}
 
@@ -244,14 +246,25 @@ func (c *Client) DeleteGroup(ctx context.Context, args DeleteGroupArgs) (DeleteG
 		}, err
 	}
 
-	msg := "Group deleted, items ungrouped"
-	if args.DeleteItems {
-		msg = "Group and its items deleted"
-	}
-
 	return DeleteGroupResult{
 		Success: true,
 		GroupID: args.GroupID,
-		Message: msg,
+		Message: deleteGroupDoneMessage(args),
 	}, nil
+}
+
+// deleteGroupDryRunMessage previews what a group delete would do.
+func deleteGroupDryRunMessage(args DeleteGroupArgs) string {
+	if args.DeleteItems {
+		return "[DRY RUN] Would delete group " + args.GroupID + " and its items"
+	}
+	return "[DRY RUN] Would delete group " + args.GroupID + ", items would be ungrouped"
+}
+
+// deleteGroupDoneMessage describes a completed group delete.
+func deleteGroupDoneMessage(args DeleteGroupArgs) string {
+	if args.DeleteItems {
+		return "Group and its items deleted"
+	}
+	return "Group deleted, items ungrouped"
 }

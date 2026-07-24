@@ -14,11 +14,20 @@ import (
 // =============================================================================
 
 // ListBoards retrieves boards accessible to the user.
-func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoardsResult, error) {
-	// Build query parameters
+// clampBoardLimit normalizes a requested page size to the boards endpoint's
+// bounds.
+func clampBoardLimit(limit int) int {
+	if limit > 0 && limit <= MaxBoardLimit {
+		return limit
+	}
+	return DefaultBoardLimit
+}
+
+// buildListBoardsQuery assembles the query parameters for a boards listing.
+// The team ID falls back to the client config when not supplied.
+func (c *Client) buildListBoardsQuery(args ListBoardsArgs, limit int) url.Values {
 	params := url.Values{}
 
-	// Use TeamID from args, or fall back to config's TeamID
 	teamID := args.TeamID
 	if teamID == "" && c.config != nil {
 		teamID = c.config.TeamID
@@ -30,19 +39,37 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 	if args.Query != "" {
 		params.Set("query", args.Query)
 	}
-	limit := DefaultBoardLimit
-	if args.Limit > 0 && args.Limit <= MaxBoardLimit {
-		limit = args.Limit
-	}
 	params.Set("limit", strconv.Itoa(limit))
 	if args.Offset != "" {
 		params.Set("offset", args.Offset)
 	}
+	return params
+}
 
-	path := "/boards"
-	if len(params) > 0 {
-		path += "?" + params.Encode()
+// summarizeBoards projects full board objects to list summaries.
+func summarizeBoards(data []Board) []BoardSummary {
+	boards := make([]BoardSummary, len(data))
+	for i, b := range data {
+		boards[i] = BoardSummary{
+			ID:          b.ID,
+			Name:        b.Name,
+			Description: b.Description,
+			ViewLink:    b.ViewLink,
+		}
+		if b.Team != nil {
+			boards[i].TeamName = b.Team.Name
+		}
 	}
+	return boards
+}
+
+func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoardsResult, error) {
+	limit := clampBoardLimit(args.Limit)
+	params := c.buildListBoardsQuery(args, limit)
+
+	// params always carries at least the limit, so the query string is
+	// unconditionally present.
+	path := "/boards?" + params.Encode()
 
 	respBody, err := c.request(ctx, http.MethodGet, path, nil)
 	if err != nil {
@@ -59,19 +86,7 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 		return ListBoardsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Convert to summaries
-	boards := make([]BoardSummary, len(resp.Data))
-	for i, b := range resp.Data {
-		boards[i] = BoardSummary{
-			ID:          b.ID,
-			Name:        b.Name,
-			Description: b.Description,
-			ViewLink:    b.ViewLink,
-		}
-		if b.Team != nil {
-			boards[i].TeamName = b.Team.Name
-		}
-	}
+	boards := summarizeBoards(resp.Data)
 
 	// Convert numeric offset to string for external API compatibility
 	offsetStr := ""
@@ -117,24 +132,30 @@ func (c *Client) GetBoard(ctx context.Context, args GetBoardArgs) (GetBoardResul
 	return result, nil
 }
 
+// boardFields collects the optional board attributes (name, description,
+// team) that are shared by the create, copy, and update request bodies.
+// Empty values are omitted.
+func boardFields(name, description, teamID string) map[string]interface{} {
+	reqBody := make(map[string]interface{})
+	if name != "" {
+		reqBody["name"] = name
+	}
+	if description != "" {
+		reqBody["description"] = description
+	}
+	if teamID != "" {
+		reqBody["teamId"] = teamID
+	}
+	return reqBody
+}
+
 // CreateBoard creates a new Miro board.
 func (c *Client) CreateBoard(ctx context.Context, args CreateBoardArgs) (CreateBoardResult, error) {
 	if args.Name == "" {
 		return CreateBoardResult{}, fmt.Errorf("name is required")
 	}
 
-	reqBody := map[string]interface{}{
-		"name": args.Name,
-	}
-
-	if args.Description != "" {
-		reqBody["description"] = args.Description
-	}
-
-	if args.TeamID != "" {
-		reqBody["teamId"] = args.TeamID
-	}
-
+	reqBody := boardFields(args.Name, args.Description, args.TeamID)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards", reqBody)
 	if err != nil {
 		return CreateBoardResult{}, err
@@ -160,17 +181,7 @@ func (c *Client) CopyBoard(ctx context.Context, args CopyBoardArgs) (CopyBoardRe
 		return CopyBoardResult{}, err
 	}
 
-	reqBody := make(map[string]interface{})
-
-	if args.Name != "" {
-		reqBody["name"] = args.Name
-	}
-	if args.Description != "" {
-		reqBody["description"] = args.Description
-	}
-	if args.TeamID != "" {
-		reqBody["teamId"] = args.TeamID
-	}
+	reqBody := boardFields(args.Name, args.Description, args.TeamID)
 
 	// Miro API uses PUT /boards?copy_from={board_id} to copy boards
 	path := "/boards?copy_from=" + url.QueryEscape(args.BoardID)
@@ -235,14 +246,7 @@ func (c *Client) UpdateBoard(ctx context.Context, args UpdateBoardArgs) (UpdateB
 		return UpdateBoardResult{}, fmt.Errorf("at least one of name or description is required")
 	}
 
-	reqBody := make(map[string]interface{})
-	if args.Name != "" {
-		reqBody["name"] = args.Name
-	}
-	if args.Description != "" {
-		reqBody["description"] = args.Description
-	}
-
+	reqBody := boardFields(args.Name, args.Description, "")
 	respBody, err := c.request(ctx, http.MethodPatch, "/boards/"+args.BoardID, reqBody)
 	if err != nil {
 		return UpdateBoardResult{}, err

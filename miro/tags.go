@@ -126,52 +126,55 @@ func tagItemPath(boardID, itemID, tagID string) string {
 	return fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", boardID, itemID, tagID)
 }
 
-// runTagItemAction validates args, executes the request, and returns the four
-// fields the typed AttachTag/DetachTag wrappers need:
-//   - filled: false on validation error (caller returns zero result + err)
-//   - success: meaningful only when filled=true
-//   - message: success or failure text to populate the result's Message field
-//   - err: raw error from validation or the HTTP request
-func (c *Client) runTagItemAction(ctx context.Context, req tagItemRequest) (filled bool, success bool, message string, err error) {
+// runTagItemAction validates args, executes the request, and shapes the
+// shared result for the AttachTag/DetachTag wrappers. On validation error it
+// returns a zero result; on request error it returns a populated failure
+// result alongside the error.
+func (c *Client) runTagItemAction(ctx context.Context, req tagItemRequest) (TagItemResult, error) {
 	if err := validateTagItemRequest(req); err != nil {
-		return false, false, "", err
+		return TagItemResult{}, err
 	}
+	result := TagItemResult{ItemID: req.itemID, TagID: req.tagID}
 	if _, err := c.request(ctx, req.method, tagItemPath(req.boardID, req.itemID, req.tagID), nil); err != nil {
-		return true, false, fmt.Sprintf("Failed to %s tag: %v", req.failureVerb, err), err
+		result.Message = fmt.Sprintf("Failed to %s tag: %v", req.failureVerb, err)
+		return result, err
 	}
-	return true, true, req.successMsg, nil
+	result.Success = true
+	result.Message = req.successMsg
+	return result, nil
+}
+
+// attachTagAction and detachTagAction are the per-verb templates for the
+// two tag item operations; withIDs fills in the target identifiers.
+var (
+	attachTagAction = tagItemRequest{
+		method:      http.MethodPost,
+		successMsg:  "Tag attached successfully",
+		failureVerb: "attach",
+	}
+	detachTagAction = tagItemRequest{
+		method:      http.MethodDelete,
+		successMsg:  "Tag removed successfully",
+		failureVerb: "detach",
+	}
+)
+
+// withIDs returns a copy of the template with the target identifiers set.
+func (r tagItemRequest) withIDs(boardID, itemID, tagID string) tagItemRequest {
+	r.boardID = boardID
+	r.itemID = itemID
+	r.tagID = tagID
+	return r
 }
 
 // AttachTag attaches a tag to an item (sticky note).
 func (c *Client) AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error) {
-	filled, success, msg, err := c.runTagItemAction(ctx, tagItemRequest{
-		method:      http.MethodPost,
-		successMsg:  "Tag attached successfully",
-		failureVerb: "attach",
-		boardID:     args.BoardID,
-		itemID:      args.ItemID,
-		tagID:       args.TagID,
-	})
-	if !filled {
-		return AttachTagResult{}, err
-	}
-	return AttachTagResult{Success: success, ItemID: args.ItemID, TagID: args.TagID, Message: msg}, err
+	return c.runTagItemAction(ctx, attachTagAction.withIDs(args.BoardID, args.ItemID, args.TagID))
 }
 
 // DetachTag removes a tag from an item.
 func (c *Client) DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error) {
-	filled, success, msg, err := c.runTagItemAction(ctx, tagItemRequest{
-		method:      http.MethodDelete,
-		successMsg:  "Tag removed successfully",
-		failureVerb: "detach",
-		boardID:     args.BoardID,
-		itemID:      args.ItemID,
-		tagID:       args.TagID,
-	})
-	if !filled {
-		return DetachTagResult{}, err
-	}
-	return DetachTagResult{Success: success, ItemID: args.ItemID, TagID: args.TagID, Message: msg}, err
+	return c.runTagItemAction(ctx, detachTagAction.withIDs(args.BoardID, args.ItemID, args.TagID))
 }
 
 // GetItemTags retrieves tags attached to an item.

@@ -50,38 +50,65 @@ func (c *Client) GetBoardPicture(ctx context.Context, args GetBoardPictureArgs) 
 // Export Jobs (Enterprise Only)
 // =============================================================================
 
+// validateCreateExportJobArgs checks the org ID, board count cap, and each
+// board ID before an export job is created.
+func validateCreateExportJobArgs(args CreateExportJobArgs) error {
+	if err := ValidateOrgID(args.OrgID); err != nil {
+		return fmt.Errorf("%w (Enterprise feature)", err)
+	}
+	if len(args.BoardIDs) == 0 {
+		return fmt.Errorf("board_ids is required (at least one board)")
+	}
+	if len(args.BoardIDs) > 50 {
+		return fmt.Errorf("maximum 50 boards per export job")
+	}
+	return validateExportBoardIDs(args.BoardIDs)
+}
+
+// validateExportBoardIDs validates every board ID in an export request.
+func validateExportBoardIDs(boardIDs []string) error {
+	for i, boardID := range boardIDs {
+		if err := ValidateBoardID(boardID); err != nil {
+			return fmt.Errorf("board_ids[%d]: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// exportRequestID returns the supplied request ID, or generates one.
+func exportRequestID(requestID string) string {
+	if requestID == "" {
+		return uuid.New().String()
+	}
+	return requestID
+}
+
+// resolveExportFormat applies the default export format and rejects
+// unsupported values.
+func resolveExportFormat(format string) (string, error) {
+	switch format {
+	case "":
+		return "pdf", nil
+	case "pdf", "svg", "html":
+		return format, nil
+	default:
+		return "", fmt.Errorf("format must be pdf, svg, or html")
+	}
+}
+
 // CreateExportJob creates an export job for one or more boards.
 // This is an Enterprise-only feature requiring the boards:export scope.
 // Up to 50 boards can be exported in a single job.
 func (c *Client) CreateExportJob(ctx context.Context, args CreateExportJobArgs) (CreateExportJobResult, error) {
-	if err := ValidateOrgID(args.OrgID); err != nil {
-		return CreateExportJobResult{}, fmt.Errorf("%w (Enterprise feature)", err)
-	}
-	if len(args.BoardIDs) == 0 {
-		return CreateExportJobResult{}, fmt.Errorf("board_ids is required (at least one board)")
-	}
-	if len(args.BoardIDs) > 50 {
-		return CreateExportJobResult{}, fmt.Errorf("maximum 50 boards per export job")
-	}
-	for i, boardID := range args.BoardIDs {
-		if err := ValidateBoardID(boardID); err != nil {
-			return CreateExportJobResult{}, fmt.Errorf("board_ids[%d]: %w", i, err)
-		}
+	if err := validateCreateExportJobArgs(args); err != nil {
+		return CreateExportJobResult{}, err
 	}
 
-	// Generate request ID if not provided
-	requestID := args.RequestID
-	if requestID == "" {
-		requestID = uuid.New().String()
-	}
+	requestID := exportRequestID(args.RequestID)
 
-	// Default format
-	format := args.Format
-	if format == "" {
-		format = "pdf"
-	}
-	if format != "pdf" && format != "svg" && format != "html" {
-		return CreateExportJobResult{}, fmt.Errorf("format must be pdf, svg, or html")
+	format, err := resolveExportFormat(args.Format)
+	if err != nil {
+		return CreateExportJobResult{}, err
 	}
 
 	reqBody := map[string]interface{}{

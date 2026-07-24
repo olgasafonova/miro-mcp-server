@@ -140,9 +140,18 @@ func (d *Diagram) AddSubGraph(sg *SubGraph) {
 	d.SubGraphs[sg.ID] = sg
 }
 
-// GetNodeOrder returns nodes in topological order for layout.
+// GetNodeOrder returns nodes in topological order for layout, using Kahn's
+// algorithm. Nodes on cycles (never reaching zero in-degree) are appended at
+// the end in map order.
 func (d *Diagram) GetNodeOrder() []string {
-	// Build adjacency list
+	incoming, outgoing := d.buildAdjacency()
+	order := kahnSort(incoming, outgoing)
+	return d.appendCycleNodes(order)
+}
+
+// buildAdjacency computes in-degree counts and outgoing adjacency lists for
+// edges whose endpoints both exist in the node set.
+func (d *Diagram) buildAdjacency() (map[string]int, map[string][]string) {
 	incoming := make(map[string]int)
 	outgoing := make(map[string][]string)
 
@@ -161,42 +170,59 @@ func (d *Diagram) GetNodeOrder() []string {
 		incoming[edge.ToID]++
 		outgoing[edge.FromID] = append(outgoing[edge.FromID], edge.ToID)
 	}
+	return incoming, outgoing
+}
 
-	// Kahn's algorithm for topological sort
-	var queue []string
-	for id, count := range incoming {
-		if count == 0 {
-			queue = append(queue, id)
-		}
-	}
+// kahnSort runs Kahn's algorithm over the adjacency data, consuming the
+// incoming map as it goes.
+func kahnSort(incoming map[string]int, outgoing map[string][]string) []string {
+	queue := zeroInDegreeNodes(incoming)
 
 	var order []string
 	for len(queue) > 0 {
 		node := queue[0]
 		queue = queue[1:]
 		order = append(order, node)
+		queue = append(queue, releaseNeighbors(incoming, outgoing[node])...)
+	}
+	return order
+}
 
-		for _, neighbor := range outgoing[node] {
-			incoming[neighbor]--
-			if incoming[neighbor] == 0 {
-				queue = append(queue, neighbor)
-			}
+// zeroInDegreeNodes collects the nodes with no incoming edges.
+func zeroInDegreeNodes(incoming map[string]int) []string {
+	var queue []string
+	for id, count := range incoming {
+		if count == 0 {
+			queue = append(queue, id)
 		}
 	}
+	return queue
+}
 
-	// Add any remaining nodes (cycles)
-	for id := range d.Nodes {
-		found := false
-		for _, ordered := range order {
-			if ordered == id {
-				found = true
-				break
-			}
+// releaseNeighbors decrements each neighbor's in-degree and returns those
+// that reach zero.
+func releaseNeighbors(incoming map[string]int, neighbors []string) []string {
+	var released []string
+	for _, neighbor := range neighbors {
+		incoming[neighbor]--
+		if incoming[neighbor] == 0 {
+			released = append(released, neighbor)
 		}
-		if !found {
+	}
+	return released
+}
+
+// appendCycleNodes appends any node missing from the sorted order (nodes on
+// cycles never reach zero in-degree during Kahn's algorithm).
+func (d *Diagram) appendCycleNodes(order []string) []string {
+	seen := make(map[string]bool, len(order))
+	for _, id := range order {
+		seen[id] = true
+	}
+	for id := range d.Nodes {
+		if !seen[id] {
 			order = append(order, id)
 		}
 	}
-
 	return order
 }

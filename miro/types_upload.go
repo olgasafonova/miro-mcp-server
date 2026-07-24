@@ -14,13 +14,18 @@ type UploadImageArgs struct {
 	ParentID string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place image in"`
 }
 
-// UploadImageResult contains the uploaded image details.
-type UploadImageResult struct {
+// UploadedItemResult contains the details of an item created or updated
+// through a multipart file upload. All four upload/update-from-file tools
+// return this shape.
+type UploadedItemResult struct {
 	ID      string `json:"id"`
 	ItemURL string `json:"item_url,omitempty"`
 	Title   string `json:"title,omitempty"`
 	Message string `json:"message"`
 }
+
+// UploadImageResult contains the uploaded image details.
+type UploadImageResult = UploadedItemResult
 
 // =============================================================================
 // Upload Document (File Upload)
@@ -37,12 +42,7 @@ type UploadDocumentArgs struct {
 }
 
 // UploadDocumentResult contains the uploaded document details.
-type UploadDocumentResult struct {
-	ID      string `json:"id"`
-	ItemURL string `json:"item_url,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Message string `json:"message"`
-}
+type UploadDocumentResult = UploadedItemResult
 
 // =============================================================================
 // Update Image from File (PATCH multipart)
@@ -60,12 +60,7 @@ type UpdateImageFromFileArgs struct {
 }
 
 // UpdateImageFromFileResult contains the updated image details.
-type UpdateImageFromFileResult struct {
-	ID      string `json:"id"`
-	ItemURL string `json:"item_url,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Message string `json:"message"`
-}
+type UpdateImageFromFileResult = UploadedItemResult
 
 // =============================================================================
 // Update Document from File (PATCH multipart)
@@ -83,9 +78,4 @@ type UpdateDocumentFromFileArgs struct {
 }
 
 // UpdateDocumentFromFileResult contains the updated document details.
-type UpdateDocumentFromFileResult struct {
-	ID      string `json:"id"`
-	ItemURL string `json:"item_url,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Message string `json:"message"`
-}
+type UpdateDocumentFromFileResult = UploadedItemResult

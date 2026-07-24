@@ -198,41 +198,69 @@ func (m *MetricsCollector) PrometheusHandler() http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 
 		// Write metrics in Prometheus format
-		writeMetric(w, "miro_mcp_requests_total", "Total number of API requests", "counter", float64(metrics.TotalRequests))
-		writeMetric(w, "miro_mcp_errors_total", "Total number of errors", "counter", float64(metrics.TotalErrors))
-		writeMetric(w, "miro_mcp_rate_limit_hits_total", "Total rate limit encounters", "counter", float64(metrics.RateLimitHits))
-		writeMetric(w, "miro_mcp_retries_total", "Total retry attempts", "counter", float64(metrics.RetryCount))
+		writeCounter(w, "miro_mcp_requests_total", "Total number of API requests", float64(metrics.TotalRequests))
+		writeCounter(w, "miro_mcp_errors_total", "Total number of errors", float64(metrics.TotalErrors))
+		writeCounter(w, "miro_mcp_rate_limit_hits_total", "Total rate limit encounters", float64(metrics.RateLimitHits))
+		writeCounter(w, "miro_mcp_retries_total", "Total retry attempts", float64(metrics.RetryCount))
 
 		// Request latency percentiles
-		writeMetric(w, "miro_mcp_request_duration_p50_milliseconds", "50th percentile request duration", "gauge", float64(metrics.LatencyP50Ms))
-		writeMetric(w, "miro_mcp_request_duration_p95_milliseconds", "95th percentile request duration", "gauge", float64(metrics.LatencyP95Ms))
-		writeMetric(w, "miro_mcp_request_duration_p99_milliseconds", "99th percentile request duration", "gauge", float64(metrics.LatencyP99Ms))
+		writeGauge(w, "miro_mcp_request_duration_p50_milliseconds", "50th percentile request duration", float64(metrics.LatencyP50Ms))
+		writeGauge(w, "miro_mcp_request_duration_p95_milliseconds", "95th percentile request duration", float64(metrics.LatencyP95Ms))
+		writeGauge(w, "miro_mcp_request_duration_p99_milliseconds", "99th percentile request duration", float64(metrics.LatencyP99Ms))
 
 		// Uptime
-		writeMetric(w, "miro_mcp_uptime_seconds", "Server uptime in seconds", "gauge", float64(metrics.UptimeSeconds))
+		writeGauge(w, "miro_mcp_uptime_seconds", "Server uptime in seconds", float64(metrics.UptimeSeconds))
 
 		// Per-method request counts
 		for method, count := range metrics.RequestsByMethod {
-			writeMetricWithLabel(w, "miro_mcp_requests_by_method", "Requests by HTTP method", "counter", "method", method, float64(count))
+			promMetric{
+				name: "miro_mcp_requests_by_method", help: "Requests by HTTP method",
+				metricType: "counter", labelKey: "method", labelValue: method,
+				value: float64(count),
+			}.write(w)
 		}
 
 		// Per-type error counts
 		for errType, count := range metrics.ErrorsByType {
-			writeMetricWithLabel(w, "miro_mcp_errors_by_type", "Errors by type", "counter", "type", errType, float64(count))
+			promMetric{
+				name: "miro_mcp_errors_by_type", help: "Errors by type",
+				metricType: "counter", labelKey: "type", labelValue: errType,
+				value: float64(count),
+			}.write(w)
 		}
 	}
 }
 
-func writeMetric(w http.ResponseWriter, name, help, metricType string, value float64) {
-	w.Write([]byte("# HELP " + name + " " + help + "\n"))
-	w.Write([]byte("# TYPE " + name + " " + metricType + "\n"))
-	w.Write([]byte(name + " " + strconv.FormatFloat(value, 'f', -1, 64) + "\n\n"))
+// promMetric is a single Prometheus-format metric line: name, help text,
+// metric type, an optional label pair, and the value.
+type promMetric struct {
+	name       string
+	help       string
+	metricType string
+	labelKey   string
+	labelValue string
+	value      float64
 }
 
-func writeMetricWithLabel(w http.ResponseWriter, name, help, metricType, labelKey, labelValue string, value float64) {
-	w.Write([]byte("# HELP " + name + " " + help + "\n"))
-	w.Write([]byte("# TYPE " + name + " " + metricType + "\n"))
-	w.Write([]byte(name + "{" + labelKey + "=\"" + labelValue + "\"} " + strconv.FormatFloat(value, 'f', -1, 64) + "\n\n"))
+// write renders the metric's HELP/TYPE header and sample line.
+func (p promMetric) write(w http.ResponseWriter) {
+	series := p.name
+	if p.labelKey != "" {
+		series += "{" + p.labelKey + "=\"" + p.labelValue + "\"}"
+	}
+	w.Write([]byte("# HELP " + p.name + " " + p.help + "\n"))
+	w.Write([]byte("# TYPE " + p.name + " " + p.metricType + "\n"))
+	w.Write([]byte(series + " " + strconv.FormatFloat(p.value, 'f', -1, 64) + "\n\n"))
+}
+
+// writeCounter renders an unlabeled counter metric.
+func writeCounter(w http.ResponseWriter, name, help string, value float64) {
+	promMetric{name: name, help: help, metricType: "counter", value: value}.write(w)
+}
+
+// writeGauge renders an unlabeled gauge metric.
+func writeGauge(w http.ResponseWriter, name, help string, value float64) {
+	promMetric{name: name, help: help, metricType: "gauge", value: value}.write(w)
 }
 
 // calculatePercentiles calculates p50, p95, p99 from a slice of durations

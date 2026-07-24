@@ -227,134 +227,124 @@ type uploadFormOpts struct {
 	parentID string
 }
 
-// UploadImage uploads a local image file to a Miro board.
-func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UploadImageResult{}, err
-	}
-	resolvedPath, err := validateImageFile(args.FilePath)
-	if err != nil {
-		return UploadImageResult{}, err
-	}
+// uploadKind bundles the per-item-type differences (API path segment, file
+// validator, display noun) between image and document uploads.
+type uploadKind struct {
+	segment  string
+	validate func(string) (string, error)
+	noun     string
+}
 
-	parsed, err := c.uploadMultipart(ctx, multipartUploadCall{
-		method:        http.MethodPost,
-		path:          "/boards/" + args.BoardID + "/images",
-		boardID:       args.BoardID,
-		filePath:      args.FilePath,
+var (
+	imageUploads    = uploadKind{segment: "images", validate: validateImageFile, noun: "image"}
+	documentUploads = uploadKind{segment: "documents", validate: validateDocumentFile, noun: "document"}
+)
+
+// uploadRequest is one upload or update-from-file operation: the target kind
+// and board, an optional existing item to replace, the local file, and the
+// shared form fields.
+type uploadRequest struct {
+	kind     uploadKind
+	boardID  string
+	itemID   string // item whose file is being replaced; used when replace is set
+	replace  bool   // true for update-from-file calls, false for new uploads
+	filePath string
+	form     uploadFormOpts
+}
+
+// message renders the user-facing confirmation for a completed operation.
+func (r uploadRequest) message(title string) string {
+	if r.replace {
+		return fmt.Sprintf("Updated %s '%s' with new file", r.kind.noun, title)
+	}
+	return fmt.Sprintf("Uploaded %s '%s'", r.kind.noun, title)
+}
+
+// runUpload validates the request and performs the shared multipart flow.
+// New uploads POST to the collection path; replacements PATCH the item path.
+func (c *Client) runUpload(ctx context.Context, req uploadRequest) (uploadAPIResponse, error) {
+	if err := ValidateBoardID(req.boardID); err != nil {
+		return uploadAPIResponse{}, err
+	}
+	method := http.MethodPost
+	path := "/boards/" + req.boardID + "/" + req.kind.segment
+	if req.replace {
+		if err := ValidateItemID(req.itemID); err != nil {
+			return uploadAPIResponse{}, err
+		}
+		method = http.MethodPatch
+		path += "/" + req.itemID
+	}
+	resolvedPath, err := req.kind.validate(req.filePath)
+	if err != nil {
+		return uploadAPIResponse{}, err
+	}
+	return c.uploadMultipart(ctx, multipartUploadCall{
+		method:        method,
+		path:          path,
+		boardID:       req.boardID,
+		filePath:      req.filePath,
 		resolvedPath:  resolvedPath,
-		form:          uploadFormOpts{title: args.Title, x: args.X, y: args.Y, parentID: args.ParentID},
-		fallbackTitle: filepath.Base(args.FilePath),
+		form:          req.form,
+		fallbackTitle: filepath.Base(req.filePath),
 	})
-	if err != nil {
-		return UploadImageResult{}, err
-	}
+}
 
-	return UploadImageResult{
+// runUploadResult runs the upload and shapes the shared result type.
+func (c *Client) runUploadResult(ctx context.Context, req uploadRequest) (UploadedItemResult, error) {
+	parsed, err := c.runUpload(ctx, req)
+	if err != nil {
+		return UploadedItemResult{}, err
+	}
+	return UploadedItemResult{
 		ID:      parsed.ID,
 		ItemURL: parsed.ItemURL,
 		Title:   parsed.Title,
-		Message: fmt.Sprintf("Uploaded image '%s'", parsed.Title),
+		Message: req.message(parsed.Title),
 	}, nil
+}
+
+// newUpload shapes a create-style upload request for the given kind.
+func newUpload(kind uploadKind, boardID, filePath string, form uploadFormOpts) uploadRequest {
+	return uploadRequest{kind: kind, boardID: boardID, filePath: filePath, form: form}
+}
+
+// withReplace marks the request as an update-from-file call targeting itemID.
+func (r uploadRequest) withReplace(itemID string) uploadRequest {
+	r.itemID = itemID
+	r.replace = true
+	return r
+}
+
+// formOf collects the shared optional form fields (title, position, parent).
+func formOf(title string, x, y float64, parentID string) uploadFormOpts {
+	return uploadFormOpts{title: title, x: x, y: y, parentID: parentID}
+}
+
+// UploadImage uploads a local image file to a Miro board.
+func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error) {
+	form := formOf(args.Title, args.X, args.Y, args.ParentID)
+	return c.runUploadResult(ctx, newUpload(imageUploads, args.BoardID, args.FilePath, form))
 }
 
 // UploadDocument uploads a local document file to a Miro board.
 func (c *Client) UploadDocument(ctx context.Context, args UploadDocumentArgs) (UploadDocumentResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UploadDocumentResult{}, err
-	}
-	resolvedPath, err := validateDocumentFile(args.FilePath)
-	if err != nil {
-		return UploadDocumentResult{}, err
-	}
-
-	parsed, err := c.uploadMultipart(ctx, multipartUploadCall{
-		method:        http.MethodPost,
-		path:          "/boards/" + args.BoardID + "/documents",
-		boardID:       args.BoardID,
-		filePath:      args.FilePath,
-		resolvedPath:  resolvedPath,
-		form:          uploadFormOpts{title: args.Title, x: args.X, y: args.Y, parentID: args.ParentID},
-		fallbackTitle: filepath.Base(args.FilePath),
-	})
-	if err != nil {
-		return UploadDocumentResult{}, err
-	}
-
-	return UploadDocumentResult{
-		ID:      parsed.ID,
-		ItemURL: parsed.ItemURL,
-		Title:   parsed.Title,
-		Message: fmt.Sprintf("Uploaded document '%s'", parsed.Title),
-	}, nil
+	form := formOf(args.Title, args.X, args.Y, args.ParentID)
+	return c.runUploadResult(ctx, newUpload(documentUploads, args.BoardID, args.FilePath, form))
 }
 
 // UpdateImageFromFile replaces the file on an existing image item via PATCH multipart.
 func (c *Client) UpdateImageFromFile(ctx context.Context, args UpdateImageFromFileArgs) (UpdateImageFromFileResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateImageFromFileResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateImageFromFileResult{}, err
-	}
-	resolvedPath, err := validateImageFile(args.FilePath)
-	if err != nil {
-		return UpdateImageFromFileResult{}, err
-	}
-
-	parsed, err := c.uploadMultipart(ctx, multipartUploadCall{
-		method:        http.MethodPatch,
-		path:          "/boards/" + args.BoardID + "/images/" + args.ItemID,
-		boardID:       args.BoardID,
-		filePath:      args.FilePath,
-		resolvedPath:  resolvedPath,
-		form:          uploadFormOpts{title: args.Title, x: args.X, y: args.Y, parentID: args.ParentID},
-		fallbackTitle: filepath.Base(args.FilePath),
-	})
-	if err != nil {
-		return UpdateImageFromFileResult{}, err
-	}
-
-	return UpdateImageFromFileResult{
-		ID:      parsed.ID,
-		ItemURL: parsed.ItemURL,
-		Title:   parsed.Title,
-		Message: fmt.Sprintf("Updated image '%s' with new file", parsed.Title),
-	}, nil
+	form := formOf(args.Title, args.X, args.Y, args.ParentID)
+	req := newUpload(imageUploads, args.BoardID, args.FilePath, form).withReplace(args.ItemID)
+	return c.runUploadResult(ctx, req)
 }
 
 // UpdateDocumentFromFile replaces the file on an existing document item via PATCH multipart.
 func (c *Client) UpdateDocumentFromFile(ctx context.Context, args UpdateDocumentFromFileArgs) (UpdateDocumentFromFileResult, error) {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return UpdateDocumentFromFileResult{}, err
-	}
-	if err := ValidateItemID(args.ItemID); err != nil {
-		return UpdateDocumentFromFileResult{}, err
-	}
-	resolvedPath, err := validateDocumentFile(args.FilePath)
-	if err != nil {
-		return UpdateDocumentFromFileResult{}, err
-	}
-
-	parsed, err := c.uploadMultipart(ctx, multipartUploadCall{
-		method:        http.MethodPatch,
-		path:          "/boards/" + args.BoardID + "/documents/" + args.ItemID,
-		boardID:       args.BoardID,
-		filePath:      args.FilePath,
-		resolvedPath:  resolvedPath,
-		form:          uploadFormOpts{title: args.Title, x: args.X, y: args.Y, parentID: args.ParentID},
-		fallbackTitle: filepath.Base(args.FilePath),
-	})
-	if err != nil {
-		return UpdateDocumentFromFileResult{}, err
-	}
-
-	return UpdateDocumentFromFileResult{
-		ID:      parsed.ID,
-		ItemURL: parsed.ItemURL,
-		Title:   parsed.Title,
-		Message: fmt.Sprintf("Updated document '%s' with new file", parsed.Title),
-	}, nil
+	form := formOf(args.Title, args.X, args.Y, args.ParentID)
+	req := newUpload(documentUploads, args.BoardID, args.FilePath, form).withReplace(args.ItemID)
+	return c.runUploadResult(ctx, req)
 }
 
 // multipartUploadCall bundles the per-call inputs for the shared upload skeleton.

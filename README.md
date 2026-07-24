@@ -7,7 +7,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 **98 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/olgasafonova/miro-mcp-server)](https://goreportcard.com/report/github.com/olgasafonova/miro-mcp-server)
+<!-- CodeScene Code Health badge: add after onboarding repo at codescene.io -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Context — full](badges/mcp-tokens.svg)](#token-efficiency)
 [![MCP Context — essentials](badges/mcp-tokens-essentials.svg)](#token-efficiency)

@@ -159,14 +159,14 @@ The MCP Apps pattern is TypeScript-only today (Go SDK has no `ext-apps` helpers)
 
 ## Token Efficiency
 
-The full tool surface (98 tools) costs roughly **16.5K tokens** of preload — about 8.3% of a 200K Claude context. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
+The full tool surface (98 tools) costs roughly **17.2K tokens** of preload — about 8.6% of a 200K Claude context. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
 
 | Profile | Tools | Preload tokens (est.) | % of 200K context |
 |---|---|---|---|
-| `full` (default) | 98 | ~16,500 | 8.3% |
-| `essentials` | 15 | ~2,400 | 1.2% |
+| `full` (default) | 98 | ~17,240 | 8.6% |
+| `essentials` | 15 | ~2,570 | 1.3% |
 
-Savings: **~13,100 tokens (84.5% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
+Savings: **~14,700 tokens (85.1% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
 
 `miro_tool_search(query?, category?, limit?)` is registered in both profiles. It searches tool names, titles, descriptions, and categories with weighted keyword scoring (name 3×, title 2×, category 2.5×, description 1×), returns up to 50 matches, and never recommends itself. Use it when you don't know which tool to reach for, or to scope to a category before browsing. Empty query plus a category returns the category's tools alphabetically.
 

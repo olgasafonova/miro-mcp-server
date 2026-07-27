@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -368,37 +369,28 @@ func TestBuildCodeWidgetGeometry(t *testing.T) {
 	width, height := 400.0, 250.0
 
 	tests := []struct {
-		name       string
-		width      *float64
-		height     *float64
-		wantNil    bool
-		wantWidth  interface{}
-		wantHeight interface{}
+		name   string
+		width  *float64
+		height *float64
+		want   map[string]interface{}
 	}{
-		{name: "neither_is_nil", wantNil: true},
-		{name: "width_only", width: &width, wantWidth: width},
-		{name: "height_only", height: &height, wantHeight: height},
-		{name: "both", width: &width, height: &height, wantWidth: width, wantHeight: height},
+		{name: "neither_is_nil", want: nil},
+		{name: "width_only", width: &width, want: map[string]interface{}{"width": width}},
+		{name: "height_only", height: &height, want: map[string]interface{}{"height": height}},
+		{
+			name:   "both",
+			width:  &width,
+			height: &height,
+			want:   map[string]interface{}{"width": width, "height": height},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			geo := buildCodeWidgetGeometry(tt.width, tt.height)
-
-			if tt.wantNil {
-				if geo != nil {
-					t.Fatalf("expected nil geometry, got %v", geo)
-				}
-				return
-			}
-			if geo == nil {
-				t.Fatal("expected non-nil geometry")
-			}
-			if got, ok := geo["width"]; ok != (tt.wantWidth != nil) || (ok && got != tt.wantWidth) {
-				t.Errorf("width = %v (present %v), want %v", got, ok, tt.wantWidth)
-			}
-			if got, ok := geo["height"]; ok != (tt.wantHeight != nil) || (ok && got != tt.wantHeight) {
-				t.Errorf("height = %v (present %v), want %v", got, ok, tt.wantHeight)
+			// Whole-map comparison asserts absent keys as well as present
+			// ones, so an unexpected extra key fails the test.
+			if got := buildCodeWidgetGeometry(tt.width, tt.height); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("buildCodeWidgetGeometry() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -416,37 +408,25 @@ func TestBuildCodeWidgetData(t *testing.T) {
 		lang    string
 		title   string
 		lineNum *bool
-		wantNil bool
-		wantKey map[string]interface{}
+		want    map[string]interface{}
 	}{
-		{name: "all_empty_is_nil", wantNil: true},
-		{name: "code_only", code: "x = 1", wantKey: map[string]interface{}{"code": "x = 1"}},
-		{name: "language_only", lang: "go", wantKey: map[string]interface{}{"language": "go"}},
-		{name: "title_only", title: "Snippet", wantKey: map[string]interface{}{"title": "Snippet"}},
+		{name: "all_empty_is_nil", want: nil},
+		{name: "code_only", code: "x = 1", want: map[string]interface{}{"code": "x = 1"}},
+		{name: "language_only", lang: "go", want: map[string]interface{}{"language": "go"}},
+		{name: "title_only", title: "Snippet", want: map[string]interface{}{"title": "Snippet"}},
 		{
 			name:    "false_line_numbers_still_sent",
 			lineNum: &lineNumbersOff,
-			wantKey: map[string]interface{}{"lineNumbersVisible": false},
+			want:    map[string]interface{}{"lineNumbersVisible": false},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := buildCodeWidgetData(tt.code, tt.lang, tt.title, tt.lineNum)
-
-			if tt.wantNil {
-				if data != nil {
-					t.Fatalf("expected nil data, got %v", data)
-				}
-				return
-			}
-			if len(data) != len(tt.wantKey) {
-				t.Fatalf("data = %v, want exactly %v", data, tt.wantKey)
-			}
-			for k, want := range tt.wantKey {
-				if got := data[k]; got != want {
-					t.Errorf("data[%q] = %v, want %v", k, got, want)
-				}
+			// Whole-map comparison keeps the omit-empty assertion exact: any
+			// field that should have been omitted shows up as a diff.
+			if got := buildCodeWidgetData(tt.code, tt.lang, tt.title, tt.lineNum); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("buildCodeWidgetData() = %v, want %v", got, tt.want)
 			}
 		})
 	}

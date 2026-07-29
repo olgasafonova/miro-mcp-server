@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "generated_at": "2026-07-06T07:43:04Z",
-  "deslop_version": "2.1.0",
+  "deslop_version": "2.3.0",
   "scores": {
     "file_health": 70.0,
     "test_coverage": 28.6,
@@ -16,517 +16,689 @@
       "detector": "file_health",
       "severity": "critical",
       "key": "miro/audit/audit_test.go",
-      "summary": "miro/audit/audit_test.go (1,427 LOC)"
+      "summary": "miro/audit/audit_test.go (1,427 LOC)",
+      "fingerprint": "sha256:93e852bd57621cd141aa554f719a4b4581f7b158cb85d71a1d1e0bdc7b02f7a1",
+      "id": "93e8"
     },
     {
       "detector": "file_health",
       "severity": "critical",
       "key": "miro/client_test.go",
-      "summary": "miro/client_test.go (10,628 LOC)"
+      "summary": "miro/client_test.go (10,628 LOC)",
+      "fingerprint": "sha256:9504d4a9df461c294b57932b704091cf96208daadef2792fb7fa081148d329ec",
+      "id": "9504"
     },
     {
       "detector": "file_health",
       "severity": "critical",
       "key": "miro/oauth/oauth_test.go",
-      "summary": "miro/oauth/oauth_test.go (1,243 LOC)"
+      "summary": "miro/oauth/oauth_test.go (1,243 LOC)",
+      "fingerprint": "sha256:22f8bb8dc64c807403419e2e20cfc62e3c0b9f89d5ed58fbd028e87138478945",
+      "id": "22f8"
     },
     {
       "detector": "file_health",
       "severity": "critical",
       "key": "tools/definitions.go",
-      "summary": "tools/definitions.go (1,561 LOC)"
+      "summary": "tools/definitions.go (1,561 LOC)",
+      "fingerprint": "sha256:f073a0b0166a1e50677e0b299c97c53f8078ab65053f84ddc34a7e98e55f87a2",
+      "id": "f073"
     },
     {
       "detector": "file_health",
       "severity": "critical",
       "key": "tools/handlers_test.go",
-      "summary": "tools/handlers_test.go (2,701 LOC)"
+      "summary": "tools/handlers_test.go (2,701 LOC)",
+      "fingerprint": "sha256:d48e4ac248e1f0a55ec1c58aabbfbe999a2ee4f61c9e6f31222c67dc1cbd2c55",
+      "id": "d48e"
     },
     {
       "detector": "file_health",
       "severity": "critical",
       "key": "tools/mock_client_test.go",
-      "summary": "tools/mock_client_test.go (1,522 LOC)"
+      "summary": "tools/mock_client_test.go (1,522 LOC)",
+      "fingerprint": "sha256:7c534410307f97b5126b9b5f2a863b152ecd030e9f452d7d0c8853d2b0dda9cc",
+      "id": "7c53"
     },
     {
       "detector": "file_health",
       "severity": "high",
       "key": "miro/diagrams_test.go",
-      "summary": "miro/diagrams_test.go (1,007 LOC)"
+      "summary": "miro/diagrams_test.go (1,007 LOC)",
+      "fingerprint": "sha256:afa519f53ba8a90cb8ad07399b254a79df3c447ff44f77cebff3ce3095eb749f",
+      "id": "afa5"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "api-tracking/diff-spec.py",
-      "summary": "api-tracking/diff-spec.py (526 LOC)"
+      "summary": "api-tracking/diff-spec.py (526 LOC)",
+      "fingerprint": "sha256:67d30db6d1bc4d74578b7e245c7ac7c7c2395fbc852fc6de10e23a3e96f861fd",
+      "id": "67d3"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "evals/runner.go",
-      "summary": "evals/runner.go (538 LOC)"
+      "summary": "evals/runner.go (538 LOC)",
+      "fingerprint": "sha256:14acb7e85921a9ed5a60bc3df9e8bd9009d4fd2f4350a9cfac5376257a1543f1",
+      "id": "14ac"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "main.go",
-      "summary": "main.go (635 LOC)"
+      "summary": "main.go (635 LOC)",
+      "fingerprint": "sha256:edd15e8ffa1a7f3f537712d796757d2707bf23c9a01c472cd37c14d078225375",
+      "id": "edd1"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "miro/appcards_test.go",
-      "summary": "miro/appcards_test.go (661 LOC)"
+      "summary": "miro/appcards_test.go (661 LOC)",
+      "fingerprint": "sha256:04b44372dac169920fa589d5fe7a692f0b13a48c892fd1226ff7e2c8ec235244",
+      "id": "04b4"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "miro/desirepath/desirepath_test.go",
-      "summary": "miro/desirepath/desirepath_test.go (567 LOC)"
+      "summary": "miro/desirepath/desirepath_test.go (567 LOC)",
+      "fingerprint": "sha256:e45e6382f6712e614955f27e8b1bfffa49be2624d70130f7a69db590159caa3b",
+      "id": "e45e"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "miro/diagrams/mermaid_test.go",
-      "summary": "miro/diagrams/mermaid_test.go (671 LOC)"
+      "summary": "miro/diagrams/mermaid_test.go (671 LOC)",
+      "fingerprint": "sha256:327e1032ceda66d27c50f6b60bcc43decc50f006250706d4f71973c680abb7c9",
+      "id": "327e"
     },
     {
       "detector": "file_health",
       "severity": "warning",
       "key": "miro/errors_test.go",
-      "summary": "miro/errors_test.go (670 LOC)"
+      "summary": "miro/errors_test.go (670 LOC)",
+      "fingerprint": "sha256:9794a2de15ecea2e882dbd80453181dc2f29021b7e39b46dfbe630ae7a8b3ff2",
+      "id": "9794"
     },
     {
       "detector": "structural_quality",
       "severity": "warning",
       "key": "god_package:miro",
-      "summary": "miro/ has 84 source files"
+      "summary": "miro/ has 84 source files",
+      "fingerprint": "sha256:4e92094e5006590c9055db2e75e48a76327b0ee82cdb66bf98b079c28658b0ca",
+      "id": "4e92"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/audit/factory.go",
-      "summary": "miro/audit/factory.go has no test file"
+      "summary": "miro/audit/factory.go has no test file",
+      "fingerprint": "sha256:f1171634bb18dffca6b2b63200948ccf928d3936084159892a9e04d8c61632d5",
+      "id": "f117"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/audit/file.go",
-      "summary": "miro/audit/file.go has no test file"
+      "summary": "miro/audit/file.go has no test file",
+      "fingerprint": "sha256:eb0ec8bb564f4de8f2663a7f8650556d710ac94fcb206e11ecd39b9b4d4cff64",
+      "id": "eb0e"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/audit/memory.go",
-      "summary": "miro/audit/memory.go has no test file"
+      "summary": "miro/audit/memory.go has no test file",
+      "fingerprint": "sha256:f2f9ba1d4b8d6ca36bdec14d8c7b6e27caa25b0c8388cabf12a0dd499eb0c919",
+      "id": "f2f9"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/audit/types.go",
-      "summary": "miro/audit/types.go has no test file"
+      "summary": "miro/audit/types.go has no test file",
+      "fingerprint": "sha256:99538fd74e3c01bf54ac87a7366b54454c99b292805f0c8ab5349cffd1d3f6b6",
+      "id": "9953"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/boards.go",
-      "summary": "miro/boards.go has no test file"
+      "summary": "miro/boards.go has no test file",
+      "fingerprint": "sha256:ecb02f4b0deb262475d114afc462d406cb64d1b517a4246953400eba631243d1",
+      "id": "ecb0"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/boards_find.go",
-      "summary": "miro/boards_find.go has no test file"
+      "summary": "miro/boards_find.go has no test file",
+      "fingerprint": "sha256:a2e7e72e8d0d6bc7fabe89daa93428fbae1c91255b518bf379ec6d2a50bdf5ef",
+      "id": "a2e7"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/boards_summary.go",
-      "summary": "miro/boards_summary.go has no test file"
+      "summary": "miro/boards_summary.go has no test file",
+      "fingerprint": "sha256:e878278230e77dccadccaa1de3400abac29aeaeb102bc7864c069b7551399070",
+      "id": "e878"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/bulk.go",
-      "summary": "miro/bulk.go has no test file"
+      "summary": "miro/bulk.go has no test file",
+      "fingerprint": "sha256:cc755217af2475bc173d6c0597082334cd4deb793ad04b6f52e543a076e03543",
+      "id": "cc75"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/card.go",
-      "summary": "miro/card.go has no test file"
+      "summary": "miro/card.go has no test file",
+      "fingerprint": "sha256:4f40b032a71cd8a805fb7c64cce4723e2167d8669eeb81d3bd704a1f957bfee9",
+      "id": "4f40"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/connectors.go",
-      "summary": "miro/connectors.go has no test file"
+      "summary": "miro/connectors.go has no test file",
+      "fingerprint": "sha256:65ec651c5dcdc7514eb262d71381ef8e03b25edbd756a830664e5286c49efba2",
+      "id": "65ec"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/constants.go",
-      "summary": "miro/constants.go has no test file"
+      "summary": "miro/constants.go has no test file",
+      "fingerprint": "sha256:0ff1203aab1624194442ee1e18ca141f9abc7553510dcada9ff5466630faaf3b",
+      "id": "0ff1"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/desirepath/logger.go",
-      "summary": "miro/desirepath/logger.go has no test file"
+      "summary": "miro/desirepath/logger.go has no test file",
+      "fingerprint": "sha256:9a49cc87f8e206111186917133209cd53b293beee6c71343140076c33074d2b3",
+      "id": "9a49"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/desirepath/normalizers.go",
-      "summary": "miro/desirepath/normalizers.go has no test file"
+      "summary": "miro/desirepath/normalizers.go has no test file",
+      "fingerprint": "sha256:1dab235da2f41346f0af6289d054e3bfcc1c3a3376ac423ebb03f6dcc1c83d52",
+      "id": "1dab"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/diagrams/types.go",
-      "summary": "miro/diagrams/types.go has no test file"
+      "summary": "miro/diagrams/types.go has no test file",
+      "fingerprint": "sha256:b6be914eb043e12e32d2ec7fe6b6664e7c9e8742c80b49b67bd4dd3a649b8e52",
+      "id": "b6be"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/docs.go",
-      "summary": "miro/docs.go has no test file"
+      "summary": "miro/docs.go has no test file",
+      "fingerprint": "sha256:5f15c7c6c872992a64062d79004d59ead4de2fd5634d544b79c2b28695fb58d8",
+      "id": "5f15"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/document.go",
-      "summary": "miro/document.go has no test file"
+      "summary": "miro/document.go has no test file",
+      "fingerprint": "sha256:bf386c873be04a8c4a7b605bedbb21d767abcf85324343bce188fa89e41a3671",
+      "id": "bf38"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/embed.go",
-      "summary": "miro/embed.go has no test file"
+      "summary": "miro/embed.go has no test file",
+      "fingerprint": "sha256:69953ba2247fbdc2fbbe246065424a488177b74cada61ce3eab12360ff537a7d",
+      "id": "6995"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/export.go",
-      "summary": "miro/export.go has no test file"
+      "summary": "miro/export.go has no test file",
+      "fingerprint": "sha256:88bde9eeb8b6260a7b8977d67708fffbf6e95bcf3ade8c2dad820ee1820c4c1d",
+      "id": "88bd"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/frames.go",
-      "summary": "miro/frames.go has no test file"
+      "summary": "miro/frames.go has no test file",
+      "fingerprint": "sha256:59b586df860053f91f9d2f5d7fc30ac38cd09dfec67119c8e82f37c274037275",
+      "id": "59b5"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/groups.go",
-      "summary": "miro/groups.go has no test file"
+      "summary": "miro/groups.go has no test file",
+      "fingerprint": "sha256:12a767591795ba9c2d538001cd1e7174b3424b3df8b87dd4dfaff6425fee384a",
+      "id": "12a7"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/image.go",
-      "summary": "miro/image.go has no test file"
+      "summary": "miro/image.go has no test file",
+      "fingerprint": "sha256:182945dbb0e0ac67a3f62cef076d8b61e51f816d06464d9a2743d34de8003d8e",
+      "id": "1829"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/interfaces.go",
-      "summary": "miro/interfaces.go has no test file"
+      "summary": "miro/interfaces.go has no test file",
+      "fingerprint": "sha256:01a650e43d5e3fd62ac7edfb5e4a23714d3fe3ec015350dacb1cf3b1c58f3156",
+      "id": "01a6"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/items.go",
-      "summary": "miro/items.go has no test file"
+      "summary": "miro/items.go has no test file",
+      "fingerprint": "sha256:fbefa4c83e455ed325d2a3f5c5fb3b1442c2949c48d4eb2b27553ff6048feada",
+      "id": "fbef"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/members.go",
-      "summary": "miro/members.go has no test file"
+      "summary": "miro/members.go has no test file",
+      "fingerprint": "sha256:35a1ac9b7f9c238c0c7c6834622d994e82066560daeaf9106562db3928c23d94",
+      "id": "35a1"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/mindmaps.go",
-      "summary": "miro/mindmaps.go has no test file"
+      "summary": "miro/mindmaps.go has no test file",
+      "fingerprint": "sha256:6d7b818955213bf5870da7bbb094c3a5e81f1e5a3ce7ec91e2ac95e0447ac0c0",
+      "id": "6d7b"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/oauth/auth.go",
-      "summary": "miro/oauth/auth.go has no test file"
+      "summary": "miro/oauth/auth.go has no test file",
+      "fingerprint": "sha256:6c3cd095d199f733b6c9fea05dfe9ef1b0062355271bd5d1fa5ef758308696f9",
+      "id": "6c3c"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/oauth/provider.go",
-      "summary": "miro/oauth/provider.go has no test file"
+      "summary": "miro/oauth/provider.go has no test file",
+      "fingerprint": "sha256:1adcaf70b52409cb018b15a9e8449b0145920c19be97b05a744bd5675a691050",
+      "id": "1adc"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/oauth/server.go",
-      "summary": "miro/oauth/server.go has no test file"
+      "summary": "miro/oauth/server.go has no test file",
+      "fingerprint": "sha256:67a76e0e4b3b6e0ed05f79d9e11fdb06a50e3c3d62d5295ece11cbdc83597256",
+      "id": "67a7"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/oauth/tokens.go",
-      "summary": "miro/oauth/tokens.go has no test file"
+      "summary": "miro/oauth/tokens.go has no test file",
+      "fingerprint": "sha256:e931ab9b268809a3e6c0b7f51a388dc63a6008fdf6ff12884caeb8e0b365376e",
+      "id": "e931"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/oauth/types.go",
-      "summary": "miro/oauth/types.go has no test file"
+      "summary": "miro/oauth/types.go has no test file",
+      "fingerprint": "sha256:bf9a6739218cdeed9b1435c098872b7291454faf3d5e376507b881b3915e37fb",
+      "id": "bf9a"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/path.go",
-      "summary": "miro/path.go has no test file"
+      "summary": "miro/path.go has no test file",
+      "fingerprint": "sha256:82b11eee3931d74d7a571ec3fcda97c67729cfe1f1b30c21e9c4da19791f93c7",
+      "id": "82b1"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/request.go",
-      "summary": "miro/request.go has no test file"
+      "summary": "miro/request.go has no test file",
+      "fingerprint": "sha256:545ff3f901c30af7ef5444fd24ebc08f9c02ce42a9204d71a3238da7ea137a7b",
+      "id": "545f"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/retry.go",
-      "summary": "miro/retry.go has no test file"
+      "summary": "miro/retry.go has no test file",
+      "fingerprint": "sha256:9f065b04e716377aea1847f1b8aa903e03f786e041223edf6aca35e95f863c9f",
+      "id": "9f06"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/search.go",
-      "summary": "miro/search.go has no test file"
+      "summary": "miro/search.go has no test file",
+      "fingerprint": "sha256:6269e49a23fdcd2d87c435cf4279993748d41fb68e45ed76680ad61fc8119f8a",
+      "id": "6269"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/shape.go",
-      "summary": "miro/shape.go has no test file"
+      "summary": "miro/shape.go has no test file",
+      "fingerprint": "sha256:821f7c1d2e2a2fb08b83934ee6a8d5f97686bf85daf9d8868607d2e233ed5c29",
+      "id": "821f"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/sticky.go",
-      "summary": "miro/sticky.go has no test file"
+      "summary": "miro/sticky.go has no test file",
+      "fingerprint": "sha256:cfb30219c439a272541f7e1226687fb2a602bc02bc091a7da6c4d76504fad4d6",
+      "id": "cfb3"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/stickygrid.go",
-      "summary": "miro/stickygrid.go has no test file"
+      "summary": "miro/stickygrid.go has no test file",
+      "fingerprint": "sha256:4111604e50532133660f4084d44a69c03ace9ee898e0e29bdf217eb632ca1e31",
+      "id": "4111"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/tables.go",
-      "summary": "miro/tables.go has no test file"
+      "summary": "miro/tables.go has no test file",
+      "fingerprint": "sha256:c96b3c585394048edda3e851cb92e5d21990f6ec117dc97553543d826bd9d1f5",
+      "id": "c96b"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/tags.go",
-      "summary": "miro/tags.go has no test file"
+      "summary": "miro/tags.go has no test file",
+      "fingerprint": "sha256:9482c73456a7e2034bf93090d719c9131a6651484bea4695112f9af21b255337",
+      "id": "9482"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/text.go",
-      "summary": "miro/text.go has no test file"
+      "summary": "miro/text.go has no test file",
+      "fingerprint": "sha256:f9d998dbf7771c6f19bf32e788ee98d54b9fa345c6c217125cc47d62c678b978",
+      "id": "f9d9"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_appcards.go",
-      "summary": "miro/types_appcards.go has no test file"
+      "summary": "miro/types_appcards.go has no test file",
+      "fingerprint": "sha256:29f19230792a5b32c5864d8e8ffd458d9726b06d6ff8f629f5a0a264812ffde5",
+      "id": "29f1"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_audit.go",
-      "summary": "miro/types_audit.go has no test file"
+      "summary": "miro/types_audit.go has no test file",
+      "fingerprint": "sha256:ada13b93cb653d69aa9c8fc5eca03ea8a72daa5a9726260ec24c0bef0b7de566",
+      "id": "ada1"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_base.go",
-      "summary": "miro/types_base.go has no test file"
+      "summary": "miro/types_base.go has no test file",
+      "fingerprint": "sha256:d49413a00cfbdda88f94bf0da637d906d5cdbace69100383e6c613295245ce53",
+      "id": "d494"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_boards.go",
-      "summary": "miro/types_boards.go has no test file"
+      "summary": "miro/types_boards.go has no test file",
+      "fingerprint": "sha256:b8a0c54381711d0c49a8ba39f7c85d470adbc1b7ca2ae6ea880f31efef6c44b4",
+      "id": "b8a0"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_bulk.go",
-      "summary": "miro/types_bulk.go has no test file"
+      "summary": "miro/types_bulk.go has no test file",
+      "fingerprint": "sha256:c9369e8e6c7264e730634a41d45a22195fed0b85c2526ab3dde4bc25e2b82604",
+      "id": "c936"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_card.go",
-      "summary": "miro/types_card.go has no test file"
+      "summary": "miro/types_card.go has no test file",
+      "fingerprint": "sha256:c48a5727e073ac6f718bfae26376bb59f58a3105765dcc4d5b4a71989720d092",
+      "id": "c48a"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_connectors.go",
-      "summary": "miro/types_connectors.go has no test file"
+      "summary": "miro/types_connectors.go has no test file",
+      "fingerprint": "sha256:7bd755636f10f4a5209ebfd71f28ca9a58e7056eb146eded33151fb9fb661692",
+      "id": "7bd7"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_desirepath.go",
-      "summary": "miro/types_desirepath.go has no test file"
+      "summary": "miro/types_desirepath.go has no test file",
+      "fingerprint": "sha256:9924ad1d1d02664582b3c38fc1e54ff44fe03667c41d74c1edaf5dbf3ac17434",
+      "id": "9924"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_diagrams.go",
-      "summary": "miro/types_diagrams.go has no test file"
+      "summary": "miro/types_diagrams.go has no test file",
+      "fingerprint": "sha256:245f9713ca5d0f536a71c392157b9fcf40c71f489f07b68d7be7dc5871b847bc",
+      "id": "245f"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_docformat.go",
-      "summary": "miro/types_docformat.go has no test file"
+      "summary": "miro/types_docformat.go has no test file",
+      "fingerprint": "sha256:c752cd949e0e910a198f74268116a3ceb3eb2f17167db27ed4787908d25b99cb",
+      "id": "c752"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_document.go",
-      "summary": "miro/types_document.go has no test file"
+      "summary": "miro/types_document.go has no test file",
+      "fingerprint": "sha256:9aac2c4dc18fc11aa4814f09eed3069b561b5daad9232ae17984cbfdedd6c30f",
+      "id": "9aac"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_embed.go",
-      "summary": "miro/types_embed.go has no test file"
+      "summary": "miro/types_embed.go has no test file",
+      "fingerprint": "sha256:fc288263960a7e498fb7b9451425346638c1f37ee19c29d93a88e0a6301f4f38",
+      "id": "fc28"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_export.go",
-      "summary": "miro/types_export.go has no test file"
+      "summary": "miro/types_export.go has no test file",
+      "fingerprint": "sha256:244ed5b51452cf26a946ef14379d0dadabfab94a11aa46bb2a2efffb4e7b5efe",
+      "id": "244e"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_frames.go",
-      "summary": "miro/types_frames.go has no test file"
+      "summary": "miro/types_frames.go has no test file",
+      "fingerprint": "sha256:0143cfe17729c0343afe41c31ae31e8e99520ed4df65c662d90df7179f02c0ea",
+      "id": "0143"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_groups.go",
-      "summary": "miro/types_groups.go has no test file"
+      "summary": "miro/types_groups.go has no test file",
+      "fingerprint": "sha256:cf5f409a4012c3cb66f3a89138b1ff467cb8c9d48d186a9ee4a3cd87adf147af",
+      "id": "cf5f"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_image.go",
-      "summary": "miro/types_image.go has no test file"
+      "summary": "miro/types_image.go has no test file",
+      "fingerprint": "sha256:164bf859e681ecc584c7436a29ef1dec0cf9fa49274df021fa5499edcd3d3ba0",
+      "id": "164b"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_items.go",
-      "summary": "miro/types_items.go has no test file"
+      "summary": "miro/types_items.go has no test file",
+      "fingerprint": "sha256:ae8096b2a1c1c52c564769354327a9e082bb16a2741b830d47e7d525ae3390c0",
+      "id": "ae80"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_members.go",
-      "summary": "miro/types_members.go has no test file"
+      "summary": "miro/types_members.go has no test file",
+      "fingerprint": "sha256:68dbe178f57229e06337320ffe6a86dac48f96d8731e4a567e54bbdcc30aef7f",
+      "id": "68db"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_mindmaps.go",
-      "summary": "miro/types_mindmaps.go has no test file"
+      "summary": "miro/types_mindmaps.go has no test file",
+      "fingerprint": "sha256:f95fa11c30ce8a670e9c6eccd4a8e33c74044f72d6c27f5a14a195c019d6466b",
+      "id": "f95f"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_shape.go",
-      "summary": "miro/types_shape.go has no test file"
+      "summary": "miro/types_shape.go has no test file",
+      "fingerprint": "sha256:68b29daf08de71d4e1fc9e555ff04330f08c1138d0fafa3b105930d1a9de93a2",
+      "id": "68b2"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_sticky.go",
-      "summary": "miro/types_sticky.go has no test file"
+      "summary": "miro/types_sticky.go has no test file",
+      "fingerprint": "sha256:153dbb82ae8246682cfd6c24e918eb6c12b1e532d172288f3da18d7451b51240",
+      "id": "153d"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_stickygrid.go",
-      "summary": "miro/types_stickygrid.go has no test file"
+      "summary": "miro/types_stickygrid.go has no test file",
+      "fingerprint": "sha256:9bd10dcc82f31e99787c04f73847fa05f70ce17a59521cef89dbf147e075eed9",
+      "id": "9bd1"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_tables.go",
-      "summary": "miro/types_tables.go has no test file"
+      "summary": "miro/types_tables.go has no test file",
+      "fingerprint": "sha256:1fb43ea89c3971275623dc2beee6fe5dc32f9f270167cb64096f8be679e4e6fb",
+      "id": "1fb4"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_tags.go",
-      "summary": "miro/types_tags.go has no test file"
+      "summary": "miro/types_tags.go has no test file",
+      "fingerprint": "sha256:27ca722e427959d3b1cc841486694e7a14f22e7dce3a8c5648d3d0c46acc61b9",
+      "id": "27ca"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_text.go",
-      "summary": "miro/types_text.go has no test file"
+      "summary": "miro/types_text.go has no test file",
+      "fingerprint": "sha256:7aca8c98a8da2dcac78c9e12c7ca0fc5fab2f0a989b3adab3cd578ed404abb46",
+      "id": "7aca"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/types_upload.go",
-      "summary": "miro/types_upload.go has no test file"
+      "summary": "miro/types_upload.go has no test file",
+      "fingerprint": "sha256:7d569b36d813a44e5922d3b85db6fedf201576fdeff435ab7e4821efc4582855",
+      "id": "7d56"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "miro/urls.go",
-      "summary": "miro/urls.go has no test file"
+      "summary": "miro/urls.go has no test file",
+      "fingerprint": "sha256:120b88dbf01a8ddb28056eb1e25cd7e3488ae3afb08edf0507c443c4c0902d64",
+      "id": "120b"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "tools/audit_event.go",
-      "summary": "tools/audit_event.go has no test file"
+      "summary": "tools/audit_event.go has no test file",
+      "fingerprint": "sha256:4fb50b36026ce11f0435e24ffd079b30ef68af83b49d3085fb29383e10feb370",
+      "id": "4fb5"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "tools/audit_handler.go",
-      "summary": "tools/audit_handler.go has no test file"
+      "summary": "tools/audit_handler.go has no test file",
+      "fingerprint": "sha256:def41270aafa18459232e99d0768d7048d6e4b952d146fbef4af1ceaa927ecf2",
+      "id": "def4"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "tools/desirepath_handler.go",
-      "summary": "tools/desirepath_handler.go has no test file"
+      "summary": "tools/desirepath_handler.go has no test file",
+      "fingerprint": "sha256:8d556cd42ec6b4b37839c98db11c5734529925378a0ec26323e288559b221c3d",
+      "id": "8d55"
     },
     {
       "detector": "test_coverage",
       "severity": "warning",
       "key": "tools/normalize.go",
-      "summary": "tools/normalize.go has no test file"
+      "summary": "tools/normalize.go has no test file",
+      "fingerprint": "sha256:e2b7a7fdd0d666d5c162b48efb34287015f8c9201bbf9b1c3ded1e14d699d88e",
+      "id": "e2b7"
     }
   ]
 }

@@ -4,8 +4,13 @@ go 1.25.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/modelcontextprotocol/go-sdk v1.6.1
+	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/olgasafonova/mcp-otel-go v0.1.0
+)
+
+require (
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 )
 
 require (

@@ -144,6 +144,69 @@ func TestBuildHTTPMux_RoutesUnauthenticated(t *testing.T) {
 	})
 }
 
+// TestBuildHTTPMux_ServesProtocol20260728 pins the reason the Streamable HTTP
+// handler is constructed with Stateless: true. Without it the transport rejects
+// every >= 2026-07-28 request with HTTP 400 ("only supported on stateless HTTP
+// servers"), which no build or lint pass can detect. Verified by ablation: both
+// subtests fail when the option is removed.
+func TestBuildHTTPMux_ServesProtocol20260728(t *testing.T) {
+	mux := buildHTTPMux(testHTTPOpts(t, ""))
+
+	newMeta := map[string]any{
+		"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+		"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "test", "version": "1"},
+		"io.modelcontextprotocol/clientCapabilities": map[string]any{},
+	}
+
+	// tools/list, not server/discover: a stateful handler rejects >= 2026-07-28
+	// requests with HTTP 400, but exempts server/discover so clients can still
+	// read supported versions off DiscoverResult. Probing discover would pass
+	// either way and pin nothing.
+	t.Run("tools/list is answered at 2026-07-28", func(t *testing.T) {
+		body, err := json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "tools/list",
+			"params":  map[string]any{"_meta": newMeta},
+		})
+		if err != nil {
+			t.Fatalf("marshalling request: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		// SEP-2243: a request carrying io.modelcontextprotocol/protocolVersion in
+		// _meta MUST also send the matching header, or the transport rejects it
+		// with -32020 HeaderMismatch. Mcp-Method mirrors the JSON-RPC method so
+		// intermediaries can route without reading the body.
+		req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
+		req.Header.Set("Mcp-Method", "tools/list")
+
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+		}
+		if got := rec.Body.String(); !strings.Contains(got, `"resultType":"complete"`) {
+			t.Errorf("response does not carry resultType complete: %s", got)
+		}
+		if got := rec.Body.String(); strings.Contains(got, "-32601") {
+			t.Errorf("tools/list reported MethodNotFound: %s", got)
+		}
+	})
+
+	t.Run("DELETE is rejected because there are no sessions to terminate", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/", nil))
+
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Errorf("status = %d, want 405", rec.Code)
+		}
+	})
+}
+
 func TestBuildHTTPMux_BearerTokenGuardsMetricsAndRoot(t *testing.T) {
 	mux := buildHTTPMux(testHTTPOpts(t, "secret"))
 

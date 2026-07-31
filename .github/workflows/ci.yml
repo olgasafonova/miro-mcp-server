@@ -22,12 +22,12 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
-      - name: Check go.sum integrity
+      - name: Check go.mod and go.sum integrity
         run: |
           go mod tidy
-          if ! git diff --quiet go.sum; then
-            echo "::error::go.sum is not up to date. Run 'go mod tidy' and commit the changes."
-            git diff go.sum
+          if ! git diff --quiet go.mod go.sum; then
+            echo "::error::go.mod or go.sum is not up to date. Run 'go mod tidy' and commit the changes."
+            git diff go.mod go.sum
             exit 1
           fi
 

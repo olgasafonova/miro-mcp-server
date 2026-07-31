@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/olgasafonova/mcp-cache-go/mcpcache"
 	"github.com/olgasafonova/mcp-otel-go/mcpotel"
 	"github.com/olgasafonova/mcp-servercard-go/servercard"
 	"github.com/olgasafonova/miro-mcp-server/miro"
@@ -178,9 +179,13 @@ func initAuditLogger(logger *slog.Logger) audit.Logger {
 	return auditLogger
 }
 
-// createMCPServer constructs the MCP server with OTel middleware attached.
-// Capabilities is set explicitly to suppress pre-initialize tools/list_changed
-// notifications from go-sdk, which can break the initialize handshake.
+// createMCPServer constructs the MCP server with OTel and cache-TTL middleware
+// attached. Capabilities is set explicitly to suppress pre-initialize
+// tools/list_changed notifications from go-sdk.
+//
+// Attached here rather than in runStdioServer or the HTTP handler because main
+// builds one *mcp.Server and hands it to whichever transport is selected.
+// Attaching in a transport branch would leave the other one unstamped.
 func createMCPServer(logger *slog.Logger) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    ServerName,
@@ -191,10 +196,35 @@ func createMCPServer(logger *slog.Logger) *mcp.Server {
 		Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}},
 	})
 
-	server.AddReceivingMiddleware(mcpotel.Middleware(mcpotel.Config{
-		ServiceName:    ServerName,
-		ServiceVersion: ServerVersion,
-	}))
+	// Both middlewares go in ONE call, and the order is deliberate.
+	//
+	// AddReceivingMiddleware applies right-to-left, so this composes as
+	// mcpotel(mcpcache(handler)): OTel is outermost. Its span therefore covers
+	// the TTL stamp as well as the handler.
+	//
+	// Two separate calls would NOT do this. Each call wraps whatever handler is
+	// already installed (shared.go:113), so adding mcpcache in a second call
+	// would compose as mcpcache(mcpotel(handler)) and stamp the TTL after the
+	// OTel span had already ended. Harmless today, because mcpotel never reads
+	// ttlMs, but it is the wrong nesting to leave in place.
+	//
+	// mcpcache: SEP-2549 requires ttlMs and cacheScope on every cacheable
+	// result, but the SDK's setDefaultCacheableValues() sets cacheScope only and
+	// leaves ttlMs at 0, which the spec reads as "immediately stale". There is
+	// no ServerOptions knob for it. Thirty minutes because this is an actively
+	// developed surface; the tool set changes when a release ships.
+	server.AddReceivingMiddleware(
+		mcpotel.Middleware(mcpotel.Config{
+			ServiceName:    ServerName,
+			ServiceVersion: ServerVersion,
+		}),
+		mcpcache.Middleware(mcpcache.Config{
+			TTLs: map[string]time.Duration{
+				mcpcache.MethodListTools: 30 * time.Minute,
+				mcpcache.MethodDiscover:  30 * time.Minute,
+			},
+		}),
+	)
 
 	return server
 }

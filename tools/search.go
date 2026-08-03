@@ -43,12 +43,11 @@ type ToolSearchResult struct {
 // than inlined into AllTools) so the registration site and the search
 // implementation stay close.
 var SearchToolSpec = ToolSpec{
-	Name:       ToolSearchName,
-	Method:     "SearchTools",
-	Title:      "Find Miro Tools",
-	Category:   "discovery",
-	ReadOnly:   true,
-	Idempotent: true,
+	Name:     ToolSearchName,
+	Method:   "SearchTools",
+	Title:    "Find Miro Tools",
+	Category: "discovery",
+	ReadOnly: true,
 	Description: `Find Miro tools by keyword or category. Returns matching tool names + short descriptions; call those tools directly afterward.
 
 USE WHEN: you don't know which tool exists for a task, or you want to scope to a category before browsing. Examples: "find tools for stickies", "what can I do with frames?", "show me all destructive tools".

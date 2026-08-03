@@ -47,6 +47,19 @@ type ToolSpec struct {
 
 	// Idempotent indicates repeated calls have the same effect
 	Idempotent bool
+
+	// HeaderParams maps an input-schema property name to the Mcp-Param-*
+	// header suffix that mirrors it over Streamable HTTP (SEP-2243
+	// x-mcp-header). Example: {"board_id": "Board-Id"} declares that the
+	// board_id argument travels as the Mcp-Param-Board-Id header, letting an
+	// intermediary route or observe per-board traffic without reading the
+	// JSON-RPC body. Only primitive (string, integer, boolean) top-level
+	// properties are valid; registration panics on anything else because the
+	// SDK silently ignores malformed annotations. Enforcement is strict for
+	// clients negotiating >= 2026-07-28 over HTTP: when the annotated
+	// argument is present, the header must be present and agree, or the
+	// transport rejects the call with -32020 HeaderMismatch.
+	HeaderParams map[string]string
 }
 
 // AllTools contains all registered Miro MCP tools.
@@ -72,11 +85,12 @@ var AllTools = []ToolSpec{
 VOICE-FRIENDLY: "Found 5 boards: Design Sprint, Product Roadmap, Team Retro..."`,
 	},
 	{
-		Name:     "miro_get_board",
-		Method:   "GetBoard",
-		Title:    "Get Board Details",
-		Category: "boards",
-		ReadOnly: true,
+		Name:         "miro_get_board",
+		Method:       "GetBoard",
+		Title:        "Get Board Details",
+		Category:     "boards",
+		ReadOnly:     true,
+		HeaderParams: map[string]string{"board_id": "Board-Id"},
 		Description: `Get board metadata: name, description, owner, creation date, and sharing policy.
 
 USE WHEN: "who owns this board?", "when was this board created?", "board settings", "tell me about this board"
@@ -356,11 +370,12 @@ VOICE-FRIENDLY: "Deleted 5 items from the board"`,
 	// Read/List Tools
 	// ==========================================================================
 	{
-		Name:     "miro_list_items",
-		Method:   "ListItems",
-		Title:    "List Board Items",
-		Category: "read",
-		ReadOnly: true,
+		Name:         "miro_list_items",
+		Method:       "ListItems",
+		Title:        "List Board Items",
+		Category:     "read",
+		ReadOnly:     true,
+		HeaderParams: map[string]string{"board_id": "Board-Id"},
 		Description: `List items on a Miro board (max 50). For ALL items with auto-pagination, use miro_list_all_items. For text search, use miro_search_board.
 
 USE WHEN: "what's on the board", "show all stickies", "list shapes"`,

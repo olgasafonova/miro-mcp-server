@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/olgasafonova/miro-mcp-server/miro"
+	"github.com/olgasafonova/miro-mcp-server/tools"
 )
 
 // =============================================================================
@@ -533,4 +534,111 @@ func TestPrintOAuthSetupHelp(t *testing.T) {
 	if !strings.Contains(out, "miro.com") {
 		t.Errorf("setup help should link to the Miro app settings\n%s", out)
 	}
+}
+
+// TestBuildHTTPMux_ParamHeaderPassthrough proves the x-mcp-header annotations
+// are live on the HTTP transport (SEP-2243), not merely present in a schema:
+// a tools/call whose annotated argument agrees with its Mcp-Param header
+// reaches the handler, and any disagreement — wrong value or missing header —
+// is rejected with -32020 HeaderMismatch before the handler runs. The
+// mismatch half is the proof: a malformed annotation is silently ignored by
+// the SDK, so only a rejection demonstrates the binding exists.
+func TestBuildHTTPMux_ParamHeaderPassthrough(t *testing.T) {
+	opts := testHTTPOpts(t, "")
+	// testHTTPOpts builds an empty server; the annotations live on registered
+	// tools, so register the full profile the way main does.
+	logger := quietLogger()
+	client := miro.NewClient(&miro.Config{AccessToken: "test-token"}, logger)
+	tools.NewHandlerRegistry(client, logger).RegisterProfile(opts.server, tools.ProfileFull)
+	mux := buildHTTPMux(opts)
+
+	newMeta := map[string]any{
+		"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+		"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "test", "version": "1"},
+		"io.modelcontextprotocol/clientCapabilities": map[string]any{},
+	}
+
+	callBoard := func(t *testing.T, paramHeader string) *httptest.ResponseRecorder {
+		t.Helper()
+		body, err := json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "tools/call",
+			"params": map[string]any{
+				"_meta":     newMeta,
+				"name":      "miro_get_board",
+				"arguments": map[string]any{"board_id": "board-123"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("marshalling request: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
+		req.Header.Set("Mcp-Method", "tools/call")
+		req.Header.Set("Mcp-Name", "miro_get_board")
+		if paramHeader != "" {
+			req.Header.Set("Mcp-Param-Board-Id", paramHeader)
+		}
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec
+	}
+
+	t.Run("annotation is visible in tools/list", func(t *testing.T) {
+		body, err := json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "tools/list",
+			"params":  map[string]any{"_meta": newMeta},
+		})
+		if err != nil {
+			t.Fatalf("marshalling request: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
+		req.Header.Set("Mcp-Method", "tools/list")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+		}
+		got := rec.Body.String()
+		if !strings.Contains(got, `"x-mcp-header":"Board-Id"`) {
+			t.Error("tools/list does not expose the x-mcp-header annotation")
+		}
+		// filterValidTools drops tools with malformed annotations; both
+		// annotated tools must still be listed.
+		for _, name := range []string{"miro_get_board", "miro_list_items"} {
+			if !strings.Contains(got, `"name":"`+name+`"`) {
+				t.Errorf("%s missing from tools/list — annotation rejected by the SDK?", name)
+			}
+		}
+	})
+
+	t.Run("agreeing header reaches the handler", func(t *testing.T) {
+		rec := callBoard(t, "board-123")
+		if got := rec.Body.String(); strings.Contains(got, "-32020") {
+			t.Errorf("agreeing body+header was rejected with HeaderMismatch: %s", got)
+		}
+	})
+
+	t.Run("disagreeing header is rejected with -32020", func(t *testing.T) {
+		rec := callBoard(t, "board-999")
+		if got := rec.Body.String(); !strings.Contains(got, "-32020") {
+			t.Errorf("disagreeing header was not rejected with HeaderMismatch: status=%d body=%s", rec.Code, got)
+		}
+	})
+
+	t.Run("missing header for a present annotated param is rejected with -32020", func(t *testing.T) {
+		rec := callBoard(t, "")
+		if got := rec.Body.String(); !strings.Contains(got, "-32020") {
+			t.Errorf("missing Mcp-Param-Board-Id was not rejected with HeaderMismatch: status=%d body=%s", rec.Code, got)
+		}
+	})
 }

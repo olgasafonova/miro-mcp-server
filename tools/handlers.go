@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/olgasafonova/miro-mcp-server/miro"
 	"github.com/olgasafonova/miro-mcp-server/miro/audit"
@@ -333,6 +334,39 @@ func (h *HandlerRegistry) buildTool(spec ToolSpec) *mcp.Tool {
 	}
 }
 
+// headerAnnotatedSchema infers the input schema for Args and attaches the
+// spec's x-mcp-header annotations (SEP-2243 per-parameter header
+// passthrough). The SDK only infers a schema when the tool does not provide
+// one, and jsonschema struct tags cannot carry arbitrary keywords, so tools
+// with HeaderParams pre-build their schema here and hand it to AddTool.
+//
+// It panics on an unknown or non-primitive property because the SDK's
+// annotation extraction silently skips malformed annotations — a wrong shape
+// would be indistinguishable from no annotation, and validateParamHeaderAnnotations
+// would drop the whole tool from tools/list over HTTP. Registration runs at
+// startup, so a panic here is a build-time programming error surfaced loudly,
+// matching AddTool's own panic-on-invalid behaviour.
+func headerAnnotatedSchema[Args any](spec ToolSpec) *jsonschema.Schema {
+	schema, err := jsonschema.For[Args](nil)
+	if err != nil {
+		panic(fmt.Sprintf("tool %s: inferring input schema: %v", spec.Name, err))
+	}
+	for prop, header := range spec.HeaderParams {
+		p, ok := schema.Properties[prop]
+		if !ok {
+			panic(fmt.Sprintf("tool %s: HeaderParams names unknown property %q", spec.Name, prop))
+		}
+		if p.Type != "string" && p.Type != "integer" && p.Type != "boolean" {
+			panic(fmt.Sprintf("tool %s: HeaderParams property %q has type %q; x-mcp-header allows only string, integer, boolean", spec.Name, prop, p.Type))
+		}
+		if p.Extra == nil {
+			p.Extra = map[string]any{}
+		}
+		p.Extra["x-mcp-header"] = header
+	}
+	return schema
+}
+
 // registerTool is a generic helper that registers a tool with the MCP server.
 //
 // The dispatcher closure uses NAMED return values so the deferred recoverPanic
@@ -347,6 +381,9 @@ func registerTool[Args, Result any](
 	spec ToolSpec,
 	method func(context.Context, Args) (Result, error),
 ) {
+	if len(spec.HeaderParams) > 0 {
+		tool.InputSchema = headerAnnotatedSchema[Args](spec)
+	}
 	mcp.AddTool(server, tool, func(ctx context.Context, req *mcp.CallToolRequest, args Args) (res *mcp.CallToolResult, out Result, err error) {
 		defer h.recoverPanic(spec.Name, &err)
 

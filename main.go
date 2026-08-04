@@ -4,10 +4,12 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"flag"
 	"fmt"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -357,8 +359,13 @@ func runStdioServer(server *mcp.Server, rt runtimeFlags) {
 func bearerTokenMiddleware(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Constant-time compare: a plain != short-circuits on the first
+			// differing byte, which leaks the token prefix to a remote prober.
+			// mediawiki-mcp-server and nordic-registry-mcp-server both already
+			// use subtle.ConstantTimeCompare here; miro was the outlier.
 			auth := r.Header.Get("Authorization")
-			if auth == "" || auth != "Bearer "+token {
+			expected := "Bearer " + token
+			if auth == "" || subtle.ConstantTimeCompare([]byte(auth), []byte(expected)) != 1 {
 				w.Header().Set("WWW-Authenticate", `Bearer`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
@@ -478,10 +485,35 @@ func wrapNoStore(next http.Handler) http.Handler {
 
 // isLoopbackAddr reports whether addr binds only the local loopback interface.
 // A bare port (":8080") or "0.0.0.0" binds all interfaces and is treated as
-// externally reachable. IPv6 loopback is deliberately not special-cased: when
-// in doubt, the address is treated as external so authentication is required.
+// externally reachable. A hostname that is not exactly "localhost" and does not
+// parse as an IP is treated as non-loopback, which is the safe default.
+//
+// The host is parsed rather than prefix-matched. The previous implementation
+// used strings.HasPrefix(addr, "localhost"), which also matched hostnames that
+// merely START with it: "-http localhost.corp.example:8080" was read as a
+// loopback bind, so validateHTTPSecurity skipped the mandatory-token check and
+// the server could bind an externally-resolvable interface with no auth at all.
+// "127.0.0.1.evil.example" defeated the other prefix the same way. This is the
+// implementation mediawiki-mcp-server (isLoopbackBind) and
+// nordic-registry-mcp-server (isLoopbackAddr) already use; miro was the only
+// one of the three still on the prefix check.
 func isLoopbackAddr(addr string) bool {
-	return strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "localhost")
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// No port present; treat the whole value as the host.
+		host = addr
+	}
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // validateHTTPSecurity refuses to start an externally-reachable HTTP server that

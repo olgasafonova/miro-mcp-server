@@ -117,6 +117,24 @@ func TestIsLoopbackAddr(t *testing.T) {
 		{"0.0.0.0:8080", false},
 		{":8080", false},
 		{"192.168.1.10:8080", false},
+
+		// Regression: the previous implementation used
+		// strings.HasPrefix(addr, "localhost") / "127.0.0.1", so any hostname
+		// merely STARTING with either was read as loopback. That let
+		// validateHTTPSecurity skip the mandatory-token check and bind an
+		// externally-resolvable interface with no auth at all.
+		{"localhost.corp.example:8080", false},
+		{"localhost.evil.example:8080", false},
+		{"127.0.0.1.evil.example:8080", false},
+		{"localhostile:8080", false},
+
+		// Loopback forms that must keep working.
+		{"127.0.0.53:8080", true}, // all of 127.0.0.0/8 is loopback
+		{"[::1]:8080", true},      // IPv6 loopback
+		{"LOCALHOST:8080", true},  // host matching is case-insensitive
+		{"localhost", true},       // no port
+		{"127.0.0.1", true},       // no port
+		{"example.com:8080", false},
 	}
 
 	for _, tt := range tests {

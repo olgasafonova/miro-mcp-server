@@ -1,5 +1,7 @@
 # Miro MCP Server
 
+[![MCP Toplist](https://mcptoplist.com/badge/io.github.olgasafonova%2Fmiro-mcp-server.svg)](https://mcptoplist.com/server/io.github.olgasafonova%2Fmiro-mcp-server)
+
 Run your [Miro](https://miro.com) workshops, retros, and planning sessions from the command line. Read boards, create stickies, organize frames, and generate diagrams through Claude, Cursor, or any MCP client.
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.

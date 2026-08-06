@@ -317,6 +317,7 @@ ITEM FIELDS:
 - content, x, y, width, height, color, parent_id: standard fields
 - shape: shape type (when type=shape)
 - text_color: text color (shape and text items only)
+- font_size: font size in points (shape and text items only; default 14)
 - text_align: horizontal text alignment (shape items only): left, center, right
 - text_align_vertical: vertical text alignment (shape items only): top, middle, bottom
 

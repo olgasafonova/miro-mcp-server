@@ -223,17 +223,24 @@ func createBulkItem(ctx context.Context, c *Client, boardID string, item BulkCre
 			TextColor:         item.TextColor,
 			TextAlign:         item.TextAlign,
 			TextAlignVertical: item.TextAlignVertical,
+			FontSize:          item.FontSize,
 			ParentID:          item.ParentID,
 		})
 		return result.ID, err
 
 	case "text":
+		textColor := item.TextColor
+		if textColor == "" {
+			textColor = item.Color
+		}
 		result, err := c.CreateText(ctx, CreateTextArgs{
 			BoardID:  boardID,
 			Content:  item.Content,
 			X:        item.X,
 			Y:        item.Y,
 			Width:    item.Width,
+			FontSize: item.FontSize,
+			Color:    textColor,
 			ParentID: item.ParentID,
 		})
 		return result.ID, err

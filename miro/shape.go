@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 )
 
 // =============================================================================
@@ -286,6 +287,9 @@ func (c *Client) CreateShape(ctx context.Context, args CreateShapeArgs) (CreateS
 	}
 	if err := applyShapeTextAlign(style, args.TextAlign, args.TextAlignVertical); err != nil {
 		return CreateShapeResult{}, err
+	}
+	if args.FontSize > 0 {
+		style["fontSize"] = strconv.Itoa(args.FontSize)
 	}
 
 	return c.executeShapeCreate(ctx, shapeCreateExec{

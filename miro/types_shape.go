@@ -15,6 +15,7 @@ type CreateShapeArgs struct {
 	Height            float64 `json:"height,omitempty" jsonschema:"Height in pixels (default 200)"`
 	Color             string  `json:"color,omitempty" jsonschema:"Fill/background color: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
 	TextColor         string  `json:"text_color,omitempty" jsonschema:"Text color: 6-char hex like #ffffff or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)"`
+	FontSize          int     `json:"font_size,omitempty" jsonschema:"Font size in points (default 14)"`
 	TextAlign         string  `json:"text_align,omitempty" jsonschema:"Horizontal text alignment: left, center (default), right"`
 	TextAlignVertical string  `json:"text_align_vertical,omitempty" jsonschema:"Vertical text alignment: top, middle (default), bottom. Note: 'middle' aligns to the center of the bounding box, which for triangles/hexagons is not the visual centroid."`
 	ParentID          string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place shape in. Coords (x, y) are then relative to the frame's TOP-LEFT; the shape's CENTER is placed at (x, y). Account for shape width/height when picking coords to keep it inside the frame."`

@@ -15,6 +15,7 @@ type BulkCreateItem struct {
 	Height            float64 `json:"height,omitempty" jsonschema:"Height"`
 	Color             string  `json:"color,omitempty" jsonschema:"Color. For sticky_note items: Miro sticky names (yellow, light_green, dark_blue, etc.). For shape/text items: 6-char hex like #006400 or named (red, orange, yellow, green, blue, purple, pink, gray, white, black)."`
 	TextColor         string  `json:"text_color,omitempty" jsonschema:"Text color (shape and text items only): 6-char hex like #ffffff or named color."`
+	FontSize          int     `json:"font_size,omitempty" jsonschema:"Font size in points (shape and text items only; default 14)."`
 	TextAlign         string  `json:"text_align,omitempty" jsonschema:"Horizontal text alignment (shape items only): left, center, right."`
 	TextAlignVertical string  `json:"text_align_vertical,omitempty" jsonschema:"Vertical text alignment (shape items only): top, middle, bottom."`
 	ParentID          string  `json:"parent_id,omitempty" jsonschema:"Frame ID to place item in. Coords (x, y) are then relative to the frame's TOP-LEFT corner; the item's CENTER is placed at (x, y)."`

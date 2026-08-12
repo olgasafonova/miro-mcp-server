@@ -35,6 +35,27 @@ const (
 	ServerVersion = "1.23.0"
 )
 
+// SEP-2549 cache hints. Two tiers, split by what actually changes underneath.
+const (
+	// staticListTTL covers the descriptor lists — tools, prompts, resource
+	// templates. These are built from code at startup and cannot change while
+	// the process lives, so the only thing that invalidates them is a release.
+	// Thirty minutes rather than hours because this is an actively developed
+	// surface and a stale client should not be pinned across a deploy.
+	staticListTTL = 30 * time.Minute
+
+	// liveReadTTL covers resources/read, which returns live board content.
+	//
+	// It matches miro.ItemCacheTTL, the SHORTEST of the caches sitting behind
+	// those handlers (items 1m, boards 2m), because ttlMs is a promise about
+	// how long the answer stays good. Within the window the server would serve
+	// the same bytes from its own cache anyway, so the client saves a round
+	// trip and gives up nothing; past it the server refetches, and a longer
+	// hint would have the client holding content the server had already
+	// replaced. Advertise the floor, never the average.
+	liveReadTTL = miro.ItemCacheTTL
+)
+
 // runtimeFlags bundles parsed CLI flags and the configured logger.
 type runtimeFlags struct {
 	httpAddr    string
@@ -213,22 +234,39 @@ func createMCPServer(logger *slog.Logger) *mcp.Server {
 	// mcpcache: SEP-2549 requires ttlMs and cacheScope on every cacheable
 	// result, but the SDK's setDefaultCacheableValues() sets cacheScope only and
 	// leaves ttlMs at 0, which the spec reads as "immediately stale". There is
-	// no ServerOptions knob for it. Thirty minutes because this is an actively
-	// developed surface; the tool set changes when a release ships.
+	// no ServerOptions knob for it.
+	//
+	// Every method the SDK marks cacheable is listed here, and every one this
+	// server answers. Config.Default is deliberately left unset: a blanket
+	// default would also cover resources/read, which returns live board content
+	// rather than a descriptor list, and would silently pick up any seventh
+	// cacheable method a future SDK adds. An omission here ships ttlMs:0, which
+	// is spec-compliant and useless, so the list is the safer shape.
 	server.AddReceivingMiddleware(
 		mcpotel.Middleware(mcpotel.Config{
 			ServiceName:    ServerName,
 			ServiceVersion: ServerVersion,
 		}),
-		mcpcache.Middleware(mcpcache.Config{
-			TTLs: map[string]time.Duration{
-				mcpcache.MethodListTools: 30 * time.Minute,
-				mcpcache.MethodDiscover:  30 * time.Minute,
-			},
-		}),
+		mcpcache.Middleware(cacheConfig()),
 	)
 
 	return server
+}
+
+// cacheConfig returns the SEP-2549 TTL policy. Extracted from createMCPServer
+// so a test can assert the resources/read entry, which cannot be exercised
+// end-to-end without a live board behind it.
+func cacheConfig() mcpcache.Config {
+	return mcpcache.Config{
+		TTLs: map[string]time.Duration{
+			mcpcache.MethodListTools:             staticListTTL,
+			mcpcache.MethodDiscover:              staticListTTL,
+			mcpcache.MethodListPrompts:           staticListTTL,
+			mcpcache.MethodListResources:         staticListTTL,
+			mcpcache.MethodListResourceTemplates: staticListTTL,
+			mcpcache.MethodReadResource:          liveReadTTL,
+		},
+	}
 }
 
 // initDesirePath initializes the desire-path logger and the standard normalizer chain.

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Comment tools (5, v2-experimental)**: `miro_create_comment`, `miro_list_comments`, `miro_get_comment`, `miro_reply_comment`, `miro_resolve_comment` — comment threads on boards and items. The endpoints are live on `/v2-experimental/boards/{board_id}/comments` but absent from Miro's OpenAPI spec, so the wire shapes were captured by live probe (13-08-2026): a comment is a thread with `messages[]`, replies POST to `.../comments/{id}/messages`, resolve is `PATCH {"resolved":bool}` and works in both directions. The API ignores position coordinates on create and DELETE returns 405, so the tools expose neither. `item_id` attaches a thread to an item (`position.type` becomes `attached`). 403/404 responses carry the same experimental-availability hint as the code widget tools. Tool count: 98 → 103.
+
+- **Canvas SVG tools (2, local transform)**: `miro_read_board_svg` renders a board's items as an SVG document computed locally from item geometry — frames as dashed outlines (drawn first, so they sit under their children), shapes and stickies as filled rects/ellipses, text as text, connectors as lines between item centers, every element tagged with `data-miro-id`/`data-miro-type`. `miro_create_from_svg` parses a constrained SVG subset (rect, circle, ellipse, text, nested `g transform="translate"`) and creates matching shapes and text items; unsupported elements are itemized as skipped with reasons, never silently dropped, and a mid-batch failure still reports every item that landed. Caps: 1 MiB source, 200 elements per call. Same local-transform philosophy as the Mermaid parser — no export job, no external service. Tool count: 103 → 105.
+
+### Fixed
+
+- **Shape kind now populated in full-detail item listings.** The API carries a shape's kind (`rectangle`, `circle`, ...) in `data.shape`, which the list-item parser never read, so `ItemStyleInfo.Shape` was declared but always empty. Found by the SVG round-trip test (a circle rendered as a rect); folded into `style.shape` in `detail_level=full` responses.
+
+- **Board listings now carry owner, team and timestamps.** `miro_list_boards` and `miro_find_board` return `team_id`, `team_name`, `owner` (`id` + `name`), `created_at` and `modified_at` alongside the existing `id`, `name`, `description` and `view_link`. `GET /v2/boards` already returns all of these on every board in the page, so nothing here costs an extra request — the projection was simply dropping them. Segmenting boards by team or owner, and sorting by recency, no longer needs a `miro_get_board` per row, and `team_id` feeds straight back into the `team_id` filter.
+
+  Absent values stay absent: a board with no owner, team or timestamps omits those keys entirely rather than emitting `null` or a zero date like `0001-01-01T00:00:00Z`.
+
 ## [1.22.0] - 2026-07-21
 
 ### Added

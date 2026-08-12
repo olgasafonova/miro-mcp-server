@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**98 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**105 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![lint](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml)
@@ -146,7 +146,7 @@ go install github.com/olgasafonova/miro-cli/cmd/miro-cli@latest
 
 ## Companion MCP Apps server: `miro-mcp-apps`
 
-If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Six tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 98-tool CRUD surface, that one for visual at-a-glance views.
+If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Six tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 105-tool CRUD surface, that one for visual at-a-glance views.
 
 | You want… | Use |
 |---|---|
@@ -160,14 +160,14 @@ The MCP Apps pattern is TypeScript-only today (Go SDK has no `ext-apps` helpers)
 
 ## Token Efficiency
 
-The full tool surface (98 tools) costs roughly **17.2K tokens** of preload; the `essentials` profile trims that to ~2.6K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
+The full tool surface (105 tools) costs roughly **19K tokens** of preload; the `essentials` profile trims that to ~2.7K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
 
 | Profile | Tools | Preload tokens (est.) |
 |---|---|---|
-| `full` (default) | 98 | ~17,240 |
-| `essentials` | 15 | ~2,570 |
+| `full` (default) | 105 | ~19,027 |
+| `essentials` | 15 | ~2,719 |
 
-Savings: **~14,700 tokens (85.1% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
+Savings: **~16,300 tokens (85.7% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
 
 `miro_tool_search(query?, category?, limit?)` is registered in both profiles. It searches tool names, titles, descriptions, and categories with weighted keyword scoring (name 3×, title 2×, category 2.5×, description 1×), returns up to 50 matches, and never recommends itself. Use it when you don't know which tool to reach for, or to scope to a category before browsing. Empty query plus a category returns the category's tools alphabetically.
 
@@ -175,15 +175,15 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 
 ---
 
-## All 98 Tools
+## All 105 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `miro_list_boards` | List accessible boards |
-| `miro_find_board` | Find board by name |
+| `miro_list_boards` | List accessible boards with owner, team, and timestamps |
+| `miro_find_board` | Find board by name, with the same metadata as the listing |
 | `miro_get_board` | Get board details |
 | `miro_get_board_summary` | Get board stats and item counts |
 | `miro_get_board_content` | Get all board content for AI analysis |
@@ -269,6 +269,29 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 | `miro_update_code_widget` | Change code, language, title, or size |
 | `miro_move_code_widget` | Move to a new position |
 | `miro_delete_code_widget` | Delete a code widget |
+
+</details>
+
+<details>
+<summary><b>Comments (5, v2-experimental)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_create_comment` | Open a comment thread, optionally attached to an item |
+| `miro_list_comments` | List threads with messages and resolved state |
+| `miro_get_comment` | Get one thread with its full message history |
+| `miro_reply_comment` | Append a reply to a thread |
+| `miro_resolve_comment` | Resolve a thread, or reopen with resolved=false |
+
+</details>
+
+<details>
+<summary><b>Canvas SVG (2, local transform)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_read_board_svg` | Render board items as an SVG document (computed locally) |
+| `miro_create_from_svg` | Create shapes and text from SVG rect/circle/ellipse/text elements |
 
 </details>
 
@@ -431,28 +454,34 @@ sequenceDiagram
 
 ## Official vs Community
 
-Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025 and has grown it substantially since. Comparison refreshed 21-07-2026 against their [current tool documentation](https://developers.miro.com/docs/miro-mcp-prompts) (31 documented tools):
+Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025 and has grown it substantially since. Comparison refreshed 13-08-2026 by enumerating the **65 tools** the hosted server actually registers at `mcp.miro.com`, rather than counting the [documented set](https://developers.miro.com/docs/miro-mcp-prompts) — the docs lag the deployment. Recent additions come from their changelogs on [new MCP tools](https://developers.miro.com/changelog/new-miro-mcp-server-tools-create-items-boards-code-widgets-read-comments-and-more) and [code widget endpoints](https://developers.miro.com/changelog/new-endpoints-create-and-manage-code-widgets).
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 98 (or 15 in `essentials` profile) | 31 |
+| **Tools** | 105 (or 15 in `essentials` profile) | 65 |
 | **Transport** | stdio + HTTP | HTTPS only (hosted at mcp.miro.com) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
 | **Auth** | Token + OAuth2 | OAuth 2.1, dynamic client registration (Enterprise orgs need admin enablement) |
-| **Diagram generation** | Mermaid syntax | Custom DSL (architecture, sequence, ER) |
-| **AI context** | No | Yes (context_explore, context_get) |
+| **Board list metadata** | id, owner, team, created/modified timestamps | name and URL |
+| **Diagram generation** | Mermaid, parsed locally | Mermaid (`diagram_create_mermaid`, `diagram_update_mermaid`) plus a custom DSL |
+| **AI context** | No | Yes (`context_explore`, `context_get`) |
+| **Layout DSL** | Composed from bulk create + the [`miro-workflow`](skills/miro-workflow/) skill | Yes, but marked deprecated upstream in favour of the canvas tools |
+| **Canvas as SVG** | Read + create (local geometry transform; spatial approximation) | Yes (read, create, update from SVG) |
+| **Spaces & sections** | No | Yes (11 tools) — workspace-level grouping of boards, not board content |
+| **Comments** | Yes (create, list, get, reply, resolve; v2-experimental) | Yes (create, list, reply, resolve) |
+| **Prototypes** | No | Yes (read, create, upload URL) |
 | **Code widgets** | 6 tools incl. position move (v2-experimental) | 5 tools (no move) |
-| **Comments** | No | Yes (list, reply, resolve) |
-| **Docs & Tables** | Doc formats + table read | Doc create/update + table create/sync |
-| **Prototypes** | No | Yes (read, create) |
-| **Bulk operations** | Yes | Partial (table_sync_rows upsert only) |
+| **Docs & Tables** | Doc formats + table read | Doc create/update + table create/sync/history |
+| **Images** | Create, upload, update from file | Create, upload URL, get data/URL |
+| **Bulk operations** | Yes | Partial (`table_sync_rows` upsert only) |
 | **Mindmaps** | Yes | No |
 | **Tags & Groups** | Yes | No |
 | **Connectors CRUD** | Yes | No |
 | **Item-level CRUD** | Yes (sticky, shape, text, card, image, document, embed, frame) | Layout DSL, not per-item verbs |
-| **Board sharing / members** | Yes (allowlist-gated) | No |
+| **Board sharing / members** | Yes (allowlist-gated) | Sharing and role updates; no member CRUD |
 | **Export** | Yes (PDF/SVG) | No |
+| **Current user** | Derived from board owner | Yes (`user_who_am_i`) |
 | **MCP Resources** | 3 | No |
 | **MCP Prompts** | 5 workflows | Bundled agent skills (browse, code-review, diagram, doc, table) |
 | **Runtime** | Single Go binary | Hosted (closed-source) |
@@ -461,9 +490,13 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 | **Metrics** | Prometheus | No |
 | **OpenTelemetry** | Built-in ([mcp-otel-go](https://github.com/olgasafonova/mcp-otel-go), [OTel Registry](https://opentelemetry.io/ecosystem/registry/?language=go&search=mcp)) | No |
 
-**When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, AI-powered board context extraction, or code-to-board workflows.
+**Where the differences come from.** Spaces, sections, canvas-SVG and prototypes have no endpoints in the [public REST API v2](https://developers.miro.com/reference/api-reference) — checked 13-08-2026 against the 114-path OpenAPI spec tracked in `api-tracking/`, and re-checked by probing the live API, since the spec omits endpoints Miro does ship. Those run on Miro-internal APIs. The reverse also holds: mindmaps, tags, groups, connectors and export are public REST surfaces the official server has not wrapped.
 
-**When to use this server:** You need full API coverage (98 vs 31 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, bulk ops, mindmaps, tags, connectors, export, or a lightweight binary.
+Board context is a design difference rather than a gap. `context_get` returns a server-side AI summary of a board; `miro_get_board_content` returns the structured content itself — items by type, frame hierarchy, connectors and tags — and lets the model already in your session do the summarizing, with no second inference hop.
+
+**When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, spaces and sections, comments, board context extraction, or SVG/prototype workflows.
+
+**When to use this server:** You need full REST coverage (105 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, richer board listing metadata, bulk ops, mindmaps, tags, connectors, or export.
 
 Both can coexist — use different MCP server names in your config.
 
@@ -568,7 +601,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 98 tools with their schemas
+- Browse all 105 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -610,9 +643,9 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | Full access to all 98 tools |
-| Team | Full access to all 98 tools |
-| Business | Full access to all 98 tools |
+| Free | Full access to all 105 tools |
+| Team | Full access to all 105 tools |
+| Business | Full access to all 105 tools |
 | Enterprise | Full access + export to PDF/SVG |
 
 The 6 code widget tools use Miro's v2-experimental API; availability may vary by account or plan, and the endpoints may change before GA.

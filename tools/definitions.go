@@ -82,6 +82,8 @@ var AllTools = []ToolSpec{
 		ReadOnly: true,
 		Description: `List Miro boards accessible to the user. Use board ID for subsequent operations. For a specific board by name, use ` + "`miro_find_board`" + ` instead.
 
+RETURNS per board: id, name, description, view_link, team_id, team_name, owner (id + name), created_at, modified_at. Team and owner come back on the listing itself, so segmenting boards by team or owner, or sorting by recency, needs no follow-up call. Feed team_id straight back into the team_id filter to narrow the next page.
+
 VOICE-FRIENDLY: "Found 5 boards: Design Sprint, Product Roadmap, Team Retro..."`,
 	},
 	{
@@ -817,6 +819,8 @@ VOICE-FRIENDLY: "This connector links Item A to Item B with a curved arrow"`,
 
 USE WHEN: "find board named X", "get the Design Sprint board"
 
+RETURNS: id, name, description, view_link, team_id, team_name, owner (id + name), created_at, modified_at. Answers "who owns this board" and "when was it last changed" without a follow-up miro_get_board.
+
 VOICE-FRIENDLY: "Found 'Design Sprint' board - ready to work on it"`,
 	},
 	{
@@ -1172,6 +1176,134 @@ RETURNS: Confirmation with widget ID and new coordinates.`,
 WARNING: Cannot be undone. Use dry_run=true to preview first.
 
 RETURNS: Confirmation with deleted widget ID.`,
+	},
+
+	// ==========================================================================
+	// Comment Tools (v2-experimental)
+	// ==========================================================================
+	{
+		Name:     "miro_create_comment",
+		Method:   "CreateComment",
+		Title:    "Create Comment",
+		Category: "comments",
+		Description: `Open a comment thread on a board, optionally attached to a specific item. Uses a v2-experimental API that Miro ships undocumented; it may change or become unavailable without notice.
+
+USE WHEN: "comment on this board", "leave feedback on that sticky", "add a note for the team on item X"
+
+PARAMETERS:
+- board_id: Required.
+- content: Required. First message of the thread.
+- item_id: Optional. Attaches the thread to an item; without it the comment lands at the board origin (the API ignores position coordinates on create).
+
+RETURNS: Thread ID, and the item ID when attached.
+
+VOICE-FRIENDLY: "Added a comment on the pricing sticky"`,
+	},
+	{
+		Name:     "miro_list_comments",
+		Method:   "ListComments",
+		Title:    "List Comments",
+		Category: "comments",
+		ReadOnly: true,
+		Description: `List comment threads on a board, each with its full message history, author, resolved state, and attached item ID. Uses a v2-experimental API that Miro ships undocumented; it may change or become unavailable without notice.
+
+USE WHEN: "what feedback is on this board", "show unresolved comments", "read the comments"
+
+PARAMETERS:
+- board_id: Required.
+- limit: Max threads per page (default 20, max 50). offset: zero-based pagination.
+
+RETURNS: Threads with messages, count, total, has_more. Filter resolved client-side via each thread's resolved flag.
+
+VOICE-FRIENDLY: "3 comment threads, 1 unresolved: 'move the CTA up' from Olga"`,
+	},
+	{
+		Name:     "miro_get_comment",
+		Method:   "GetComment",
+		Title:    "Get Comment Thread",
+		Category: "comments",
+		ReadOnly: true,
+		Description: `Get one comment thread with all its messages. Uses a v2-experimental API that Miro ships undocumented; it may change or become unavailable without notice.
+
+USE WHEN: "show that comment thread", "what did they reply"
+
+PARAMETERS:
+- board_id, comment_id: Required. Get comment_id from miro_list_comments.
+
+RETURNS: Thread with messages, author info, resolved state, attached item ID.`,
+	},
+	{
+		Name:     "miro_reply_comment",
+		Method:   "ReplyComment",
+		Title:    "Reply to Comment",
+		Category: "comments",
+		Description: `Append a reply to an existing comment thread. Uses a v2-experimental API that Miro ships undocumented; it may change or become unavailable without notice.
+
+USE WHEN: "reply to that comment", "answer the feedback"
+
+PARAMETERS:
+- board_id, comment_id: Required. Get comment_id from miro_list_comments.
+- content: Required. Text of the reply.
+
+RETURNS: Thread ID and new message count.
+
+VOICE-FRIENDLY: "Replied to the thread - now 3 messages"`,
+	},
+	{
+		Name:       "miro_resolve_comment",
+		Method:     "ResolveComment",
+		Title:      "Resolve Comment",
+		Category:   "comments",
+		Idempotent: true,
+		Description: `Resolve a comment thread, or reopen it with resolved=false. Uses a v2-experimental API that Miro ships undocumented; it may change or become unavailable without notice.
+
+USE WHEN: "mark that feedback as done", "resolve the comment", "reopen that thread"
+
+PARAMETERS:
+- board_id, comment_id: Required.
+- resolved: Optional. Defaults to true; pass false to reopen.
+
+RETURNS: Thread ID and its new resolved state.
+
+VOICE-FRIENDLY: "Resolved - 2 threads still open"`,
+	},
+
+	// ==========================================================================
+	// Canvas SVG Tools (local transform)
+	// ==========================================================================
+	{
+		Name:     "miro_read_board_svg",
+		Method:   "ReadBoardSVG",
+		Title:    "Read Board as SVG",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Render a board's items as an SVG document, computed locally from item geometry (no export job, no external service). Frames render as dashed outlines, shapes and stickies as filled rects/ellipses with labels, text as text, connectors as lines between item centers. Every element carries data-miro-id and data-miro-type attributes linking it back to the board item.
+
+USE WHEN: "show me the board as SVG", "vector snapshot of the layout", "diff two boards visually", or feeding a board's spatial layout to a tool that reads SVG.
+
+NOT FOR: pixel-accurate rendering (use miro_get_board_picture) or full content analysis (use miro_get_board_content). This is a spatial approximation: images render as placeholder rects and rich styling is reduced to fill colors.
+
+PARAMETERS:
+- board_id: Required. max_items: cap on items fetched (default 500, max 2000).
+
+RETURNS: svg (the document), item_count, skipped (items with no visual mapping), truncated.`,
+	},
+	{
+		Name:     "miro_create_from_svg",
+		Method:   "CreateFromSVG",
+		Title:    "Create Items from SVG",
+		Category: "create",
+		Description: `Create board items from an SVG document, parsed locally. Supported elements: rect (-> rectangle shape; rx>0 -> round_rectangle), circle and ellipse (-> circle shape), text (-> text item), g with transform="translate(x,y)" (offset applied to children, nesting supported). Fill colors carry over. Unsupported elements (path, polygon, line, image, ...) are itemized in the response as skipped, never silently dropped.
+
+USE WHEN: "put this SVG on the board", "recreate this wireframe as board items", importing a diagram from a tool that exports SVG.
+
+NOT FOR: pixel-faithful SVG import (Miro has no vector item type; this maps to native shapes) or Mermaid diagrams (use miro_generate_diagram).
+
+PARAMETERS:
+- board_id, svg: Required. SVG source, max 1 MiB, max 200 drawable elements per call.
+- offset_x, offset_y: Optional placement offset for the whole batch.
+
+RETURNS: created (id, type, source element per item), skipped (element + reason), count. On a mid-batch failure the created list still names every item that landed, so the caller can verify or clean up.`,
 	},
 
 	// ==========================================================================

@@ -62,6 +62,11 @@ func (c *Client) FindBoardByNameTool(ctx context.Context, args FindBoardByNameAr
 		Name:        board.Name,
 		Description: board.Description,
 		ViewLink:    board.ViewLink,
+		TeamID:      board.TeamID,
+		TeamName:    board.TeamName,
+		Owner:       board.Owner,
+		CreatedAt:   board.CreatedAt,
+		ModifiedAt:  board.ModifiedAt,
 		Message:     fmt.Sprintf("Found board '%s'", board.Name),
 	}, nil
 }

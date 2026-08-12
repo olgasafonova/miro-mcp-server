@@ -46,19 +46,34 @@ func (c *Client) buildListBoardsQuery(args ListBoardsArgs, limit int) url.Values
 	return params
 }
 
+// summarizeBoard projects one full board object to a list summary. Owner and
+// team are optional in the API response, so both stay nil/empty rather than
+// being flattened to a zero-valued struct the caller would have to test.
+func summarizeBoard(b Board) BoardSummary {
+	s := BoardSummary{
+		ID:          b.ID,
+		Name:        b.Name,
+		Description: b.Description,
+		ViewLink:    b.ViewLink,
+		CreatedAt:   formatOptionalRFC3339(b.CreatedAt),
+		ModifiedAt:  formatOptionalRFC3339(b.ModifiedAt),
+	}
+	if b.Team != nil {
+		s.TeamID = b.Team.ID
+		s.TeamName = b.Team.Name
+	}
+	if b.Owner != nil {
+		owner := *b.Owner
+		s.Owner = &owner
+	}
+	return s
+}
+
 // summarizeBoards projects full board objects to list summaries.
 func summarizeBoards(data []Board) []BoardSummary {
 	boards := make([]BoardSummary, len(data))
 	for i, b := range data {
-		boards[i] = BoardSummary{
-			ID:          b.ID,
-			Name:        b.Name,
-			Description: b.Description,
-			ViewLink:    b.ViewLink,
-		}
-		if b.Team != nil {
-			boards[i].TeamName = b.Team.Name
-		}
+		boards[i] = summarizeBoard(b)
 	}
 	return boards
 }

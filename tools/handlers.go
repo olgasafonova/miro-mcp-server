@@ -245,6 +245,14 @@ func (h *HandlerRegistry) structureHandlers() map[string]func(*mcp.Server, *mcp.
 		"ListMindmapNodes":  makeHandler(h, h.client.ListMindmapNodes),
 		"DeleteMindmapNode": makeHandler(h, h.client.DeleteMindmapNode),
 
+		"CreateComment":  makeHandler(h, h.client.CreateComment),
+		"ListComments":   makeHandler(h, h.client.ListComments),
+		"GetComment":     makeHandler(h, h.client.GetComment),
+		"ReplyComment":   makeHandler(h, h.client.ReplyComment),
+		"ResolveComment": makeHandler(h, h.client.ResolveComment),
+		"ReadBoardSVG":   makeHandler(h, h.client.ReadBoardSVG),
+		"CreateFromSVG":  makeHandler(h, h.client.CreateFromSVG),
+
 		"CreateCodeWidget": makeHandler(h, h.client.CreateCodeWidget),
 		"GetCodeWidget":    makeHandler(h, h.client.GetCodeWidget),
 		"ListCodeWidgets":  makeHandler(h, h.client.ListCodeWidgets),

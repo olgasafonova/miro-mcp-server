@@ -101,6 +101,14 @@ type MockClient struct {
 	DeleteMindmapNodeFn func(ctx context.Context, args miro.DeleteMindmapNodeArgs) (miro.DeleteMindmapNodeResult, error)
 
 	// Code widget operations
+	CreateCommentFn  func(ctx context.Context, args miro.CreateCommentArgs) (miro.CreateCommentResult, error)
+	ListCommentsFn   func(ctx context.Context, args miro.ListCommentsArgs) (miro.ListCommentsResult, error)
+	GetCommentFn     func(ctx context.Context, args miro.GetCommentArgs) (miro.GetCommentResult, error)
+	ReplyCommentFn   func(ctx context.Context, args miro.ReplyCommentArgs) (miro.ReplyCommentResult, error)
+	ResolveCommentFn func(ctx context.Context, args miro.ResolveCommentArgs) (miro.ResolveCommentResult, error)
+	ReadBoardSVGFn   func(ctx context.Context, args miro.ReadBoardSVGArgs) (miro.ReadBoardSVGResult, error)
+	CreateFromSVGFn  func(ctx context.Context, args miro.CreateFromSVGArgs) (miro.CreateFromSVGResult, error)
+
 	CreateCodeWidgetFn func(ctx context.Context, args miro.CreateCodeWidgetArgs) (miro.CreateCodeWidgetResult, error)
 	GetCodeWidgetFn    func(ctx context.Context, args miro.GetCodeWidgetArgs) (miro.GetCodeWidgetResult, error)
 	ListCodeWidgetsFn  func(ctx context.Context, args miro.ListCodeWidgetsArgs) (miro.ListCodeWidgetsResult, error)
@@ -1120,6 +1128,101 @@ func (m *MockClient) DeleteMindmapNode(ctx context.Context, args miro.DeleteMind
 		Success: true,
 		ID:      args.NodeID,
 		Message: "Mindmap node deleted successfully",
+	}, nil
+}
+
+// =============================================================================
+// CommentService Implementation
+// =============================================================================
+
+func (m *MockClient) CreateComment(ctx context.Context, args miro.CreateCommentArgs) (miro.CreateCommentResult, error) {
+	m.recordCall("CreateComment", args)
+	if m.CreateCommentFn != nil {
+		return m.CreateCommentFn(ctx, args)
+	}
+	return miro.CreateCommentResult{
+		ID:      "comment-123",
+		ItemID:  args.ItemID,
+		Message: "Created comment thread",
+	}, nil
+}
+
+func (m *MockClient) ListComments(ctx context.Context, args miro.ListCommentsArgs) (miro.ListCommentsResult, error) {
+	m.recordCall("ListComments", args)
+	if m.ListCommentsFn != nil {
+		return m.ListCommentsFn(ctx, args)
+	}
+	return miro.ListCommentsResult{
+		Comments: []miro.CommentSummary{{ID: "comment-123", Messages: []miro.CommentMessage{{ID: "m1", Content: "hello"}}}},
+		Count:    1,
+		Total:    1,
+	}, nil
+}
+
+func (m *MockClient) GetComment(ctx context.Context, args miro.GetCommentArgs) (miro.GetCommentResult, error) {
+	m.recordCall("GetComment", args)
+	if m.GetCommentFn != nil {
+		return m.GetCommentFn(ctx, args)
+	}
+	return miro.GetCommentResult{
+		CommentSummary: miro.CommentSummary{ID: args.CommentID, Messages: []miro.CommentMessage{{ID: "m1", Content: "hello"}}},
+		Message:        "Comment thread with 1 message(s)",
+	}, nil
+}
+
+func (m *MockClient) ReplyComment(ctx context.Context, args miro.ReplyCommentArgs) (miro.ReplyCommentResult, error) {
+	m.recordCall("ReplyComment", args)
+	if m.ReplyCommentFn != nil {
+		return m.ReplyCommentFn(ctx, args)
+	}
+	return miro.ReplyCommentResult{
+		ID:           args.CommentID,
+		MessageCount: 2,
+		Message:      "Replied; thread now has 2 message(s)",
+	}, nil
+}
+
+func (m *MockClient) ResolveComment(ctx context.Context, args miro.ResolveCommentArgs) (miro.ResolveCommentResult, error) {
+	m.recordCall("ResolveComment", args)
+	if m.ResolveCommentFn != nil {
+		return m.ResolveCommentFn(ctx, args)
+	}
+	resolved := true
+	if args.Resolved != nil {
+		resolved = *args.Resolved
+	}
+	return miro.ResolveCommentResult{
+		ID:       args.CommentID,
+		Resolved: resolved,
+		Message:  "Resolved comment thread " + args.CommentID,
+	}, nil
+}
+
+// =============================================================================
+// SVGService Implementation
+// =============================================================================
+
+func (m *MockClient) ReadBoardSVG(ctx context.Context, args miro.ReadBoardSVGArgs) (miro.ReadBoardSVGResult, error) {
+	m.recordCall("ReadBoardSVG", args)
+	if m.ReadBoardSVGFn != nil {
+		return m.ReadBoardSVGFn(ctx, args)
+	}
+	return miro.ReadBoardSVGResult{
+		SVG:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"></svg>`,
+		ItemCount: 0,
+		Message:   "Rendered 0 item(s) as SVG (0 skipped)",
+	}, nil
+}
+
+func (m *MockClient) CreateFromSVG(ctx context.Context, args miro.CreateFromSVGArgs) (miro.CreateFromSVGResult, error) {
+	m.recordCall("CreateFromSVG", args)
+	if m.CreateFromSVGFn != nil {
+		return m.CreateFromSVGFn(ctx, args)
+	}
+	return miro.CreateFromSVGResult{
+		Created: []miro.SVGCreatedItem{{ID: "shape-1", Type: "shape", Element: "rect"}},
+		Count:   1,
+		Message: "Created 1 item(s) from SVG (0 element(s) skipped)",
 	}, nil
 }
 

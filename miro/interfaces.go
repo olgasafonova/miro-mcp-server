@@ -120,6 +120,21 @@ type CodeWidgetService interface {
 	DeleteCodeWidget(ctx context.Context, args DeleteCodeWidgetArgs) (DeleteCodeWidgetResult, error)
 }
 
+// CommentService handles comment thread operations (v2-experimental).
+type CommentService interface {
+	CreateComment(ctx context.Context, args CreateCommentArgs) (CreateCommentResult, error)
+	ListComments(ctx context.Context, args ListCommentsArgs) (ListCommentsResult, error)
+	GetComment(ctx context.Context, args GetCommentArgs) (GetCommentResult, error)
+	ReplyComment(ctx context.Context, args ReplyCommentArgs) (ReplyCommentResult, error)
+	ResolveComment(ctx context.Context, args ResolveCommentArgs) (ResolveCommentResult, error)
+}
+
+// SVGService handles local SVG rendering and parsing.
+type SVGService interface {
+	ReadBoardSVG(ctx context.Context, args ReadBoardSVGArgs) (ReadBoardSVGResult, error)
+	CreateFromSVG(ctx context.Context, args CreateFromSVGArgs) (CreateFromSVGResult, error)
+}
+
 // FrameService handles frame-specific operations (beyond create).
 type FrameService interface {
 	GetFrame(ctx context.Context, args GetFrameArgs) (GetFrameResult, error)
@@ -191,6 +206,8 @@ type MiroClient interface {
 	MemberService
 	MindmapService
 	CodeWidgetService
+	CommentService
+	SVGService
 	FrameService
 	TokenService
 	ExportService

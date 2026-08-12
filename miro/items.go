@@ -113,6 +113,7 @@ type rawItemSummary struct {
 	Data     struct {
 		Content string `json:"content"`
 		Title   string `json:"title"`
+		Shape   string `json:"shape"`
 	} `json:"data"`
 	Geometry   *rawItemGeometry `json:"geometry"`
 	Style      *rawItemStyle    `json:"style"`
@@ -169,6 +170,14 @@ func addItemFullDetails(item *ItemSummary, base rawItemSummary) {
 			BorderColor: base.Style.BorderColor,
 			FontSize:    base.Style.FontSize,
 		}
+	}
+	// The shape kind arrives in data.shape, not style; fold it into the
+	// style info so consumers see one styling surface.
+	if base.Data.Shape != "" {
+		if item.Style == nil {
+			item.Style = &ItemStyleInfo{}
+		}
+		item.Style.Shape = base.Data.Shape
 	}
 	item.CreatedAt = base.CreatedAt
 	item.ModifiedAt = base.ModifiedAt

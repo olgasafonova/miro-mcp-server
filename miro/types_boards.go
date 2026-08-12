@@ -5,12 +5,21 @@ package miro
 // =============================================================================
 
 // BoardSummary is a compact board representation for listings.
+//
+// GET /v2/boards returns owner, team, createdAt and modifiedAt on every board
+// in the page, so surfacing them here costs no extra request. Callers use them
+// to segment boards by team or owner and to sort by recency without a
+// follow-up miro_get_board per row.
 type BoardSummary struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	ViewLink    string `json:"view_link"`
+	TeamID      string `json:"team_id,omitempty"`
 	TeamName    string `json:"team_name,omitempty"`
+	Owner       *User  `json:"owner,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	ModifiedAt  string `json:"modified_at,omitempty"`
 }
 
 // =============================================================================
@@ -113,12 +122,19 @@ type FindBoardByNameArgs struct {
 	Name string `json:"name" jsonschema:"Board name to search for (case-insensitive, supports partial matching)"`
 }
 
-// FindBoardByNameResult contains the found board.
+// FindBoardByNameResult contains the found board. It carries the same
+// metadata as BoardSummary so a lookup-by-name answers "who owns it" and
+// "when was it touched" without a second call.
 type FindBoardByNameResult struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	ViewLink    string `json:"view_link"`
+	TeamID      string `json:"team_id,omitempty"`
+	TeamName    string `json:"team_name,omitempty"`
+	Owner       *User  `json:"owner,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	ModifiedAt  string `json:"modified_at,omitempty"`
 	Message     string `json:"message"`
 }
 

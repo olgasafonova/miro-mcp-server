@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-08-13
+
 ### Added
 
 - **Comment tools (5, v2-experimental)**: `miro_create_comment`, `miro_list_comments`, `miro_get_comment`, `miro_reply_comment`, `miro_resolve_comment` — comment threads on boards and items. The endpoints are live on `/v2-experimental/boards/{board_id}/comments` but absent from Miro's OpenAPI spec, so the wire shapes were captured by live probe (13-08-2026): a comment is a thread with `messages[]`, replies POST to `.../comments/{id}/messages`, resolve is `PATCH {"resolved":bool}` and works in both directions. The API ignores position coordinates on create and DELETE returns 405, so the tools expose neither. `item_id` attaches a thread to an item (`position.type` becomes `attached`). 403/404 responses carry the same experimental-availability hint as the code widget tools. Tool count: 98 → 103.

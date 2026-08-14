@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/olgasafonova/mcp-cache-go/mcpcache"
+	"github.com/olgasafonova/miro-mcp-server/miro"
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -80,6 +82,104 @@ func TestCreateMCPServer_BothMiddlewaresFire(t *testing.T) {
 	// mcpotel fired: a server span was recorded for the same call.
 	if !hasSpanForMethod(exporter.GetSpans(), "tools/list") {
 		t.Error("no OTel span recorded for tools/list; mcpotel middleware did not fire")
+	}
+}
+
+// TestCreateMCPServer_EveryCacheableListIsStamped walks the cacheable list
+// methods this server answers and pins that each advertises a real TTL.
+//
+// SEP-2549 makes ttlMs required, and the SDK ships it as int with no omitempty,
+// so a method nobody configured still serialises ttlMs:0 — spec-compliant and
+// read by clients as "immediately stale". The failure mode is therefore silent:
+// no error, no missing field, just a cache hint that defeats caching. Only an
+// on-the-wire value assertion catches it.
+//
+// Ablation: drop any single entry from cacheConfig and that subtest fails with
+// "ttlMs = 0, want 1800000". Verified against the pre-fix binary, where
+// prompts/list, resources/list and resources/templates/list all read 0.
+func TestCreateMCPServer_EveryCacheableListIsStamped(t *testing.T) {
+	mux := buildHTTPMux(testHTTPOpts(t, ""))
+
+	// Every cacheable method this server answers. resources/read is absent
+	// deliberately: it needs a live board upstream, and a failed read returns
+	// an error that the middleware passes through unstamped by design. Its TTL
+	// is pinned by TestCacheConfig_CoversEveryCacheableMethod instead.
+	for _, method := range []string{
+		"tools/list",
+		"prompts/list",
+		"resources/list",
+		"resources/templates/list",
+	} {
+		t.Run(method, func(t *testing.T) {
+			body, err := json.Marshal(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      1,
+				"method":  method,
+				"params": map[string]any{"_meta": map[string]any{
+					"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+					"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "test", "version": "1"},
+					"io.modelcontextprotocol/clientCapabilities": map[string]any{},
+				}},
+			})
+			if err != nil {
+				t.Fatalf("marshalling request: %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
+			req.Header.Set("Mcp-Method", method)
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+			}
+
+			const wantTTL = 1800000 // staticListTTL, thirty minutes
+			if got := extractTTLMs(t, rec.Body.String()); got != wantTTL {
+				t.Errorf("ttlMs = %d, want %d", got, wantTTL)
+			}
+		})
+	}
+}
+
+// TestCacheConfig_CoversEveryCacheableMethod is the completeness guard. The
+// list above can only assert methods someone remembered to add to it, so this
+// asserts the other direction: every method mcpcache knows to be cacheable has
+// a positive TTL configured.
+//
+// It is the check that fires when the SDK adds a seventh cacheable result type
+// and mcp-cache-go exports a constant for it. Without this, the new method
+// would ship ttlMs:0 and nothing would say so.
+func TestCacheConfig_CoversEveryCacheableMethod(t *testing.T) {
+	ttls := cacheConfig().TTLs
+
+	for _, method := range []string{
+		mcpcache.MethodDiscover,
+		mcpcache.MethodListTools,
+		mcpcache.MethodListPrompts,
+		mcpcache.MethodListResources,
+		mcpcache.MethodListResourceTemplates,
+		mcpcache.MethodReadResource,
+	} {
+		ttl, ok := ttls[method]
+		if !ok {
+			t.Errorf("%s has no TTL configured; it will ship ttlMs:0 (immediately stale)", method)
+			continue
+		}
+		if ttl <= 0 {
+			t.Errorf("%s TTL = %v, want positive", method, ttl)
+		}
+	}
+
+	// resources/read must never advertise freshness beyond the shortest cache
+	// behind it, or a client holds board content the server has already
+	// replaced.
+	if got := ttls[mcpcache.MethodReadResource]; got != miro.ItemCacheTTL {
+		t.Errorf("resources/read TTL = %v, want %v (miro.ItemCacheTTL)", got, miro.ItemCacheTTL)
 	}
 }
 

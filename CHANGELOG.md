@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cache hints now cover every cacheable method, not just `tools/list`.** SEP-2549 requires `ttlMs` on cacheable results, and the SDK ships the field as an `int` with no `omitempty`, so any method nobody configured serialised `ttlMs: 0` — which the spec reads as "immediately stale". Measured on the v1.23.0 binary, `prompts/list`, `resources/list` and `resources/templates/list` all advertised `0`, so a compliant client re-fetched them every turn. All three now advertise 30 minutes, matching `tools/list`.
+
+  `resources/read` advertises 1 minute, matching `miro.ItemCacheTTL` — the shortest cache behind its handlers. Within that window the server would serve the same bytes from its own cache anyway, so the client saves a round trip; past it the server refetches, and a longer hint would leave the client holding content the server had already replaced.
+
+  A completeness test now fails if any method `mcp-cache-go` knows to be cacheable has no TTL configured, so a seventh cacheable result type in a future SDK cannot ship as `ttlMs: 0` unnoticed.
+
 ## [1.23.0] - 2026-08-13
 
 ### Added

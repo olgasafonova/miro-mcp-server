@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`miro_bulk_create` now issues one request instead of one per item.** It called the typed single-create endpoint N times in parallel; it now posts to Miro's native `POST /v2/boards/{board_id}/items/bulk`. `MaxBulkItems` was already 20, the endpoint's own cap, so every request this server accepts fits in a single call — 20 stickies cost 1 request rather than 20, which is the rate-limit pressure the change is for.
+
+  The endpoint is **transactional**: if one item fails, none are created. That conflicts with this server's per-item contract, where 19 of 20 may land, so the fallback is deliberately narrow. A `400` means the batch was rejected on validation, and transactionality proves nothing was created — so it falls back to the old per-item fan-out, which cannot double-create and is the only way to report *which* item was bad. Any other failure (429, 5xx, network, timeout) leaves the outcome unknown, because the transaction may have committed with the response lost; there it does **not** fall back, and reports every item failed and retriable with a message saying the outcome is not provable. Falling back on those would be the bug that duplicates a whole batch.
+
+  Item bodies are built by the same helpers the typed `Create*` methods use, so a bulk-created item is byte-identical to a singly-created one. That matters most for sticky notes, whose fill colours are a named enum the API rejects hex for; a hand-rolled bulk mapping is exactly where that would drift. `buildStickyCreateBody` was extracted from `CreateSticky` for this, guarded by the existing sticky tests.
+
 - **`miro_get_audit_log`'s description now says which audit log it means.** It reads this server's local execution log, not Miro's — a distinction the name alone does not carry, and one that got easier to trip over now that both exist. Both descriptions name the other tool. The name itself is unchanged; renaming it would break existing callers for a problem that sharper wording fixes.
 
 - **README account-compatibility table corrected.** It claimed every plan had "full access to all tools", which was already untrue for the three PDF/SVG export tools and would now also be untrue for the org audit log. It now gives 102 tools on Free/Team/Business and names the four Enterprise-only tools. `miro_get_board_picture` works on every plan and is not one of them.

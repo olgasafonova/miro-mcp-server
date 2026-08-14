@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A client that omits `params` on `notifications/initialized` no longer crashes the server.** MCP makes `params` optional on notifications, so this was a plain interop crash: a spec-compliant client sending `{"jsonrpc":"2.0","method":"notifications/initialized"}` took the process down with a SIGSEGV before it could answer anything else. Sending `params:{}` avoided it, which is why it went unnoticed — the Go SDK's own client always populates the field.
+
+  The fault was in `mcp-otel-go`, fixed in v0.2.1 and picked up here. `ServerRequest[P].GetParams()` returns its typed field verbatim, so an absent `params` arrives as a non-nil interface wrapping a nil pointer; the `== nil` guard was false against it and the accessor dereferenced the nil receiver. Verified against this binary: v0.2.0 exits 2 with a SIGSEGV after answering only `initialize`, v0.2.1 exits 0 and serves `tools/list` afterwards.
+
 - **Cache hints now cover every cacheable method, not just `tools/list`.** SEP-2549 requires `ttlMs` on cacheable results, and the SDK ships the field as an `int` with no `omitempty`, so any method nobody configured serialised `ttlMs: 0` — which the spec reads as "immediately stale". Measured on the v1.23.0 binary, `prompts/list`, `resources/list` and `resources/templates/list` all advertised `0`, so a compliant client re-fetched them every turn. All three now advertise 30 minutes, matching `tools/list`.
 
   `resources/read` advertises 1 minute, matching `miro.ItemCacheTTL` — the shortest cache behind its handlers. Within that window the server would serve the same bytes from its own cache anyway, so the client saves a round trip; past it the server refetches, and a longer hint would leave the client holding content the server had already replaced.

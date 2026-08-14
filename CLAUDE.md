@@ -1,7 +1,7 @@
 # Miro MCP Server
 
 ## Project
-Go MCP server for Miro REST API v2. 105 tools across boards, items, diagrams, mindmaps, code widgets, comments, canvas SVG, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
+Go MCP server for Miro REST API v2. 106 tools across boards, items, diagrams, mindmaps, code widgets, comments, canvas SVG, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
 
 ## Architecture
 - `main.go` — entry point, dual stdio/HTTP transport, health/metrics endpoints, token validation
@@ -26,7 +26,7 @@ Go MCP server for Miro REST API v2. 105 tools across boards, items, diagrams, mi
 - All API methods live on the `MiroClient` interface for testability (mock in `tools/mock_client_test.go`)
 - Mermaid diagrams parsed locally (no external service), supporting flowchart + sequenceDiagram
 
-## Tool Categories (105 total)
+## Tool Categories (106 total)
 - **Board Management** (9): list, find, get, create, copy, update, delete, summary, content
 - **Board Members** (5): list, get, share, update, remove
 - **Create Items** (15): sticky, shape, flowchart shape, text, connector, frame, card, app card, image, document, embed, bulk create/update/delete, sticky grid
@@ -46,7 +46,7 @@ Go MCP server for Miro REST API v2. 105 tools across boards, items, diagrams, mi
 - **App Cards** (2): update, delete (create and get counted above)
 - **Export** (4): board picture, create job, status, results
 - **Diagrams** (1): generate from Mermaid
-- **Audit** (1): query local execution log
+- **Audit** (2): query local execution log, query Miro org audit log (Enterprise)
 - **Desire Paths** (1): report tool usage patterns
 
 ## Build & Test

@@ -1375,9 +1375,25 @@ VOICE-FRIENDLY: "Export 50% complete: 5 of 10 boards exported"`,
 		Title:    "Get Audit Log",
 		Category: "audit",
 		ReadOnly: true,
-		Description: `Query local audit log for MCP tool executions (this session only). Filter by time range, tool, board, action type, or success/failure.
+		Description: `Query THIS SERVER's local execution log — which MCP tools ran here, when, and whether they succeeded. Covers this process only; it knows nothing about actions taken in Miro's UI or by other clients.
 
-RETURNS: Array of audit entries with timestamps, tool names, board IDs, and outcomes. Paginated via cursor.`,
+USE WHEN debugging what this server did. For who did what in the Miro workspace, use miro_get_org_audit_logs instead.
+
+Filter by time range, tool, board, action type, or success/failure. RETURNS: Array of entries with timestamps, tool names, board IDs, and outcomes.`,
+	},
+	{
+		Name:     "miro_get_org_audit_logs",
+		Method:   "GetOrgAuditLogs",
+		Title:    "Get Organization Audit Logs",
+		Category: "audit",
+		ReadOnly: true,
+		Description: `Query MIRO's organization-wide audit log — who did what across the Miro workspace, including actions taken outside this server. ENTERPRISE ONLY; needs the auditlogs:read scope.
+
+USE WHEN investigating workspace activity, access changes, or board history across users. For what this server itself executed, use miro_get_audit_log instead.
+
+created_after and created_before are BOTH REQUIRED — the API has no default window. Miro retains 90 days; older events are only available via the CSV export in the Miro admin UI.
+
+RETURNS: Cursor-paginated events with actor (name/email), target object, event type, category, team, and source IP.`,
 	},
 	{
 		Name:     "miro_get_desire_paths",

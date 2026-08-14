@@ -357,13 +357,50 @@ func runBulkOp[T any](
 }
 
 // BulkCreate creates multiple items in one operation.
-// Items are created in parallel using goroutines, with concurrency
-// controlled by the client's semaphore (MaxConcurrentRequests).
+//
+// Tries Miro's native bulk endpoint first: one request for up to 20 items
+// instead of one per item. Falls back to the per-item fan-out only when the API
+// rejects the batch on validation, which its own transactionality proves
+// created nothing — see bulk_native.go for why the fallback is that narrow.
 func (c *Client) BulkCreate(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error) {
 	if err := validateBulkSize(args.BoardID, len(args.Items), "item"); err != nil {
 		return BulkCreateResult{}, err
 	}
 
+	ids, err := c.createItemsNative(ctx, args.BoardID, args.Items)
+	switch {
+	case err == nil:
+		c.cache.InvalidatePrefix("items:" + args.BoardID)
+		return BulkCreateResult{
+			Created:  len(ids),
+			ItemIDs:  ids,
+			ItemURLs: BuildItemURLs(args.BoardID, ids),
+			Message:  formatBulkMessage("Created", len(ids), len(args.Items), 0),
+		}, nil
+
+	case nativeBulkRejectedBatch(err) || isLocalMappingError(err):
+		// Nothing was created, so re-running per item is safe and is the only
+		// way to tell the caller WHICH item was bad.
+
+	default:
+		// 429, 5xx, network, timeout: the outcome is unknown and a fan-out here
+		// could duplicate every item.
+		return allItemsFailed(args.Items, err), nil
+	}
+
+	return c.bulkCreateFanOut(ctx, args)
+}
+
+// isLocalMappingError reports whether the native path failed before any request
+// was made, which likewise means nothing was created.
+func isLocalMappingError(err error) bool {
+	var apiErr *APIError
+	return !errors.As(err, &apiErr)
+}
+
+// bulkCreateFanOut is the original per-item path: one request per item, in
+// parallel, with per-item success and failure reporting.
+func (c *Client) bulkCreateFanOut(ctx context.Context, args BulkCreateArgs) (BulkCreateResult, error) {
 	agg := runBulkOp(ctx, args.Items,
 		func(ctx context.Context, _ int, item BulkCreateItem) (string, error) {
 			return createBulkItem(ctx, c, args.BoardID, item)

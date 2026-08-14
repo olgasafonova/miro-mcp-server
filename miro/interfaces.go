@@ -129,6 +129,13 @@ type CommentService interface {
 	ResolveComment(ctx context.Context, args ResolveCommentArgs) (ResolveCommentResult, error)
 }
 
+// OrgAuditService handles Miro's organization audit log (Enterprise).
+// Distinct from the local execution log in miro/audit/, which is not an API
+// surface and so has no service here.
+type OrgAuditService interface {
+	GetOrgAuditLogs(ctx context.Context, args GetOrgAuditLogsArgs) (GetOrgAuditLogsResult, error)
+}
+
 // SVGService handles local SVG rendering and parsing.
 type SVGService interface {
 	ReadBoardSVG(ctx context.Context, args ReadBoardSVGArgs) (ReadBoardSVGResult, error)
@@ -207,6 +214,7 @@ type MiroClient interface {
 	MindmapService
 	CodeWidgetService
 	CommentService
+	OrgAuditService
 	SVGService
 	FrameService
 	TokenService

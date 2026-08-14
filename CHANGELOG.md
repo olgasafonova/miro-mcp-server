@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`miro_get_org_audit_logs` (1)**: wraps Miro's organization audit log, `GET /v2/audit/logs` — who did what across the Miro workspace, including actions taken outside this server. Enterprise plan and the `auditlogs:read` scope; 403 and 404 carry a hint saying so, because on this endpoint a non-Enterprise org, a missing scope, and a genuinely absent resource are indistinguishable from the status alone. A 400 deliberately does not get the hint: that is what a malformed time window returns, and a plan hint would send the caller after the wrong problem.
+
+  `created_after` and `created_before` are both required and validated locally, since the API has no default window and answers a missing bound with an opaque 400. The nested `context` object is flattened, so `team_id`, `team_name`, `organization_id` and `ip` sit directly on each event rather than making callers walk it. Miro retains 90 days; older events are only available via the CSV export in the admin UI, which this does not wrap. Tool count: 105 → 106.
+
+### Changed
+
+- **`miro_bulk_create` now issues one request instead of one per item.** It called the typed single-create endpoint N times in parallel; it now posts to Miro's native `POST /v2/boards/{board_id}/items/bulk`. `MaxBulkItems` was already 20, the endpoint's own cap, so every request this server accepts fits in a single call — 20 stickies cost 1 request rather than 20, which is the rate-limit pressure the change is for.
+
+  The endpoint is **transactional**: if one item fails, none are created. That conflicts with this server's per-item contract, where 19 of 20 may land, so the fallback is deliberately narrow. A `400` means the batch was rejected on validation, and transactionality proves nothing was created — so it falls back to the old per-item fan-out, which cannot double-create and is the only way to report *which* item was bad. Any other failure (429, 5xx, network, timeout) leaves the outcome unknown, because the transaction may have committed with the response lost; there it does **not** fall back, and reports every item failed and retriable with a message saying the outcome is not provable. Falling back on those would be the bug that duplicates a whole batch.
+
+  Item bodies are built by the same helpers the typed `Create*` methods use, so a bulk-created item is byte-identical to a singly-created one. That matters most for sticky notes, whose fill colours are a named enum the API rejects hex for; a hand-rolled bulk mapping is exactly where that would drift. `buildStickyCreateBody` was extracted from `CreateSticky` for this, guarded by the existing sticky tests.
+
+- **`miro_get_audit_log`'s description now says which audit log it means.** It reads this server's local execution log, not Miro's — a distinction the name alone does not carry, and one that got easier to trip over now that both exist. Both descriptions name the other tool. The name itself is unchanged; renaming it would break existing callers for a problem that sharper wording fixes.
+
+- **README account-compatibility table corrected.** It claimed every plan had "full access to all tools", which was already untrue for the three PDF/SVG export tools and would now also be untrue for the org audit log. It now gives 102 tools on Free/Team/Business and names the four Enterprise-only tools. `miro_get_board_picture` works on every plan and is not one of them.
+
 ### Fixed
 
 - **A client that omits `params` on `notifications/initialized` no longer crashes the server.** MCP makes `params` optional on notifications, so this was a plain interop crash: a spec-compliant client sending `{"jsonrpc":"2.0","method":"notifications/initialized"}` took the process down with a SIGSEGV before it could answer anything else. Sending `params:{}` avoided it, which is why it went unnoticed — the Go SDK's own client always populates the field.

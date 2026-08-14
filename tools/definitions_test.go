@@ -130,7 +130,8 @@ func TestToolCount(t *testing.T) {
 	// v1.22.0: +6 code widget tools (create, get, list, update, move, delete; v2-experimental) = 98
 	// v1.23.0: +5 comment tools (create, list, get, reply, resolve; v2-experimental)
 	//          +2 canvas SVG tools (read_board_svg, create_from_svg; local transform) = 105
-	expectedCount := 105
+	// unreleased: +1 miro_get_org_audit_logs (Miro Enterprise GET /v2/audit/logs) = 106
+	expectedCount := 106
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

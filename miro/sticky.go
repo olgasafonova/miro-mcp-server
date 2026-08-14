@@ -21,39 +21,7 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 		return CreateStickyResult{}, fmt.Errorf("content is required")
 	}
 
-	// Build request body
-	reqBody := map[string]interface{}{
-		"data": map[string]interface{}{
-			"content": args.Content,
-			"shape":   "square",
-		},
-		"position": map[string]interface{}{
-			"x":      args.X,
-			"y":      args.Y,
-			"origin": "center",
-		},
-	}
-
-	// Add style if color specified
-	if args.Color != "" {
-		reqBody["style"] = map[string]interface{}{
-			"fillColor": normalizeStickyColor(args.Color),
-		}
-	}
-
-	// Add geometry if width specified
-	if args.Width > 0 {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": args.Width,
-		}
-	}
-
-	// Add parent if specified
-	if args.ParentID != "" {
-		reqBody["parent"] = map[string]interface{}{
-			"id": args.ParentID,
-		}
-	}
+	reqBody := buildStickyCreateBody(args)
 
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/sticky_notes", reqBody)
 	if err != nil {
@@ -75,6 +43,43 @@ func (c *Client) CreateSticky(ctx context.Context, args CreateStickyArgs) (Creat
 		Color:   sticky.Style.FillColor,
 		Message: fmt.Sprintf("Created sticky note '%s'", truncate(args.Content, 30)),
 	}, nil
+}
+
+// buildStickyCreateBody assembles the POST body for a sticky create.
+//
+// Extracted so the native bulk-create path can produce a byte-identical body
+// without going through CreateSticky's HTTP call. Duplicating this mapping
+// instead would put the sticky colour vocabulary (normalizeStickyColor) in two
+// places, and a bulk-created sticky would drift from a singly-created one the
+// first time either side changed.
+func buildStickyCreateBody(args CreateStickyArgs) map[string]interface{} {
+	body := map[string]interface{}{
+		"data": map[string]interface{}{
+			"content": args.Content,
+			"shape":   "square",
+		},
+		"position": map[string]interface{}{
+			"x":      args.X,
+			"y":      args.Y,
+			"origin": "center",
+		},
+	}
+	if args.Color != "" {
+		body["style"] = map[string]interface{}{
+			"fillColor": normalizeStickyColor(args.Color),
+		}
+	}
+	if args.Width > 0 {
+		body["geometry"] = map[string]interface{}{
+			"width": args.Width,
+		}
+	}
+	if args.ParentID != "" {
+		body["parent"] = map[string]interface{}{
+			"id": args.ParentID,
+		}
+	}
+	return body
 }
 
 // buildUpdateStickyBody assembles the PATCH body for a sticky update.

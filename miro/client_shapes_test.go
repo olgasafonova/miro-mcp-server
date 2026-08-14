@@ -417,13 +417,34 @@ func TestBulkUpdate_TypeShapeRoutesToShapesEndpoint(t *testing.T) {
 	}
 }
 
+// TestBulkCreate_ShapeWithTextStyleFields pins that a shape created through the
+// bulk path carries the same style block a singly-created shape would.
+//
+// The body is now an ARRAY sent to /items/bulk rather than one object per
+// /shapes call, because BulkCreate uses Miro's native bulk endpoint. The
+// assertion is unchanged in substance and is the thing keeping bulk and single
+// creation from drifting: both go through buildShapeBaseBody.
 func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
+	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
+		gotPath = r.URL.Path
+
+		var body []map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode body: %v", err)
 		}
-		style, ok := body["style"].(map[string]interface{})
+		if len(body) != 1 {
+			t.Fatalf("sent %d items, want 1", len(body))
+		}
+		item := body[0]
+
+		// The native endpoint discriminates on a top-level type; the URL no
+		// longer carries it.
+		if item["type"] != "shape" {
+			t.Errorf("type = %v, want shape", item["type"])
+		}
+
+		style, ok := item["style"].(map[string]interface{})
 		if !ok {
 			t.Fatal("expected style in request body for shape item")
 		}
@@ -433,11 +454,15 @@ func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
 		if style["textAlign"] != "right" {
 			t.Errorf("style.textAlign = %v, want 'right'", style["textAlign"])
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "shape999",
-			"data": map[string]interface{}{"shape": "circle", "content": "Bulk styled"},
+			"type": "bulk-list",
+			"data": []map[string]interface{}{{
+				"id":   "shape999",
+				"data": map[string]interface{}{"shape": "circle", "content": "Bulk styled"},
+			}},
 		})
 	}))
 	defer server.Close()
@@ -459,5 +484,8 @@ func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
 	}
 	if result.Created != 1 {
 		t.Errorf("Created = %d, want 1", result.Created)
+	}
+	if !strings.HasSuffix(gotPath, "/items/bulk") {
+		t.Errorf("posted to %q, want the native /items/bulk endpoint", gotPath)
 	}
 }

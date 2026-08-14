@@ -250,8 +250,10 @@ func (h *HandlerRegistry) structureHandlers() map[string]func(*mcp.Server, *mcp.
 		"GetComment":     makeHandler(h, h.client.GetComment),
 		"ReplyComment":   makeHandler(h, h.client.ReplyComment),
 		"ResolveComment": makeHandler(h, h.client.ResolveComment),
-		"ReadBoardSVG":   makeHandler(h, h.client.ReadBoardSVG),
-		"CreateFromSVG":  makeHandler(h, h.client.CreateFromSVG),
+
+		"GetOrgAuditLogs": makeHandler(h, h.client.GetOrgAuditLogs),
+		"ReadBoardSVG":    makeHandler(h, h.client.ReadBoardSVG),
+		"CreateFromSVG":   makeHandler(h, h.client.CreateFromSVG),
 
 		"CreateCodeWidget": makeHandler(h, h.client.CreateCodeWidget),
 		"GetCodeWidget":    makeHandler(h, h.client.GetCodeWidget),

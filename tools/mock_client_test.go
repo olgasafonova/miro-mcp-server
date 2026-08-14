@@ -109,6 +109,8 @@ type MockClient struct {
 	ReadBoardSVGFn   func(ctx context.Context, args miro.ReadBoardSVGArgs) (miro.ReadBoardSVGResult, error)
 	CreateFromSVGFn  func(ctx context.Context, args miro.CreateFromSVGArgs) (miro.CreateFromSVGResult, error)
 
+	GetOrgAuditLogsFn func(ctx context.Context, args miro.GetOrgAuditLogsArgs) (miro.GetOrgAuditLogsResult, error)
+
 	CreateCodeWidgetFn func(ctx context.Context, args miro.CreateCodeWidgetArgs) (miro.CreateCodeWidgetResult, error)
 	GetCodeWidgetFn    func(ctx context.Context, args miro.GetCodeWidgetArgs) (miro.GetCodeWidgetResult, error)
 	ListCodeWidgetsFn  func(ctx context.Context, args miro.ListCodeWidgetsArgs) (miro.ListCodeWidgetsResult, error)
@@ -1144,6 +1146,17 @@ func (m *MockClient) CreateComment(ctx context.Context, args miro.CreateCommentA
 		ID:      "comment-123",
 		ItemID:  args.ItemID,
 		Message: "Created comment thread",
+	}, nil
+}
+
+func (m *MockClient) GetOrgAuditLogs(ctx context.Context, args miro.GetOrgAuditLogsArgs) (miro.GetOrgAuditLogsResult, error) {
+	m.recordCall("GetOrgAuditLogs", args)
+	if m.GetOrgAuditLogsFn != nil {
+		return m.GetOrgAuditLogsFn(ctx, args)
+	}
+	return miro.GetOrgAuditLogsResult{
+		Events: []miro.OrgAuditEvent{{ID: "audit-123", Event: "board_created", Category: "boards"}},
+		Count:  1,
 	}, nil
 }
 

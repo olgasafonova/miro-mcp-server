@@ -30,7 +30,7 @@ Cell values: `covered` / `partial` / `missing` / `n/a`.
 | Mindmaps (v2-experimental) | covered | covered | missing | View candidate: tree layout (bead 6wp) |
 | Code widgets (v2-experimental) | covered | **partial** | n/a | CLI has `list` only; 5 verbs missing (miro-cli bead 7fm) |
 | Comments (v2-experimental, undocumented) | covered | **missing** | covered | CLI port scoped as hpv part 2 (P1). View: comments |
-| Canvas SVG (local transform) | covered | **missing** | **missing** | CLI port scoped as hpv part 3; apps SVG view re-scoped as ~253 lines TS geometry (bead 06g) |
+| Canvas SVG (local transform) | covered | **missing** | covered | CLI port scoped as hpv part 3; apps view shipped 15-08-2026 as miro-mcp-apps PR #4 (merge + Claude Desktop pass pending, bead 06g) |
 | Doc formats (`/docs`, Markdown) | covered | **partial** | n/a | CLI has create-doc only; get/update/delete hit `/documents`, the wrong family (miro-cli bead 194) |
 | Data tables (`data_table_formats`, read) | covered | covered | missing | Public /v2, confirmed live. View candidate (bead 6wp) |
 | Data table rows / sync | n/a | n/a | n/a | Hosted-only: rows paths 404 (probe log below) |
@@ -88,4 +88,4 @@ rendering requires the JSON Schema 2020-12 dialect fix (miro-mcp-apps
 | hpv | miro-cli | P1 | (pre-existing) comments 5 verbs + canvas SVG 2 verbs |
 | 7fm | miro-cli | P2 | codewidgets create/get/update/move/delete |
 | 194 | miro-cli | P3 | doc-format get/update/delete verbs |
-| 06g | miro-mcp-server | — | (pre-existing) apps SVG view, ~253 lines TS geometry |
+| 06g | miro-mcp-server | — | apps SVG view shipped as miro-mcp-apps PR #4; merge + host pass remain |

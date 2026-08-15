@@ -3,7 +3,7 @@
 Three-surface audit of the Miro tooling family, produced 15-08-2026 (bead 8de).
 Columns: **server** = miro-mcp-server (106 tools: 105 in `tools/definitions.go` +
 `miro_tool_search` in `tools/search.go`), **cli** = miro-cli (23 command modules),
-**apps** = miro-mcp-apps (7 shipped views).
+**apps** = miro-mcp-apps (8 shipped views).
 
 Per-surface meaning of *full*:
 
@@ -30,7 +30,7 @@ Cell values: `covered` / `partial` / `missing` / `n/a`.
 | Mindmaps (v2-experimental) | covered | covered | missing | View candidate: tree layout (bead 6wp) |
 | Code widgets (v2-experimental) | covered | **partial** | n/a | CLI has `list` only; 5 verbs missing (miro-cli bead 7fm) |
 | Comments (v2-experimental, undocumented) | covered | **missing** | covered | CLI port scoped as hpv part 2 (P1). View: comments |
-| Canvas SVG (local transform) | covered | **missing** | covered | CLI port scoped as hpv part 3; apps view shipped 15-08-2026 as miro-mcp-apps PR #4 (merge + Claude Desktop pass pending, bead 06g) |
+| Canvas SVG (local transform) | covered | **missing** | covered | CLI port scoped as hpv part 3; apps view shipped + Desktop-verified 15-08-2026 (PRs #4/#5, bead 06g closed) |
 | Doc formats (`/docs`, Markdown) | covered | **partial** | n/a | CLI has create-doc only; get/update/delete hit `/documents`, the wrong family (miro-cli bead 194) |
 | Data tables (`data_table_formats`, read) | covered | covered | missing | Public /v2, confirmed live. View candidate (bead 6wp) |
 | Data table rows / sync | n/a | n/a | n/a | Hosted-only: rows paths 404 (probe log below) |
@@ -88,4 +88,4 @@ rendering requires the JSON Schema 2020-12 dialect fix (miro-mcp-apps
 | hpv | miro-cli | P1 | (pre-existing) comments 5 verbs + canvas SVG 2 verbs |
 | 7fm | miro-cli | P2 | codewidgets create/get/update/move/delete |
 | 194 | miro-cli | P3 | doc-format get/update/delete verbs |
-| 06g | miro-mcp-server | — | apps SVG view shipped as miro-mcp-apps PR #4; merge + host pass remain |
+| 06g | miro-mcp-server | — | closed: apps SVG view shipped (PR #4) + same-day polish (PR #5), Desktop-verified |

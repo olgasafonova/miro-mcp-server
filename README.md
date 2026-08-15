@@ -146,7 +146,7 @@ go install github.com/olgasafonova/miro-cli/cmd/miro-cli@latest
 
 ## Companion MCP Apps server: `miro-mcp-apps`
 
-If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Six tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 106-tool CRUD surface, that one for visual at-a-glance views.
+If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Seven tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 106-tool CRUD surface, that one for visual at-a-glance views.
 
 | You want… | Use |
 |---|---|

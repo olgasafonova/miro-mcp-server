@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.olgasafonova/miro-mcp-server",
-  "description": "Control Miro whiteboards with AI. 106 tools for boards, diagrams, mindmaps, comments, SVG.",
+  "description": "Control Miro whiteboards with AI. 108 tools for boards, diagrams, mindmaps, comments, SVG.",
   "title": "Miro",
   "repository": {
     "url": "https://github.com/olgasafonova/miro-mcp-server",

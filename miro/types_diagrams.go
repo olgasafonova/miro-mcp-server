@@ -46,3 +46,63 @@ type DiagramNode struct {
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
 }
+
+// =============================================================================
+// Native Diagram Read Types (GET /v2/boards/{id}/diagrams)
+// =============================================================================
+
+// ListDiagramsArgs contains parameters for listing native diagram items on a board.
+type ListDiagramsArgs struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max diagrams to return (default 10, max 50)"`
+	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor from previous response"`
+}
+
+// ListDiagramsResult contains the diagram items found on a board.
+type ListDiagramsResult struct {
+	Diagrams []DiagramItem `json:"diagrams"`
+	Count    int           `json:"count"`
+	Total    int           `json:"total"`
+	Cursor   string        `json:"cursor,omitempty"`
+	Message  string        `json:"message"`
+}
+
+// DiagramItem represents a native diagram item on a Miro board.
+type DiagramItem struct {
+	ID         string  `json:"id"`
+	Type       string  `json:"type"`
+	Title      string  `json:"title,omitempty"`
+	X          float64 `json:"x"`
+	Y          float64 `json:"y"`
+	Width      float64 `json:"width,omitempty"`
+	Height     float64 `json:"height,omitempty"`
+	CreatedAt  string  `json:"created_at,omitempty"`
+	ModifiedAt string  `json:"modified_at,omitempty"`
+	CreatedBy  string  `json:"created_by,omitempty"`
+	ModifiedBy string  `json:"modified_by,omitempty"`
+	ItemURL    string  `json:"item_url,omitempty"`
+}
+
+// GetDiagramArgs contains parameters for getting a specific diagram item.
+type GetDiagramArgs struct {
+	BoardID string `json:"board_id" jsonschema:"Board ID"`
+	ItemID  string `json:"item_id" jsonschema:"Diagram item ID"`
+}
+
+// GetDiagramResult contains the diagram item metadata.
+type GetDiagramResult struct {
+	ID         string  `json:"id"`
+	Type       string  `json:"type"`
+	Title      string  `json:"title,omitempty"`
+	X          float64 `json:"x"`
+	Y          float64 `json:"y"`
+	Width      float64 `json:"width,omitempty"`
+	Height     float64 `json:"height,omitempty"`
+	CreatedAt  string  `json:"created_at,omitempty"`
+	ModifiedAt string  `json:"modified_at,omitempty"`
+	CreatedBy  string  `json:"created_by,omitempty"`
+	ModifiedBy string  `json:"modified_by,omitempty"`
+	ParentID   string  `json:"parent_id,omitempty"`
+	ItemURL    string  `json:"item_url,omitempty"`
+	Message    string  `json:"message"`
+}

@@ -1749,6 +1749,51 @@ FAILS WHEN: Invalid Mermaid syntax (returns line number and fix suggestion). Mis
 
 VOICE-FRIENDLY: "Created flowchart with 6 shapes and 5 connectors"`,
 	},
+	{
+		Name:     "miro_list_diagrams",
+		Method:   "ListDiagrams",
+		Title:    "List Diagrams",
+		Category: "diagrams",
+		ReadOnly: true,
+		Description: `List native diagram items on a Miro board (diagrams made with Miro's own diagramming tools). Returns diagram metadata: ID, title, position, size, and timestamps.
+
+USE WHEN: "find diagrams on this board", "list all diagrams", "does this board have diagrams"
+
+NOT FOR: Diagrams built from shapes and connectors by miro_generate_diagram — those are regular items, not native diagram items; use miro_list_items. Creating diagrams: the REST API is read-only here (POST returns 405); creation happens in Miro's UI or hosted tooling.
+
+PARAMETERS:
+- board_id: Required
+- limit: Max diagrams to return (default 10, max 50)
+- cursor: Pagination cursor from previous response
+
+RETURNS: Diagram items with IDs, titles, positions, sizes, and timestamps.
+
+RELATED: Use miro_get_diagram for a single diagram's details. Use miro_generate_diagram to draw a new diagram from Mermaid code (as shapes, not a native diagram item).
+
+VOICE-FRIENDLY: "Found 2 diagrams on the board"`,
+	},
+	{
+		Name:     "miro_get_diagram",
+		Method:   "GetDiagram",
+		Title:    "Get Diagram Details",
+		Category: "diagrams",
+		ReadOnly: true,
+		Description: `Get metadata for a specific native diagram item by ID. Returns title, position, size, parent frame, and timestamps.
+
+USE WHEN: "get diagram details", "where is that diagram", "diagram info"
+
+NOT FOR: Reading a diagram's internal nodes and edges — the REST API exposes item metadata only. For full diagram content, open the board in Miro.
+
+PARAMETERS:
+- board_id: Required
+- item_id: Diagram item ID (required). Get from miro_list_diagrams.
+
+RETURNS: Diagram ID, title, position, size, parent frame ID, timestamps, and view link.
+
+RELATED: Use miro_list_diagrams to discover diagrams on a board.
+
+VOICE-FRIENDLY: "Diagram 'Architecture' is at position (100, 200), size 1200x700"`,
+	},
 
 	// ==========================================================================
 	// App Card Tools

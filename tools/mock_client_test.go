@@ -152,6 +152,10 @@ type MockClient struct {
 	ListTablesFn func(ctx context.Context, args miro.ListTablesArgs) (miro.ListTablesResult, error)
 	GetTableFn   func(ctx context.Context, args miro.GetTableArgs) (miro.GetTableResult, error)
 
+	// Native diagram read operations
+	ListDiagramsFn func(ctx context.Context, args miro.ListDiagramsArgs) (miro.ListDiagramsResult, error)
+	GetDiagramFn   func(ctx context.Context, args miro.GetDiagramArgs) (miro.GetDiagramResult, error)
+
 	// Upload operations
 	UploadImageFn            func(ctx context.Context, args miro.UploadImageArgs) (miro.UploadImageResult, error)
 	UploadDocumentFn         func(ctx context.Context, args miro.UploadDocumentArgs) (miro.UploadDocumentResult, error)
@@ -1660,6 +1664,54 @@ func (m *MockClient) GetTable(ctx context.Context, args miro.GetTableArgs) (miro
 		CreatedAt:  "2026-03-23T10:00:00Z",
 		ModifiedAt: "2026-03-23T10:00:00Z",
 		Message:    "Retrieved table metadata",
+	}, nil
+}
+
+// =============================================================================
+// Native Diagram Read Implementation
+// =============================================================================
+
+func (m *MockClient) ListDiagrams(ctx context.Context, args miro.ListDiagramsArgs) (miro.ListDiagramsResult, error) {
+	m.recordCall("ListDiagrams", args)
+	if m.ListDiagramsFn != nil {
+		return m.ListDiagramsFn(ctx, args)
+	}
+	return miro.ListDiagramsResult{
+		Diagrams: []miro.DiagramItem{
+			{
+				ID:         "diagram-123",
+				Type:       "diagram",
+				Title:      "Diagram",
+				X:          100,
+				Y:          200,
+				Width:      1200,
+				Height:     700,
+				CreatedAt:  "2026-05-07T11:14:41Z",
+				ModifiedAt: "2026-05-07T11:14:41Z",
+			},
+		},
+		Count:   1,
+		Total:   1,
+		Message: "Found 1 diagrams on board",
+	}, nil
+}
+
+func (m *MockClient) GetDiagram(ctx context.Context, args miro.GetDiagramArgs) (miro.GetDiagramResult, error) {
+	m.recordCall("GetDiagram", args)
+	if m.GetDiagramFn != nil {
+		return m.GetDiagramFn(ctx, args)
+	}
+	return miro.GetDiagramResult{
+		ID:         args.ItemID,
+		Type:       "diagram",
+		Title:      "Diagram",
+		X:          100,
+		Y:          200,
+		Width:      1200,
+		Height:     700,
+		CreatedAt:  "2026-05-07T11:14:41Z",
+		ModifiedAt: "2026-05-07T11:14:41Z",
+		Message:    "Retrieved diagram metadata",
 	}, nil
 }
 

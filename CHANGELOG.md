@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`miro_list_diagrams` + `miro_get_diagram` (2)**: read native diagram items via `GET /v2/boards/{id}/diagrams`, an endpoint that answers real data on a plain personal access token but appears in neither Miro's OpenAPI spec baseline nor the docs — a live probe on 15-08-2026 is the evidence. The surface is read-only: `POST` returns 405 `methodNotSupported`, so diagram creation stays with Miro's UI and hosted tooling (the official connector's `diagram_create_mermaid`). Returns item metadata (id, title, position, size, parent frame, timestamps); the diagram's internal nodes and edges are not exposed by the API.
+
+  Distinct from `miro_generate_diagram`, which parses Mermaid locally and draws regular shapes and connectors — those never show up as native diagram items, and both tool descriptions now say so. Tool count: 106 → 108.
+
 - **`miro_get_org_audit_logs` (1)**: wraps Miro's organization audit log, `GET /v2/audit/logs` — who did what across the Miro workspace, including actions taken outside this server. Enterprise plan and the `auditlogs:read` scope; 403 and 404 carry a hint saying so, because on this endpoint a non-Enterprise org, a missing scope, and a genuinely absent resource are indistinguishable from the status alone. A 400 deliberately does not get the hint: that is what a malformed time window returns, and a plan hint would send the caller after the wrong problem.
 
   `created_after` and `created_before` are both required and validated locally, since the API has no default window and answers a missing bound with an opaque 400. The nested `context` object is flattened, so `team_id`, `team_name`, `organization_id` and `ip` sit directly on each event rather than making callers walk it. Miro retains 90 days; older events are only available via the CSV export in the admin UI, which this does not wrap. Tool count: 105 → 106.

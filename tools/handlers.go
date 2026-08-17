@@ -162,6 +162,8 @@ func (h *HandlerRegistry) boardHandlers() map[string]func(*mcp.Server, *mcp.Tool
 		"GetExportJobResults": makeHandler(h, h.client.GetExportJobResults),
 
 		"GenerateDiagram": makeHandler(h, h.client.GenerateDiagram),
+		"ListDiagrams":    makeHandler(h, h.client.ListDiagrams),
+		"GetDiagram":      makeHandler(h, h.client.GetDiagram),
 	}
 }
 

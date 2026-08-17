@@ -163,9 +163,11 @@ type ExportService interface {
 	GetExportJobResults(ctx context.Context, args GetExportJobResultsArgs) (GetExportJobResultsResult, error)
 }
 
-// DiagramService handles diagram generation from code.
+// DiagramService handles diagram generation from code and native diagram reads.
 type DiagramService interface {
 	GenerateDiagram(ctx context.Context, args GenerateDiagramArgs) (GenerateDiagramResult, error)
+	ListDiagrams(ctx context.Context, args ListDiagramsArgs) (ListDiagramsResult, error)
+	GetDiagram(ctx context.Context, args GetDiagramArgs) (GetDiagramResult, error)
 }
 
 // AppCardService handles app card operations.

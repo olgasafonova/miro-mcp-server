@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**106 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**108 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![lint](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml)
@@ -82,7 +82,7 @@ claude mcp add miro -e MIRO_ACCESS_TOKEN=your-token -- miro-mcp-server
 |----------|----------|
 | **Boards** | Create, copy, delete, update, share, list members |
 | **Items** | Sticky notes, shapes, text, cards, app cards, images, documents, frames, docs |
-| **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid |
+| **Diagrams** | Generate flowcharts and sequence diagrams from Mermaid; list and inspect native diagram items |
 | **Docs** | Create and manage Markdown documents on boards |
 | **Upload** | Upload and replace local image and document files on boards |
 | **Tables** | Discover and inspect tables on boards |
@@ -146,7 +146,7 @@ go install github.com/olgasafonova/miro-cli/cmd/miro-cli@latest
 
 ## Companion MCP Apps server: `miro-mcp-apps`
 
-If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Eight tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 106-tool CRUD surface, that one for visual at-a-glance views.
+If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Eight tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 108-tool CRUD surface, that one for visual at-a-glance views.
 
 | You want… | Use |
 |---|---|
@@ -160,14 +160,14 @@ The MCP Apps pattern is TypeScript-only today (Go SDK has no `ext-apps` helpers)
 
 ## Token Efficiency
 
-The full tool surface (106 tools) costs roughly **19K tokens** of preload; the `essentials` profile trims that to ~2.7K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
+The full tool surface (108 tools) costs roughly **20K tokens** of preload; the `essentials` profile trims that to ~2.7K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
 
 | Profile | Tools | Preload tokens (est.) |
 |---|---|---|
-| `full` (default) | 106 | ~19,317 |
+| `full` (default) | 108 | ~19,879 |
 | `essentials` | 15 | ~2,719 |
 
-Savings: **~16,300 tokens (85.7% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
+Savings: **~17,200 tokens (86.3% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
 
 `miro_tool_search(query?, category?, limit?)` is registered in both profiles. It searches tool names, titles, descriptions, and categories with weighted keyword scoring (name 3×, title 2×, category 2.5×, description 1×), returns up to 50 matches, and never recommends itself. Use it when you don't know which tool to reach for, or to scope to a category before browsing. Empty query plus a category returns the category's tools alphabetically.
 
@@ -175,7 +175,7 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 
 ---
 
-## All 106 Tools
+## All 108 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -401,11 +401,13 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 </details>
 
 <details>
-<summary><b>Diagrams & Audit (4)</b></summary>
+<summary><b>Diagrams & Audit (6)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | `miro_generate_diagram` | Create diagram from Mermaid syntax |
+| `miro_list_diagrams` | List native diagram items on a board |
+| `miro_get_diagram` | Get native diagram metadata by ID |
 | `miro_get_audit_log` | Query THIS SERVER's local execution log |
 | `miro_get_org_audit_logs` | Query MIRO's org-wide audit log (Enterprise; `auditlogs:read`) |
 | `miro_get_desire_paths` | Query agent normalization patterns (what agents sent vs. what got auto-corrected) |
@@ -459,7 +461,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 106 (or 15 in `essentials` profile) | 65 |
+| **Tools** | 108 (or 15 in `essentials` profile) | 65 |
 | **Transport** | stdio + HTTP | HTTPS only (hosted at mcp.miro.com) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
@@ -497,7 +499,7 @@ Board context is a design difference rather than a gap. `context_get` returns a 
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, spaces and sections, comments, board context extraction, or SVG/prototype workflows.
 
-**When to use this server:** You need full REST coverage (106 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, richer board listing metadata, bulk ops, mindmaps, tags, connectors, or export.
+**When to use this server:** You need full REST coverage (108 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, richer board listing metadata, bulk ops, mindmaps, tags, connectors, or export.
 
 Both can coexist — use different MCP server names in your config.
 
@@ -602,7 +604,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 106 tools with their schemas
+- Browse all 108 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -644,10 +646,10 @@ See [SETUP.md](SETUP.md) for configuration guides.
 
 | Account Type | Support |
 |--------------|---------|
-| Free | 102 tools |
-| Team | 102 tools |
-| Business | 102 tools |
-| Enterprise | All 106 tools |
+| Free | 104 tools |
+| Team | 104 tools |
+| Business | 104 tools |
+| Enterprise | All 108 tools |
 
 Four tools need an Enterprise plan and fail with a hint saying so: the three PDF/SVG export tools (`miro_create_export_job`, `miro_get_export_job_status`, `miro_get_export_job_results`) and `miro_get_org_audit_logs`, which additionally needs the `auditlogs:read` scope. `miro_get_board_picture` works on every plan. Everything else works on any plan.
 

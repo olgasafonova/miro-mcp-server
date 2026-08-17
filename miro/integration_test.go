@@ -275,3 +275,42 @@ func TestIntegration_BoardCaching(t *testing.T) {
 		t.Log("Caching appears to be working (second call was faster)")
 	}
 }
+
+// =============================================================================
+// Native Diagram Read Tests
+// =============================================================================
+
+func TestIntegration_ListAndGetDiagrams(t *testing.T) {
+	if testBoardID == "" {
+		t.Skip("MIRO_TEST_BOARD_ID not set")
+	}
+	ctx := context.Background()
+
+	list, err := testClient.ListDiagrams(ctx, ListDiagramsArgs{BoardID: testBoardID})
+	if err != nil {
+		t.Fatalf("ListDiagrams failed: %v", err)
+	}
+	t.Logf("Found %d diagrams (total %d)", list.Count, list.Total)
+	for _, d := range list.Diagrams {
+		t.Logf("  - %s: %q at (%v, %v) %vx%v", d.ID, d.Title, d.X, d.Y, d.Width, d.Height)
+	}
+
+	if list.Count == 0 {
+		t.Skip("board has no diagrams; skipping GetDiagram")
+	}
+
+	got, err := testClient.GetDiagram(ctx, GetDiagramArgs{
+		BoardID: testBoardID,
+		ItemID:  list.Diagrams[0].ID,
+	})
+	if err != nil {
+		t.Fatalf("GetDiagram failed: %v", err)
+	}
+	if got.ID != list.Diagrams[0].ID {
+		t.Errorf("GetDiagram ID = %q, want %q", got.ID, list.Diagrams[0].ID)
+	}
+	if got.Type != "diagram" {
+		t.Errorf("Type = %q, want diagram", got.Type)
+	}
+	t.Logf("GetDiagram: %s %q %vx%v", got.ID, got.Title, got.Width, got.Height)
+}

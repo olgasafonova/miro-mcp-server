@@ -124,14 +124,37 @@ func TestListComments_ProjectsThreads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 2 || result.Total != 2 || result.HasMore {
-		t.Errorf("Count/Total/HasMore = %d/%d/%v, want 2/2/false", result.Count, result.Total, result.HasMore)
+	assertCommentListPagination(t, result)
+	assertCommentThreadProjection(t, result)
+}
+
+// assertCommentListPagination checks the list-level counters of a two-thread board.
+func assertCommentListPagination(t *testing.T, result ListCommentsResult) {
+	t.Helper()
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
 	}
+	if result.Total != 2 {
+		t.Errorf("Total = %d, want 2", result.Total)
+	}
+	if result.HasMore {
+		t.Error("HasMore = true, want false")
+	}
+}
+
+// assertCommentThreadProjection checks the per-thread fields of a two-thread board.
+func assertCommentThreadProjection(t *testing.T, result ListCommentsResult) {
+	t.Helper()
 	first := result.Comments[0]
-	if !first.Resolved || len(first.Messages) != 2 {
-		t.Errorf("first thread resolved=%v messages=%d, want true/2", first.Resolved, len(first.Messages))
+	if !first.Resolved {
+		t.Errorf("first thread resolved = %v, want true", first.Resolved)
 	}
-	if first.CreatedBy == nil || first.CreatedBy.Name != "Olga Safonova" {
+	if len(first.Messages) != 2 {
+		t.Errorf("first thread messages = %d, want 2", len(first.Messages))
+	}
+	if first.CreatedBy == nil {
+		t.Error("first thread CreatedBy = nil, want Olga Safonova")
+	} else if first.CreatedBy.Name != "Olga Safonova" {
 		t.Errorf("CreatedBy = %+v, want Olga Safonova", first.CreatedBy)
 	}
 	if got := result.Comments[1].ItemID; got != "item9" {

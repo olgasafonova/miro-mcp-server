@@ -5,6 +5,29 @@ import (
 	"time"
 )
 
+// halfOpenTestConfig builds a breaker config that trips after 2 failures and
+// transitions to half-open after 50ms.
+func halfOpenTestConfig(successThreshold int) CircuitBreakerConfig {
+	return CircuitBreakerConfig{
+		FailureThreshold:    2,
+		SuccessThreshold:    successThreshold,
+		Timeout:             50 * time.Millisecond,
+		MaxHalfOpenRequests: 1,
+	}
+}
+
+// tripCircuit records failures until the breaker opens and asserts the open state.
+func tripCircuit(t *testing.T, cb *CircuitBreaker, failures int) {
+	t.Helper()
+	for i := 0; i < failures; i++ {
+		cb.Allow()
+		cb.RecordFailure()
+	}
+	if cb.State() != CircuitOpen {
+		t.Fatalf("expected open state, got %s", cb.State())
+	}
+}
+
 func TestCircuitBreaker_ClosedState(t *testing.T) {
 	cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
 
@@ -52,23 +75,9 @@ func TestCircuitBreaker_OpensAfterFailures(t *testing.T) {
 }
 
 func TestCircuitBreaker_HalfOpenAfterTimeout(t *testing.T) {
-	config := CircuitBreakerConfig{
-		FailureThreshold:    2,
-		SuccessThreshold:    1,
-		Timeout:             50 * time.Millisecond,
-		MaxHalfOpenRequests: 1,
-	}
-	cb := NewCircuitBreaker(config)
+	cb := NewCircuitBreaker(halfOpenTestConfig(1))
 
-	// Trip the circuit
-	cb.Allow()
-	cb.RecordFailure()
-	cb.Allow()
-	cb.RecordFailure()
-
-	if cb.State() != CircuitOpen {
-		t.Fatalf("expected open state, got %s", cb.State())
-	}
+	tripCircuit(t, cb, 2)
 
 	// Wait for timeout
 	time.Sleep(60 * time.Millisecond)
@@ -84,61 +93,41 @@ func TestCircuitBreaker_HalfOpenAfterTimeout(t *testing.T) {
 	}
 }
 
-func TestCircuitBreaker_ClosesAfterSuccessInHalfOpen(t *testing.T) {
-	config := CircuitBreakerConfig{
-		FailureThreshold:    2,
-		SuccessThreshold:    1,
-		Timeout:             50 * time.Millisecond,
-		MaxHalfOpenRequests: 1,
+func TestCircuitBreaker_HalfOpenTransitions(t *testing.T) {
+	tests := []struct {
+		name      string
+		record    func(cb *CircuitBreaker)
+		wantState CircuitState
+	}{
+		{
+			name:      "ClosesAfterSuccessInHalfOpen",
+			record:    (*CircuitBreaker).RecordSuccess,
+			wantState: CircuitClosed,
+		},
+		{
+			name:      "ReopensAfterFailureInHalfOpen",
+			record:    (*CircuitBreaker).RecordFailure,
+			wantState: CircuitOpen,
+		},
 	}
-	cb := NewCircuitBreaker(config)
 
-	// Trip the circuit
-	cb.Allow()
-	cb.RecordFailure()
-	cb.Allow()
-	cb.RecordFailure()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := NewCircuitBreaker(halfOpenTestConfig(1))
 
-	// Wait for timeout to get to half-open
-	time.Sleep(60 * time.Millisecond)
+			tripCircuit(t, cb, 2)
 
-	// Allow a test request
-	cb.Allow()
+			// Wait for timeout to get to half-open
+			time.Sleep(60 * time.Millisecond)
 
-	// Record success - should close circuit
-	cb.RecordSuccess()
+			// Allow a test request, then record the outcome
+			cb.Allow()
+			tt.record(cb)
 
-	if cb.State() != CircuitClosed {
-		t.Errorf("expected closed state after success in half-open, got %s", cb.State())
-	}
-}
-
-func TestCircuitBreaker_ReopensAfterFailureInHalfOpen(t *testing.T) {
-	config := CircuitBreakerConfig{
-		FailureThreshold:    2,
-		SuccessThreshold:    1,
-		Timeout:             50 * time.Millisecond,
-		MaxHalfOpenRequests: 1,
-	}
-	cb := NewCircuitBreaker(config)
-
-	// Trip the circuit
-	cb.Allow()
-	cb.RecordFailure()
-	cb.Allow()
-	cb.RecordFailure()
-
-	// Wait for timeout to get to half-open
-	time.Sleep(60 * time.Millisecond)
-
-	// Allow a test request
-	cb.Allow()
-
-	// Record failure - should reopen circuit
-	cb.RecordFailure()
-
-	if cb.State() != CircuitOpen {
-		t.Errorf("expected open state after failure in half-open, got %s", cb.State())
+			if cb.State() != tt.wantState {
+				t.Errorf("expected %s state after transition in half-open, got %s", tt.wantState, cb.State())
+			}
+		})
 	}
 }
 
@@ -151,11 +140,7 @@ func TestCircuitBreaker_TooManyHalfOpenRequests(t *testing.T) {
 	}
 	cb := NewCircuitBreaker(config)
 
-	// Trip the circuit
-	cb.Allow()
-	cb.RecordFailure()
-	cb.Allow()
-	cb.RecordFailure()
+	tripCircuit(t, cb, 2)
 
 	// Wait for timeout to get to half-open
 	time.Sleep(60 * time.Millisecond)
@@ -180,15 +165,7 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 	}
 	cb := NewCircuitBreaker(config)
 
-	// Trip the circuit
-	cb.Allow()
-	cb.RecordFailure()
-	cb.Allow()
-	cb.RecordFailure()
-
-	if cb.State() != CircuitOpen {
-		t.Fatalf("expected open state, got %s", cb.State())
-	}
+	tripCircuit(t, cb, 2)
 
 	// Reset should return to closed
 	cb.Reset()
@@ -315,14 +292,7 @@ func TestCircuitBreakerRegistry_Reset(t *testing.T) {
 
 	// Trip a circuit breaker
 	cb := registry.Get("/boards")
-	cb.Allow()
-	cb.RecordFailure()
-	cb.Allow()
-	cb.RecordFailure()
-
-	if cb.State() != CircuitOpen {
-		t.Fatalf("expected open state, got %s", cb.State())
-	}
+	tripCircuit(t, cb, 2)
 
 	// Reset all
 	registry.Reset()

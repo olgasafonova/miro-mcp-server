@@ -4,38 +4,154 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func TestListBoards_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.HasPrefix(r.URL.Path, "/boards") {
-			t.Errorf("expected /boards path, got %s", r.URL.Path)
-		}
-		if r.Header.Get("Authorization") != "Bearer test-token" {
-			t.Errorf("missing or incorrect Authorization header")
-		}
+// =============================================================================
+// Test server helpers
+// =============================================================================
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+// boardServerSpec describes the fake Miro API behavior for one board test:
+// the expected request line, query parameters, auth header, body fields, and
+// the response to send back.
+type boardServerSpec struct {
+	wantMethod string
+	wantPath   string
+	wantAuth   string
+	wantQuery  map[string]string
+	wantBody   map[string]interface{}
+	status     int
+	response   map[string]interface{}
+}
+
+// newBoardClient starts a fake Miro API described by spec and returns a client
+// pointed at it.
+func newBoardClient(t *testing.T, spec boardServerSpec) *Client {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		spec.assertRequest(t, r)
+		writeBoardJSON(w, spec.status, spec.response)
+	}))
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
+
+func (spec boardServerSpec) assertRequest(t *testing.T, r *http.Request) {
+	t.Helper()
+	spec.assertRequestLine(t, r)
+	spec.assertQueryAndAuth(t, r)
+	spec.assertRequestBody(t, r)
+}
+
+func (spec boardServerSpec) assertRequestLine(t *testing.T, r *http.Request) {
+	t.Helper()
+	if spec.wantMethod != "" && r.Method != spec.wantMethod {
+		t.Errorf("expected %s, got %s", spec.wantMethod, r.Method)
+	}
+	if spec.wantPath != "" && r.URL.Path != spec.wantPath {
+		t.Errorf("expected path %s, got %s", spec.wantPath, r.URL.Path)
+	}
+}
+
+func (spec boardServerSpec) assertQueryAndAuth(t *testing.T, r *http.Request) {
+	t.Helper()
+	if spec.wantAuth != "" && r.Header.Get("Authorization") != spec.wantAuth {
+		t.Errorf("missing or incorrect Authorization header")
+	}
+	for key, want := range spec.wantQuery {
+		if got := r.URL.Query().Get(key); got != want {
+			t.Errorf("query %s = %q, want %q", key, got, want)
+		}
+	}
+}
+
+func (spec boardServerSpec) assertRequestBody(t *testing.T, r *http.Request) {
+	t.Helper()
+	if spec.wantBody == nil {
+		return
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		t.Errorf("failed to decode request: %v", err)
+		return
+	}
+	for key, want := range spec.wantBody {
+		if body[key] != want {
+			t.Errorf("%s = %v, want %v", key, body[key], want)
+		}
+	}
+}
+
+func writeBoardJSON(w http.ResponseWriter, status int, response map[string]interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+	if response == nil {
+		return
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		panic(err)
+	}
+}
+
+// boardsData wraps a set of board objects in the list response envelope.
+func boardsData(boards ...map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{"data": boards}
+}
+
+// typedItems builds one board item per type, with sequential IDs.
+func typedItems(types ...string) []map[string]interface{} {
+	items := make([]map[string]interface{}, len(types))
+	for i, itemType := range types {
+		items[i] = map[string]interface{}{"id": fmt.Sprintf("item%d", i+1), "type": itemType}
+	}
+	return items
+}
+
+// newBoardSummaryClient starts a fake API serving a fixed board plus the given
+// items on the /items endpoint, for GetBoardSummary tests.
+func newBoardSummaryClient(t *testing.T, items []map[string]interface{}) *Client {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/items") {
+			writeBoardJSON(w, 0, map[string]interface{}{"data": items})
+			return
+		}
+		writeBoardJSON(w, 0, map[string]interface{}{
+			"id":          "board123",
+			"name":        "Test Board",
+			"description": "A test board",
+		})
+	}))
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
+
+// =============================================================================
+// List / Get / Create / Copy / Delete / Update
+// =============================================================================
+
+func TestListBoards_Success(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		wantMethod: http.MethodGet,
+		wantPath:   "/boards",
+		wantAuth:   "Bearer test-token",
+		response: map[string]interface{}{
 			"data": []map[string]interface{}{
 				{"id": "board1", "name": "Design Sprint", "viewLink": "https://miro.com/board1"},
 				{"id": "board2", "name": "Retro", "viewLink": "https://miro.com/board2"},
 			},
 			"size":  2,
 			"total": 2,
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListBoards(context.Background(), ListBoardsArgs{Query: "test"})
 
 	if err != nil {
@@ -50,17 +166,14 @@ func TestListBoards_Success(t *testing.T) {
 }
 
 func TestListBoards_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newBoardClient(t, boardServerSpec{
+		status: http.StatusUnauthorized,
+		response: map[string]interface{}{
 			"code":    "unauthorized",
 			"message": "Invalid access token",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.ListBoards(context.Background(), ListBoardsArgs{})
 
 	if err == nil {
@@ -80,24 +193,46 @@ func TestListBoards_APIError(t *testing.T) {
 	}
 }
 
-func TestGetBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/boards/board123" {
-			t.Errorf("expected /boards/board123, got %s", r.URL.Path)
-		}
+func TestListBoards_WithQueryAndTeamID(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		wantQuery: map[string]string{"query": "design", "team_id": "team123"},
+		response:  boardsData(map[string]interface{}{"id": "board1", "name": "Design Board"}),
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	_, err := client.ListBoards(context.Background(), ListBoardsArgs{
+		Query:  "design",
+		TeamID: "team123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestListBoards_WithOffset(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		wantQuery: map[string]string{"offset": "20"},
+		response:  boardsData(),
+	})
+
+	_, err := client.ListBoards(context.Background(), ListBoardsArgs{Offset: "20"})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetBoard_Success(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		wantPath: "/boards/board123",
+		response: map[string]interface{}{
 			"id":          "board123",
 			"name":        "Test Board",
 			"description": "A test board",
 			"viewLink":    "https://miro.com/board123",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetBoard(context.Background(), GetBoardArgs{BoardID: "board123"})
 
 	if err != nil {
@@ -112,17 +247,14 @@ func TestGetBoard_Success(t *testing.T) {
 }
 
 func TestGetBoard_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newBoardClient(t, boardServerSpec{
+		status: http.StatusNotFound,
+		response: map[string]interface{}{
 			"code":    "not_found",
 			"message": "Board not found",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.GetBoard(context.Background(), GetBoardArgs{BoardID: "nonexistent"})
 
 	if err == nil {
@@ -134,24 +266,11 @@ func TestGetBoard_NotFound(t *testing.T) {
 	}
 }
 
-func TestGetBoard_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.GetBoard(context.Background(), GetBoardArgs{BoardID: ""})
-
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
-	}
-}
-
 func TestGetBoard_Caching(t *testing.T) {
 	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeBoardJSON(w, 0, map[string]interface{}{
 			"id":   "board123",
 			"name": "Cached Board",
 		})
@@ -179,32 +298,18 @@ func TestGetBoard_Caching(t *testing.T) {
 }
 
 func TestCreateBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards" {
-			t.Errorf("expected /boards, got %s", r.URL.Path)
-		}
-
-		// Verify request body
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		if body["name"] != "New Board" {
-			t.Errorf("name = %v, want 'New Board'", body["name"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newBoardClient(t, boardServerSpec{
+		wantMethod: http.MethodPost,
+		wantPath:   "/boards",
+		wantBody:   map[string]interface{}{"name": "New Board"},
+		status:     http.StatusCreated,
+		response: map[string]interface{}{
 			"id":       "new-board-id",
 			"name":     "New Board",
 			"viewLink": "https://miro.com/new-board-id",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.CreateBoard(context.Background(), CreateBoardArgs{
 		Name:        "New Board",
 		Description: "Test description",
@@ -221,297 +326,19 @@ func TestCreateBoard_Success(t *testing.T) {
 	}
 }
 
-func TestCreateBoard_EmptyName(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.CreateBoard(context.Background(), CreateBoardArgs{Name: ""})
-
-	if err == nil {
-		t.Fatal("expected error for empty name")
-	}
-	if !strings.Contains(err.Error(), "name is required") {
-		t.Errorf("expected 'name is required' error, got: %v", err)
-	}
-}
-
-func TestCreateBoard_WithAllOptions(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify all optional fields
-		if body["description"] != "Full description" {
-			t.Errorf("description = %v, want 'Full description'", body["description"])
-		}
-		if body["teamId"] != "team123" {
-			t.Errorf("teamId = %v, want 'team123'", body["teamId"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":       "full-board",
-			"name":     "Full Board",
-			"viewLink": "https://miro.com/full-board",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CreateBoard(context.Background(), CreateBoardArgs{
-		Name:        "Full Board",
-		Description: "Full description",
-		TeamID:      "team123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "full-board" {
-		t.Errorf("ID = %q, want 'full-board'", result.ID)
-	}
-}
-
-func TestCopyBoard_WithAllOptions(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut {
-			t.Errorf("expected PUT, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.RawQuery, "copy_from=source-board") {
-			t.Errorf("expected copy_from query param, got %s", r.URL.RawQuery)
-		}
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify optional fields
-		if body["name"] != "Copy Name" {
-			t.Errorf("name = %v, want 'Copy Name'", body["name"])
-		}
-		if body["description"] != "Copy Desc" {
-			t.Errorf("description = %v, want 'Copy Desc'", body["description"])
-		}
-		if body["teamId"] != "team456" {
-			t.Errorf("teamId = %v, want 'team456'", body["teamId"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":       "copied-board",
-			"name":     "Copy Name",
-			"viewLink": "https://miro.com/copied-board",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CopyBoard(context.Background(), CopyBoardArgs{
-		BoardID:     "source-board",
-		Name:        "Copy Name",
-		Description: "Copy Desc",
-		TeamID:      "team456",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "copied-board" {
-		t.Errorf("ID = %q, want 'copied-board'", result.ID)
-	}
-}
-
-func TestDeleteBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123" {
-			t.Errorf("expected /boards/board123, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.DeleteBoard(context.Background(), DeleteBoardArgs{BoardID: "board123"})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Success {
-		t.Error("Success should be true")
-	}
-	if result.BoardID != "board123" {
-		t.Errorf("BoardID = %q, want 'board123'", result.BoardID)
-	}
-}
-
-func TestDeleteBoard_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.DeleteBoard(context.Background(), DeleteBoardArgs{BoardID: ""})
-
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
-	}
-}
-
-func TestDeleteBoard_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":  403,
-			"message": "Access denied",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.DeleteBoard(context.Background(), DeleteBoardArgs{BoardID: "board123"})
-
-	if err == nil {
-		t.Fatal("expected error for API failure")
-	}
-	if result.Success {
-		t.Error("Success should be false for API error")
-	}
-}
-
-func TestGetBoardSummary_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.GetBoardSummary(context.Background(), GetBoardSummaryArgs{BoardID: ""})
-
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
-	}
-}
-
-func TestGetBoardSummary_GetBoardError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":  404,
-			"message": "Board not found",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.GetBoardSummary(context.Background(), GetBoardSummaryArgs{BoardID: "board123"})
-
-	if err == nil {
-		t.Fatal("expected error when board not found")
-	}
-	if !strings.Contains(err.Error(), "failed to get board") {
-		t.Errorf("expected 'failed to get board' error, got: %v", err)
-	}
-}
-
-func TestSearchBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id":   "item1",
-					"type": "sticky_note",
-					"position": map[string]interface{}{
-						"x": 100.0,
-						"y": 200.0,
-					},
-					"data": map[string]interface{}{
-						"content": "This is a test sticky note",
-					},
-				},
-				{
-					"id":   "item2",
-					"type": "text",
-					"data": map[string]interface{}{
-						"content": "Another item without test",
-					},
-				},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.SearchBoard(context.Background(), SearchBoardArgs{
-		BoardID: "board123",
-		Query:   "test",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Count != 2 {
-		t.Errorf("Count = %d, want 2", result.Count)
-	}
-	if result.Query != "test" {
-		t.Errorf("Query = %q, want 'test'", result.Query)
-	}
-}
-
-func TestSearchBoard_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    SearchBoardArgs
-		errText string
-	}{
-		{
-			name:    "empty board_id",
-			args:    SearchBoardArgs{Query: "test"},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty query",
-			args:    SearchBoardArgs{BoardID: "board123"},
-			errText: "query is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.SearchBoard(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
-}
-
 func TestCopyBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut {
-			t.Errorf("expected PUT, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-		if r.URL.Query().Get("copy_from") != "board123" {
-			t.Errorf("expected copy_from=board123, got %s", r.URL.Query().Get("copy_from"))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newBoardClient(t, boardServerSpec{
+		wantMethod: http.MethodPut,
+		wantPath:   "/boards",
+		wantQuery:  map[string]string{"copy_from": "board123"},
+		status:     http.StatusCreated,
+		response: map[string]interface{}{
 			"id":       "newboard456",
 			"name":     "Copied Board",
 			"viewLink": "https://miro.com/newboard456",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.CopyBoard(context.Background(), CopyBoardArgs{
 		BoardID: "board123",
 		Name:    "Copied Board",
@@ -528,39 +355,314 @@ func TestCopyBoard_Success(t *testing.T) {
 	}
 }
 
-func TestCopyBoard_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
+func TestDeleteBoard_Success(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		wantMethod: http.MethodDelete,
+		wantPath:   "/boards/board123",
+		status:     http.StatusNoContent,
+	})
 
-	_, err := client.CopyBoard(context.Background(), CopyBoardArgs{Name: "Test"})
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
+	result, err := client.DeleteBoard(context.Background(), DeleteBoardArgs{BoardID: "board123"})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
+	if !result.Success {
+		t.Error("Success should be true")
+	}
+	if result.BoardID != "board123" {
+		t.Errorf("BoardID = %q, want 'board123'", result.BoardID)
+	}
+}
+
+func TestDeleteBoard_APIError(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		status: http.StatusForbidden,
+		response: map[string]interface{}{
+			"status":  403,
+			"message": "Access denied",
+		},
+	})
+
+	result, err := client.DeleteBoard(context.Background(), DeleteBoardArgs{BoardID: "board123"})
+
+	if err == nil {
+		t.Fatal("expected error for API failure")
+	}
+	if result.Success {
+		t.Error("Success should be false for API error")
+	}
+}
+
+func TestUpdateBoard_Success(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		wantMethod: http.MethodPatch,
+		wantPath:   "/boards/board123",
+		wantBody:   map[string]interface{}{"name": "Updated Board Name"},
+		response: map[string]interface{}{
+			"id":          "board123",
+			"name":        "Updated Board Name",
+			"description": "Updated description",
+		},
+	})
+
+	result, err := client.UpdateBoard(context.Background(), UpdateBoardArgs{
+		BoardID:     "board123",
+		Name:        "Updated Board Name",
+		Description: "Updated description",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ID != "board123" {
+		t.Errorf("ID = %q, want 'board123'", result.ID)
+	}
+	if result.Name != "Updated Board Name" {
+		t.Errorf("Name = %q, want 'Updated Board Name'", result.Name)
+	}
+}
+
+// boardBodyCase is one scenario for TestBoards_RequestBodyFields: the server
+// spec, the client call to make, and the identity field the result must carry.
+type boardBodyCase struct {
+	name string
+	spec boardServerSpec
+	call func(*Client) (string, error)
+	want string
+}
+
+func createBoardBodyCases(ctx context.Context) []boardBodyCase {
+	return []boardBodyCase{
+		{
+			name: "create with all options",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"description": "Full description", "teamId": "team123"},
+				status:   http.StatusCreated,
+				response: map[string]interface{}{"id": "full-board", "name": "Full Board", "viewLink": "https://miro.com/full-board"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CreateBoard(ctx, CreateBoardArgs{Name: "Full Board", Description: "Full description", TeamID: "team123"})
+				return result.ID, err
+			},
+			want: "full-board",
+		},
+		{
+			name: "create with description",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"name": "New Board", "description": "Board description"},
+				response: map[string]interface{}{"id": "newboard123", "name": "New Board"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CreateBoard(ctx, CreateBoardArgs{Name: "New Board", Description: "Board description"})
+				return result.ID, err
+			},
+			want: "newboard123",
+		},
+		{
+			name: "create with team ID",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"name": "New Board", "teamId": "team456"},
+				response: map[string]interface{}{"id": "newboard123", "name": "New Board"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CreateBoard(ctx, CreateBoardArgs{Name: "New Board", TeamID: "team456"})
+				return result.ID, err
+			},
+			want: "newboard123",
+		},
+	}
+}
+
+func copyBoardBodyCases(ctx context.Context) []boardBodyCase {
+	return []boardBodyCase{
+		{
+			name: "copy with all options",
+			spec: boardServerSpec{
+				wantMethod: http.MethodPut,
+				wantQuery:  map[string]string{"copy_from": "source-board"},
+				wantBody:   map[string]interface{}{"name": "Copy Name", "description": "Copy Desc", "teamId": "team456"},
+				response:   map[string]interface{}{"id": "copied-board", "name": "Copy Name", "viewLink": "https://miro.com/copied-board"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CopyBoard(ctx, CopyBoardArgs{BoardID: "source-board", Name: "Copy Name", Description: "Copy Desc", TeamID: "team456"})
+				return result.ID, err
+			},
+			want: "copied-board",
+		},
+		{
+			name: "copy with name and description",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"name": "Copy of Board", "description": "Copied board"},
+				response: map[string]interface{}{"id": "copyboard123", "name": "Copy of Board"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CopyBoard(ctx, CopyBoardArgs{BoardID: "board123", Name: "Copy of Board", Description: "Copied board"})
+				return result.ID, err
+			},
+			want: "copyboard123",
+		},
+		{
+			name: "copy with description",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"description": "Copied board description"},
+				response: map[string]interface{}{"id": "copied123", "name": "Board Copy"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CopyBoard(ctx, CopyBoardArgs{BoardID: "original123", Name: "Board Copy", Description: "Copied board description"})
+				return result.ID, err
+			},
+			want: "copied123",
+		},
+		{
+			name: "copy with team ID",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"teamId": "team789"},
+				response: map[string]interface{}{"id": "copied456", "name": "Copied Board"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.CopyBoard(ctx, CopyBoardArgs{BoardID: "original123", TeamID: "team789"})
+				return result.ID, err
+			},
+			want: "copied456",
+		},
+	}
+}
+
+func updateBoardBodyCases(ctx context.Context) []boardBodyCase {
+	return []boardBodyCase{
+		{
+			name: "update with both name and description",
+			spec: boardServerSpec{
+				wantBody: map[string]interface{}{"name": "Updated Name", "description": "Updated Description"},
+				response: map[string]interface{}{"id": "board123", "name": "Updated Name", "description": "Updated Description"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.UpdateBoard(ctx, UpdateBoardArgs{BoardID: "board123", Name: "Updated Name", Description: "Updated Description"})
+				return result.Name, err
+			},
+			want: "Updated Name",
+		},
+	}
+}
+
+// TestBoards_RequestBodyFields verifies that optional args for create, copy,
+// and update land in the request body, and that the returned identity fields
+// round-trip.
+func TestBoards_RequestBodyFields(t *testing.T) {
+	ctx := context.Background()
+	var tests []boardBodyCase
+	tests = append(tests, createBoardBodyCases(ctx)...)
+	tests = append(tests, copyBoardBodyCases(ctx)...)
+	tests = append(tests, updateBoardBodyCases(ctx)...)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newBoardClient(t, tt.spec)
+			got, err := tt.call(client)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("result = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBoards_ValidationErrors covers every empty-argument rejection across the
+// board operations. No API call is made in any of these scenarios.
+func TestBoards_ValidationErrors(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+	ctx := context.Background()
+
+	tests := []struct {
+		name    string
+		wantErr string
+		call    func() error
+	}{
+		{"get board empty board_id", "board_id is required", func() error { _, err := client.GetBoard(ctx, GetBoardArgs{BoardID: ""}); return err }},
+		{"create board empty name", "name is required", func() error { _, err := client.CreateBoard(ctx, CreateBoardArgs{Name: ""}); return err }},
+		{"create board empty name mentions name", "name", func() error { _, err := client.CreateBoard(ctx, CreateBoardArgs{Name: ""}); return err }},
+		{"delete board empty board_id", "board_id is required", func() error { _, err := client.DeleteBoard(ctx, DeleteBoardArgs{BoardID: ""}); return err }},
+		{"board summary empty board_id", "board_id is required", func() error { _, err := client.GetBoardSummary(ctx, GetBoardSummaryArgs{BoardID: ""}); return err }},
+		{"search empty board_id", "board_id is required", func() error { _, err := client.SearchBoard(ctx, SearchBoardArgs{Query: "test"}); return err }},
+		{"search empty query", "query is required", func() error { _, err := client.SearchBoard(ctx, SearchBoardArgs{BoardID: "board123"}); return err }},
+		{"copy empty board_id", "board_id is required", func() error { _, err := client.CopyBoard(ctx, CopyBoardArgs{Name: "Test"}); return err }},
+		{"copy empty board_id mentions board_id", "board_id", func() error { _, err := client.CopyBoard(ctx, CopyBoardArgs{BoardID: ""}); return err }},
+		{"find by name empty name", "required", func() error { _, err := client.FindBoardByNameTool(ctx, FindBoardByNameArgs{Name: ""}); return err }},
+		{"share empty board_id", "board_id", func() error { _, err := client.ShareBoard(ctx, ShareBoardArgs{Email: "user@example.com"}); return err }},
+		{"share empty email", "email is required", func() error { _, err := client.ShareBoard(ctx, ShareBoardArgs{BoardID: "board123"}); return err }},
+		{"share invalid role", "invalid role", func() error {
+			_, err := client.ShareBoard(ctx, ShareBoardArgs{BoardID: "board123", Email: "user@example.com", Role: "admin"})
+			return err
+		}},
+		{"update empty board_id", "board_id is required", func() error { _, err := client.UpdateBoard(ctx, UpdateBoardArgs{Name: "New Name"}); return err }},
+		{"update no changes", "at least one of name or description is required", func() error { _, err := client.UpdateBoard(ctx, UpdateBoardArgs{BoardID: "board123"}); return err }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.call()
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Search / Find / Summary / Share / Picture / Misc
+// =============================================================================
+
+func TestSearchBoard_Success(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		response: map[string]interface{}{
+			"data": []map[string]interface{}{
+				{
+					"id":       "item1",
+					"type":     "sticky_note",
+					"position": map[string]interface{}{"x": 100.0, "y": 200.0},
+					"data":     map[string]interface{}{"content": "This is a test sticky note"},
+				},
+				{
+					"id":   "item2",
+					"type": "text",
+					"data": map[string]interface{}{"content": "Another item without test"},
+				},
+			},
+		},
+	})
+
+	result, err := client.SearchBoard(context.Background(), SearchBoardArgs{
+		BoardID: "board123",
+		Query:   "test",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Count != 2 {
+		t.Errorf("Count = %d, want 2", result.Count)
+	}
+	if result.Query != "test" {
+		t.Errorf("Query = %q, want 'test'", result.Query)
 	}
 }
 
 func TestFindBoardByName_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query().Get("query")
-		if query != "Design Sprint" {
-			t.Errorf("query = %q, want 'Design Sprint'", query)
-		}
+	client := newBoardClient(t, boardServerSpec{
+		wantQuery: map[string]string{"query": "Design Sprint"},
+		response: boardsData(map[string]interface{}{
+			"id":       "board123",
+			"name":     "Design Sprint",
+			"viewLink": "https://miro.com/board123",
+		}),
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id":       "board123",
-					"name":     "Design Sprint",
-					"viewLink": "https://miro.com/board123",
-				},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{
 		Name: "Design Sprint",
 	})
@@ -577,15 +679,8 @@ func TestFindBoardByName_Success(t *testing.T) {
 }
 
 func TestFindBoardByName_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{},
-		})
-	}))
-	defer server.Close()
+	client := newBoardClient(t, boardServerSpec{response: boardsData()})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{
 		Name: "Nonexistent Board",
 	})
@@ -598,149 +693,63 @@ func TestFindBoardByName_NotFound(t *testing.T) {
 	}
 }
 
-func TestFindBoardByName_EmptyName(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{
-		Name: "",
-	})
-
-	if err == nil {
-		t.Fatal("expected error for empty name")
-	}
-	if !strings.Contains(err.Error(), "required") {
-		t.Errorf("expected 'required' error, got: %v", err)
-	}
-}
-
-func TestFindBoardByName_StartsWithMatch(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// Return boards where none is an exact match but one starts with the query
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id":       "board2",
-					"name":     "Something else",
-					"viewLink": "https://miro.com/board2",
-				},
-				{
-					"id":       "board1",
-					"name":     "Sprint Planning Q1",
-					"viewLink": "https://miro.com/board1",
-				},
+// TestFindBoardByName_MatchPriority verifies the non-exact match tiers:
+// starts-with beats contains, and the first board is the final fallback.
+func TestFindBoardByName_MatchPriority(t *testing.T) {
+	tests := []struct {
+		name   string
+		query  string
+		boards []map[string]interface{}
+		wantID string
+	}{
+		{
+			name:  "starts-with match",
+			query: "Sprint",
+			boards: []map[string]interface{}{
+				{"id": "board2", "name": "Something else", "viewLink": "https://miro.com/board2"},
+				{"id": "board1", "name": "Sprint Planning Q1", "viewLink": "https://miro.com/board1"},
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{
-		Name: "Sprint",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "board1" {
-		t.Errorf("ID = %q, want 'board1'", result.ID)
-	}
-}
-
-func TestFindBoardByName_ContainsMatch(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// Return boards where none is an exact match or starts with, but one contains the query
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id":       "board2",
-					"name":     "Other board",
-					"viewLink": "https://miro.com/board2",
-				},
-				{
-					"id":       "board1",
-					"name":     "Q1 Sprint Review",
-					"viewLink": "https://miro.com/board1",
-				},
+			wantID: "board1",
+		},
+		{
+			name:  "contains match",
+			query: "Sprint",
+			boards: []map[string]interface{}{
+				{"id": "board2", "name": "Other board", "viewLink": "https://miro.com/board2"},
+				{"id": "board1", "name": "Q1 Sprint Review", "viewLink": "https://miro.com/board1"},
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{
-		Name: "Sprint",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "board1" {
-		t.Errorf("ID = %q, want 'board1' (contains match)", result.ID)
-	}
-}
-
-func TestFindBoardByName_Fallback(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// Return boards where none matches any criteria, should return first
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id":       "board1",
-					"name":     "Random Board ABC",
-					"viewLink": "https://miro.com/board1",
-				},
-				{
-					"id":       "board2",
-					"name":     "Another Board XYZ",
-					"viewLink": "https://miro.com/board2",
-				},
+			wantID: "board1",
+		},
+		{
+			name:  "fallback to first board",
+			query: "Something completely different",
+			boards: []map[string]interface{}{
+				{"id": "board1", "name": "Random Board ABC", "viewLink": "https://miro.com/board1"},
+				{"id": "board2", "name": "Another Board XYZ", "viewLink": "https://miro.com/board2"},
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{
-		Name: "Something completely different",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+			wantID: "board1",
+		},
 	}
-	// Should return first board as fallback
-	if result.ID != "board1" {
-		t.Errorf("ID = %q, want 'board1' (fallback)", result.ID)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newBoardClient(t, boardServerSpec{response: boardsData(tt.boards...)})
+
+			result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{Name: tt.query})
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result.ID != tt.wantID {
+				t.Errorf("ID = %q, want %q", result.ID, tt.wantID)
+			}
+		})
 	}
 }
 
 func TestGetBoardSummary_Success(t *testing.T) {
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		w.Header().Set("Content-Type", "application/json")
+	client := newBoardSummaryClient(t, typedItems("sticky_note", "sticky_note", "shape"))
 
-		if strings.Contains(r.URL.Path, "/items") {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{"id": "item1", "type": "sticky_note"},
-					{"id": "item2", "type": "sticky_note"},
-					{"id": "item3", "type": "shape"},
-				},
-			})
-		} else {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":          "board123",
-				"name":        "Test Board",
-				"description": "A test board",
-			})
-		}
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetBoardSummary(context.Background(), GetBoardSummaryArgs{
 		BoardID: "board123",
 	})
@@ -756,28 +765,51 @@ func TestGetBoardSummary_Success(t *testing.T) {
 	}
 }
 
+func TestGetBoardSummary_WithManyItemTypes(t *testing.T) {
+	client := newBoardSummaryClient(t, typedItems(
+		"sticky_note", "shape", "text", "connector", "frame",
+		"card", "image", "document", "embed", "app_card",
+	))
+
+	result, err := client.GetBoardSummary(context.Background(), GetBoardSummaryArgs{
+		BoardID: "board123",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.TotalItems != 10 {
+		t.Errorf("TotalItems = %v, want 10", result.TotalItems)
+	}
+}
+
+func TestGetBoardSummary_GetBoardError(t *testing.T) {
+	client := newBoardClient(t, boardServerSpec{
+		status: http.StatusNotFound,
+		response: map[string]interface{}{
+			"status":  404,
+			"message": "Board not found",
+		},
+	})
+
+	_, err := client.GetBoardSummary(context.Background(), GetBoardSummaryArgs{BoardID: "board123"})
+
+	if err == nil {
+		t.Fatal("expected error when board not found")
+	}
+	if !strings.Contains(err.Error(), "failed to get board") {
+		t.Errorf("expected 'failed to get board' error, got: %v", err)
+	}
+}
+
 func TestShareBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/members" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
+	client := newBoardClient(t, boardServerSpec{
+		wantMethod: http.MethodPost,
+		wantPath:   "/boards/board123/members",
+		wantBody:   map[string]interface{}{"role": "editor"},
+		status:     http.StatusNoContent,
+	})
 
-		// Verify request body
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		role := body["role"].(string)
-		if role != "editor" {
-			t.Errorf("expected role 'editor', got '%s'", role)
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ShareBoard(context.Background(), ShareBoardArgs{
 		BoardID: "board123",
 		Email:   "user@example.com",
@@ -799,18 +831,11 @@ func TestShareBoard_Success(t *testing.T) {
 }
 
 func TestShareBoard_DefaultRole(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		role := body["role"].(string)
-		if role != "viewer" {
-			t.Errorf("expected default role 'viewer', got '%s'", role)
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	client := newBoardClient(t, boardServerSpec{
+		wantBody: map[string]interface{}{"role": "viewer"},
+		status:   http.StatusNoContent,
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ShareBoard(context.Background(), ShareBoardArgs{
 		BoardID: "board123",
 		Email:   "user@example.com",
@@ -824,58 +849,17 @@ func TestShareBoard_DefaultRole(t *testing.T) {
 	}
 }
 
-func TestShareBoard_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    ShareBoardArgs
-		errText string
-	}{
-		{
-			name:    "empty board_id",
-			args:    ShareBoardArgs{Email: "user@example.com"},
-			errText: "board_id",
-		},
-		{
-			name:    "empty email",
-			args:    ShareBoardArgs{BoardID: "board123"},
-			errText: "email is required",
-		},
-		{
-			name:    "invalid role",
-			args:    ShareBoardArgs{BoardID: "board123", Email: "user@example.com", Role: "admin"},
-			errText: "invalid role",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.ShareBoard(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
-}
-
 func TestGetBoardPicture_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newBoardClient(t, boardServerSpec{
+		response: map[string]interface{}{
 			"id":   "board123",
 			"name": "Test Board",
 			"picture": map[string]interface{}{
 				"imageURL": "https://miro-media.com/board123/preview.png",
 			},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetBoardPicture(context.Background(), GetBoardPictureArgs{
 		BoardID: "board123",
 	})
@@ -889,16 +873,13 @@ func TestGetBoardPicture_Success(t *testing.T) {
 }
 
 func TestGetBoardPicture_NoPicture(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newBoardClient(t, boardServerSpec{
+		response: map[string]interface{}{
 			"id":   "board123",
 			"name": "Test Board",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetBoardPicture(context.Background(), GetBoardPictureArgs{
 		BoardID: "board123",
 	})
@@ -914,92 +895,9 @@ func TestGetBoardPicture_NoPicture(t *testing.T) {
 	}
 }
 
-func TestUpdateBoard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123" {
-			t.Errorf("expected /boards/board123, got %s", r.URL.Path)
-		}
-
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		if body["name"] != "Updated Board Name" {
-			t.Errorf("name = %v, want 'Updated Board Name'", body["name"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":          "board123",
-			"name":        "Updated Board Name",
-			"description": "Updated description",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.UpdateBoard(context.Background(), UpdateBoardArgs{
-		BoardID:     "board123",
-		Name:        "Updated Board Name",
-		Description: "Updated description",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "board123" {
-		t.Errorf("ID = %q, want 'board123'", result.ID)
-	}
-	if result.Name != "Updated Board Name" {
-		t.Errorf("Name = %q, want 'Updated Board Name'", result.Name)
-	}
-}
-
-func TestUpdateBoard_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    UpdateBoardArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    UpdateBoardArgs{Name: "New Name"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "no updates",
-			args:    UpdateBoardArgs{BoardID: "board123"},
-			wantErr: "at least one of name or description is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.UpdateBoard(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestValidateToken_NoBoards(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{},
-		})
-	}))
-	defer server.Close()
+	client := newBoardClient(t, boardServerSpec{response: boardsData()})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ValidateToken(context.Background())
 
 	if err != nil {
@@ -1015,15 +913,10 @@ func TestValidateToken_NoBoards(t *testing.T) {
 
 func TestListTags_EmptyBoard(t *testing.T) {
 	// Tests the empty board message branch
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []interface{}{},
-		})
-	}))
-	defer server.Close()
+	client := newBoardClient(t, boardServerSpec{
+		response: map[string]interface{}{"data": []interface{}{}},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListTags(context.Background(), ListTagsArgs{
 		BoardID: "board123",
 	})
@@ -1033,353 +926,5 @@ func TestListTags_EmptyBoard(t *testing.T) {
 	}
 	if result.Message != "No tags on this board" {
 		t.Errorf("expected 'No tags on this board', got: %s", result.Message)
-	}
-}
-
-func TestListBoards_WithQueryAndTeamID(t *testing.T) {
-	// Tests ListBoards with both query and team_id filters
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("query") != "design" {
-			t.Errorf("query = %v, want 'design'", r.URL.Query().Get("query"))
-		}
-		if r.URL.Query().Get("team_id") != "team123" {
-			t.Errorf("team_id = %v, want 'team123'", r.URL.Query().Get("team_id"))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{"id": "board1", "name": "Design Board"},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListBoards(context.Background(), ListBoardsArgs{
-		Query:  "design",
-		TeamID: "team123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestCreateBoard_WithDescription(t *testing.T) {
-	// Tests CreateBoard with optional description
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["name"] != "New Board" {
-			t.Errorf("name = %v, want 'New Board'", body["name"])
-		}
-		if body["description"] != "Board description" {
-			t.Errorf("description = %v, want 'Board description'", body["description"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "newboard123",
-			"name": "New Board",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.CreateBoard(context.Background(), CreateBoardArgs{
-		Name:        "New Board",
-		Description: "Board description",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestCopyBoard_WithNameAndDescription(t *testing.T) {
-	// Tests CopyBoard with custom name and description
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["name"] != "Copy of Board" {
-			t.Errorf("name = %v, want 'Copy of Board'", body["name"])
-		}
-		if body["description"] != "Copied board" {
-			t.Errorf("description = %v, want 'Copied board'", body["description"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "copyboard123",
-			"name": "Copy of Board",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.CopyBoard(context.Background(), CopyBoardArgs{
-		BoardID:     "board123",
-		Name:        "Copy of Board",
-		Description: "Copied board",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestCreateBoard_WithTeamID(t *testing.T) {
-	// Tests CreateBoard with teamId in request body (Miro uses camelCase)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["name"] != "New Board" {
-			t.Errorf("name = %v, want 'New Board'", body["name"])
-		}
-		if body["teamId"] != "team456" {
-			t.Errorf("teamId = %v, want 'team456'", body["teamId"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "newboard123",
-			"name": "New Board",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CreateBoard(context.Background(), CreateBoardArgs{
-		Name:   "New Board",
-		TeamID: "team456",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "newboard123" {
-		t.Errorf("ID = %v, want 'newboard123'", result.ID)
-	}
-}
-
-func TestGetBoardSummary_WithManyItemTypes(t *testing.T) {
-	// Tests GetBoardSummary with various item types
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.Contains(r.URL.Path, "/items") {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{"id": "1", "type": "sticky_note"},
-					{"id": "2", "type": "shape"},
-					{"id": "3", "type": "text"},
-					{"id": "4", "type": "connector"},
-					{"id": "5", "type": "frame"},
-					{"id": "6", "type": "card"},
-					{"id": "7", "type": "image"},
-					{"id": "8", "type": "document"},
-					{"id": "9", "type": "embed"},
-					{"id": "10", "type": "app_card"},
-				},
-			})
-		} else {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":          "board123",
-				"name":        "Test Board",
-				"description": "A test board",
-			})
-		}
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.GetBoardSummary(context.Background(), GetBoardSummaryArgs{
-		BoardID: "board123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.TotalItems != 10 {
-		t.Errorf("TotalItems = %v, want 10", result.TotalItems)
-	}
-}
-
-func TestCopyBoard_WithDescription(t *testing.T) {
-	// Tests CopyBoard with optional description
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["description"] != "Copied board description" {
-			t.Errorf("description = %v, want 'Copied board description'", body["description"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "copied123",
-			"name": "Board Copy",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CopyBoard(context.Background(), CopyBoardArgs{
-		BoardID:     "original123",
-		Name:        "Board Copy",
-		Description: "Copied board description",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "copied123" {
-		t.Errorf("ID = %v, want 'copied123'", result.ID)
-	}
-}
-
-func TestUpdateBoard_WithBothNameAndDescription(t *testing.T) {
-	// Tests UpdateBoard with both name and description
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["name"] != "Updated Name" {
-			t.Errorf("name = %v, want 'Updated Name'", body["name"])
-		}
-		if body["description"] != "Updated Description" {
-			t.Errorf("description = %v, want 'Updated Description'", body["description"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":          "board123",
-			"name":        "Updated Name",
-			"description": "Updated Description",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.UpdateBoard(context.Background(), UpdateBoardArgs{
-		BoardID:     "board123",
-		Name:        "Updated Name",
-		Description: "Updated Description",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Name != "Updated Name" {
-		t.Errorf("Name = %v, want 'Updated Name'", result.Name)
-	}
-}
-
-func TestListBoards_WithOffset(t *testing.T) {
-	// Tests ListBoards with offset for pagination
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("offset") != "20" {
-			t.Errorf("offset = %v, want '20'", r.URL.Query().Get("offset"))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListBoards(context.Background(), ListBoardsArgs{
-		Offset: "20",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestCreateBoard_EmptyNameValidation(t *testing.T) {
-	client := newTestClientWithServer("http://unused")
-	_, err := client.CreateBoard(context.Background(), CreateBoardArgs{
-		Name: "",
-	})
-
-	if err == nil {
-		t.Error("expected error for empty name")
-	}
-	if !strings.Contains(err.Error(), "name") {
-		t.Errorf("error should mention 'name': %v", err)
-	}
-}
-
-func TestCopyBoard_EmptyBoardID(t *testing.T) {
-	client := newTestClientWithServer("http://unused")
-	_, err := client.CopyBoard(context.Background(), CopyBoardArgs{
-		BoardID: "",
-	})
-
-	if err == nil {
-		t.Error("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id") {
-		t.Errorf("error should mention 'board_id': %v", err)
-	}
-}
-
-func TestCopyBoard_WithTeamID(t *testing.T) {
-	// Tests CopyBoard with teamId (Miro uses camelCase)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["teamId"] != "team789" {
-			t.Errorf("teamId = %v, want 'team789'", body["teamId"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "copied456",
-			"name": "Copied Board",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.CopyBoard(context.Background(), CopyBoardArgs{
-		BoardID: "original123",
-		TeamID:  "team789",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestUpdateBoard_EmptyBoardID(t *testing.T) {
-	client := newTestClientWithServer("http://unused")
-	_, err := client.UpdateBoard(context.Background(), UpdateBoardArgs{
-		BoardID: "",
-		Name:    "New Name",
-	})
-
-	if err == nil {
-		t.Error("expected error for empty board_id")
-	}
-}
-
-func TestUpdateBoard_NoChanges(t *testing.T) {
-	client := newTestClientWithServer("http://unused")
-	_, err := client.UpdateBoard(context.Background(), UpdateBoardArgs{
-		BoardID: "board123",
-		// No name or description provided
-	})
-
-	if err == nil {
-		t.Error("expected error when no changes specified")
 	}
 }

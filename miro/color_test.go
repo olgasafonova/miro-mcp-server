@@ -67,14 +67,21 @@ func TestNormalizeColor(t *testing.T) {
 				t.Errorf("normalizeColor(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 			if tt.wantErr && err != nil {
-				if !strings.Contains(err.Error(), "unrecognized color") {
-					t.Errorf("error message %q should mention 'unrecognized color' for caller diagnostics", err.Error())
-				}
-				if !strings.Contains(err.Error(), tt.input) {
-					t.Errorf("error message %q should echo the offending input %q", err.Error(), tt.input)
-				}
+				assertColorErrorDiagnostics(t, err, tt.input)
 			}
 		})
+	}
+}
+
+// assertColorErrorDiagnostics checks that a rejection error carries the caller
+// diagnostics: the "unrecognized color" marker and an echo of the input.
+func assertColorErrorDiagnostics(t *testing.T, err error, input string) {
+	t.Helper()
+	if !strings.Contains(err.Error(), "unrecognized color") {
+		t.Errorf("error message %q should mention 'unrecognized color' for caller diagnostics", err.Error())
+	}
+	if !strings.Contains(err.Error(), input) {
+		t.Errorf("error message %q should echo the offending input %q", err.Error(), input)
 	}
 }
 

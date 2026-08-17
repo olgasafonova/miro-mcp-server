@@ -65,88 +65,95 @@ func TestHasNetworkErrorMarker(t *testing.T) {
 	}
 }
 
+// bulkErrorExpectation captures the categorization fields expected from
+// categorizeBulkError for one input error.
+type bulkErrorExpectation struct {
+	errorType  string
+	retriable  bool
+	statusCode int
+}
+
 func TestCategorizeBulkError(t *testing.T) {
 	tests := []struct {
-		name           string
-		err            error
-		wantType       string
-		wantRetriable  bool
-		wantStatusCode int
+		name string
+		err  error
+		want bulkErrorExpectation
 	}{
 		{
-			name:           "api error carries status through",
-			err:            &APIError{StatusCode: 429, Message: "slow down"},
-			wantType:       "rate_limit",
-			wantRetriable:  true,
-			wantStatusCode: 429,
+			name: "api error carries status through",
+			err:  &APIError{StatusCode: 429, Message: "slow down"},
+			want: bulkErrorExpectation{errorType: "rate_limit", retriable: true, statusCode: 429},
 		},
 		{
-			name:           "server api error is retriable",
-			err:            &APIError{StatusCode: 502, Message: "bad gateway"},
-			wantType:       "server",
-			wantRetriable:  true,
-			wantStatusCode: 502,
+			name: "server api error is retriable",
+			err:  &APIError{StatusCode: 502, Message: "bad gateway"},
+			want: bulkErrorExpectation{errorType: "server", retriable: true, statusCode: 502},
 		},
 		{
-			name:          "validation error",
-			err:           &ValidationError{Field: "board_id", Message: "required"},
-			wantType:      "validation",
-			wantRetriable: false,
+			name: "validation error",
+			err:  &ValidationError{Field: "board_id", Message: "required"},
+			want: bulkErrorExpectation{errorType: "validation", retriable: false},
 		},
 		{
-			name:          "deadline exceeded is a retriable timeout",
-			err:           context.DeadlineExceeded,
-			wantType:      "timeout",
-			wantRetriable: true,
+			name: "deadline exceeded is a retriable timeout",
+			err:  context.DeadlineExceeded,
+			want: bulkErrorExpectation{errorType: "timeout", retriable: true},
 		},
 		{
-			name:          "canceled context is a retriable timeout",
-			err:           context.Canceled,
-			wantType:      "timeout",
-			wantRetriable: true,
+			name: "canceled context is a retriable timeout",
+			err:  context.Canceled,
+			want: bulkErrorExpectation{errorType: "timeout", retriable: true},
 		},
 		{
-			name:          "wrapped deadline is still a timeout",
-			err:           fmt.Errorf("calling API: %w", context.DeadlineExceeded),
-			wantType:      "timeout",
-			wantRetriable: true,
+			name: "wrapped deadline is still a timeout",
+			err:  fmt.Errorf("calling API: %w", context.DeadlineExceeded),
+			want: bulkErrorExpectation{errorType: "timeout", retriable: true},
 		},
 		{
-			name:          "network marker is retriable",
-			err:           errors.New("dial tcp: connection refused"),
-			wantType:      "network",
-			wantRetriable: true,
+			name: "network marker is retriable",
+			err:  errors.New("dial tcp: connection refused"),
+			want: bulkErrorExpectation{errorType: "network", retriable: true},
 		},
 		{
-			name:          "anything else is unknown and not retriable",
-			err:           errors.New("something surprising happened"),
-			wantType:      "unknown",
-			wantRetriable: false,
+			name: "anything else is unknown and not retriable",
+			err:  errors.New("something surprising happened"),
+			want: bulkErrorExpectation{errorType: "unknown", retriable: false},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := categorizeBulkError(3, "item123", tt.err)
-
-			if got.Index != 3 {
-				t.Errorf("Index = %d, want 3", got.Index)
-			}
-			if got.ItemID != "item123" {
-				t.Errorf("ItemID = %q, want item123", got.ItemID)
-			}
-			if got.Message != tt.err.Error() {
-				t.Errorf("Message = %q, want %q", got.Message, tt.err.Error())
-			}
-			if got.ErrorType != tt.wantType {
-				t.Errorf("ErrorType = %q, want %q", got.ErrorType, tt.wantType)
-			}
-			if got.IsRetriable != tt.wantRetriable {
-				t.Errorf("IsRetriable = %v, want %v", got.IsRetriable, tt.wantRetriable)
-			}
-			if got.StatusCode != tt.wantStatusCode {
-				t.Errorf("StatusCode = %d, want %d", got.StatusCode, tt.wantStatusCode)
-			}
+			assertBulkErrorIdentity(t, got, tt.err)
+			assertBulkErrorCategory(t, got, tt.want)
 		})
+	}
+}
+
+// assertBulkErrorIdentity checks the fields carried through unchanged from the input.
+func assertBulkErrorIdentity(t *testing.T, got BulkItemError, err error) {
+	t.Helper()
+	if got.Index != 3 {
+		t.Errorf("Index = %d, want 3", got.Index)
+	}
+	if got.ItemID != "item123" {
+		t.Errorf("ItemID = %q, want item123", got.ItemID)
+	}
+	if got.Message != err.Error() {
+		t.Errorf("Message = %q, want %q", got.Message, err.Error())
+	}
+}
+
+// assertBulkErrorCategory checks the categorization fields derived from the error.
+func assertBulkErrorCategory(t *testing.T, got BulkItemError, want bulkErrorExpectation) {
+	t.Helper()
+	if got.ErrorType != want.errorType {
+		t.Errorf("ErrorType = %q, want %q", got.ErrorType, want.errorType)
+	}
+	if got.IsRetriable != want.retriable {
+		t.Errorf("IsRetriable = %v, want %v", got.IsRetriable, want.retriable)
+	}
+	if got.StatusCode != want.statusCode {
+		t.Errorf("StatusCode = %d, want %d", got.StatusCode, want.statusCode)
 	}
 }

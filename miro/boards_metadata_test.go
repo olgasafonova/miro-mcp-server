@@ -107,18 +107,35 @@ func TestListBoards_OmitsAbsentMetadata(t *testing.T) {
 	}
 
 	bare := result.Boards[1]
+	assertBareBoardEmptyFields(t, bare)
+	assertBareBoardOmittedKeys(t, bare)
+}
+
+// assertBareBoardEmptyFields checks that absent metadata stays empty in the struct.
+func assertBareBoardEmptyFields(t *testing.T, bare BoardSummary) {
+	t.Helper()
 	if bare.Owner != nil {
 		t.Errorf("Owner = %+v, want nil", bare.Owner)
 	}
-	if bare.TeamID != "" || bare.TeamName != "" {
-		t.Errorf("team = %q/%q, want empty", bare.TeamID, bare.TeamName)
+	if bare.TeamID != "" {
+		t.Errorf("TeamID = %q, want empty", bare.TeamID)
 	}
-	if bare.CreatedAt != "" || bare.ModifiedAt != "" {
-		t.Errorf("timestamps = %q/%q, want empty", bare.CreatedAt, bare.ModifiedAt)
+	if bare.TeamName != "" {
+		t.Errorf("TeamName = %q, want empty", bare.TeamName)
 	}
+	if bare.CreatedAt != "" {
+		t.Errorf("CreatedAt = %q, want empty", bare.CreatedAt)
+	}
+	if bare.ModifiedAt != "" {
+		t.Errorf("ModifiedAt = %q, want empty", bare.ModifiedAt)
+	}
+}
 
-	// The omitempty tags must actually drop the keys from the wire payload,
-	// so the caller sees an absent field rather than a null or a zero date.
+// assertBareBoardOmittedKeys checks the omitempty tags actually drop the keys
+// from the wire payload, so the caller sees an absent field rather than a null
+// or a zero date.
+func assertBareBoardOmittedKeys(t *testing.T, bare BoardSummary) {
+	t.Helper()
 	encoded, err := json.Marshal(bare)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)

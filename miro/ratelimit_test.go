@@ -46,82 +46,76 @@ func TestAdaptiveRateLimiter_UpdateFromResponse(t *testing.T) {
 	}
 }
 
-func TestAdaptiveRateLimiter_SlowsDownAtThreshold(t *testing.T) {
-	config := RateLimiterConfig{
+// testLimiterConfig returns a limiter config tuned for fast tests.
+func testLimiterConfig(maxDelay time.Duration) RateLimiterConfig {
+	return RateLimiterConfig{
 		SlowdownThreshold: 0.2,
 		MinDelay:          10 * time.Millisecond,
-		MaxDelay:          100 * time.Millisecond,
+		MaxDelay:          maxDelay,
 		DefaultLimit:      100,
 		ProactiveBuffer:   5,
-	}
-	rl := NewAdaptiveRateLimiter(config)
-
-	// Simulate low remaining (10% which is below 20% threshold)
-	resp := &http.Response{Header: make(http.Header)}
-	resp.Header.Set("X-RateLimit-Limit", "100")
-	resp.Header.Set("X-RateLimit-Remaining", "10")
-	rl.UpdateFromResponse(resp)
-
-	ctx := context.Background()
-	start := time.Now()
-	delay, err := rl.Wait(ctx)
-	elapsed := time.Since(start)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if delay == 0 {
-		t.Error("expected delay when below threshold")
-	}
-	if elapsed < delay {
-		t.Errorf("wait should have taken at least %v, took %v", delay, elapsed)
 	}
 }
 
-func TestAdaptiveRateLimiter_NoDelayAboveThreshold(t *testing.T) {
-	config := RateLimiterConfig{
-		SlowdownThreshold: 0.2,
-		MinDelay:          10 * time.Millisecond,
-		MaxDelay:          100 * time.Millisecond,
-		DefaultLimit:      100,
-		ProactiveBuffer:   5,
-	}
-	rl := NewAdaptiveRateLimiter(config)
-
-	// Simulate plenty of remaining requests (50% remaining)
+// applyRateHeaders feeds the limiter a response carrying the given rate headers.
+func applyRateHeaders(rl *AdaptiveRateLimiter, headers map[string]string) {
 	resp := &http.Response{Header: make(http.Header)}
-	resp.Header.Set("X-RateLimit-Limit", "100")
-	resp.Header.Set("X-RateLimit-Remaining", "50")
-	rl.UpdateFromResponse(resp)
-
-	ctx := context.Background()
-	delay, err := rl.Wait(ctx)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	for k, v := range headers {
+		resp.Header.Set(k, v)
 	}
-	if delay != 0 {
-		t.Errorf("expected no delay above threshold, got %v", delay)
+	rl.UpdateFromResponse(resp)
+}
+
+func TestAdaptiveRateLimiter_ThresholdBehavior(t *testing.T) {
+	tests := []struct {
+		name      string
+		remaining string
+		wantDelay bool
+	}{
+		// 10% remaining is below the 20% threshold, so a delay applies.
+		{name: "SlowsDownAtThreshold", remaining: "10", wantDelay: true},
+		// 50% remaining is plenty, so no delay applies.
+		{name: "NoDelayAboveThreshold", remaining: "50", wantDelay: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rl := NewAdaptiveRateLimiter(testLimiterConfig(100 * time.Millisecond))
+			applyRateHeaders(rl, map[string]string{
+				"X-RateLimit-Limit":     "100",
+				"X-RateLimit-Remaining": tt.remaining,
+			})
+
+			start := time.Now()
+			delay, err := rl.Wait(context.Background())
+			elapsed := time.Since(start)
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantDelay && delay == 0 {
+				t.Error("expected delay when below threshold")
+			}
+			if !tt.wantDelay && delay != 0 {
+				t.Errorf("expected no delay above threshold, got %v", delay)
+			}
+			if elapsed < delay {
+				t.Errorf("wait should have taken at least %v, took %v", delay, elapsed)
+			}
+		})
 	}
 }
 
 func TestAdaptiveRateLimiter_WaitsUntilReset(t *testing.T) {
-	config := RateLimiterConfig{
-		SlowdownThreshold: 0.2,
-		MinDelay:          10 * time.Millisecond,
-		MaxDelay:          50 * time.Millisecond,
-		DefaultLimit:      100,
-		ProactiveBuffer:   5,
-	}
-	rl := NewAdaptiveRateLimiter(config)
+	rl := NewAdaptiveRateLimiter(testLimiterConfig(50 * time.Millisecond))
 
-	// Simulate exhausted rate limit with reset in 30ms
-	resp := &http.Response{Header: make(http.Header)}
-	resp.Header.Set("X-RateLimit-Limit", "100")
-	resp.Header.Set("X-RateLimit-Remaining", "3") // At buffer threshold
+	// Simulate exhausted rate limit (at buffer threshold) with reset in 30ms
 	resetTime := time.Now().Add(30 * time.Millisecond).Unix()
-	resp.Header.Set("X-RateLimit-Reset", formatUnixTimestamp(resetTime))
-	rl.UpdateFromResponse(resp)
+	applyRateHeaders(rl, map[string]string{
+		"X-RateLimit-Limit":     "100",
+		"X-RateLimit-Remaining": "3",
+		"X-RateLimit-Reset":     formatUnixTimestamp(resetTime),
+	})
 
 	ctx := context.Background()
 	delay, err := rl.Wait(ctx)
@@ -144,20 +138,13 @@ func formatUnixTimestamp(ts int64) string {
 }
 
 func TestAdaptiveRateLimiter_ContextCancellation(t *testing.T) {
-	config := RateLimiterConfig{
-		SlowdownThreshold: 0.2,
-		MinDelay:          10 * time.Millisecond,
-		MaxDelay:          1 * time.Second,
-		DefaultLimit:      100,
-		ProactiveBuffer:   5,
-	}
-	rl := NewAdaptiveRateLimiter(config)
+	rl := NewAdaptiveRateLimiter(testLimiterConfig(1 * time.Second))
 
-	// Simulate low remaining to trigger delay
-	resp := &http.Response{Header: make(http.Header)}
-	resp.Header.Set("X-RateLimit-Limit", "100")
-	resp.Header.Set("X-RateLimit-Remaining", "5") // At buffer
-	rl.UpdateFromResponse(resp)
+	// Simulate low remaining (at buffer) to trigger delay
+	applyRateHeaders(rl, map[string]string{
+		"X-RateLimit-Limit":     "100",
+		"X-RateLimit-Remaining": "5",
+	})
 
 	// Create a cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -185,20 +172,13 @@ func TestAdaptiveRateLimiter_Stats(t *testing.T) {
 }
 
 func TestAdaptiveRateLimiter_Reset(t *testing.T) {
-	config := RateLimiterConfig{
-		SlowdownThreshold: 0.2,
-		MinDelay:          10 * time.Millisecond,
-		MaxDelay:          100 * time.Millisecond,
-		DefaultLimit:      100,
-		ProactiveBuffer:   5,
-	}
-	rl := NewAdaptiveRateLimiter(config)
+	rl := NewAdaptiveRateLimiter(testLimiterConfig(100 * time.Millisecond))
 
 	// Update state
-	resp := &http.Response{Header: make(http.Header)}
-	resp.Header.Set("X-RateLimit-Limit", "50")
-	resp.Header.Set("X-RateLimit-Remaining", "5")
-	rl.UpdateFromResponse(resp)
+	applyRateHeaders(rl, map[string]string{
+		"X-RateLimit-Limit":     "50",
+		"X-RateLimit-Remaining": "5",
+	})
 
 	// Reset
 	rl.Reset()

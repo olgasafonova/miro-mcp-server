@@ -82,43 +82,36 @@ func TestDiagramError_WithInput_ExactlyAtLimit(t *testing.T) {
 // Error Factory Function Tests
 // =============================================================================
 
-func TestErrTooManyNodes(t *testing.T) {
-	err := ErrTooManyNodes(150, 100)
-	if err.Code != ErrCodeTooManyNodes {
-		t.Errorf("expected code '%s', got '%s'", ErrCodeTooManyNodes, err.Code)
+// assertFactoryError checks a factory-built DiagramError for the expected
+// code, message substrings, and a non-empty suggestion.
+func assertFactoryError(t *testing.T, err *DiagramError, wantCode string, wantInMessage ...string) {
+	t.Helper()
+	if err.Code != wantCode {
+		t.Errorf("expected code '%s', got '%s'", wantCode, err.Code)
 	}
-	if !strings.Contains(err.Message, "150") || !strings.Contains(err.Message, "100") {
-		t.Errorf("expected message to contain counts, got '%s'", err.Message)
+	for _, want := range wantInMessage {
+		if !strings.Contains(err.Message, want) {
+			t.Errorf("expected message to contain '%s', got '%s'", want, err.Message)
+		}
 	}
 	if err.Suggestion == "" {
 		t.Error("expected suggestion to be set")
 	}
+}
+
+func TestErrTooManyNodes(t *testing.T) {
+	err := ErrTooManyNodes(150, 100)
+	assertFactoryError(t, err, ErrCodeTooManyNodes, "150", "100")
 }
 
 func TestErrInvalidNodeShape(t *testing.T) {
 	err := ErrInvalidNodeShape("<<<weird>>>")
-	if err.Code != ErrCodeInvalidShape {
-		t.Errorf("expected code '%s', got '%s'", ErrCodeInvalidShape, err.Code)
-	}
-	if !strings.Contains(err.Message, "<<<weird>>>") {
-		t.Errorf("expected message to contain shape, got '%s'", err.Message)
-	}
-	if err.Suggestion == "" {
-		t.Error("expected suggestion to be set")
-	}
+	assertFactoryError(t, err, ErrCodeInvalidShape, "<<<weird>>>")
 }
 
 func TestErrInvalidEdge(t *testing.T) {
 	err := ErrInvalidEdge("A", "B")
-	if err.Code != ErrCodeInvalidEdge {
-		t.Errorf("expected code '%s', got '%s'", ErrCodeInvalidEdge, err.Code)
-	}
-	if !strings.Contains(err.Message, "A") || !strings.Contains(err.Message, "B") {
-		t.Errorf("expected message to contain node IDs, got '%s'", err.Message)
-	}
-	if err.Suggestion == "" {
-		t.Error("expected suggestion to be set")
-	}
+	assertFactoryError(t, err, ErrCodeInvalidEdge, "A", "B")
 }
 
 func TestParseDiagramSyntaxError(t *testing.T) {
@@ -187,18 +180,25 @@ func TestDiagramTypeHint_EmptyInput(t *testing.T) {
 // ValidateDiagramInput Tests
 // =============================================================================
 
-func TestValidateDiagramInput_Empty(t *testing.T) {
-	err := ValidateDiagramInput("")
+// assertValidateFails checks that ValidateDiagramInput rejects input with a
+// DiagramError carrying the expected code.
+func assertValidateFails(t *testing.T, input, wantCode, desc string) {
+	t.Helper()
+	err := ValidateDiagramInput(input)
 	if err == nil {
-		t.Error("expected error for empty input")
+		t.Errorf("expected error for %s", desc)
 	}
 	diagErr, ok := err.(*DiagramError)
 	if !ok {
 		t.Fatalf("expected *DiagramError, got %T", err)
 	}
-	if diagErr.Code != ErrCodeEmptyDiagram {
-		t.Errorf("expected code '%s', got '%s'", ErrCodeEmptyDiagram, diagErr.Code)
+	if diagErr.Code != wantCode {
+		t.Errorf("expected code '%s', got '%s'", wantCode, diagErr.Code)
 	}
+}
+
+func TestValidateDiagramInput_Empty(t *testing.T) {
+	assertValidateFails(t, "", ErrCodeEmptyDiagram, "empty input")
 }
 
 func TestValidateDiagramInput_Whitespace(t *testing.T) {
@@ -255,17 +255,7 @@ flowchart TB
 }
 
 func TestValidateDiagramInput_MissingHeader(t *testing.T) {
-	err := ValidateDiagramInput("A --> B\nB --> C")
-	if err == nil {
-		t.Error("expected error for missing header")
-	}
-	diagErr, ok := err.(*DiagramError)
-	if !ok {
-		t.Fatalf("expected *DiagramError, got %T", err)
-	}
-	if diagErr.Code != ErrCodeMissingHeader {
-		t.Errorf("expected code '%s', got '%s'", ErrCodeMissingHeader, diagErr.Code)
-	}
+	assertValidateFails(t, "A --> B\nB --> C", ErrCodeMissingHeader, "missing header")
 }
 
 func TestValidateDiagramInput_WithHint(t *testing.T) {

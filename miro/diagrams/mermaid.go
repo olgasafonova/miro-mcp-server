@@ -226,7 +226,7 @@ func (p *MermaidParser) consumeEdgePart(diagram *Diagram, ctx edgePartCtx) strin
 	})
 
 	if ctx.prevNodeID != "" && ctx.i > 0 {
-		style, startCap, endCap := p.detectEdgeStyle(ctx.parts, ctx.i-1, ctx.i)
+		style, startCap, endCap := p.detectEdgeStyle()
 		diagram.AddEdge(&Edge{
 			ID:       fmt.Sprintf("edge_%s_%s", ctx.prevNodeID, nodeID),
 			FromID:   ctx.prevNodeID,
@@ -286,19 +286,17 @@ func addNodeIfMissing(diagram *Diagram, n nodeRecord) {
 	}
 }
 
+// edgeOpsPattern matches edge operators: -->, --->, -.->,-.->, ==>, -- text -->, etc.
+var edgeOpsPattern = regexp.MustCompile(`\s*(-->|--[^>]*-->|-\.->|-.->|==>|---)\s*`)
+
 // splitEdges splits a line by edge operators.
 func (p *MermaidParser) splitEdges(line string) []string {
-	// Match edge operators: -->, --->, -.->,-.->, ==>, -- text -->, etc.
-	edgeOps := regexp.MustCompile(`\s*(-->|--[^>]*-->|-\.->|-.->|==>|---)\s*`)
-	parts := edgeOps.Split(line, -1)
-	if len(parts) == 1 {
-		return parts
-	}
-	return parts
+	return edgeOpsPattern.Split(line, -1)
 }
 
-// detectEdgeStyle determines edge style from the original text between nodes.
-func (p *MermaidParser) detectEdgeStyle(parts []string, fromIdx, toIdx int) (EdgeStyle, ArrowType, ArrowType) {
+// detectEdgeStyle determines the edge style. Every recognized edge currently
+// renders as a solid line with a normal arrow head.
+func (p *MermaidParser) detectEdgeStyle() (EdgeStyle, ArrowType, ArrowType) {
 	return EdgeSolid, ArrowNone, ArrowNormal
 }
 

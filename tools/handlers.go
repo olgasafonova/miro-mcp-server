@@ -355,6 +355,17 @@ func (h *HandlerRegistry) buildTool(spec ToolSpec) *mcp.Tool {
 // would drop the whole tool from tools/list over HTTP. Registration runs at
 // startup, so a panic here is a build-time programming error surfaced loudly,
 // matching AddTool's own panic-on-invalid behaviour.
+// isHeaderParamType reports whether a JSON schema type may carry an
+// x-mcp-header annotation (SEP-2243 allows only primitive parameter types).
+func isHeaderParamType(schemaType string) bool {
+	switch schemaType {
+	case "string", "integer", "boolean":
+		return true
+	default:
+		return false
+	}
+}
+
 func headerAnnotatedSchema[Args any](spec ToolSpec) *jsonschema.Schema {
 	schema, err := jsonschema.For[Args](nil)
 	if err != nil {
@@ -365,7 +376,7 @@ func headerAnnotatedSchema[Args any](spec ToolSpec) *jsonschema.Schema {
 		if !ok {
 			panic(fmt.Sprintf("tool %s: HeaderParams names unknown property %q", spec.Name, prop))
 		}
-		if p.Type != "string" && p.Type != "integer" && p.Type != "boolean" {
+		if !isHeaderParamType(p.Type) {
 			panic(fmt.Sprintf("tool %s: HeaderParams property %q has type %q; x-mcp-header allows only string, integer, boolean", spec.Name, prop, p.Type))
 		}
 		if p.Extra == nil {

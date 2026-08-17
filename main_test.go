@@ -69,6 +69,53 @@ func testHTTPOpts(t *testing.T, bearerToken string) httpServerOpts {
 	}
 }
 
+// protocolMeta20260728 is the _meta block that pins a request to the
+// 2026-07-28 protocol revision.
+func protocolMeta20260728() map[string]any {
+	return map[string]any{
+		"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
+		"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "test", "version": "1"},
+		"io.modelcontextprotocol/clientCapabilities": map[string]any{},
+	}
+}
+
+// mcpRequest describes a JSON-RPC call for postMCP: the Mcp-Method header
+// value, the JSON-RPC payload, and any extra headers to set on the request.
+type mcpRequest struct {
+	method  string
+	payload map[string]any
+	headers map[string]string
+}
+
+// postMCP marshals the request payload and POSTs it to mux with the standard
+// MCP headers for the 2026-07-28 revision, plus the request's extra headers.
+//
+// SEP-2243: a request carrying io.modelcontextprotocol/protocolVersion in
+// _meta MUST also send the matching header, or the transport rejects it
+// with -32020 HeaderMismatch. Mcp-Method mirrors the JSON-RPC method so
+// intermediaries can route without reading the body.
+func postMCP(t *testing.T, mux http.Handler, r mcpRequest) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body, err := json.Marshal(r.payload)
+	if err != nil {
+		t.Fatalf("marshalling request: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
+	req.Header.Set("Mcp-Method", r.method)
+	for name, value := range r.headers {
+		req.Header.Set(name, value)
+	}
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	return rec
+}
+
 // =============================================================================
 // Server card
 // =============================================================================
@@ -126,23 +173,25 @@ func TestBuildHTTPMux_RoutesUnauthenticated(t *testing.T) {
 		}
 	})
 
-	t.Run("server card is served unauthenticated with remotes filled in", func(t *testing.T) {
-		opts := testHTTPOpts(t, "secret")
-		mux := buildHTTPMux(opts)
+}
 
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/.well-known/mcp-server-card", nil))
+func TestBuildHTTPMux_ServerCardUnauthenticated(t *testing.T) {
+	// The card must stay served unauthenticated with remotes filled in.
+	opts := testHTTPOpts(t, "secret")
+	mux := buildHTTPMux(opts)
 
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200 even when a bearer token is set", rec.Code)
-		}
-		if len(opts.card.Remotes) != 1 {
-			t.Fatalf("Remotes = %d, want 1", len(opts.card.Remotes))
-		}
-		if opts.card.Remotes[0].Type != "streamable-http" {
-			t.Errorf("Remotes[0].Type = %q, want streamable-http", opts.card.Remotes[0].Type)
-		}
-	})
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/.well-known/mcp-server-card", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 even when a bearer token is set", rec.Code)
+	}
+	if len(opts.card.Remotes) != 1 {
+		t.Fatalf("Remotes = %d, want 1", len(opts.card.Remotes))
+	}
+	if opts.card.Remotes[0].Type != "streamable-http" {
+		t.Errorf("Remotes[0].Type = %q, want streamable-http", opts.card.Remotes[0].Type)
+	}
 }
 
 // TestBuildHTTPMux_ServesProtocol20260728 pins the reason the Streamable HTTP
@@ -153,39 +202,17 @@ func TestBuildHTTPMux_RoutesUnauthenticated(t *testing.T) {
 func TestBuildHTTPMux_ServesProtocol20260728(t *testing.T) {
 	mux := buildHTTPMux(testHTTPOpts(t, ""))
 
-	newMeta := map[string]any{
-		"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
-		"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "test", "version": "1"},
-		"io.modelcontextprotocol/clientCapabilities": map[string]any{},
-	}
-
 	// tools/list, not server/discover: a stateful handler rejects >= 2026-07-28
 	// requests with HTTP 400, but exempts server/discover so clients can still
 	// read supported versions off DiscoverResult. Probing discover would pass
 	// either way and pin nothing.
 	t.Run("tools/list is answered at 2026-07-28", func(t *testing.T) {
-		body, err := json.Marshal(map[string]any{
+		rec := postMCP(t, mux, mcpRequest{method: "tools/list", payload: map[string]any{
 			"jsonrpc": "2.0",
 			"id":      1,
 			"method":  "tools/list",
-			"params":  map[string]any{"_meta": newMeta},
-		})
-		if err != nil {
-			t.Fatalf("marshalling request: %v", err)
-		}
-
-		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json, text/event-stream")
-		// SEP-2243: a request carrying io.modelcontextprotocol/protocolVersion in
-		// _meta MUST also send the matching header, or the transport rejects it
-		// with -32020 HeaderMismatch. Mcp-Method mirrors the JSON-RPC method so
-		// intermediaries can route without reading the body.
-		req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
-		req.Header.Set("Mcp-Method", "tools/list")
-
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
+			"params":  map[string]any{"_meta": protocolMeta20260728()},
+		}})
 
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
@@ -543,6 +570,22 @@ func TestPrintOAuthSetupHelp(t *testing.T) {
 // is rejected with -32020 HeaderMismatch before the handler runs. The
 // mismatch half is the proof: a malformed annotation is silently ignored by
 // the SDK, so only a rejection demonstrates the binding exists.
+//
+// assertAnnotatedToolsListed checks that the x-mcp-header annotation survives
+// into tools/list. filterValidTools drops tools with malformed annotations;
+// both annotated tools must still be listed.
+func assertAnnotatedToolsListed(t *testing.T, got string) {
+	t.Helper()
+	if !strings.Contains(got, `"x-mcp-header":"Board-Id"`) {
+		t.Error("tools/list does not expose the x-mcp-header annotation")
+	}
+	for _, name := range []string{"miro_get_board", "miro_list_items"} {
+		if !strings.Contains(got, `"name":"`+name+`"`) {
+			t.Errorf("%s missing from tools/list — annotation rejected by the SDK?", name)
+		}
+	}
+}
+
 func TestBuildHTTPMux_ParamHeaderPassthrough(t *testing.T) {
 	opts := testHTTPOpts(t, "")
 	// testHTTPOpts builds an empty server; the annotations live on registered
@@ -552,73 +595,36 @@ func TestBuildHTTPMux_ParamHeaderPassthrough(t *testing.T) {
 	tools.NewHandlerRegistry(client, logger).RegisterProfile(opts.server, tools.ProfileFull)
 	mux := buildHTTPMux(opts)
 
-	newMeta := map[string]any{
-		"io.modelcontextprotocol/protocolVersion":    "2026-07-28",
-		"io.modelcontextprotocol/clientInfo":         map[string]any{"name": "test", "version": "1"},
-		"io.modelcontextprotocol/clientCapabilities": map[string]any{},
-	}
-
 	callBoard := func(t *testing.T, paramHeader string) *httptest.ResponseRecorder {
 		t.Helper()
-		body, err := json.Marshal(map[string]any{
+		headers := map[string]string{"Mcp-Name": "miro_get_board"}
+		if paramHeader != "" {
+			headers["Mcp-Param-Board-Id"] = paramHeader
+		}
+		return postMCP(t, mux, mcpRequest{method: "tools/call", payload: map[string]any{
 			"jsonrpc": "2.0",
 			"id":      1,
 			"method":  "tools/call",
 			"params": map[string]any{
-				"_meta":     newMeta,
+				"_meta":     protocolMeta20260728(),
 				"name":      "miro_get_board",
 				"arguments": map[string]any{"board_id": "board-123"},
 			},
-		})
-		if err != nil {
-			t.Fatalf("marshalling request: %v", err)
-		}
-		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json, text/event-stream")
-		req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
-		req.Header.Set("Mcp-Method", "tools/call")
-		req.Header.Set("Mcp-Name", "miro_get_board")
-		if paramHeader != "" {
-			req.Header.Set("Mcp-Param-Board-Id", paramHeader)
-		}
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		return rec
+		}, headers: headers})
 	}
 
 	t.Run("annotation is visible in tools/list", func(t *testing.T) {
-		body, err := json.Marshal(map[string]any{
+		rec := postMCP(t, mux, mcpRequest{method: "tools/list", payload: map[string]any{
 			"jsonrpc": "2.0",
 			"id":      1,
 			"method":  "tools/list",
-			"params":  map[string]any{"_meta": newMeta},
-		})
-		if err != nil {
-			t.Fatalf("marshalling request: %v", err)
-		}
-		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json, text/event-stream")
-		req.Header.Set("Mcp-Protocol-Version", "2026-07-28")
-		req.Header.Set("Mcp-Method", "tools/list")
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
+			"params":  map[string]any{"_meta": protocolMeta20260728()},
+		}})
 
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
 		}
-		got := rec.Body.String()
-		if !strings.Contains(got, `"x-mcp-header":"Board-Id"`) {
-			t.Error("tools/list does not expose the x-mcp-header annotation")
-		}
-		// filterValidTools drops tools with malformed annotations; both
-		// annotated tools must still be listed.
-		for _, name := range []string{"miro_get_board", "miro_list_items"} {
-			if !strings.Contains(got, `"name":"`+name+`"`) {
-				t.Errorf("%s missing from tools/list — annotation rejected by the SDK?", name)
-			}
-		}
+		assertAnnotatedToolsListed(t, rec.Body.String())
 	})
 
 	t.Run("agreeing header reaches the handler", func(t *testing.T) {

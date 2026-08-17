@@ -26,71 +26,60 @@ func NewLogger(config Config) (Logger, error) {
 	return NewFileLogger(config)
 }
 
-// envBoolean parses a boolean-style env value ("true" / "1"). Empty input
-// leaves dst untouched.
-func envBoolean(name string, dst *bool) {
-	val := os.Getenv(name)
-	if val == "" {
-		return
+// applyEnvSwitches overrides the boolean switches and the log path from
+// MIRO_AUDIT_ENABLED, MIRO_AUDIT_SANITIZE ("true" / "1"), and
+// MIRO_AUDIT_PATH. Unset variables leave the config untouched.
+func applyEnvSwitches(config *Config) {
+	if val := os.Getenv("MIRO_AUDIT_ENABLED"); val != "" {
+		config.Enabled = envFlag(val).isTrue()
 	}
-	*dst = strings.ToLower(val) == "true" || val == "1"
-}
-
-// envString assigns a non-empty env value to dst.
-func envString(name string, dst *string) {
-	if val := os.Getenv(name); val != "" {
-		*dst = val
+	if val := os.Getenv("MIRO_AUDIT_SANITIZE"); val != "" {
+		config.SanitizeInput = envFlag(val).isTrue()
+	}
+	if val := os.Getenv("MIRO_AUDIT_PATH"); val != "" {
+		config.Path = val
 	}
 }
 
-// envRetentionDays parses MIRO_AUDIT_RETENTION as a day-suffixed duration.
-func envRetentionDays(name string, dst *int) {
-	val := os.Getenv(name)
-	if val == "" {
-		return
-	}
-	if days := parseDuration(val); days > 0 {
-		*dst = days
-	}
+// envFlag is a raw boolean-style env value ("true" / "1").
+type envFlag string
+
+// isTrue reports whether the value spells a true boolean.
+func (v envFlag) isTrue() bool {
+	val := string(v)
+	return strings.ToLower(val) == "true" || val == "1"
 }
 
-// envMaxSize parses MIRO_AUDIT_MAX_SIZE as a K/M/G-suffixed byte size.
-func envMaxSize(name string, dst *int64) {
-	val := os.Getenv(name)
-	if val == "" {
-		return
+// applyEnvLimits overrides the numeric limits from MIRO_AUDIT_RETENTION
+// (day-suffixed duration), MIRO_AUDIT_MAX_SIZE (K/M/G-suffixed byte size),
+// and MIRO_AUDIT_BUFFER_SIZE (non-negative integer). Unset or invalid
+// variables leave the config untouched.
+func applyEnvLimits(config *Config) {
+	if days := envDuration(os.Getenv("MIRO_AUDIT_RETENTION")).days(); days > 0 {
+		config.RetentionDays = days
 	}
-	if size := parseSize(val); size > 0 {
-		*dst = size
+	if size := envSize(os.Getenv("MIRO_AUDIT_MAX_SIZE")).bytes(); size > 0 {
+		config.MaxSizeBytes = size
 	}
-}
-
-// envNonNegativeInt parses a non-negative integer env value.
-func envNonNegativeInt(name string, dst *int) {
-	val := os.Getenv(name)
-	if val == "" {
-		return
-	}
-	if size, err := strconv.Atoi(val); err == nil && size >= 0 {
-		*dst = size
+	if size, err := strconv.Atoi(os.Getenv("MIRO_AUDIT_BUFFER_SIZE")); err == nil && size >= 0 {
+		config.BufferSize = size
 	}
 }
 
 // LoadConfigFromEnv loads audit configuration from environment variables.
 func LoadConfigFromEnv() Config {
 	config := DefaultConfig()
-	envBoolean("MIRO_AUDIT_ENABLED", &config.Enabled)
-	envString("MIRO_AUDIT_PATH", &config.Path)
-	envRetentionDays("MIRO_AUDIT_RETENTION", &config.RetentionDays)
-	envMaxSize("MIRO_AUDIT_MAX_SIZE", &config.MaxSizeBytes)
-	envNonNegativeInt("MIRO_AUDIT_BUFFER_SIZE", &config.BufferSize)
-	envBoolean("MIRO_AUDIT_SANITIZE", &config.SanitizeInput)
+	applyEnvSwitches(&config)
+	applyEnvLimits(&config)
 	return config
 }
 
-// parseDuration parses a duration string like "30d", "7d", "90d".
-func parseDuration(s string) int {
-	s = strings.TrimSpace(strings.ToLower(s))
+// envDuration is a raw duration env value like "30d", "7d", "90d".
+type envDuration string
+
+// days parses the value as a day count, returning 0 when invalid.
+func (v envDuration) days() int {
+	s := strings.TrimSpace(strings.ToLower(string(v)))
 	if strings.HasSuffix(s, "d") {
 		if days, err := strconv.Atoi(strings.TrimSuffix(s, "d")); err == nil {
 			return days
@@ -103,9 +92,12 @@ func parseDuration(s string) int {
 	return 0
 }
 
-// parseSize parses a size string like "100M", "1G", "500K".
-func parseSize(s string) int64 {
-	s = strings.TrimSpace(strings.ToUpper(s))
+// envSize is a raw size env value like "100M", "1G", "500K".
+type envSize string
+
+// bytes parses the value as a byte count, returning 0 when invalid.
+func (v envSize) bytes() int64 {
+	s := strings.TrimSpace(strings.ToUpper(string(v)))
 
 	multiplier := int64(1)
 	switch {
@@ -265,22 +257,14 @@ var actionPrefixes = []struct {
 	{ActionAuth, []string{"validate", "share"}},
 }
 
-// hasAnyPrefix reports whether s starts with any of the given prefixes.
-func hasAnyPrefix(s string, prefixes []string) bool {
-	for _, p := range prefixes {
-		if strings.HasPrefix(s, p) {
-			return true
-		}
-	}
-	return false
-}
-
 // DetectAction infers the action type from the method name.
 func DetectAction(method string) Action {
 	method = strings.ToLower(method)
 	for _, row := range actionPrefixes {
-		if hasAnyPrefix(method, row.prefixes) {
-			return row.action
+		for _, prefix := range row.prefixes {
+			if strings.HasPrefix(method, prefix) {
+				return row.action
+			}
 		}
 	}
 	return ActionRead

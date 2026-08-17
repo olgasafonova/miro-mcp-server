@@ -107,14 +107,11 @@ func (n *CamelToSnakeNormalizer) ConvertKey(key string) (string, bool) {
 	return key, false
 }
 
-// shouldInsertUnderscoreBeforeUpper reports whether an underscore separator
-// should precede the uppercase rune at index i. Returns false at the start of
-// the string and after another uppercase rune (so "ID" stays as "id").
-func shouldInsertUnderscoreBeforeUpper(s string, i int) bool {
-	if i == 0 {
-		return false
-	}
-	return !unicode.IsUpper(rune(s[i-1]))
+// underscoreBeforeUpper reports whether an underscore separator should precede
+// an uppercase rune, given the byte before it. Returns false after another
+// uppercase byte (so "ID" stays as "id").
+func underscoreBeforeUpper(prev byte) bool {
+	return !unicode.IsUpper(rune(prev))
 }
 
 // camelToSnake converts a camelCase string to snake_case.
@@ -131,7 +128,7 @@ func camelToSnake(s string) string {
 			result.WriteRune(r)
 			continue
 		}
-		if shouldInsertUnderscoreBeforeUpper(s, i) {
+		if i > 0 && underscoreBeforeUpper(s[i-1]) {
 			result.WriteRune('_')
 		}
 		result.WriteRune(unicode.ToLower(r))
@@ -218,13 +215,9 @@ type WhitespaceNormalizer struct{}
 
 func (n *WhitespaceNormalizer) Name() string { return "whitespace" }
 
-// isWrappedInMatchingQuotes reports whether s starts and ends with the same
-// quote character (single or double) and is at least 2 characters long.
-func isWrappedInMatchingQuotes(s string) bool {
-	if len(s) < 2 {
-		return false
-	}
-	first, last := s[0], s[len(s)-1]
+// matchingQuotes reports whether first and last are the same quote character
+// (single or double).
+func matchingQuotes(first, last byte) bool {
 	if first != last {
 		return false
 	}
@@ -240,7 +233,7 @@ func (n *WhitespaceNormalizer) Normalize(paramName string, rawValue any) (any, N
 	cleaned := strings.TrimSpace(str)
 
 	// Strip surrounding quotes that agents sometimes add
-	if isWrappedInMatchingQuotes(cleaned) {
+	if len(cleaned) >= 2 && matchingQuotes(cleaned[0], cleaned[len(cleaned)-1]) {
 		cleaned = cleaned[1 : len(cleaned)-1]
 		cleaned = strings.TrimSpace(cleaned) // Trim again after removing quotes
 	}

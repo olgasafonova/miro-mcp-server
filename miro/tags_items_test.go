@@ -37,6 +37,16 @@ func TestClampTagItemsLimit(t *testing.T) {
 	}
 }
 
+// tagItemsQuery parses the query string of a built tag-items path.
+func tagItemsQuery(t *testing.T, path string) url.Values {
+	t.Helper()
+	q, err := url.ParseQuery(strings.SplitN(path, "?", 2)[1])
+	if err != nil {
+		t.Fatalf("parsing query: %v", err)
+	}
+	return q
+}
+
 func TestBuildTagItemsPath(t *testing.T) {
 	t.Run("omits offset when zero", func(t *testing.T) {
 		got := buildTagItemsPath("board123", "tag456", 25, 0)
@@ -44,10 +54,7 @@ func TestBuildTagItemsPath(t *testing.T) {
 		if !strings.HasPrefix(got, "/boards/board123/items?") {
 			t.Fatalf("path = %q, want a /boards/board123/items prefix", got)
 		}
-		q, err := url.ParseQuery(strings.SplitN(got, "?", 2)[1])
-		if err != nil {
-			t.Fatalf("parsing query: %v", err)
-		}
+		q := tagItemsQuery(t, got)
 		if q.Get("limit") != "25" {
 			t.Errorf("limit = %q, want 25", q.Get("limit"))
 		}
@@ -61,10 +68,7 @@ func TestBuildTagItemsPath(t *testing.T) {
 
 	t.Run("includes offset when positive", func(t *testing.T) {
 		got := buildTagItemsPath("board123", "tag456", 10, 30)
-		q, err := url.ParseQuery(strings.SplitN(got, "?", 2)[1])
-		if err != nil {
-			t.Fatalf("parsing query: %v", err)
-		}
+		q := tagItemsQuery(t, got)
 		if q.Get("offset") != "30" {
 			t.Errorf("offset = %q, want 30", q.Get("offset"))
 		}
@@ -117,6 +121,13 @@ func TestGetItemsByTag_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	assertTagItemsResult(t, result)
+	assertTagItemsRequest(t, gotQuery)
+}
+
+// assertTagItemsResult checks the projected result of a two-item tagged page.
+func assertTagItemsResult(t *testing.T, result GetItemsByTagResult) {
+	t.Helper()
 	if result.Count != 2 {
 		t.Errorf("Count = %d, want 2", result.Count)
 	}
@@ -126,12 +137,20 @@ func TestGetItemsByTag_Success(t *testing.T) {
 	if result.HasMore {
 		t.Error("HasMore should be false when fewer items than the limit came back")
 	}
-	if result.Items[0].ID != "item1" || result.Items[1].Type != "shape" {
+	if result.Items[0].ID != "item1" {
+		t.Errorf("items = %+v", result.Items)
+	}
+	if result.Items[1].Type != "shape" {
 		t.Errorf("items = %+v", result.Items)
 	}
 	if result.Message != "Found 2 items with tag tag456" {
 		t.Errorf("Message = %q", result.Message)
 	}
+}
+
+// assertTagItemsRequest checks the query the client sent to the API.
+func assertTagItemsRequest(t *testing.T, gotQuery url.Values) {
+	t.Helper()
 	if gotQuery.Get("tag_id") != "tag456" {
 		t.Errorf("request tag_id = %q, want tag456", gotQuery.Get("tag_id"))
 	}

@@ -9,6 +9,14 @@ import (
 	"time"
 )
 
+// checkErrorsField fails the test when got differs from want.
+func checkErrorsField[T comparable](t *testing.T, name string, got, want T) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
 // =============================================================================
 // APIError Tests
 // =============================================================================
@@ -40,10 +48,7 @@ func TestAPIError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.err.Error()
-			if got != tt.expect {
-				t.Errorf("Error() = %q, want %q", got, tt.expect)
-			}
+			checkErrorsField(t, "Error()", tt.err.Error(), tt.expect)
 		})
 	}
 }
@@ -71,21 +76,11 @@ func TestAPIError_StatusChecks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := &APIError{StatusCode: tt.statusCode}
 
-			if got := err.IsRateLimited(); got != tt.isRateLimited {
-				t.Errorf("IsRateLimited() = %v, want %v", got, tt.isRateLimited)
-			}
-			if got := err.IsUnauthorized(); got != tt.isUnauthorized {
-				t.Errorf("IsUnauthorized() = %v, want %v", got, tt.isUnauthorized)
-			}
-			if got := err.IsForbidden(); got != tt.isForbidden {
-				t.Errorf("IsForbidden() = %v, want %v", got, tt.isForbidden)
-			}
-			if got := err.IsNotFound(); got != tt.isNotFound {
-				t.Errorf("IsNotFound() = %v, want %v", got, tt.isNotFound)
-			}
-			if got := err.IsServerError(); got != tt.isServerError {
-				t.Errorf("IsServerError() = %v, want %v", got, tt.isServerError)
-			}
+			checkErrorsField(t, "IsRateLimited()", err.IsRateLimited(), tt.isRateLimited)
+			checkErrorsField(t, "IsUnauthorized()", err.IsUnauthorized(), tt.isUnauthorized)
+			checkErrorsField(t, "IsForbidden()", err.IsForbidden(), tt.isForbidden)
+			checkErrorsField(t, "IsNotFound()", err.IsNotFound(), tt.isNotFound)
+			checkErrorsField(t, "IsServerError()", err.IsServerError(), tt.isServerError)
 		})
 	}
 }
@@ -110,10 +105,11 @@ func TestAPIError_Suggestion(t *testing.T) {
 			err := &APIError{StatusCode: tt.statusCode}
 			suggestion := err.Suggestion()
 
-			if tt.contains == "" && suggestion != "" {
-				t.Errorf("Suggestion() = %q, want empty", suggestion)
+			if tt.contains == "" {
+				checkErrorsField(t, "Suggestion()", suggestion, "")
+				return
 			}
-			if tt.contains != "" && suggestion == "" {
+			if suggestion == "" {
 				t.Errorf("Suggestion() is empty, want to contain %q", tt.contains)
 			}
 		})
@@ -130,9 +126,7 @@ func TestAPIError_Suggestion_RetryAfter(t *testing.T) {
 	if suggestion == "" {
 		t.Error("Suggestion() should not be empty for rate limit")
 	}
-	if !strings.Contains(suggestion, "30 seconds") {
-		t.Errorf("Suggestion() = %q, should mention 30 seconds", suggestion)
-	}
+	checkErrorsField(t, "Suggestion() mentions '30 seconds'", strings.Contains(suggestion, "30 seconds"), true)
 }
 
 // =============================================================================
@@ -148,15 +142,9 @@ func TestParseAPIError_JSONError(t *testing.T) {
 
 	err := ParseAPIError(resp, body)
 
-	if err.StatusCode != 401 {
-		t.Errorf("StatusCode = %d, want 401", err.StatusCode)
-	}
-	if err.Code != "unauthorized" {
-		t.Errorf("Code = %q, want 'unauthorized'", err.Code)
-	}
-	if err.Message != "Invalid access token" {
-		t.Errorf("Message = %q, want 'Invalid access token'", err.Message)
-	}
+	checkErrorsField(t, "StatusCode", err.StatusCode, 401)
+	checkErrorsField(t, "Code", err.Code, "unauthorized")
+	checkErrorsField(t, "Message", err.Message, "Invalid access token")
 }
 
 func TestParseAPIError_RateLimitWithRetryAfter(t *testing.T) {
@@ -169,12 +157,8 @@ func TestParseAPIError_RateLimitWithRetryAfter(t *testing.T) {
 
 	err := ParseAPIError(resp, body)
 
-	if err.StatusCode != 429 {
-		t.Errorf("StatusCode = %d, want 429", err.StatusCode)
-	}
-	if err.RetryAfter != 30 {
-		t.Errorf("RetryAfter = %d, want 30", err.RetryAfter)
-	}
+	checkErrorsField(t, "StatusCode", err.StatusCode, 429)
+	checkErrorsField(t, "RetryAfter", err.RetryAfter, 30)
 }
 
 func TestParseAPIError_PlainText(t *testing.T) {
@@ -188,13 +172,8 @@ func TestParseAPIError_PlainText(t *testing.T) {
 
 	err := ParseAPIError(resp, body)
 
-	if err.StatusCode != 500 {
-		t.Errorf("StatusCode = %d, want 500", err.StatusCode)
-	}
-	want := http.StatusText(500)
-	if err.Message != want {
-		t.Errorf("Message = %q, want %q (http.StatusText fallback)", err.Message, want)
-	}
+	checkErrorsField(t, "StatusCode", err.StatusCode, 500)
+	checkErrorsField(t, "Message (http.StatusText fallback)", err.Message, http.StatusText(500))
 }
 
 // TestParseAPIError_HTMLBodyDoesNotLeak is the HG-2 regression test. It asserts
@@ -214,9 +193,7 @@ func TestParseAPIError_HTMLBodyDoesNotLeak(t *testing.T) {
 
 	err := ParseAPIError(resp, body)
 
-	if err.StatusCode != 502 {
-		t.Errorf("StatusCode = %d, want 502", err.StatusCode)
-	}
+	checkErrorsField(t, "StatusCode", err.StatusCode, 502)
 	leakSentinels := []string{
 		"<html>",
 		"nginx",
@@ -230,10 +207,7 @@ func TestParseAPIError_HTMLBodyDoesNotLeak(t *testing.T) {
 		}
 	}
 	// And verify the fallback message is the stable status text.
-	wantMsg := http.StatusText(http.StatusBadGateway)
-	if err.Message != wantMsg {
-		t.Errorf("Message = %q, want %q", err.Message, wantMsg)
-	}
+	checkErrorsField(t, "Message", err.Message, http.StatusText(http.StatusBadGateway))
 }
 
 // TestParseAPIError_EmptyJSONMessageDoesNotLeak verifies that JSON bodies
@@ -254,79 +228,45 @@ func TestParseAPIError_EmptyJSONMessageDoesNotLeak(t *testing.T) {
 	if strings.Contains(err.Error(), `"code"`) || strings.Contains(err.Error(), `"message"`) {
 		t.Errorf("HG-2 regression: error message echoed raw JSON: %q", err.Error())
 	}
-	if err.Message != http.StatusText(400) {
-		t.Errorf("Message = %q, want %q", err.Message, http.StatusText(400))
-	}
+	checkErrorsField(t, "Message", err.Message, http.StatusText(400))
 }
 
 // =============================================================================
 // Error Helper Tests
 // =============================================================================
 
-func TestIsRateLimitError(t *testing.T) {
+// TestErrorPredicates covers the boolean error-classification helpers with
+// the same case matrix each helper had in its own test.
+func TestErrorPredicates(t *testing.T) {
 	tests := []struct {
 		name   string
+		fn     func(error) bool
 		err    error
 		expect bool
 	}{
-		{"nil error", nil, false},
-		{"rate limit error", &APIError{StatusCode: 429}, true},
-		{"not found error", &APIError{StatusCode: 404}, false},
-		{"wrapped 429", errors.New("API error [429]: rate limited"), true},
-		{"normal error", errors.New("connection failed"), false},
+		{"IsRateLimitError nil error", IsRateLimitError, nil, false},
+		{"IsRateLimitError rate limit error", IsRateLimitError, &APIError{StatusCode: 429}, true},
+		{"IsRateLimitError not found error", IsRateLimitError, &APIError{StatusCode: 404}, false},
+		{"IsRateLimitError wrapped 429", IsRateLimitError, errors.New("API error [429]: rate limited"), true},
+		{"IsRateLimitError normal error", IsRateLimitError, errors.New("connection failed"), false},
+		{"IsAuthError nil error", IsAuthError, nil, false},
+		{"IsAuthError 401 unauthorized", IsAuthError, &APIError{StatusCode: 401}, true},
+		{"IsAuthError 403 forbidden", IsAuthError, &APIError{StatusCode: 403}, true},
+		{"IsAuthError 404 not found", IsAuthError, &APIError{StatusCode: 404}, false},
+		{"IsAuthError normal error", IsAuthError, errors.New("connection failed"), false},
+		{"IsNotFoundError nil error", IsNotFoundError, nil, false},
+		{"IsNotFoundError 404 not found", IsNotFoundError, &APIError{StatusCode: 404}, true},
+		{"IsNotFoundError 401 unauthorized", IsNotFoundError, &APIError{StatusCode: 401}, false},
+		{"IsNotFoundError normal error", IsNotFoundError, errors.New("connection failed"), false},
+		{"IsValidationError nil error", IsValidationError, nil, false},
+		{"IsValidationError validation error", IsValidationError, NewValidationError("field", "message"), true},
+		{"IsValidationError API error", IsValidationError, &APIError{StatusCode: 400}, false},
+		{"IsValidationError normal error", IsValidationError, errors.New("something failed"), false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsRateLimitError(tt.err)
-			if got != tt.expect {
-				t.Errorf("IsRateLimitError() = %v, want %v", got, tt.expect)
-			}
-		})
-	}
-}
-
-func TestIsAuthError(t *testing.T) {
-	tests := []struct {
-		name   string
-		err    error
-		expect bool
-	}{
-		{"nil error", nil, false},
-		{"401 unauthorized", &APIError{StatusCode: 401}, true},
-		{"403 forbidden", &APIError{StatusCode: 403}, true},
-		{"404 not found", &APIError{StatusCode: 404}, false},
-		{"normal error", errors.New("connection failed"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsAuthError(tt.err)
-			if got != tt.expect {
-				t.Errorf("IsAuthError() = %v, want %v", got, tt.expect)
-			}
-		})
-	}
-}
-
-func TestIsNotFoundError(t *testing.T) {
-	tests := []struct {
-		name   string
-		err    error
-		expect bool
-	}{
-		{"nil error", nil, false},
-		{"404 not found", &APIError{StatusCode: 404}, true},
-		{"401 unauthorized", &APIError{StatusCode: 401}, false},
-		{"normal error", errors.New("connection failed"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsNotFoundError(tt.err)
-			if got != tt.expect {
-				t.Errorf("IsNotFoundError() = %v, want %v", got, tt.expect)
-			}
+			checkErrorsField(t, tt.name, tt.fn(tt.err), tt.expect)
 		})
 	}
 }
@@ -345,10 +285,7 @@ func TestGetRetryAfter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetRetryAfter(tt.err)
-			if got != tt.expect {
-				t.Errorf("GetRetryAfter() = %v, want %v", got, tt.expect)
-			}
+			checkErrorsField(t, "GetRetryAfter()", GetRetryAfter(tt.err), tt.expect)
 		})
 	}
 }
@@ -368,9 +305,7 @@ func TestWrapError(t *testing.T) {
 		if err == nil {
 			t.Fatal("WrapError should return error")
 		}
-		if !contains(err.Error(), "Suggestion:") {
-			t.Errorf("Error should contain suggestion: %s", err.Error())
-		}
+		checkErrorsField(t, "error contains 'Suggestion:'", contains(err.Error(), "Suggestion:"), true)
 	})
 
 	t.Run("regular error", func(t *testing.T) {
@@ -380,9 +315,7 @@ func TestWrapError(t *testing.T) {
 		if err == nil {
 			t.Fatal("WrapError should return error")
 		}
-		if !contains(err.Error(), "CreateSticky failed:") {
-			t.Errorf("Error should contain operation: %s", err.Error())
-		}
+		checkErrorsField(t, "error contains 'CreateSticky failed:'", contains(err.Error(), "CreateSticky failed:"), true)
 	})
 }
 
@@ -393,39 +326,9 @@ func TestWrapError(t *testing.T) {
 func TestValidationError(t *testing.T) {
 	err := NewValidationError("board_id", "is required")
 
-	if err.Field != "board_id" {
-		t.Errorf("Field = %q, want 'board_id'", err.Field)
-	}
-	if err.Message != "is required" {
-		t.Errorf("Message = %q, want 'is required'", err.Message)
-	}
-
-	expected := "validation error: board_id - is required"
-	if err.Error() != expected {
-		t.Errorf("Error() = %q, want %q", err.Error(), expected)
-	}
-}
-
-func TestIsValidationError(t *testing.T) {
-	tests := []struct {
-		name   string
-		err    error
-		expect bool
-	}{
-		{"nil error", nil, false},
-		{"validation error", NewValidationError("field", "message"), true},
-		{"API error", &APIError{StatusCode: 400}, false},
-		{"normal error", errors.New("something failed"), false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsValidationError(tt.err)
-			if got != tt.expect {
-				t.Errorf("IsValidationError() = %v, want %v", got, tt.expect)
-			}
-		})
-	}
+	checkErrorsField(t, "Field", err.Field, "board_id")
+	checkErrorsField(t, "Message", err.Message, "is required")
+	checkErrorsField(t, "Error()", err.Error(), "validation error: board_id - is required")
 }
 
 // =============================================================================
@@ -474,14 +377,12 @@ func TestParseAPIError_RealResponse(t *testing.T) {
 			resp := rec.Result()
 			apiErr := ParseAPIError(resp, rec.Body.Bytes())
 
-			if apiErr.StatusCode != tt.statusCode {
-				t.Errorf("StatusCode = %d, want %d", apiErr.StatusCode, tt.statusCode)
+			checkErrorsField(t, "StatusCode", apiErr.StatusCode, tt.statusCode)
+			if tt.expectCode != "" {
+				checkErrorsField(t, "Code", apiErr.Code, tt.expectCode)
 			}
-			if tt.expectCode != "" && apiErr.Code != tt.expectCode {
-				t.Errorf("Code = %q, want %q", apiErr.Code, tt.expectCode)
-			}
-			if tt.expectRetry != 0 && apiErr.RetryAfter != tt.expectRetry {
-				t.Errorf("RetryAfter = %d, want %d", apiErr.RetryAfter, tt.expectRetry)
+			if tt.expectRetry != 0 {
+				checkErrorsField(t, "RetryAfter", apiErr.RetryAfter, tt.expectRetry)
 			}
 		})
 	}
@@ -517,42 +418,22 @@ func BenchmarkIsRateLimitError(b *testing.B) {
 // Validation Helper Tests
 // =============================================================================
 
-func TestRequireBoardID(t *testing.T) {
+// TestRequireIDHelpers covers the board and item ID requirement helpers.
+func TestRequireIDHelpers(t *testing.T) {
 	tests := []struct {
 		name    string
-		boardID string
+		got     error
 		wantErr error
 	}{
-		{"empty", "", ErrBoardIDRequired},
-		{"valid", "abc123", nil},
+		{"RequireBoardID empty", RequireBoardID(""), ErrBoardIDRequired},
+		{"RequireBoardID valid", RequireBoardID("abc123"), nil},
+		{"RequireItemID empty", RequireItemID(""), ErrItemIDRequired},
+		{"RequireItemID valid", RequireItemID("item123"), nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := RequireBoardID(tt.boardID)
-			if err != tt.wantErr {
-				t.Errorf("RequireBoardID() = %v, want %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestRequireItemID(t *testing.T) {
-	tests := []struct {
-		name    string
-		itemID  string
-		wantErr error
-	}{
-		{"empty", "", ErrItemIDRequired},
-		{"valid", "item123", nil},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := RequireItemID(tt.itemID)
-			if err != tt.wantErr {
-				t.Errorf("RequireItemID() = %v, want %v", err, tt.wantErr)
-			}
+			checkErrorsField(t, tt.name, tt.got, tt.wantErr)
 		})
 	}
 }
@@ -577,8 +458,8 @@ func TestRequireNonEmpty(t *testing.T) {
 				t.Errorf("RequireNonEmpty() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if err != nil && err.Error() != tt.errMsg {
-				t.Errorf("RequireNonEmpty() error = %q, want %q", err.Error(), tt.errMsg)
+			if err != nil {
+				checkErrorsField(t, "RequireNonEmpty() error", err.Error(), tt.errMsg)
 			}
 		})
 	}
@@ -590,9 +471,7 @@ func TestRequireNonEmptySlice(t *testing.T) {
 		if err == nil {
 			t.Error("RequireNonEmptySlice() expected error for empty slice")
 		}
-		if err.Error() != "at least one item is required" {
-			t.Errorf("error = %q, want %q", err.Error(), "at least one item is required")
-		}
+		checkErrorsField(t, "error", err.Error(), "at least one item is required")
 	})
 
 	t.Run("non-empty string slice", func(t *testing.T) {
@@ -616,9 +495,7 @@ func TestRequireMinItems(t *testing.T) {
 		if err == nil {
 			t.Error("RequireMinItems() expected error")
 		}
-		if err.Error() != "at least 2 item_ids required" {
-			t.Errorf("error = %q, want %q", err.Error(), "at least 2 item_ids required")
-		}
+		checkErrorsField(t, "error", err.Error(), "at least 2 item_ids required")
 	})
 
 	t.Run("at minimum", func(t *testing.T) {
@@ -662,9 +539,7 @@ func TestPredefinedErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.message, func(t *testing.T) {
-			if tt.err.Error() != tt.message {
-				t.Errorf("Error() = %q, want %q", tt.err.Error(), tt.message)
-			}
+			checkErrorsField(t, "Error()", tt.err.Error(), tt.message)
 		})
 	}
 }

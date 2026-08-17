@@ -16,6 +16,37 @@ import (
 // directory relative to the working directory.
 // =============================================================================
 
+// assertMeasurementIdentity checks the profile identity fields of m.
+func assertMeasurementIdentity(t *testing.T, m profileMeasurement, profile tools.Profile) {
+	t.Helper()
+	if m.Profile != profile {
+		t.Errorf("Profile = %v, want %v", m.Profile, profile)
+	}
+	if m.ToolCount <= 0 {
+		t.Errorf("ToolCount = %d, want a positive count", m.ToolCount)
+	}
+	if m.DescBytes <= 0 {
+		t.Errorf("DescBytes = %d, want positive", m.DescBytes)
+	}
+}
+
+// assertBadgeArithmetic checks the arithmetic the badge depends on.
+func assertBadgeArithmetic(t *testing.T, m profileMeasurement) {
+	t.Helper()
+	if want := m.DescBytes / charsPerToken; m.DescTokens != want {
+		t.Errorf("DescTokens = %d, want %d", m.DescTokens, want)
+	}
+	if want := m.ToolCount * avgSchemaBytesPerTool / charsPerToken; m.SchemaTokens != want {
+		t.Errorf("SchemaTokens = %d, want %d", m.SchemaTokens, want)
+	}
+	if want := m.DescTokens + m.SchemaTokens; m.TotalTokens != want {
+		t.Errorf("TotalTokens = %d, want %d", m.TotalTokens, want)
+	}
+	if want := float64(m.TotalTokens) / float64(contextWindow) * 100; m.Percentage != want {
+		t.Errorf("Percentage = %v, want %v", m.Percentage, want)
+	}
+}
+
 func TestMeasureProfile(t *testing.T) {
 	for _, profile := range []tools.Profile{tools.ProfileFull, tools.ProfileEssentials} {
 		t.Run(string(profile), func(t *testing.T) {
@@ -24,29 +55,8 @@ func TestMeasureProfile(t *testing.T) {
 				t.Fatalf("measureProfile(%s) error = %v", profile, err)
 			}
 
-			if m.Profile != profile {
-				t.Errorf("Profile = %v, want %v", m.Profile, profile)
-			}
-			if m.ToolCount <= 0 {
-				t.Errorf("ToolCount = %d, want a positive count", m.ToolCount)
-			}
-			if m.DescBytes <= 0 {
-				t.Errorf("DescBytes = %d, want positive", m.DescBytes)
-			}
-
-			// The arithmetic the badge depends on.
-			if want := m.DescBytes / charsPerToken; m.DescTokens != want {
-				t.Errorf("DescTokens = %d, want %d", m.DescTokens, want)
-			}
-			if want := m.ToolCount * avgSchemaBytesPerTool / charsPerToken; m.SchemaTokens != want {
-				t.Errorf("SchemaTokens = %d, want %d", m.SchemaTokens, want)
-			}
-			if want := m.DescTokens + m.SchemaTokens; m.TotalTokens != want {
-				t.Errorf("TotalTokens = %d, want %d", m.TotalTokens, want)
-			}
-			if want := float64(m.TotalTokens) / float64(contextWindow) * 100; m.Percentage != want {
-				t.Errorf("Percentage = %v, want %v", m.Percentage, want)
-			}
+			assertMeasurementIdentity(t, m, profile)
+			assertBadgeArithmetic(t, m)
 		})
 	}
 }
@@ -94,27 +104,25 @@ func TestFormatTokens(t *testing.T) {
 	}
 }
 
+// assertSVGContains fails with explain when svg lacks want.
+func assertSVGContains(t *testing.T, svg, want, explain string) {
+	t.Helper()
+	if !strings.Contains(svg, want) {
+		t.Error(explain)
+	}
+}
+
 func TestGenerateBadge(t *testing.T) {
 	svg := generateBadge("MCP context", "2.6K–17.2K tokens", badgeValueColor)
 
 	if !strings.HasPrefix(svg, "<svg") {
 		t.Error("output should be an SVG element")
 	}
-	if !strings.Contains(svg, "MCP context") {
-		t.Error("label should appear in the SVG")
-	}
-	if !strings.Contains(svg, "2.6K–17.2K tokens") {
-		t.Error("value should appear in the SVG")
-	}
-	if !strings.Contains(svg, badgeValueColor) {
-		t.Errorf("value colour %s should appear in the SVG", badgeValueColor)
-	}
-	if !strings.Contains(svg, `role="img"`) {
-		t.Error("badge should carry role=img for accessibility")
-	}
-	if !strings.Contains(svg, "aria-label=") {
-		t.Error("badge should carry an aria-label")
-	}
+	assertSVGContains(t, svg, "MCP context", "label should appear in the SVG")
+	assertSVGContains(t, svg, "2.6K–17.2K tokens", "value should appear in the SVG")
+	assertSVGContains(t, svg, badgeValueColor, "value colour "+badgeValueColor+" should appear in the SVG")
+	assertSVGContains(t, svg, `role="img"`, "badge should carry role=img for accessibility")
+	assertSVGContains(t, svg, "aria-label=", "badge should carry an aria-label")
 }
 
 func TestGenerateBadge_WidthCountsRunesNotBytes(t *testing.T) {
@@ -133,8 +141,10 @@ func TestGenerateBadge_WidthCountsRunesNotBytes(t *testing.T) {
 	}
 }
 
-func TestWriteRangeBadge(t *testing.T) {
-	// writeRangeBadge writes to badges/ relative to the working directory.
+// chdirTemp switches the working directory to a fresh temp dir for the test,
+// restoring the original directory on cleanup.
+func chdirTemp(t *testing.T) {
+	t.Helper()
 	tmp := t.TempDir()
 	orig, err := os.Getwd()
 	if err != nil {
@@ -144,6 +154,11 @@ func TestWriteRangeBadge(t *testing.T) {
 		t.Fatalf("chdir: %v", err)
 	}
 	t.Cleanup(func() { os.Chdir(orig) })
+}
+
+func TestWriteRangeBadge(t *testing.T) {
+	// writeRangeBadge writes to badges/ relative to the working directory.
+	chdirTemp(t)
 
 	if err := os.Mkdir("badges", 0o750); err != nil {
 		t.Fatalf("creating badges dir: %v", err)
@@ -165,24 +180,14 @@ func TestWriteRangeBadge(t *testing.T) {
 		t.Fatalf("reading badge: %v", err)
 	}
 	svg := string(content)
-	if !strings.Contains(svg, "MCP context") {
-		t.Error("badge should carry the MCP context label")
-	}
+	assertSVGContains(t, svg, "MCP context", "badge should carry the MCP context label")
 	if !strings.Contains(svg, "2.6K–17.2K tokens") {
 		t.Errorf("badge should span low to high; got:\n%s", svg)
 	}
 }
 
 func TestWriteRangeBadge_MissingDirIsAnError(t *testing.T) {
-	tmp := t.TempDir()
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("chdir: %v", err)
-	}
-	t.Cleanup(func() { os.Chdir(orig) })
+	chdirTemp(t)
 
 	// No badges/ directory created.
 	if _, err := writeRangeBadge(profileMeasurement{}, profileMeasurement{}); err == nil {

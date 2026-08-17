@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CodeScene Code Health raised to 10.0 across the repo** (measured per file with the CodeScene CLI/MCP). 63 files refactored — structure only: test setup/assertion boilerplate extracted into local helpers, duplicated test pairs merged into table-driven tests with every case preserved as a named subtest, and five oversized files split by responsibility (`client_test.go` → utils/export/bulk/resilience, `handlers_test.go` and `mock_client_test.go` → per-area files, `oauth_test.go` → provider/store/server/flow, `audit_test.go` → memory/file/factory). No exported signature, error string, JSON tag, or API path changed. Five files stay Green at 9.38–9.68 rather than 10.0 because their remaining finding is the exported API's own string parameters (`miro/cache.go`, `tools/share_allowlist.go`, `miro/diagrams/errors.go`, `miro/diagrams/mermaid.go`, `miro/diagrams/sequence.go`) — reshaping those surfaces for a score is contortion, not health.
+
 ### Added
 
 - **`miro_list_diagrams` + `miro_get_diagram` (2)**: read native diagram items via `GET /v2/boards/{id}/diagrams`, an endpoint that answers real data on a plain personal access token but appears in neither Miro's OpenAPI spec baseline nor the docs — a live probe on 15-08-2026 is the evidence. The surface is read-only: `POST` returns 405 `methodNotSupported`, so diagram creation stays with Miro's UI and hosted tooling (the official connector's `diagram_create_mermaid`). Returns item metadata (id, title, position, size, parent frame, timestamps); the diagram's internal nodes and edges are not exposed by the API.

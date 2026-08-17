@@ -95,18 +95,14 @@ func newParseState() *parseState {
 	return &parseState{participants: make(map[string]*Participant)}
 }
 
-// ensureParticipant adds a participant with the given id and label if absent.
-// Returns false when the id was already known.
-func (s *parseState) ensureParticipant(id, label, pType string) {
-	if _, exists := s.participants[id]; exists {
+// ensureParticipant adds the participant if its ID is not yet known, assigning
+// the next left-to-right order position. No-op for known IDs.
+func (s *parseState) ensureParticipant(p Participant) {
+	if _, exists := s.participants[p.ID]; exists {
 		return
 	}
-	s.participants[id] = &Participant{
-		ID:    id,
-		Label: label,
-		Type:  pType,
-		Order: s.participantOrder,
-	}
+	p.Order = s.participantOrder
+	s.participants[p.ID] = &p
 	s.participantOrder++
 }
 
@@ -126,7 +122,7 @@ func (p *SequenceParser) Parse(input string) (*Diagram, error) {
 
 	addParticipantNodes(diagram, state.participants)
 	addMessageEdges(diagram, state.messages)
-	setSequenceDimensions(diagram, len(state.participants), len(state.messages))
+	setSequenceDimensions(diagram, state)
 
 	return diagram, nil
 }
@@ -215,7 +211,7 @@ func (p *SequenceParser) tryParseParticipant(line string, state *parseState) boo
 	if len(matches) > 3 && matches[3] != "" {
 		pLabel = matches[3]
 	}
-	state.ensureParticipant(pID, pLabel, pType)
+	state.ensureParticipant(Participant{ID: pID, Label: pLabel, Type: pType})
 	return true
 }
 
@@ -229,16 +225,17 @@ func (p *SequenceParser) tryParseMessage(line string, state *parseState) bool {
 	from, arrow, modifier, to := matches[1], matches[2], matches[3], matches[4]
 	text := strings.TrimSpace(matches[5])
 
-	state.ensureParticipant(from, from, "participant")
-	state.ensureParticipant(to, to, "participant")
+	state.ensureParticipant(Participant{ID: from, Label: from, Type: "participant"})
+	state.ensureParticipant(Participant{ID: to, Label: to, Type: "participant"})
 
 	msg := Message{
-		From:  from,
-		To:    to,
-		Text:  text,
-		Style: messageStyleForArrow(arrow),
+		From:       from,
+		To:         to,
+		Text:       text,
+		Style:      messageStyleForArrow(arrow),
+		Activate:   modifier == "+",
+		Deactivate: modifier == "-",
 	}
-	applyMessageModifier(&msg, modifier)
 	state.messages = append(state.messages, msg)
 	return true
 }
@@ -257,16 +254,6 @@ func messageStyleForArrow(arrow string) string {
 		return "cross"
 	}
 	return ""
-}
-
-// applyMessageModifier sets Activate/Deactivate based on the +/- modifier.
-func applyMessageModifier(msg *Message, modifier string) {
-	switch modifier {
-	case "+":
-		msg.Activate = true
-	case "-":
-		msg.Deactivate = true
-	}
 }
 
 // addParticipantNodes adds one node per participant, positioned horizontally
@@ -315,7 +302,7 @@ func buildMessageEdge(index int, msg Message) *Edge {
 		Label:  msg.Text,
 		Y:      messageYPosition(index),
 	}
-	applyArrowStyleForMessage(edge, msg.Style)
+	applyArrowStyleForMessage(edge, msg)
 	return edge
 }
 
@@ -326,8 +313,8 @@ func messageYPosition(i int) float64 {
 
 // applyArrowStyleForMessage sets edge.Style and edge.{Start,End}Cap based on
 // the message's style key.
-func applyArrowStyleForMessage(edge *Edge, style string) {
-	switch style {
+func applyArrowStyleForMessage(edge *Edge, msg Message) {
+	switch msg.Style {
 	case "sync":
 		edge.Style = EdgeSolid
 		edge.StartCap = ArrowNone
@@ -347,8 +334,10 @@ func applyArrowStyleForMessage(edge *Edge, style string) {
 }
 
 // setSequenceDimensions populates diagram.Width and diagram.Height from the
-// participant and message counts.
-func setSequenceDimensions(diagram *Diagram, participantCount, messageCount int) {
+// parsed participant and message counts.
+func setSequenceDimensions(diagram *Diagram, state *parseState) {
+	participantCount := len(state.participants)
+	messageCount := len(state.messages)
 	if participantCount > 0 {
 		diagram.Width = float64(participantCount-1)*participantSpacing + participantWidth
 	}

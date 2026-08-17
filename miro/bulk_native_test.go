@@ -207,28 +207,40 @@ func TestBulkCreate_DoesNotFallBackOnUnknownOutcome(t *testing.T) {
 				t.Fatalf("BulkCreate returned a hard error, want a per-item result: %v", err)
 			}
 
-			for _, p := range probe.calls() {
-				if strings.HasSuffix(p, "/sticky_notes") {
-					t.Fatalf("fell back to the fan-out after an unknown-outcome failure; "+
-						"this can double-create. calls: %v", probe.calls())
-				}
-			}
-
-			if result.Created != 0 {
-				t.Errorf("Created = %d, want 0", result.Created)
-			}
-			if len(result.FailedItems) != 3 {
-				t.Errorf("FailedItems = %d, want 3 (every item accounted for)", len(result.FailedItems))
-			}
-			if len(result.RetriableIDs) != 3 {
-				t.Errorf("RetriableIDs = %v, want all three retriable on %s", result.RetriableIDs, name)
-			}
-			// The caller must be told the outcome is not provable, or they will
-			// retry blind and duplicate.
-			if !strings.Contains(result.Message, "lost in transit") {
-				t.Errorf("Message = %q, want it to flag the unprovable outcome", result.Message)
-			}
+			assertNoFanOutCalls(t, probe)
+			assertUnknownOutcomeAccounting(t, result, name)
 		})
+	}
+}
+
+// assertNoFanOutCalls fails if any per-item sticky_notes request left the client.
+func assertNoFanOutCalls(t *testing.T, probe *bulkProbe) {
+	t.Helper()
+	for _, p := range probe.calls() {
+		if strings.HasSuffix(p, "/sticky_notes") {
+			t.Fatalf("fell back to the fan-out after an unknown-outcome failure; "+
+				"this can double-create. calls: %v", probe.calls())
+		}
+	}
+}
+
+// assertUnknownOutcomeAccounting checks that every item is reported failed and
+// retriable, and that the message flags the unprovable outcome.
+func assertUnknownOutcomeAccounting(t *testing.T, result BulkCreateResult, name string) {
+	t.Helper()
+	if result.Created != 0 {
+		t.Errorf("Created = %d, want 0", result.Created)
+	}
+	if len(result.FailedItems) != 3 {
+		t.Errorf("FailedItems = %d, want 3 (every item accounted for)", len(result.FailedItems))
+	}
+	if len(result.RetriableIDs) != 3 {
+		t.Errorf("RetriableIDs = %v, want all three retriable on %s", result.RetriableIDs, name)
+	}
+	// The caller must be told the outcome is not provable, or they will
+	// retry blind and duplicate.
+	if !strings.Contains(result.Message, "lost in transit") {
+		t.Errorf("Message = %q, want it to flag the unprovable outcome", result.Message)
 	}
 }
 

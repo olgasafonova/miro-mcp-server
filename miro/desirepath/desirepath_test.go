@@ -11,80 +11,81 @@ import (
 // URL-to-ID Normalizer Tests
 // =============================================================================
 
+// urlToIDCases drives TestURLToIDNormalizer.
+var urlToIDCases = []struct {
+	name      string
+	param     string
+	input     any
+	wantVal   any
+	wantRule  string
+	wantMatch bool
+}{
+	{
+		name:      "full board URL",
+		param:     "board_id",
+		input:     "https://miro.com/app/board/uXjVN123=/",
+		wantVal:   "uXjVN123=",
+		wantRule:  "url_to_id",
+		wantMatch: true,
+	},
+	{
+		name:      "board URL without trailing slash",
+		param:     "board_id",
+		input:     "https://miro.com/app/board/uXjVN456=",
+		wantVal:   "uXjVN456=",
+		wantRule:  "url_to_id",
+		wantMatch: true,
+	},
+	{
+		name:      "board URL with query params",
+		param:     "board_id",
+		input:     "https://miro.com/app/board/uXjVN789=?moveToWidget=123",
+		wantVal:   "uXjVN789=",
+		wantRule:  "url_to_id",
+		wantMatch: true,
+	},
+	{
+		name:      "plain board ID unchanged",
+		param:     "board_id",
+		input:     "uXjVN123=",
+		wantVal:   "uXjVN123=",
+		wantMatch: false,
+	},
+	{
+		name:      "item URL",
+		param:     "item_id",
+		input:     "https://miro.com/app/board/uXjVN123=/item/3458764529000000123",
+		wantVal:   "3458764529000000123",
+		wantRule:  "url_to_id",
+		wantMatch: true,
+	},
+	{
+		name:      "plain item ID unchanged",
+		param:     "item_id",
+		input:     "3458764529000000123",
+		wantVal:   "3458764529000000123",
+		wantMatch: false,
+	},
+	{
+		name:      "non-string value ignored",
+		param:     "board_id",
+		input:     42,
+		wantVal:   42,
+		wantMatch: false,
+	},
+	{
+		name:      "wrong param name ignored",
+		param:     "other_param",
+		input:     "https://miro.com/app/board/uXjVN123=/",
+		wantVal:   "https://miro.com/app/board/uXjVN123=/",
+		wantMatch: false,
+	},
+}
+
 func TestURLToIDNormalizer(t *testing.T) {
 	n := NewURLToIDNormalizer(MiroURLPatterns())
 
-	tests := []struct {
-		name      string
-		param     string
-		input     any
-		wantVal   any
-		wantRule  string
-		wantMatch bool
-	}{
-		{
-			name:      "full board URL",
-			param:     "board_id",
-			input:     "https://miro.com/app/board/uXjVN123=/",
-			wantVal:   "uXjVN123=",
-			wantRule:  "url_to_id",
-			wantMatch: true,
-		},
-		{
-			name:      "board URL without trailing slash",
-			param:     "board_id",
-			input:     "https://miro.com/app/board/uXjVN456=",
-			wantVal:   "uXjVN456=",
-			wantRule:  "url_to_id",
-			wantMatch: true,
-		},
-		{
-			name:      "board URL with query params",
-			param:     "board_id",
-			input:     "https://miro.com/app/board/uXjVN789=?moveToWidget=123",
-			wantVal:   "uXjVN789=",
-			wantRule:  "url_to_id",
-			wantMatch: true,
-		},
-		{
-			name:      "plain board ID unchanged",
-			param:     "board_id",
-			input:     "uXjVN123=",
-			wantVal:   "uXjVN123=",
-			wantMatch: false,
-		},
-		{
-			name:      "item URL",
-			param:     "item_id",
-			input:     "https://miro.com/app/board/uXjVN123=/item/3458764529000000123",
-			wantVal:   "3458764529000000123",
-			wantRule:  "url_to_id",
-			wantMatch: true,
-		},
-		{
-			name:      "plain item ID unchanged",
-			param:     "item_id",
-			input:     "3458764529000000123",
-			wantVal:   "3458764529000000123",
-			wantMatch: false,
-		},
-		{
-			name:      "non-string value ignored",
-			param:     "board_id",
-			input:     42,
-			wantVal:   42,
-			wantMatch: false,
-		},
-		{
-			name:      "wrong param name ignored",
-			param:     "other_param",
-			input:     "https://miro.com/app/board/uXjVN123=/",
-			wantVal:   "https://miro.com/app/board/uXjVN123=/",
-			wantMatch: false,
-		},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range urlToIDCases {
 		t.Run(tt.name, func(t *testing.T) {
 			got, result := n.Normalize(tt.param, tt.input)
 			if got != tt.wantVal {

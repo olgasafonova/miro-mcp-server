@@ -106,72 +106,69 @@ func TestExtractBoardID(t *testing.T) {
 	}
 }
 
-func TestHandleBoardResource(t *testing.T) {
-	mock := &MockClient{}
-	registry := &Registry{client: mock}
+// resourceHandler is the shape shared by the board resource handlers.
+type resourceHandler func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error)
 
-	req := &mcp.ReadResourceRequest{
-		Params: &mcp.ReadResourceParams{
-			URI: "miro://board/test-board-123",
-		},
+// readResourceRequest builds a ReadResourceRequest for uri.
+func readResourceRequest(uri string) *mcp.ReadResourceRequest {
+	return &mcp.ReadResourceRequest{
+		Params: &mcp.ReadResourceParams{URI: uri},
 	}
+}
 
-	result, err := registry.handleBoardResource(context.Background(), req)
+// mustReadResource calls handler with uri, failing the test on error.
+func mustReadResource(t *testing.T, handler resourceHandler, uri string) *mcp.ReadResourceResult {
+	t.Helper()
+	result, err := handler(context.Background(), readResourceRequest(uri))
 	if err != nil {
-		t.Fatalf("handleBoardResource() error = %v", err)
+		t.Fatalf("resource handler error = %v", err)
 	}
+	return result
+}
 
+// assertSingleJSONContent checks the result carries one JSON content item.
+func assertSingleJSONContent(t *testing.T, result *mcp.ReadResourceResult) {
+	t.Helper()
 	if len(result.Contents) != 1 {
 		t.Errorf("expected 1 content, got %d", len(result.Contents))
 	}
-
-	if result.Contents[0].URI != req.Params.URI {
-		t.Errorf("content URI = %v, want %v", result.Contents[0].URI, req.Params.URI)
-	}
-
 	if result.Contents[0].MIMEType != "application/json" {
 		t.Errorf("content MIMEType = %v, want application/json", result.Contents[0].MIMEType)
+	}
+}
+
+// assertReadFails checks that handler surfaces an error for uri.
+func assertReadFails(t *testing.T, handler resourceHandler, uri string) {
+	t.Helper()
+	if _, err := handler(context.Background(), readResourceRequest(uri)); err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+func TestHandleBoardResource(t *testing.T) {
+	registry := &Registry{client: &MockClient{}}
+	uri := "miro://board/test-board-123"
+
+	result := mustReadResource(t, registry.handleBoardResource, uri)
+
+	assertSingleJSONContent(t, result)
+	if result.Contents[0].URI != uri {
+		t.Errorf("content URI = %v, want %v", result.Contents[0].URI, uri)
 	}
 }
 
 func TestHandleBoardItemsResource(t *testing.T) {
-	mock := &MockClient{}
-	registry := &Registry{client: mock}
+	registry := &Registry{client: &MockClient{}}
 
-	req := &mcp.ReadResourceRequest{
-		Params: &mcp.ReadResourceParams{
-			URI: "miro://board/test-board-123/items",
-		},
-	}
+	result := mustReadResource(t, registry.handleBoardItemsResource, "miro://board/test-board-123/items")
 
-	result, err := registry.handleBoardItemsResource(context.Background(), req)
-	if err != nil {
-		t.Fatalf("handleBoardItemsResource() error = %v", err)
-	}
-
-	if len(result.Contents) != 1 {
-		t.Errorf("expected 1 content, got %d", len(result.Contents))
-	}
-
-	if result.Contents[0].MIMEType != "application/json" {
-		t.Errorf("content MIMEType = %v, want application/json", result.Contents[0].MIMEType)
-	}
+	assertSingleJSONContent(t, result)
 }
 
 func TestHandleBoardFramesResource(t *testing.T) {
-	mock := &MockClient{}
-	registry := &Registry{client: mock}
+	registry := &Registry{client: &MockClient{}}
 
-	req := &mcp.ReadResourceRequest{
-		Params: &mcp.ReadResourceParams{
-			URI: "miro://board/test-board-123/frames",
-		},
-	}
-
-	result, err := registry.handleBoardFramesResource(context.Background(), req)
-	if err != nil {
-		t.Fatalf("handleBoardFramesResource() error = %v", err)
-	}
+	result := mustReadResource(t, registry.handleBoardFramesResource, "miro://board/test-board-123/frames")
 
 	if len(result.Contents) != 1 {
 		t.Errorf("expected 1 content, got %d", len(result.Contents))
@@ -192,61 +189,31 @@ func TestNewRegistry(t *testing.T) {
 }
 
 func TestHandleBoardResourceWithError(t *testing.T) {
-	mock := &MockClient{
+	registry := &Registry{client: &MockClient{
 		GetBoardSummaryFn: func(ctx context.Context, args miroclient.GetBoardSummaryArgs) (miroclient.GetBoardSummaryResult, error) {
 			return miroclient.GetBoardSummaryResult{}, context.DeadlineExceeded
 		},
-	}
-	registry := &Registry{client: mock}
+	}}
 
-	req := &mcp.ReadResourceRequest{
-		Params: &mcp.ReadResourceParams{
-			URI: "miro://board/test-board-123",
-		},
-	}
-
-	_, err := registry.handleBoardResource(context.Background(), req)
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
+	assertReadFails(t, registry.handleBoardResource, "miro://board/test-board-123")
 }
 
 func TestHandleBoardItemsResourceWithError(t *testing.T) {
-	mock := &MockClient{
+	registry := &Registry{client: &MockClient{
 		ListAllItemsFn: func(ctx context.Context, args miroclient.ListAllItemsArgs) (miroclient.ListAllItemsResult, error) {
 			return miroclient.ListAllItemsResult{}, context.DeadlineExceeded
 		},
-	}
-	registry := &Registry{client: mock}
+	}}
 
-	req := &mcp.ReadResourceRequest{
-		Params: &mcp.ReadResourceParams{
-			URI: "miro://board/test-board-123/items",
-		},
-	}
-
-	_, err := registry.handleBoardItemsResource(context.Background(), req)
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
+	assertReadFails(t, registry.handleBoardItemsResource, "miro://board/test-board-123/items")
 }
 
 func TestHandleBoardFramesResourceWithError(t *testing.T) {
-	mock := &MockClient{
+	registry := &Registry{client: &MockClient{
 		ListItemsFn: func(ctx context.Context, args miroclient.ListItemsArgs) (miroclient.ListItemsResult, error) {
 			return miroclient.ListItemsResult{}, context.DeadlineExceeded
 		},
-	}
-	registry := &Registry{client: mock}
+	}}
 
-	req := &mcp.ReadResourceRequest{
-		Params: &mcp.ReadResourceParams{
-			URI: "miro://board/test-board-123/frames",
-		},
-	}
-
-	_, err := registry.handleBoardFramesResource(context.Background(), req)
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
+	assertReadFails(t, registry.handleBoardFramesResource, "miro://board/test-board-123/frames")
 }

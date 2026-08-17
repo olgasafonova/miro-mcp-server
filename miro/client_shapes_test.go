@@ -11,23 +11,17 @@ import (
 
 func TestCreateShape_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/shapes" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
+		if got := r.Method + " " + r.URL.Path; got != "POST /boards/board123/shapes" {
+			t.Errorf("request = %q, want POST /boards/board123/shapes", got)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		data := body["data"].(map[string]interface{})
-		if data["shape"] != "rectangle" {
-			t.Errorf("shape = %v, want 'rectangle'", data["shape"])
-		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		requireBodyField(t, body, "data.shape", "rectangle")
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"id": "shape123",
 			"data": map[string]interface{}{
 				"shape":   "rectangle",
@@ -57,62 +51,53 @@ func TestCreateShape_Success(t *testing.T) {
 	}
 }
 
+// TestCreateShape_ValidationErrors covers argument-validation failures for
+// shape creation, including text alignment values.
 func TestCreateShape_ValidationErrors(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
+	createShape := func(args CreateShapeArgs) func() error {
+		return func() error {
+			_, err := client.CreateShape(context.Background(), args)
+			return err
+		}
+	}
 
-	tests := []struct {
-		name    string
-		args    CreateShapeArgs
-		errText string
-	}{
+	runStickyValidationCases(t, []stickyValidationCase{
 		{
 			name:    "empty board_id",
-			args:    CreateShapeArgs{Shape: "rectangle"},
-			errText: "board_id is required",
+			wantErr: "board_id is required",
+			call:    createShape(CreateShapeArgs{Shape: "rectangle"}),
 		},
 		{
 			name:    "empty shape",
-			args:    CreateShapeArgs{BoardID: "board123"},
-			errText: "shape type is required",
+			wantErr: "shape type is required",
+			call:    createShape(CreateShapeArgs{BoardID: "board123"}),
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateShape(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
+		{
+			name:    "bad horizontal text align value",
+			wantErr: "text_align",
+			call:    createShape(CreateShapeArgs{BoardID: "board123", Shape: "rectangle", TextAlign: "centre"}),
+		},
+		{
+			name:    "bad vertical text align value",
+			wantErr: "text_align_vertical",
+			call:    createShape(CreateShapeArgs{BoardID: "board123", Shape: "rectangle", TextAlignVertical: "centre"}),
+		},
+	})
 }
 
 func TestUpdateShape_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/shapes/") {
-			t.Errorf("expected /shapes/ in path, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "shape123",
-			"data": map[string]interface{}{
-				"content": "Updated shape",
-				"shape":   "circle",
-			},
-			"style": map[string]interface{}{
-				"fillColor": "#FF0000",
-				"fontColor": "#FFFFFF",
-			},
-		})
-	}))
+	server := newStickyVerifyServer(t, "PATCH /boards/board123/shapes/shape123", http.StatusOK, map[string]interface{}{
+		"id": "shape123",
+		"data": map[string]interface{}{
+			"content": "Updated shape",
+			"shape":   "circle",
+		},
+		"style": map[string]interface{}{
+			"fillColor": "#FF0000",
+			"fontColor": "#FFFFFF",
+		},
+	})
 	defer server.Close()
 
 	client := newTestClientWithServer(server.URL)
@@ -154,62 +139,17 @@ func TestUpdateShape_NoChanges(t *testing.T) {
 func TestUpdateShape_WithAllFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify data section
-		if data, ok := body["data"].(map[string]interface{}); !ok {
-			t.Error("expected data in request body")
-		} else {
-			if data["content"] != "New shape content" {
-				t.Errorf("content = %v, want 'New shape content'", data["content"])
-			}
-			if data["shape"] != "circle" {
-				t.Errorf("shape = %v, want 'circle'", data["shape"])
-			}
-		}
-
-		// Verify style section
-		if style, ok := body["style"].(map[string]interface{}); !ok {
-			t.Error("expected style in request body")
-		} else {
-			if style["fillColor"] != "#FF0000" {
-				t.Errorf("fillColor = %v, want '#FF0000'", style["fillColor"])
-			}
-			if style["fontColor"] != "#FFFFFF" {
-				t.Errorf("fontColor = %v, want '#FFFFFF'", style["fontColor"])
-			}
-		}
-
-		// Verify position section
-		if pos, ok := body["position"].(map[string]interface{}); !ok {
-			t.Error("expected position in request body")
-		} else {
-			if pos["x"] != float64(50) {
-				t.Errorf("x = %v, want 50", pos["x"])
-			}
-			if pos["y"] != float64(75) {
-				t.Errorf("y = %v, want 75", pos["y"])
-			}
-		}
-
-		// Verify geometry section
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else {
-			if geom["width"] != float64(200) {
-				t.Errorf("width = %v, want 200", geom["width"])
-			}
-			if geom["height"] != float64(150) {
-				t.Errorf("height = %v, want 150", geom["height"])
-			}
-		}
-
-		// Verify parent section
-		if parent, ok := body["parent"].(map[string]interface{}); !ok {
-			t.Error("expected parent in request body")
-		} else if parent["id"] != "frame-xyz" {
-			t.Errorf("parent.id = %v, want 'frame-xyz'", parent["id"])
-		}
+		requireBodyField(t, body, "data.content", "New shape content")
+		requireBodyField(t, body, "data.shape", "circle")
+		requireBodyField(t, body, "style.fillColor", "#FF0000")
+		requireBodyField(t, body, "style.fontColor", "#FFFFFF")
+		requireBodyField(t, body, "position.x", float64(50))
+		requireBodyField(t, body, "position.y", float64(75))
+		requireBodyField(t, body, "geometry.width", float64(200))
+		requireBodyField(t, body, "geometry.height", float64(150))
+		requireBodyField(t, body, "parent.id", "frame-xyz")
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -252,123 +192,75 @@ func TestUpdateShape_WithAllFields(t *testing.T) {
 	}
 }
 
-func TestCreateShape_WithTextAlign(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		style, ok := body["style"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected style in request body")
-		}
-		if style["textAlign"] != "center" {
-			t.Errorf("style.textAlign = %v, want 'center'", style["textAlign"])
-		}
-		if style["textAlignVertical"] != "middle" {
-			t.Errorf("style.textAlignVertical = %v, want 'middle'", style["textAlignVertical"])
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "shape123",
-			"data": map[string]interface{}{"shape": "triangle", "content": "Centered"},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.CreateShape(context.Background(), CreateShapeArgs{
-		BoardID:           "board123",
-		Shape:             "triangle",
-		Content:           "Centered",
-		TextAlign:         "center",
-		TextAlignVertical: "middle",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestCreateShape_InvalidTextAlign(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
+// TestShape_TextAlignSentToAPI pins that both the create and update paths
+// forward text alignment into the style block of the request body.
+func TestShape_TextAlignSentToAPI(t *testing.T) {
 	tests := []struct {
-		name    string
-		args    CreateShapeArgs
-		errText string
+		name         string
+		wantMethod   string
+		wantAlign    string
+		wantVertical string
+		call         func(*Client) error
 	}{
 		{
-			name: "bad horizontal value",
-			args: CreateShapeArgs{
-				BoardID:   "board123",
-				Shape:     "rectangle",
-				TextAlign: "centre",
+			name:         "create shape",
+			wantMethod:   http.MethodPost,
+			wantAlign:    "center",
+			wantVertical: "middle",
+			call: func(client *Client) error {
+				_, err := client.CreateShape(context.Background(), CreateShapeArgs{
+					BoardID:           "board123",
+					Shape:             "triangle",
+					Content:           "Centered",
+					TextAlign:         "center",
+					TextAlignVertical: "middle",
+				})
+				return err
 			},
-			errText: "text_align",
 		},
 		{
-			name: "bad vertical value",
-			args: CreateShapeArgs{
-				BoardID:           "board123",
-				Shape:             "rectangle",
-				TextAlignVertical: "centre",
+			name:         "update shape",
+			wantMethod:   http.MethodPatch,
+			wantAlign:    "left",
+			wantVertical: "top",
+			call: func(client *Client) error {
+				textAlign := "left"
+				textAlignVertical := "top"
+				_, err := client.UpdateShape(context.Background(), UpdateShapeArgs{
+					BoardID:           "board123",
+					ItemID:            "shape123",
+					TextAlign:         &textAlign,
+					TextAlignVertical: &textAlignVertical,
+				})
+				return err
 			},
-			errText: "text_align_vertical",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateShape(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != tt.wantMethod {
+					t.Errorf("expected %s, got %s", tt.wantMethod, r.Method)
+				}
+				var body map[string]interface{}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Fatalf("decode body: %v", err)
+				}
+				requireBodyField(t, body, "style.textAlign", tt.wantAlign)
+				requireBodyField(t, body, "style.textAlignVertical", tt.wantVertical)
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"id":   "shape123",
+					"data": map[string]interface{}{"shape": "triangle", "content": "Aligned"},
+				})
+			}))
+			defer server.Close()
+
+			if err := tt.call(newTestClientWithServer(server.URL)); err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
-	}
-}
-
-func TestUpdateShape_WithTextAlign(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		style, ok := body["style"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected style in request body")
-		}
-		if style["textAlign"] != "left" {
-			t.Errorf("style.textAlign = %v, want 'left'", style["textAlign"])
-		}
-		if style["textAlignVertical"] != "top" {
-			t.Errorf("style.textAlignVertical = %v, want 'top'", style["textAlignVertical"])
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "shape123",
-			"data": map[string]interface{}{"shape": "rectangle", "content": "Left-top"},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	textAlign := "left"
-	textAlignVertical := "top"
-	_, err := client.UpdateShape(context.Background(), UpdateShapeArgs{
-		BoardID:           "board123",
-		ItemID:            "shape123",
-		TextAlign:         &textAlign,
-		TextAlignVertical: &textAlignVertical,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -381,13 +273,7 @@ func TestBulkUpdate_TypeShapeRoutesToShapesEndpoint(t *testing.T) {
 			t.Fatalf("decode body: %v", err)
 		}
 		// Shape-specific fields must reach the shapes endpoint
-		style, ok := body["style"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected style in PATCH body")
-		}
-		if style["textAlign"] != "center" {
-			t.Errorf("style.textAlign = %v, want 'center'", style["textAlign"])
-		}
+		requireBodyField(t, body, "style.textAlign", "center")
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":   "shape1",
@@ -444,16 +330,8 @@ func TestBulkCreate_ShapeWithTextStyleFields(t *testing.T) {
 			t.Errorf("type = %v, want shape", item["type"])
 		}
 
-		style, ok := item["style"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected style in request body for shape item")
-		}
-		if style["color"] != "#ffffff" {
-			t.Errorf("style.color (text color) = %v, want '#ffffff'", style["color"])
-		}
-		if style["textAlign"] != "right" {
-			t.Errorf("style.textAlign = %v, want 'right'", style["textAlign"])
-		}
+		requireBodyField(t, item, "style.color", "#ffffff") // text color
+		requireBodyField(t, item, "style.textAlign", "right")
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)

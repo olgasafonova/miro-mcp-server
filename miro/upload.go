@@ -167,25 +167,6 @@ func validateUploadFile(filePath string, opts fileValidationOpts) (string, error
 	return ValidateUploadPath(filePath)
 }
 
-// validateImageFile validates an image upload candidate.
-func validateImageFile(filePath string) (string, error) {
-	return validateUploadFile(filePath, fileValidationOpts{
-		validExts: validImageExts,
-		kind:      "image",
-		hint:      imageExtsHint,
-	})
-}
-
-// validateDocumentFile validates a document upload candidate, enforcing the 6 MB cap.
-func validateDocumentFile(filePath string) (string, error) {
-	return validateUploadFile(filePath, fileValidationOpts{
-		validExts: validDocumentExts,
-		kind:      "document",
-		hint:      documentExtsHint,
-		maxSize:   maxDocumentSize,
-	})
-}
-
 // uploadAPIResponse is the shape returned by parseUploadResponse: the parsed item
 // id, an effective title (server-provided or filename fallback), and the item URL
 // built from the board id.
@@ -196,9 +177,9 @@ type uploadAPIResponse struct {
 }
 
 // parseUploadResponse decodes the JSON returned by image/document upload calls,
-// resolves a fallback title from the supplied filename when the server response
-// omits one, and computes the item URL.
-func parseUploadResponse(respBody []byte, boardID, fallbackTitle string) (uploadAPIResponse, error) {
+// resolves the call's fallback title when the server response omits one, and
+// computes the item URL from the call's board id.
+func parseUploadResponse(respBody []byte, call multipartUploadCall) (uploadAPIResponse, error) {
 	var resp struct {
 		ID   string `json:"id"`
 		Data struct {
@@ -210,12 +191,12 @@ func parseUploadResponse(respBody []byte, boardID, fallbackTitle string) (upload
 	}
 	title := resp.Data.Title
 	if title == "" {
-		title = fallbackTitle
+		title = call.fallbackTitle
 	}
 	return uploadAPIResponse{
 		ID:      resp.ID,
 		Title:   title,
-		ItemURL: BuildItemURL(boardID, resp.ID),
+		ItemURL: BuildItemURL(call.boardID, resp.ID),
 	}, nil
 }
 
@@ -228,16 +209,24 @@ type uploadFormOpts struct {
 }
 
 // uploadKind bundles the per-item-type differences (API path segment, file
-// validator, display noun) between image and document uploads.
+// validation rules, display noun) between image and document uploads.
 type uploadKind struct {
-	segment  string
-	validate func(string) (string, error)
-	noun     string
+	segment string
+	opts    fileValidationOpts
+	noun    string
 }
 
 var (
-	imageUploads    = uploadKind{segment: "images", validate: validateImageFile, noun: "image"}
-	documentUploads = uploadKind{segment: "documents", validate: validateDocumentFile, noun: "document"}
+	imageUploads = uploadKind{
+		segment: "images",
+		opts:    fileValidationOpts{validExts: validImageExts, kind: "image", hint: imageExtsHint},
+		noun:    "image",
+	}
+	documentUploads = uploadKind{
+		segment: "documents",
+		opts:    fileValidationOpts{validExts: validDocumentExts, kind: "document", hint: documentExtsHint, maxSize: maxDocumentSize},
+		noun:    "document",
+	}
 )
 
 // uploadRequest is one upload or update-from-file operation: the target kind
@@ -253,11 +242,11 @@ type uploadRequest struct {
 }
 
 // message renders the user-facing confirmation for a completed operation.
-func (r uploadRequest) message(title string) string {
+func (r uploadRequest) message(parsed uploadAPIResponse) string {
 	if r.replace {
-		return fmt.Sprintf("Updated %s '%s' with new file", r.kind.noun, title)
+		return fmt.Sprintf("Updated %s '%s' with new file", r.kind.noun, parsed.Title)
 	}
-	return fmt.Sprintf("Uploaded %s '%s'", r.kind.noun, title)
+	return fmt.Sprintf("Uploaded %s '%s'", r.kind.noun, parsed.Title)
 }
 
 // runUpload validates the request and performs the shared multipart flow.
@@ -275,7 +264,7 @@ func (c *Client) runUpload(ctx context.Context, req uploadRequest) (uploadAPIRes
 		method = http.MethodPatch
 		path += "/" + req.itemID
 	}
-	resolvedPath, err := req.kind.validate(req.filePath)
+	resolvedPath, err := validateUploadFile(req.filePath, req.kind.opts)
 	if err != nil {
 		return uploadAPIResponse{}, err
 	}
@@ -300,51 +289,75 @@ func (c *Client) runUploadResult(ctx context.Context, req uploadRequest) (Upload
 		ID:      parsed.ID,
 		ItemURL: parsed.ItemURL,
 		Title:   parsed.Title,
-		Message: req.message(parsed.Title),
+		Message: req.message(parsed),
 	}, nil
 }
 
-// newUpload shapes a create-style upload request for the given kind.
-func newUpload(kind uploadKind, boardID, filePath string, form uploadFormOpts) uploadRequest {
-	return uploadRequest{kind: kind, boardID: boardID, filePath: filePath, form: form}
+// uploadNewArgs is the common argument shape of the two upload tools. The
+// exported UploadImageArgs and UploadDocumentArgs structs convert to it
+// field-for-field.
+type uploadNewArgs struct {
+	BoardID  string
+	FilePath string
+	Title    string
+	X        float64
+	Y        float64
+	ParentID string
 }
 
-// withReplace marks the request as an update-from-file call targeting itemID.
-func (r uploadRequest) withReplace(itemID string) uploadRequest {
-	r.itemID = itemID
-	r.replace = true
-	return r
+// uploadReplaceArgs is the common argument shape of the two update-from-file
+// tools. The exported UpdateImageFromFileArgs and UpdateDocumentFromFileArgs
+// structs convert to it field-for-field.
+type uploadReplaceArgs struct {
+	BoardID  string
+	ItemID   string
+	FilePath string
+	Title    string
+	X        float64
+	Y        float64
+	ParentID string
 }
 
-// formOf collects the shared optional form fields (title, position, parent).
-func formOf(title string, x, y float64, parentID string) uploadFormOpts {
-	return uploadFormOpts{title: title, x: x, y: y, parentID: parentID}
+// newUploadRequest shapes a create-style upload request for the given kind.
+func newUploadRequest(kind uploadKind, a uploadNewArgs) uploadRequest {
+	return uploadRequest{
+		kind:     kind,
+		boardID:  a.BoardID,
+		filePath: a.FilePath,
+		form:     uploadFormOpts{title: a.Title, x: a.X, y: a.Y, parentID: a.ParentID},
+	}
+}
+
+// newReplaceRequest shapes an update-from-file request for the given kind.
+func newReplaceRequest(kind uploadKind, a uploadReplaceArgs) uploadRequest {
+	return uploadRequest{
+		kind:     kind,
+		boardID:  a.BoardID,
+		itemID:   a.ItemID,
+		replace:  true,
+		filePath: a.FilePath,
+		form:     uploadFormOpts{title: a.Title, x: a.X, y: a.Y, parentID: a.ParentID},
+	}
 }
 
 // UploadImage uploads a local image file to a Miro board.
 func (c *Client) UploadImage(ctx context.Context, args UploadImageArgs) (UploadImageResult, error) {
-	form := formOf(args.Title, args.X, args.Y, args.ParentID)
-	return c.runUploadResult(ctx, newUpload(imageUploads, args.BoardID, args.FilePath, form))
+	return c.runUploadResult(ctx, newUploadRequest(imageUploads, uploadNewArgs(args)))
 }
 
 // UploadDocument uploads a local document file to a Miro board.
 func (c *Client) UploadDocument(ctx context.Context, args UploadDocumentArgs) (UploadDocumentResult, error) {
-	form := formOf(args.Title, args.X, args.Y, args.ParentID)
-	return c.runUploadResult(ctx, newUpload(documentUploads, args.BoardID, args.FilePath, form))
+	return c.runUploadResult(ctx, newUploadRequest(documentUploads, uploadNewArgs(args)))
 }
 
 // UpdateImageFromFile replaces the file on an existing image item via PATCH multipart.
 func (c *Client) UpdateImageFromFile(ctx context.Context, args UpdateImageFromFileArgs) (UpdateImageFromFileResult, error) {
-	form := formOf(args.Title, args.X, args.Y, args.ParentID)
-	req := newUpload(imageUploads, args.BoardID, args.FilePath, form).withReplace(args.ItemID)
-	return c.runUploadResult(ctx, req)
+	return c.runUploadResult(ctx, newReplaceRequest(imageUploads, uploadReplaceArgs(args)))
 }
 
 // UpdateDocumentFromFile replaces the file on an existing document item via PATCH multipart.
 func (c *Client) UpdateDocumentFromFile(ctx context.Context, args UpdateDocumentFromFileArgs) (UpdateDocumentFromFileResult, error) {
-	form := formOf(args.Title, args.X, args.Y, args.ParentID)
-	req := newUpload(documentUploads, args.BoardID, args.FilePath, form).withReplace(args.ItemID)
-	return c.runUploadResult(ctx, req)
+	return c.runUploadResult(ctx, newReplaceRequest(documentUploads, uploadReplaceArgs(args)))
 }
 
 // multipartUploadCall bundles the per-call inputs for the shared upload skeleton.
@@ -384,7 +397,7 @@ func (c *Client) uploadMultipart(ctx context.Context, call multipartUploadCall) 
 		return uploadAPIResponse{}, err
 	}
 
-	parsed, err := parseUploadResponse(respBody, call.boardID, call.fallbackTitle)
+	parsed, err := parseUploadResponse(respBody, call)
 	if err != nil {
 		return uploadAPIResponse{}, err
 	}

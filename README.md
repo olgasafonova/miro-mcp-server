@@ -401,6 +401,15 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 </details>
 
 <details>
+<summary><b>Discovery (1)</b></summary>
+
+| Tool | Description |
+|------|-------------|
+| `miro_tool_search` | Find the right tool by keyword or category; registered in both profiles and the only gateway to the full surface in `essentials` mode |
+
+</details>
+
+<details>
 <summary><b>Diagrams & Audit (6)</b></summary>
 
 | Tool | Description |
@@ -467,7 +476,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 | **Offline mode** | Yes | No |
 | **Auth** | Token + OAuth2 | OAuth 2.1, dynamic client registration (Enterprise orgs need admin enablement) |
 | **Board list metadata** | id, owner, team, created/modified timestamps | name and URL |
-| **Diagram generation** | Mermaid, parsed locally | Mermaid (`diagram_create_mermaid`, `diagram_update_mermaid`) plus a custom DSL |
+| **Diagram generation** | Mermaid, parsed locally; native diagram items readable via `miro_list_diagrams`/`miro_get_diagram` | Mermaid (`diagram_create_mermaid`, `diagram_update_mermaid`) plus a custom DSL |
 | **AI context** | No | Yes (`context_explore`, `context_get`) |
 | **Layout DSL** | Composed from bulk create + the [`miro-workflow`](skills/miro-workflow/) skill | Yes, but marked deprecated upstream in favour of the canvas tools |
 | **Canvas as SVG** | Read + create (local geometry transform; spatial approximation) | Yes (read, create, update from SVG) |

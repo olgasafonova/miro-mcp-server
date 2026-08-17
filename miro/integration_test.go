@@ -124,14 +124,14 @@ func TestIntegration_CreateAndDeleteBoard(t *testing.T) {
 // Item CRUD Tests
 // =============================================================================
 
-func TestIntegration_StickyNoteCRUD(t *testing.T) {
-	ctx := context.Background()
-
-	// Create a test board for this test
-	boardName := "MCP Sticky Test " + time.Now().Format("20060102-150405")
+// newIntegrationBoard creates a throwaway test board and registers a cleanup
+// that deletes it when the test finishes.
+func newIntegrationBoard(ctx context.Context, t *testing.T, namePrefix, description string) string {
+	t.Helper()
+	boardName := namePrefix + " " + time.Now().Format("20060102-150405")
 	createBoardResult, err := testClient.CreateBoard(ctx, CreateBoardArgs{
 		Name:        boardName,
-		Description: "Sticky note CRUD test",
+		Description: description,
 	})
 	if err != nil {
 		t.Fatalf("CreateBoard failed: %v", err)
@@ -139,13 +139,18 @@ func TestIntegration_StickyNoteCRUD(t *testing.T) {
 	boardID := createBoardResult.ID
 	t.Logf("Created test board: %s", boardID)
 
-	// Cleanup: delete board at end
-	defer func() {
-		_, err := testClient.DeleteBoard(ctx, DeleteBoardArgs{BoardID: boardID})
-		if err != nil {
+	t.Cleanup(func() {
+		if _, err := testClient.DeleteBoard(ctx, DeleteBoardArgs{BoardID: boardID}); err != nil {
 			t.Logf("Warning: failed to delete test board: %v", err)
 		}
-	}()
+	})
+	return boardID
+}
+
+func TestIntegration_StickyNoteCRUD(t *testing.T) {
+	ctx := context.Background()
+
+	boardID := newIntegrationBoard(ctx, t, "MCP Sticky Test", "Sticky note CRUD test")
 
 	// Create a sticky note
 	stickyResult, err := testClient.CreateSticky(ctx, CreateStickyArgs{

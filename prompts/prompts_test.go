@@ -2,11 +2,63 @@ package prompts
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// assertSameStrings compares got against want element by element.
+func assertSameStrings(t *testing.T, label string, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Errorf("%s = %v, want %v", label, got, want)
+		return
+	}
+	for i, v := range got {
+		if v != want[i] {
+			t.Errorf("%s[%d] = %q, want %q", label, i, v, want[i])
+		}
+	}
+}
+
+// assertPromptContains checks that each wanted string appears in text.
+func assertPromptContains(t *testing.T, text string, wants []string) {
+	t.Helper()
+	for _, check := range wants {
+		if !strings.Contains(text, check) {
+			t.Errorf("prompt should contain %q", check)
+		}
+	}
+}
+
+// assertPromptOmits checks that no unwanted string appears in text.
+func assertPromptOmits(t *testing.T, text string, unwanted []string) {
+	t.Helper()
+	for _, check := range unwanted {
+		if strings.Contains(text, check) {
+			t.Errorf("prompt should NOT contain %q", check)
+		}
+	}
+}
+
+// promptText invokes a prompt handler and returns the text of its message.
+func promptText(t *testing.T, handler func(context.Context, *mcp.GetPromptRequest) (*mcp.GetPromptResult, error), name string, args map[string]string) string {
+	t.Helper()
+
+	req := &mcp.GetPromptRequest{
+		Params: &mcp.GetPromptParams{Name: name, Arguments: args},
+	}
+
+	result, err := handler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("%s handler error = %v", name, err)
+	}
+
+	textContent := result.Messages[0].Content.(*mcp.TextContent)
+	return textContent.Text
+}
 
 func TestNewRegistry(t *testing.T) {
 	registry := NewRegistry()
@@ -46,15 +98,7 @@ func TestSplitColumns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := splitColumns(tt.input)
-			if len(result) != len(tt.expected) {
-				t.Errorf("splitColumns(%q) = %v, want %v", tt.input, result, tt.expected)
-				return
-			}
-			for i, v := range result {
-				if v != tt.expected[i] {
-					t.Errorf("splitColumns(%q)[%d] = %q, want %q", tt.input, i, v, tt.expected[i])
-				}
-			}
+			assertSameStrings(t, fmt.Sprintf("splitColumns(%q)", tt.input), result, tt.expected)
 		})
 	}
 }
@@ -137,23 +181,12 @@ func TestHandleSprintBoard(t *testing.T) {
 func TestHandleSprintBoardDefaultSprintNumber(t *testing.T) {
 	registry := NewRegistry()
 
-	req := &mcp.GetPromptRequest{
-		Params: &mcp.GetPromptParams{
-			Name: "create-sprint-board",
-			Arguments: map[string]string{
-				"board_name": "My Sprint Board",
-				// sprint_number not provided
-			},
-		},
-	}
+	text := promptText(t, registry.handleSprintBoard, "create-sprint-board", map[string]string{
+		"board_name": "My Sprint Board",
+		// sprint_number not provided
+	})
 
-	result, err := registry.handleSprintBoard(context.Background(), req)
-	if err != nil {
-		t.Fatalf("handleSprintBoard() error = %v", err)
-	}
-
-	textContent := result.Messages[0].Content.(*mcp.TextContent)
-	if !strings.Contains(textContent.Text, "Sprint N Planning") {
+	if !strings.Contains(text, "Sprint N Planning") {
 		t.Error("prompt should use default sprint number 'N'")
 	}
 }
@@ -206,31 +239,9 @@ func TestHandleRetrospective(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &mcp.GetPromptRequest{
-				Params: &mcp.GetPromptParams{
-					Name:      "create-retrospective",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := registry.handleRetrospective(context.Background(), req)
-			if err != nil {
-				t.Fatalf("handleRetrospective() error = %v", err)
-			}
-
-			textContent := result.Messages[0].Content.(*mcp.TextContent)
-
-			for _, check := range tt.checkFor {
-				if !strings.Contains(textContent.Text, check) {
-					t.Errorf("prompt should contain %q", check)
-				}
-			}
-
-			for _, check := range tt.checkAgainst {
-				if strings.Contains(textContent.Text, check) {
-					t.Errorf("prompt should NOT contain %q", check)
-				}
-			}
+			text := promptText(t, registry.handleRetrospective, "create-retrospective", tt.args)
+			assertPromptContains(t, text, tt.checkFor)
+			assertPromptOmits(t, text, tt.checkAgainst)
 		})
 	}
 }
@@ -270,25 +281,8 @@ func TestHandleBrainstorm(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &mcp.GetPromptRequest{
-				Params: &mcp.GetPromptParams{
-					Name:      "create-brainstorm",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := registry.handleBrainstorm(context.Background(), req)
-			if err != nil {
-				t.Fatalf("handleBrainstorm() error = %v", err)
-			}
-
-			textContent := result.Messages[0].Content.(*mcp.TextContent)
-
-			for _, check := range tt.checkFor {
-				if !strings.Contains(textContent.Text, check) {
-					t.Errorf("prompt should contain %q", check)
-				}
-			}
+			text := promptText(t, registry.handleBrainstorm, "create-brainstorm", tt.args)
+			assertPromptContains(t, text, tt.checkFor)
 		})
 	}
 }
@@ -296,36 +290,18 @@ func TestHandleBrainstorm(t *testing.T) {
 func TestHandleStoryMap(t *testing.T) {
 	registry := NewRegistry()
 
-	req := &mcp.GetPromptRequest{
-		Params: &mcp.GetPromptParams{
-			Name: "create-story-map",
-			Arguments: map[string]string{
-				"product_name": "MyApp",
-			},
-		},
-	}
+	text := promptText(t, registry.handleStoryMap, "create-story-map", map[string]string{
+		"product_name": "MyApp",
+	})
 
-	result, err := registry.handleStoryMap(context.Background(), req)
-	if err != nil {
-		t.Fatalf("handleStoryMap() error = %v", err)
-	}
-
-	textContent := result.Messages[0].Content.(*mcp.TextContent)
-
-	checkFor := []string{
+	assertPromptContains(t, text, []string{
 		"MyApp",
 		"Story Map",
 		"Discovery",
 		"Onboarding",
 		"Core Usage",
 		"MVP",
-	}
-
-	for _, check := range checkFor {
-		if !strings.Contains(textContent.Text, check) {
-			t.Errorf("prompt should contain %q", check)
-		}
-	}
+	})
 }
 
 func TestHandleKanban(t *testing.T) {
@@ -370,25 +346,8 @@ func TestHandleKanban(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := &mcp.GetPromptRequest{
-				Params: &mcp.GetPromptParams{
-					Name:      "create-kanban",
-					Arguments: tt.args,
-				},
-			}
-
-			result, err := registry.handleKanban(context.Background(), req)
-			if err != nil {
-				t.Fatalf("handleKanban() error = %v", err)
-			}
-
-			textContent := result.Messages[0].Content.(*mcp.TextContent)
-
-			for _, check := range tt.checkFor {
-				if !strings.Contains(textContent.Text, check) {
-					t.Errorf("prompt should contain %q", check)
-				}
-			}
+			text := promptText(t, registry.handleKanban, "create-kanban", tt.args)
+			assertPromptContains(t, text, tt.checkFor)
 		})
 	}
 }
@@ -407,14 +366,6 @@ func TestSplitString(t *testing.T) {
 
 	for _, tt := range tests {
 		result := splitString(tt.input, tt.sep)
-		if len(result) != len(tt.expected) {
-			t.Errorf("splitString(%q, %q) = %v, want %v", tt.input, tt.sep, result, tt.expected)
-			continue
-		}
-		for i, v := range result {
-			if v != tt.expected[i] {
-				t.Errorf("splitString(%q, %q)[%d] = %q, want %q", tt.input, tt.sep, i, v, tt.expected[i])
-			}
-		}
+		assertSameStrings(t, fmt.Sprintf("splitString(%q, %q)", tt.input, tt.sep), result, tt.expected)
 	}
 }

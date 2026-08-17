@@ -13,17 +13,48 @@ import (
 // Table Tests
 // =============================================================================
 
+// tblCheckRequest verifies the HTTP method and exact URL path of a request.
+func tblCheckRequest(t *testing.T, r *http.Request, method, wantPath string) {
+	t.Helper()
+	if r.Method != method {
+		t.Errorf("expected %s, got %s", method, r.Method)
+	}
+	if r.URL.Path != wantPath {
+		t.Errorf("expected %s, got %s", wantPath, r.URL.Path)
+	}
+}
+
+// tblCheckEq verifies a single result field against its expected value.
+func tblCheckEq(t *testing.T, name string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// tblServeJSON writes a JSON response.
+func tblServeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
+}
+
+// tblListTables calls ListTables with the default test board and discards the result.
+func tblListTables(c *Client) error {
+	_, err := c.ListTables(context.Background(), ListTablesArgs{BoardID: "board123"})
+	return err
+}
+
+// tblGetTable calls GetTable with the default test board and item and discards the result.
+func tblGetTable(c *Client) error {
+	_, err := c.GetTable(context.Background(), GetTableArgs{BoardID: "board123", ItemID: "table123"})
+	return err
+}
+
 func TestListTables_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/data_table_formats" {
-			t.Errorf("expected /boards/board123/data_table_formats, got %s", r.URL.Path)
-		}
+		tblCheckRequest(t, r, http.MethodGet, "/boards/board123/data_table_formats")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		tblServeJSON(w, map[string]interface{}{
 			"data": []map[string]interface{}{
 				{
 					"id":         "table123",
@@ -49,47 +80,28 @@ func TestListTables_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.Count != 1 {
-		t.Errorf("Count = %d, want 1", result.Count)
-	}
-	if result.Total != 1 {
-		t.Errorf("Total = %d, want 1", result.Total)
-	}
-	if result.Cursor != "next-cursor" {
-		t.Errorf("Cursor = %q, want %q", result.Cursor, "next-cursor")
-	}
-	if result.Message != "Found 1 tables on board" {
-		t.Errorf("Message = %q", result.Message)
-	}
+	tblCheckEq(t, "Count", result.Count, 1)
+	tblCheckEq(t, "Total", result.Total, 1)
+	tblCheckEq(t, "Cursor", result.Cursor, "next-cursor")
+	tblCheckEq(t, "Message", result.Message, "Found 1 tables on board")
 
 	tbl := result.Tables[0]
-	if tbl.ID != "table123" {
-		t.Errorf("ID = %q, want table123", tbl.ID)
-	}
-	if tbl.Type != "data_table_format" {
-		t.Errorf("Type = %q, want data_table_format", tbl.Type)
-	}
-	if tbl.X != 10.5 || tbl.Y != 20.5 {
-		t.Errorf("position = (%v, %v), want (10.5, 20.5)", tbl.X, tbl.Y)
-	}
-	if tbl.Width != 300 || tbl.Height != 200 {
-		t.Errorf("geometry = (%v, %v), want (300, 200)", tbl.Width, tbl.Height)
-	}
-	if tbl.CreatedAt != "2026-01-01T00:00:00Z" || tbl.ModifiedAt != "2026-01-02T00:00:00Z" {
-		t.Errorf("timestamps = (%q, %q)", tbl.CreatedAt, tbl.ModifiedAt)
-	}
-	if tbl.CreatedBy != "user1" || tbl.ModifiedBy != "user2" {
-		t.Errorf("actors = (%q, %q), want (user1, user2)", tbl.CreatedBy, tbl.ModifiedBy)
-	}
-	if tbl.ItemURL != BuildItemURL("board123", "table123") {
-		t.Errorf("ItemURL = %q", tbl.ItemURL)
-	}
+	tblCheckEq(t, "ID", tbl.ID, "table123")
+	tblCheckEq(t, "Type", tbl.Type, "data_table_format")
+	tblCheckEq(t, "X", tbl.X, 10.5)
+	tblCheckEq(t, "Y", tbl.Y, 20.5)
+	tblCheckEq(t, "Width", tbl.Width, float64(300))
+	tblCheckEq(t, "Height", tbl.Height, float64(200))
+	tblCheckEq(t, "CreatedAt", tbl.CreatedAt, "2026-01-01T00:00:00Z")
+	tblCheckEq(t, "ModifiedAt", tbl.ModifiedAt, "2026-01-02T00:00:00Z")
+	tblCheckEq(t, "CreatedBy", tbl.CreatedBy, "user1")
+	tblCheckEq(t, "ModifiedBy", tbl.ModifiedBy, "user2")
+	tblCheckEq(t, "ItemURL", tbl.ItemURL, BuildItemURL("board123", "table123"))
 }
 
 func TestListTables_Empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": []map[string]interface{}{}, "total": 0})
+		tblServeJSON(w, map[string]interface{}{"data": []map[string]interface{}{}, "total": 0})
 	}))
 	defer server.Close()
 
@@ -98,15 +110,9 @@ func TestListTables_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 0 {
-		t.Errorf("Count = %d, want 0", result.Count)
-	}
-	if len(result.Tables) != 0 {
-		t.Errorf("Tables = %d entries, want 0", len(result.Tables))
-	}
-	if result.Message != "Found 0 tables on board" {
-		t.Errorf("Message = %q", result.Message)
-	}
+	tblCheckEq(t, "Count", result.Count, 0)
+	tblCheckEq(t, "len(Tables)", len(result.Tables), 0)
+	tblCheckEq(t, "Message", result.Message, "Found 0 tables on board")
 }
 
 func TestListTables_LimitClamping(t *testing.T) {
@@ -127,8 +133,7 @@ func TestListTables_LimitClamping(t *testing.T) {
 			var gotLimit string
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotLimit = r.URL.Query().Get("limit")
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{"data": []map[string]interface{}{}})
+				tblServeJSON(w, map[string]interface{}{"data": []map[string]interface{}{}})
 			}))
 			defer server.Close()
 
@@ -150,8 +155,7 @@ func TestListTables_Cursor(t *testing.T) {
 	var gotCursor string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotCursor = r.URL.Query().Get("cursor")
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": []map[string]interface{}{}})
+		tblServeJSON(w, map[string]interface{}{"data": []map[string]interface{}{}})
 	}))
 	defer server.Close()
 
@@ -178,46 +182,65 @@ func TestListTables_InvalidBoardID(t *testing.T) {
 	}
 }
 
-func TestListTables_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
+func TestTables_APIError(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		call   func(*Client) error
+	}{
+		{"list tables HTTP 500", http.StatusInternalServerError, tblListTables},
+		{"get table HTTP 404", http.StatusNotFound, tblGetTable},
+	}
 
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.ListTables(context.Background(), ListTablesArgs{BoardID: "board123"}); err == nil {
-		t.Fatal("expected error on HTTP 500")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			client := newTestClientWithServer(server.URL)
+			if err := tt.call(client); err == nil {
+				t.Fatalf("expected error on HTTP %d", tt.status)
+			}
+		})
 	}
 }
 
-func TestListTables_MalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{not json"))
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListTables(context.Background(), ListTablesArgs{BoardID: "board123"})
-	if err == nil {
-		t.Fatal("expected parse error")
+func TestTables_MalformedJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(*Client) error
+	}{
+		{"list tables", tblListTables},
+		{"get table", tblGetTable},
 	}
-	if !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte("{not json"))
+			}))
+			defer server.Close()
+
+			client := newTestClientWithServer(server.URL)
+			err := tt.call(client)
+			if err == nil {
+				t.Fatal("expected parse error")
+			}
+			if !strings.Contains(err.Error(), "failed to parse response") {
+				t.Errorf("error = %v, want failed to parse response", err)
+			}
+		})
 	}
 }
 
 func TestGetTable_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/data_table_formats/table123" {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
+		tblCheckRequest(t, r, http.MethodGet, "/boards/board123/data_table_formats/table123")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		tblServeJSON(w, map[string]interface{}{
 			"id":         "table123",
 			"type":       "data_table_format",
 			"position":   map[string]interface{}{"x": 1.0, "y": 2.0},
@@ -240,33 +263,21 @@ func TestGetTable_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.ID != "table123" {
-		t.Errorf("ID = %q, want table123", result.ID)
-	}
-	if result.ParentID != "frame999" {
-		t.Errorf("ParentID = %q, want frame999", result.ParentID)
-	}
-	if result.X != 1 || result.Y != 2 {
-		t.Errorf("position = (%v, %v), want (1, 2)", result.X, result.Y)
-	}
-	if result.Width != 100 || result.Height != 50 {
-		t.Errorf("geometry = (%v, %v), want (100, 50)", result.Width, result.Height)
-	}
-	if result.CreatedBy != "user1" || result.ModifiedBy != "user2" {
-		t.Errorf("actors = (%q, %q), want (user1, user2)", result.CreatedBy, result.ModifiedBy)
-	}
-	if result.Message != "Retrieved table metadata" {
-		t.Errorf("Message = %q", result.Message)
-	}
-	if result.ItemURL != BuildItemURL("board123", "table123") {
-		t.Errorf("ItemURL = %q", result.ItemURL)
-	}
+	tblCheckEq(t, "ID", result.ID, "table123")
+	tblCheckEq(t, "ParentID", result.ParentID, "frame999")
+	tblCheckEq(t, "X", result.X, float64(1))
+	tblCheckEq(t, "Y", result.Y, float64(2))
+	tblCheckEq(t, "Width", result.Width, float64(100))
+	tblCheckEq(t, "Height", result.Height, float64(50))
+	tblCheckEq(t, "CreatedBy", result.CreatedBy, "user1")
+	tblCheckEq(t, "ModifiedBy", result.ModifiedBy, "user2")
+	tblCheckEq(t, "Message", result.Message, "Retrieved table metadata")
+	tblCheckEq(t, "ItemURL", result.ItemURL, BuildItemURL("board123", "table123"))
 }
 
 func TestGetTable_NoParent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		tblServeJSON(w, map[string]interface{}{
 			"id":   "table123",
 			"type": "data_table_format",
 		})
@@ -281,9 +292,7 @@ func TestGetTable_NoParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ParentID != "" {
-		t.Errorf("ParentID = %q, want empty", result.ParentID)
-	}
+	tblCheckEq(t, "ParentID", result.ParentID, "")
 }
 
 func TestGetTable_InvalidIDs(t *testing.T) {
@@ -307,40 +316,5 @@ func TestGetTable_InvalidIDs(t *testing.T) {
 				t.Errorf("error = %v, want %q", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestGetTable_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.GetTable(context.Background(), GetTableArgs{
-		BoardID: "board123",
-		ItemID:  "table123",
-	}); err == nil {
-		t.Fatal("expected error on HTTP 404")
-	}
-}
-
-func TestGetTable_MalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{not json"))
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.GetTable(context.Background(), GetTableArgs{
-		BoardID: "board123",
-		ItemID:  "table123",
-	})
-	if err == nil {
-		t.Fatal("expected parse error")
-	}
-	if !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
 	}
 }

@@ -11,6 +11,70 @@ import (
 )
 
 // =============================================================================
+// Shared SVG test helpers
+// =============================================================================
+
+// newBoardItemsServer serves the given items from the board items endpoint and
+// an empty list from the connectors endpoint.
+func newBoardItemsServer(items []map[string]interface{}) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/connectors") {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{}, "cursor": ""})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": items, "cursor": ""})
+	}))
+}
+
+// requireGeometry asserts an element's center coordinates and size, given as
+// [x, y, width, height].
+func requireGeometry(t *testing.T, label string, got svgElement, want [4]float64) {
+	t.Helper()
+	if [4]float64{got.x, got.y, got.w, got.h} != want {
+		t.Errorf("%s = %+v, want center (%v,%v) size %vx%v", label, got, want[0], want[1], want[2], want[3])
+	}
+}
+
+// requireSVGContains asserts that the rendered SVG carries the given fragment.
+func requireSVGContains(t *testing.T, svg, substr, what string) {
+	t.Helper()
+	if !strings.Contains(svg, substr) {
+		t.Errorf("%s missing from SVG (want fragment %q)", what, substr)
+	}
+}
+
+// requireWellFormedXML asserts the rendered SVG parses as XML.
+func requireWellFormedXML(t *testing.T, svg string) {
+	t.Helper()
+	if err := xml.Unmarshal([]byte(svg), new(interface{})); err != nil {
+		t.Errorf("rendered SVG is not well-formed XML: %v\n%s", err, svg)
+	}
+}
+
+// requireCreatedMapping asserts one created item's source element and Miro
+// type; only those two fields of want are compared.
+func requireCreatedMapping(t *testing.T, label string, got, want SVGCreatedItem) {
+	t.Helper()
+	if got.Element != want.Element {
+		t.Errorf("%s = %+v, want element %q", label, got, want.Element)
+	}
+	if got.Type != want.Type {
+		t.Errorf("%s = %+v, want type %q", label, got, want.Type)
+	}
+}
+
+// findElementByName returns the first parsed element with the given tag name.
+func findElementByName(elements []svgElement, name string) *svgElement {
+	for i := range elements {
+		if elements[i].name == name {
+			return &elements[i]
+		}
+	}
+	return nil
+}
+
+// =============================================================================
 // SVG parsing (create direction)
 // =============================================================================
 
@@ -35,23 +99,16 @@ func TestParseSVGElements_SupportedSubset(t *testing.T) {
 	}
 
 	// rect x/y are top-left; Miro coordinates are centers.
-	r := elements[0]
-	if r.x != 60 || r.y != 45 {
-		t.Errorf("rect center = (%v,%v), want (60,45)", r.x, r.y)
-	}
-	if r.fill != "#ff0000" {
-		t.Errorf("rect fill = %q, want '#ff0000'", r.fill)
+	requireGeometry(t, "rect", elements[0], [4]float64{60, 45, 100, 50})
+	if elements[0].fill != "#ff0000" {
+		t.Errorf("rect fill = %q, want '#ff0000'", elements[0].fill)
 	}
 	if elements[1].rounded != true {
 		t.Error("rx>0 rect not marked rounded")
 	}
-	c := elements[2]
-	if c.x != 200 || c.y != 100 || c.w != 60 || c.h != 60 {
-		t.Errorf("circle = %+v, want center (200,100) size 60x60", c)
-	}
-	txt := elements[4]
-	if txt.text != "Hello board" {
-		t.Errorf("text content = %q, want 'Hello board'", txt.text)
+	requireGeometry(t, "circle", elements[2], [4]float64{200, 100, 60, 60})
+	if elements[4].text != "Hello board" {
+		t.Errorf("text content = %q, want 'Hello board'", elements[4].text)
 	}
 }
 
@@ -146,15 +203,14 @@ func TestCreateFromSVG_CreatesShapesAndText(t *testing.T) {
 	if result.Count != 2 {
 		t.Errorf("Count = %d, want 2", result.Count)
 	}
-	if result.Created[0].Element != "rect" || result.Created[0].Type != "shape" {
-		t.Errorf("first created = %+v, want rect->shape", result.Created[0])
-	}
-	if result.Created[1].Element != "text" || result.Created[1].Type != "text" {
-		t.Errorf("second created = %+v, want text->text", result.Created[1])
-	}
+	requireCreatedMapping(t, "first created", result.Created[0], SVGCreatedItem{Element: "rect", Type: "shape"})
+	requireCreatedMapping(t, "second created", result.Created[1], SVGCreatedItem{Element: "text", Type: "text"})
 	joined := strings.Join(created, " ")
-	if !strings.Contains(joined, "/shapes") || !strings.Contains(joined, "/texts") {
-		t.Errorf("API paths hit = %v, want shapes and texts endpoints", created)
+	if !strings.Contains(joined, "/shapes") {
+		t.Errorf("API paths hit = %v, want shapes endpoint", created)
+	}
+	if !strings.Contains(joined, "/texts") {
+		t.Errorf("API paths hit = %v, want texts endpoint", created)
 	}
 }
 
@@ -220,40 +276,30 @@ func TestCreateFromSVG_PartialFailureNamesCreated(t *testing.T) {
 // Board rendering (read direction)
 // =============================================================================
 
-func svgItemsPayload() map[string]interface{} {
-	return map[string]interface{}{
-		"data": []map[string]interface{}{
-			{
-				"id": "f1", "type": "frame",
-				"position": map[string]interface{}{"x": 100.0, "y": 100.0},
-				"geometry": map[string]interface{}{"width": 400.0, "height": 300.0},
-				"data":     map[string]interface{}{"title": "Sprint"},
-			},
-			{
-				"id": "s1", "type": "sticky_note",
-				"position": map[string]interface{}{"x": 50.0, "y": 60.0},
-				"geometry": map[string]interface{}{"width": 100.0, "height": 100.0},
-				"data":     map[string]interface{}{"content": "<p>Do the thing</p>"},
-				"style":    map[string]interface{}{"fillColor": "light_yellow"},
-			},
-			{
-				"id": "e1", "type": "embed",
-				"position": map[string]interface{}{"x": 0.0, "y": 0.0},
-			},
+func svgBoardItems() []map[string]interface{} {
+	return []map[string]interface{}{
+		{
+			"id": "f1", "type": "frame",
+			"position": map[string]interface{}{"x": 100.0, "y": 100.0},
+			"geometry": map[string]interface{}{"width": 400.0, "height": 300.0},
+			"data":     map[string]interface{}{"title": "Sprint"},
 		},
-		"cursor": "",
+		{
+			"id": "s1", "type": "sticky_note",
+			"position": map[string]interface{}{"x": 50.0, "y": 60.0},
+			"geometry": map[string]interface{}{"width": 100.0, "height": 100.0},
+			"data":     map[string]interface{}{"content": "<p>Do the thing</p>"},
+			"style":    map[string]interface{}{"fillColor": "light_yellow"},
+		},
+		{
+			"id": "e1", "type": "embed",
+			"position": map[string]interface{}{"x": 0.0, "y": 0.0},
+		},
 	}
 }
 
 func TestReadBoardSVG_RendersAndCounts(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if strings.Contains(r.URL.Path, "/connectors") {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{}, "cursor": ""})
-			return
-		}
-		_ = json.NewEncoder(w).Encode(svgItemsPayload())
-	}))
+	server := newBoardItemsServer(svgBoardItems())
 	defer server.Close()
 
 	client := newTestClientWithServer(server.URL)
@@ -267,19 +313,13 @@ func TestReadBoardSVG_RendersAndCounts(t *testing.T) {
 	if result.Skipped != 1 {
 		t.Errorf("Skipped = %d, want 1 (the embed)", result.Skipped)
 	}
-	if !strings.Contains(result.SVG, `data-miro-id="s1"`) {
-		t.Error("sticky's data-miro-id missing from SVG")
-	}
-	if !strings.Contains(result.SVG, "Do the thing") {
-		t.Error("sticky label missing from SVG")
-	}
+	requireSVGContains(t, result.SVG, `data-miro-id="s1"`, "sticky's data-miro-id")
+	requireSVGContains(t, result.SVG, "Do the thing", "sticky label")
 	if strings.Contains(result.SVG, "<p>") {
 		t.Error("HTML fragments leaked into SVG text")
 	}
 	// The document must be well-formed XML.
-	if err := xml.Unmarshal([]byte(result.SVG), new(interface{})); err != nil {
-		t.Errorf("rendered SVG is not well-formed XML: %v", err)
-	}
+	requireWellFormedXML(t, result.SVG)
 	// Frame must be drawn before the sticky so it sits underneath.
 	if strings.Index(result.SVG, `data-miro-id="f1"`) > strings.Index(result.SVG, `data-miro-id="s1"`) {
 		t.Error("frame rendered after items; z-order wrong")
@@ -287,21 +327,11 @@ func TestReadBoardSVG_RendersAndCounts(t *testing.T) {
 }
 
 func TestReadBoardSVG_EscapesContent(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if strings.Contains(r.URL.Path, "/connectors") {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{}, "cursor": ""})
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{{
-				"id": "t1", "type": "text",
-				"position": map[string]interface{}{"x": 0.0, "y": 0.0},
-				"data":     map[string]interface{}{"content": `a < b & "c"`},
-			}},
-			"cursor": "",
-		})
-	}))
+	server := newBoardItemsServer([]map[string]interface{}{{
+		"id": "t1", "type": "text",
+		"position": map[string]interface{}{"x": 0.0, "y": 0.0},
+		"data":     map[string]interface{}{"content": `a < b & "c"`},
+	}})
 	defer server.Close()
 
 	client := newTestClientWithServer(server.URL)
@@ -309,40 +339,29 @@ func TestReadBoardSVG_EscapesContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if err := xml.Unmarshal([]byte(result.SVG), new(interface{})); err != nil {
-		t.Errorf("special characters broke the XML: %v\n%s", err, result.SVG)
-	}
+	// Special characters must not break the XML.
+	requireWellFormedXML(t, result.SVG)
 }
 
 // TestSVGRoundTrip feeds ReadBoardSVG's output into parseSVGElements: every
 // rendered shape must come back out, proving read and create speak the same
 // dialect.
 func TestSVGRoundTrip(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if strings.Contains(r.URL.Path, "/connectors") {
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{}, "cursor": ""})
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id": "sh1", "type": "shape",
-					"position": map[string]interface{}{"x": 100.0, "y": 200.0},
-					"geometry": map[string]interface{}{"width": 80.0, "height": 40.0},
-					"style":    map[string]interface{}{"fillColor": "#00ff00"},
-				},
-				{
-					// The API carries the shape kind in data.shape, not style.
-					"id": "sh2", "type": "shape",
-					"position": map[string]interface{}{"x": 300.0, "y": 300.0},
-					"geometry": map[string]interface{}{"width": 60.0, "height": 60.0},
-					"data":     map[string]interface{}{"shape": "circle"},
-				},
-			},
-			"cursor": "",
-		})
-	}))
+	server := newBoardItemsServer([]map[string]interface{}{
+		{
+			"id": "sh1", "type": "shape",
+			"position": map[string]interface{}{"x": 100.0, "y": 200.0},
+			"geometry": map[string]interface{}{"width": 80.0, "height": 40.0},
+			"style":    map[string]interface{}{"fillColor": "#00ff00"},
+		},
+		{
+			// The API carries the shape kind in data.shape, not style.
+			"id": "sh2", "type": "shape",
+			"position": map[string]interface{}{"x": 300.0, "y": 300.0},
+			"geometry": map[string]interface{}{"width": 60.0, "height": 60.0},
+			"data":     map[string]interface{}{"shape": "circle"},
+		},
+	})
 	defer server.Close()
 
 	client := newTestClientWithServer(server.URL)
@@ -356,22 +375,14 @@ func TestSVGRoundTrip(t *testing.T) {
 		t.Fatalf("re-parse: %v", err)
 	}
 	_ = skipped // labels under shapes come back as extra text elements; that's fine
-	var rect, ellipse *svgElement
-	for i := range elements {
-		switch elements[i].name {
-		case "rect":
-			rect = &elements[i]
-		case "ellipse":
-			ellipse = &elements[i]
-		}
+	rect := findElementByName(elements, "rect")
+	ellipse := findElementByName(elements, "ellipse")
+	if rect == nil {
+		t.Fatalf("round trip lost the rect; got %+v", elements)
 	}
-	if rect == nil || ellipse == nil {
-		t.Fatalf("round trip lost shapes; got %+v", elements)
+	if ellipse == nil {
+		t.Fatalf("round trip lost the ellipse; got %+v", elements)
 	}
-	if rect.x != 100 || rect.y != 200 || rect.w != 80 || rect.h != 40 {
-		t.Errorf("rect round trip = %+v, want center (100,200) 80x40", rect)
-	}
-	if ellipse.x != 300 || ellipse.y != 300 || ellipse.w != 60 {
-		t.Errorf("ellipse round trip = %+v, want center (300,300) d=60", ellipse)
-	}
+	requireGeometry(t, "rect round trip", *rect, [4]float64{100, 200, 80, 40})
+	requireGeometry(t, "ellipse round trip", *ellipse, [4]float64{300, 300, 60, 60})
 }

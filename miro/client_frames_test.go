@@ -9,57 +9,210 @@ import (
 	"testing"
 )
 
-func TestUpdateItem_RemoveFromFrame(t *testing.T) {
+// =============================================================================
+// Test server helpers
+// =============================================================================
+
+// frameServerSpec describes the fake Miro API behavior for one frame test:
+// the expected request line, query parameters, an optional request body
+// verifier, and the response to send back.
+type frameServerSpec struct {
+	wantMethod    string
+	wantPath      string
+	wantQuery     map[string]string
+	status        int
+	response      map[string]interface{}
+	verifyBody    func(t *testing.T, body map[string]interface{})
+	failOnRequest bool
+}
+
+// newFrameClient starts a fake Miro API described by spec and returns a client
+// pointed at it.
+func newFrameClient(t *testing.T, spec frameServerSpec) *Client {
+	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		// Verify parent is null
-		if parent, exists := body["parent"]; !exists {
-			t.Error("expected 'parent' field in request body")
-		} else if parent != nil {
-			t.Errorf("parent = %v, want nil", parent)
+		if spec.failOnRequest {
+			t.Error("the API must not be called in this scenario")
+			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "item456"})
+		spec.assertRequest(t, r)
+		writeFrameJSON(w, spec.status, spec.response)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
 
-	client := newTestClientWithServer(server.URL)
-	emptyParent := ""
-	_, err := client.UpdateItem(context.Background(), UpdateItemArgs{
-		BoardID:  "board123",
-		ItemID:   "item456",
-		ParentID: &emptyParent,
-	})
+func (spec frameServerSpec) assertRequest(t *testing.T, r *http.Request) {
+	t.Helper()
+	if spec.wantMethod != "" && r.Method != spec.wantMethod {
+		t.Errorf("expected %s, got %s", spec.wantMethod, r.Method)
+	}
+	if spec.wantPath != "" && r.URL.Path != spec.wantPath {
+		t.Errorf("expected path %s, got %s", spec.wantPath, r.URL.Path)
+	}
+	for key, want := range spec.wantQuery {
+		if got := r.URL.Query().Get(key); got != want {
+			t.Errorf("query %s = %q, want %q", key, got, want)
+		}
+	}
+	spec.runBodyVerifier(t, r)
+}
 
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func (spec frameServerSpec) runBodyVerifier(t *testing.T, r *http.Request) {
+	t.Helper()
+	if spec.verifyBody == nil {
+		return
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		t.Errorf("failed to decode request: %v", err)
+		return
+	}
+	spec.verifyBody(t, body)
+}
+
+func writeFrameJSON(w http.ResponseWriter, status int, response map[string]interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+	if response == nil {
+		return
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		panic(err)
 	}
 }
 
-func TestCreateFrame_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/frames" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
+// assertNullParent verifies the request body carries an explicit null parent,
+// which is how items are removed from a frame.
+func assertNullParent(t *testing.T, body map[string]interface{}) {
+	t.Helper()
+	parent, exists := body["parent"]
+	if !exists {
+		t.Error("expected 'parent' field in request body")
+		return
+	}
+	if parent != nil {
+		t.Errorf("parent = %v, want nil", parent)
+	}
+}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "frame123",
-			"data": map[string]interface{}{
-				"title": "Sprint 1",
+// =============================================================================
+// Remove-from-frame Tests
+// =============================================================================
+
+// removeFromFrameCase is one scenario for TestUpdateItems_RemoveFromFrame:
+// the fake API response, the update call to make, and the expected result ID
+// (empty means the result ID is not asserted).
+type removeFromFrameCase struct {
+	name     string
+	response map[string]interface{}
+	call     func(*Client) (string, error)
+	wantID   string
+}
+
+func removeFromFrameCases(ctx context.Context) []removeFromFrameCase {
+	emptyParent := ""
+	return []removeFromFrameCase{
+		{
+			name:     "generic item",
+			response: map[string]interface{}{"id": "item456"},
+			call: func(c *Client) (string, error) {
+				_, err := c.UpdateItem(ctx, UpdateItemArgs{BoardID: "board123", ItemID: "item456", ParentID: &emptyParent})
+				return "", err
 			},
-		})
-	}))
-	defer server.Close()
+		},
+		{
+			name: "sticky",
+			response: map[string]interface{}{
+				"id":    "sticky123",
+				"data":  map[string]interface{}{"content": "test"},
+				"style": map[string]interface{}{"fillColor": "yellow"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.UpdateSticky(ctx, UpdateStickyArgs{BoardID: "board123", ItemID: "sticky123", ParentID: &emptyParent})
+				return result.ID, err
+			},
+			wantID: "sticky123",
+		},
+		{
+			name: "shape",
+			response: map[string]interface{}{
+				"id":   "shape123",
+				"data": map[string]interface{}{"content": "test", "shape": "rectangle"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.UpdateShape(ctx, UpdateShapeArgs{BoardID: "board123", ItemID: "shape123", ParentID: &emptyParent})
+				return result.ID, err
+			},
+			wantID: "shape123",
+		},
+		{
+			name: "text",
+			response: map[string]interface{}{
+				"id":    "text123",
+				"data":  map[string]interface{}{"content": "test"},
+				"style": map[string]interface{}{"fontSize": "14"},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.UpdateText(ctx, UpdateTextArgs{BoardID: "board123", ItemID: "text123", ParentID: &emptyParent})
+				return result.ID, err
+			},
+			wantID: "text123",
+		},
+		{
+			name: "card",
+			response: map[string]interface{}{
+				"id":   "card123",
+				"data": map[string]interface{}{"title": "Test", "description": "", "dueDate": ""},
+			},
+			call: func(c *Client) (string, error) {
+				result, err := c.UpdateCard(ctx, UpdateCardArgs{BoardID: "board123", ItemID: "card123", ParentID: &emptyParent})
+				return result.ID, err
+			},
+			wantID: "card123",
+		},
+	}
+}
 
-	client := newTestClientWithServer(server.URL)
+// TestUpdateItems_RemoveFromFrame verifies that passing an empty parent_id to
+// the item update calls sends an explicit null parent to the API.
+func TestUpdateItems_RemoveFromFrame(t *testing.T) {
+	for _, tt := range removeFromFrameCases(context.Background()) {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newFrameClient(t, frameServerSpec{
+				response:   tt.response,
+				verifyBody: assertNullParent,
+			})
+
+			gotID, err := tt.call(client)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantID != "" && gotID != tt.wantID {
+				t.Errorf("ID = %v, want %q", gotID, tt.wantID)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Frame CRUD Tests
+// =============================================================================
+
+func TestCreateFrame_Success(t *testing.T) {
+	client := newFrameClient(t, frameServerSpec{
+		wantMethod: http.MethodPost,
+		wantPath:   "/boards/board123/frames",
+		status:     http.StatusCreated,
+		response: map[string]interface{}{
+			"id":   "frame123",
+			"data": map[string]interface{}{"title": "Sprint 1"},
+		},
+	})
+
 	result, err := client.CreateFrame(context.Background(), CreateFrameArgs{
 		BoardID: "board123",
 		Title:   "Sprint 1",
@@ -80,45 +233,24 @@ func TestCreateFrame_Success(t *testing.T) {
 	}
 }
 
-func TestCreateFrame_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	// Only board_id is required - title is optional
-	_, err := client.CreateFrame(context.Background(), CreateFrameArgs{Title: "Test"})
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
-	}
-}
-
 func TestCreateFrame_DefaultDimensions(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify default dimensions
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else {
+	client := newFrameClient(t, frameServerSpec{
+		status: http.StatusCreated,
+		verifyBody: func(t *testing.T, body map[string]interface{}) {
+			geom := bodySection(t, body, "geometry")
 			if geom["width"] != float64(800) {
 				t.Errorf("default width = %v, want 800", geom["width"])
 			}
 			if geom["height"] != float64(600) {
 				t.Errorf("default height = %v, want 600", geom["height"])
 			}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		},
+		response: map[string]interface{}{
 			"id":   "frame-defaults",
 			"data": map[string]interface{}{"title": "Default Frame"},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	// Width and Height are 0, should get defaults
 	result, err := client.CreateFrame(context.Background(), CreateFrameArgs{
 		BoardID: "board123",
@@ -134,26 +266,19 @@ func TestCreateFrame_DefaultDimensions(t *testing.T) {
 }
 
 func TestCreateFrame_WithColor(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify style with fillColor
-		if style, ok := body["style"].(map[string]interface{}); !ok {
-			t.Error("expected style in request body")
-		} else if style["fillColor"] != "#ffcc00" {
-			t.Errorf("fillColor = %v, want '#ffcc00'", style["fillColor"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newFrameClient(t, frameServerSpec{
+		status: http.StatusCreated,
+		verifyBody: func(t *testing.T, body map[string]interface{}) {
+			if style := bodySection(t, body, "style"); style["fillColor"] != "#ffcc00" {
+				t.Errorf("fillColor = %v, want '#ffcc00'", style["fillColor"])
+			}
+		},
+		response: map[string]interface{}{
 			"id":   "frame-color",
 			"data": map[string]interface{}{"title": "Colored Frame"},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.CreateFrame(context.Background(), CreateFrameArgs{
 		BoardID: "board123",
 		Title:   "Colored Frame",
@@ -173,27 +298,21 @@ func TestCreateFrame_WithColor(t *testing.T) {
 // the Color field, which Miro's API rejected because frames require a 6-char
 // hex string. CreateFrame now normalizes names to hex before sending.
 func TestCreateFrame_WithColorName(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		style, ok := body["style"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected style in request body")
-		}
-		fillColor, _ := style["fillColor"].(string)
-		if fillColor != "#008000" {
-			t.Errorf("fillColor = %q, want '#008000' (green normalized to hex)", fillColor)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newFrameClient(t, frameServerSpec{
+		status: http.StatusCreated,
+		verifyBody: func(t *testing.T, body map[string]interface{}) {
+			style := bodySection(t, body, "style")
+			fillColor, _ := style["fillColor"].(string)
+			if fillColor != "#008000" {
+				t.Errorf("fillColor = %q, want '#008000' (green normalized to hex)", fillColor)
+			}
+		},
+		response: map[string]interface{}{
 			"id":   "frame-named-color",
 			"data": map[string]interface{}{"title": "Green Frame"},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	if _, err := client.CreateFrame(context.Background(), CreateFrameArgs{
 		BoardID: "board123",
 		Title:   "Green Frame",
@@ -207,14 +326,8 @@ func TestCreateFrame_WithColorName(t *testing.T) {
 // surface back through the create call as a structured Go error rather than a
 // silent passthrough that fails at Miro's API layer.
 func TestCreateFrame_RejectsUnknownColor(t *testing.T) {
-	called := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		called = true
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+	client := newFrameClient(t, frameServerSpec{failOnRequest: true})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.CreateFrame(context.Background(), CreateFrameArgs{
 		BoardID: "board123",
 		Title:   "Bad Frame",
@@ -223,48 +336,27 @@ func TestCreateFrame_RejectsUnknownColor(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unknown color name, got nil")
 	}
-	if called {
-		t.Error("HTTP server should not be called when normalizeColor rejects input pre-flight")
-	}
 }
 
 func TestGetFrame_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/frames/frame456" {
-			t.Errorf("expected /boards/board123/frames/frame456, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "frame456",
-			"type": "frame",
-			"data": map[string]interface{}{
-				"title": "Sprint Planning",
-			},
-			"position": map[string]interface{}{
-				"x": 100.0,
-				"y": 200.0,
-			},
-			"geometry": map[string]interface{}{
-				"width":  800.0,
-				"height": 600.0,
-			},
-			"style": map[string]interface{}{
-				"fillColor": "#FFFFFF",
-			},
+	client := newFrameClient(t, frameServerSpec{
+		wantMethod: http.MethodGet,
+		wantPath:   "/boards/board123/frames/frame456",
+		response: map[string]interface{}{
+			"id":         "frame456",
+			"type":       "frame",
+			"data":       map[string]interface{}{"title": "Sprint Planning"},
+			"position":   map[string]interface{}{"x": 100.0, "y": 200.0},
+			"geometry":   map[string]interface{}{"width": 800.0, "height": 600.0},
+			"style":      map[string]interface{}{"fillColor": "#FFFFFF"},
 			"children":   []string{"child1", "child2"},
 			"createdAt":  "2024-01-01T10:00:00Z",
 			"modifiedAt": "2024-01-02T15:30:00Z",
 			"createdBy":  map[string]interface{}{"id": "user1"},
 			"modifiedBy": map[string]interface{}{"id": "user2"},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetFrame(context.Background(), GetFrameArgs{
 		BoardID: "board123",
 		FrameID: "frame456",
@@ -279,6 +371,16 @@ func TestGetFrame_Success(t *testing.T) {
 	if result.Title != "Sprint Planning" {
 		t.Errorf("Title = %q, want 'Sprint Planning'", result.Title)
 	}
+	if result.ChildCount != 2 {
+		t.Errorf("ChildCount = %d, want 2", result.ChildCount)
+	}
+	assertFrameBounds(t, result)
+}
+
+// assertFrameBounds verifies the position and dimensions returned by
+// TestGetFrame_Success.
+func assertFrameBounds(t *testing.T, result GetFrameResult) {
+	t.Helper()
 	if result.X != 100 {
 		t.Errorf("X = %f, want 100", result.X)
 	}
@@ -291,72 +393,23 @@ func TestGetFrame_Success(t *testing.T) {
 	if result.Height != 600 {
 		t.Errorf("Height = %f, want 600", result.Height)
 	}
-	if result.ChildCount != 2 {
-		t.Errorf("ChildCount = %d, want 2", result.ChildCount)
-	}
-}
-
-func TestGetFrame_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    GetFrameArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    GetFrameArgs{FrameID: "frame123"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "empty frame ID",
-			args:    GetFrameArgs{BoardID: "board123"},
-			wantErr: "frame_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.GetFrame(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
 }
 
 func TestUpdateFrame_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/frames/frame456" {
-			t.Errorf("expected /boards/board123/frames/frame456, got %s", r.URL.Path)
-		}
-
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		if data, ok := body["data"].(map[string]interface{}); ok {
-			if data["title"] != "Updated Title" {
+	client := newFrameClient(t, frameServerSpec{
+		wantMethod: http.MethodPatch,
+		wantPath:   "/boards/board123/frames/frame456",
+		verifyBody: func(t *testing.T, body map[string]interface{}) {
+			if data, ok := body["data"].(map[string]interface{}); ok && data["title"] != "Updated Title" {
 				t.Errorf("title = %v, want 'Updated Title'", data["title"])
 			}
-		}
+		},
+		response: map[string]interface{}{
+			"id":   "frame456",
+			"data": map[string]interface{}{"title": "Updated Title"},
+		},
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "frame456",
-			"data": map[string]interface{}{
-				"title": "Updated Title",
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	title := "Updated Title"
 	result, err := client.UpdateFrame(context.Background(), UpdateFrameArgs{
 		BoardID: "board123",
@@ -375,93 +428,29 @@ func TestUpdateFrame_Success(t *testing.T) {
 	}
 }
 
-func TestUpdateFrame_NoUpdates(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-	_, err := client.UpdateFrame(context.Background(), UpdateFrameArgs{
-		BoardID: "board123",
-		FrameID: "frame456",
-		// No update fields provided
-	})
-
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "at least one update field is required") {
-		t.Errorf("expected 'at least one update field is required', got: %v", err)
-	}
-}
-
-func TestUpdateFrame_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    UpdateFrameArgs
-		errText string
-	}{
-		{
-			name:    "empty board_id",
-			args:    UpdateFrameArgs{FrameID: "frame123", Title: ptrString("Test")},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty frame_id",
-			args:    UpdateFrameArgs{BoardID: "board123", Title: ptrString("Test")},
-			errText: "frame_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.UpdateFrame(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
-}
-
 func TestUpdateFrame_WithPositionAndGeometry(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-
-		// Verify request body contains position and geometry
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["position"] == nil {
-			t.Error("expected position in body")
-		}
-		if body["geometry"] == nil {
-			t.Error("expected geometry in body")
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "frame456",
-			"position": map[string]interface{}{
-				"x": 100,
-				"y": 200,
-			},
-			"geometry": map[string]interface{}{
-				"width":  800,
-				"height": 600,
-			},
-		})
-	}))
-	defer server.Close()
+	client := newFrameClient(t, frameServerSpec{
+		wantMethod: http.MethodPatch,
+		verifyBody: func(t *testing.T, body map[string]interface{}) {
+			if body["position"] == nil {
+				t.Error("expected position in body")
+			}
+			if body["geometry"] == nil {
+				t.Error("expected geometry in body")
+			}
+		},
+		response: map[string]interface{}{
+			"id":       "frame456",
+			"position": map[string]interface{}{"x": 100, "y": 200},
+			"geometry": map[string]interface{}{"width": 800, "height": 600},
+		},
+	})
 
 	x := float64(100)
 	y := float64(200)
 	width := float64(800)
 	height := float64(600)
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.UpdateFrame(context.Background(), UpdateFrameArgs{
 		BoardID: "board123",
 		FrameID: "frame456",
@@ -480,26 +469,19 @@ func TestUpdateFrame_WithPositionAndGeometry(t *testing.T) {
 }
 
 func TestUpdateFrame_WithColor(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		if body["style"] == nil {
-			t.Error("expected style in body")
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "frame456",
-			"style": map[string]interface{}{
-				"fillColor": "#FF0000",
-			},
-		})
-	}))
-	defer server.Close()
+	client := newFrameClient(t, frameServerSpec{
+		verifyBody: func(t *testing.T, body map[string]interface{}) {
+			if body["style"] == nil {
+				t.Error("expected style in body")
+			}
+		},
+		response: map[string]interface{}{
+			"id":    "frame456",
+			"style": map[string]interface{}{"fillColor": "#FF0000"},
+		},
+	})
 
 	color := "#FF0000"
-	client := newTestClientWithServer(server.URL)
 	result, err := client.UpdateFrame(context.Background(), UpdateFrameArgs{
 		BoardID: "board123",
 		FrameID: "frame456",
@@ -515,19 +497,12 @@ func TestUpdateFrame_WithColor(t *testing.T) {
 }
 
 func TestDeleteFrame_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/frames/frame456" {
-			t.Errorf("expected /boards/board123/frames/frame456, got %s", r.URL.Path)
-		}
+	client := newFrameClient(t, frameServerSpec{
+		wantMethod: http.MethodDelete,
+		wantPath:   "/boards/board123/frames/frame456",
+		status:     http.StatusNoContent,
+	})
 
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.DeleteFrame(context.Background(), DeleteFrameArgs{
 		BoardID: "board123",
 		FrameID: "frame456",
@@ -544,75 +519,32 @@ func TestDeleteFrame_Success(t *testing.T) {
 	}
 }
 
-func TestDeleteFrame_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    DeleteFrameArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    DeleteFrameArgs{FrameID: "frame123"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "empty frame ID",
-			args:    DeleteFrameArgs{BoardID: "board123"},
-			wantErr: "frame_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.DeleteFrame(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
+// =============================================================================
+// Frame Items Tests
+// =============================================================================
 
 func TestGetFrameItems_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/items" {
-			t.Errorf("expected /boards/board123/items, got %s", r.URL.Path)
-		}
-		if !strings.Contains(r.URL.RawQuery, "parent_item_id=frame456") {
-			t.Errorf("expected parent_item_id=frame456 in query, got %s", r.URL.RawQuery)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newFrameClient(t, frameServerSpec{
+		wantMethod: http.MethodGet,
+		wantPath:   "/boards/board123/items",
+		wantQuery:  map[string]string{"parent_item_id": "frame456"},
+		response: map[string]interface{}{
 			"data": []map[string]interface{}{
 				{
 					"id":   "item1",
 					"type": "sticky_note",
-					"data": map[string]interface{}{
-						"content": "Sticky content",
-					},
+					"data": map[string]interface{}{"content": "Sticky content"},
 				},
 				{
 					"id":   "item2",
 					"type": "shape",
-					"data": map[string]interface{}{
-						"content": "Shape content",
-					},
+					"data": map[string]interface{}{"content": "Shape content"},
 				},
 			},
 			"cursor": "next-cursor",
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetFrameItems(context.Background(), GetFrameItemsArgs{
 		BoardID: "board123",
 		FrameID: "frame456",
@@ -633,205 +565,17 @@ func TestGetFrameItems_Success(t *testing.T) {
 	}
 }
 
-func TestGetFrameItems_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    GetFrameItemsArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    GetFrameItemsArgs{FrameID: "frame123"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "empty frame ID",
-			args:    GetFrameItemsArgs{BoardID: "board123"},
-			wantErr: "frame_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.GetFrameItems(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUpdateSticky_RemoveFromFrame(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		// Verify parent is null when empty string provided
-		if parent, exists := body["parent"]; !exists {
-			t.Error("expected parent in request body")
-		} else if parent != nil {
-			t.Errorf("parent = %v, want nil", parent)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":    "sticky123",
-			"data":  map[string]interface{}{"content": "test"},
-			"style": map[string]interface{}{"fillColor": "yellow"},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	emptyParent := ""
-
-	result, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
-		BoardID:  "board123",
-		ItemID:   "sticky123",
-		ParentID: &emptyParent,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "sticky123" {
-		t.Errorf("ID = %v, want 'sticky123'", result.ID)
-	}
-}
-
-func TestUpdateShape_RemoveFromFrame(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		// Verify parent is null
-		if parent, exists := body["parent"]; !exists {
-			t.Error("expected parent in request body")
-		} else if parent != nil {
-			t.Errorf("parent = %v, want nil", parent)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "shape123",
-			"data": map[string]interface{}{"content": "test", "shape": "rectangle"},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	emptyParent := ""
-
-	result, err := client.UpdateShape(context.Background(), UpdateShapeArgs{
-		BoardID:  "board123",
-		ItemID:   "shape123",
-		ParentID: &emptyParent,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "shape123" {
-		t.Errorf("ID = %v, want 'shape123'", result.ID)
-	}
-}
-
-func TestUpdateText_RemoveFromFrame(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		// Verify parent is null
-		if parent, exists := body["parent"]; !exists {
-			t.Error("expected parent in request body")
-		} else if parent != nil {
-			t.Errorf("parent = %v, want nil", parent)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":    "text123",
-			"data":  map[string]interface{}{"content": "test"},
-			"style": map[string]interface{}{"fontSize": "14"},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	emptyParent := ""
-
-	result, err := client.UpdateText(context.Background(), UpdateTextArgs{
-		BoardID:  "board123",
-		ItemID:   "text123",
-		ParentID: &emptyParent,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "text123" {
-		t.Errorf("ID = %v, want 'text123'", result.ID)
-	}
-}
-
-func TestUpdateCard_RemoveFromFrame(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		// Verify parent is null
-		if parent, exists := body["parent"]; !exists {
-			t.Error("expected parent in request body")
-		} else if parent != nil {
-			t.Errorf("parent = %v, want nil", parent)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "card123",
-			"data": map[string]interface{}{"title": "Test", "description": "", "dueDate": ""},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	emptyParent := ""
-
-	result, err := client.UpdateCard(context.Background(), UpdateCardArgs{
-		BoardID:  "board123",
-		ItemID:   "card123",
-		ParentID: &emptyParent,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "card123" {
-		t.Errorf("ID = %v, want 'card123'", result.ID)
-	}
-}
-
 func TestGetFrameItems_WithCursor(t *testing.T) {
 	// Tests pagination with cursor
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.RawQuery, "cursor=nextpage") {
-			t.Error("expected cursor parameter in request")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newFrameClient(t, frameServerSpec{
+		wantQuery: map[string]string{"cursor": "nextpage"},
+		response: map[string]interface{}{
 			"data": []map[string]interface{}{
 				{"id": "item1", "type": "sticky_note"},
 			},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.GetFrameItems(context.Background(), GetFrameItemsArgs{
 		BoardID: "board123",
 		FrameID: "frame123",
@@ -845,20 +589,15 @@ func TestGetFrameItems_WithCursor(t *testing.T) {
 
 func TestGetFrameItems_WithTypeFilter(t *testing.T) {
 	// Tests type filtering
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.RawQuery, "type=sticky_note") {
-			t.Error("expected type parameter in request")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newFrameClient(t, frameServerSpec{
+		wantQuery: map[string]string{"type": "sticky_note"},
+		response: map[string]interface{}{
 			"data": []map[string]interface{}{
 				{"id": "sticky1", "type": "sticky_note"},
 			},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.GetFrameItems(context.Background(), GetFrameItemsArgs{
 		BoardID: "board123",
 		FrameID: "frame123",
@@ -867,5 +606,54 @@ func TestGetFrameItems_WithTypeFilter(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// =============================================================================
+// Validation Error Tests
+// =============================================================================
+
+// TestFrames_ValidationErrors covers every empty-argument rejection across the
+// frame operations. No API call is made in any of these scenarios.
+func TestFrames_ValidationErrors(t *testing.T) {
+	client := newFrameClient(t, frameServerSpec{failOnRequest: true})
+	ctx := context.Background()
+
+	tests := []struct {
+		name    string
+		wantErr string
+		call    func() error
+	}{
+		{"create empty board_id", "board_id is required", func() error { _, err := client.CreateFrame(ctx, CreateFrameArgs{Title: "Test"}); return err }},
+		{"get empty board_id", "board_id is required", func() error { _, err := client.GetFrame(ctx, GetFrameArgs{FrameID: "frame123"}); return err }},
+		{"get empty frame_id", "frame_id is required", func() error { _, err := client.GetFrame(ctx, GetFrameArgs{BoardID: "board123"}); return err }},
+		{"update empty board_id", "board_id is required", func() error {
+			_, err := client.UpdateFrame(ctx, UpdateFrameArgs{FrameID: "frame123", Title: ptrString("Test")})
+			return err
+		}},
+		{"update empty frame_id", "frame_id is required", func() error {
+			_, err := client.UpdateFrame(ctx, UpdateFrameArgs{BoardID: "board123", Title: ptrString("Test")})
+			return err
+		}},
+		{"update no fields", "at least one update field is required", func() error {
+			_, err := client.UpdateFrame(ctx, UpdateFrameArgs{BoardID: "board123", FrameID: "frame456"})
+			return err
+		}},
+		{"delete empty board_id", "board_id is required", func() error { _, err := client.DeleteFrame(ctx, DeleteFrameArgs{FrameID: "frame123"}); return err }},
+		{"delete empty frame_id", "frame_id is required", func() error { _, err := client.DeleteFrame(ctx, DeleteFrameArgs{BoardID: "board123"}); return err }},
+		{"items empty board_id", "board_id is required", func() error { _, err := client.GetFrameItems(ctx, GetFrameItemsArgs{FrameID: "frame123"}); return err }},
+		{"items empty frame_id", "frame_id is required", func() error { _, err := client.GetFrameItems(ctx, GetFrameItemsArgs{BoardID: "board123"}); return err }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.call()
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
 	}
 }

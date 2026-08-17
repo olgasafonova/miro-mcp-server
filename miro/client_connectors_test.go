@@ -9,6 +9,58 @@ import (
 	"testing"
 )
 
+// newConnectorTestClient starts a test server with the given handler and
+// returns a client pointed at it. The server closes automatically at test end.
+func newConnectorTestClient(t *testing.T, handler http.HandlerFunc) *Client {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
+
+// checkConnectorField fails the test when got differs from want.
+func checkConnectorField[T comparable](t *testing.T, name string, got, want T) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// connectorOpCase describes one connector CRUD call: request-shape checks,
+// the canned response, and a closure running the call plus result assertions.
+type connectorOpCase struct {
+	name     string
+	payload  map[string]interface{} // nil means a 204 No Content response
+	status   int                    // optional explicit status before payload
+	checkReq func(t *testing.T, r *http.Request)
+	call     func(t *testing.T, client *Client) error
+}
+
+// runConnectorOpCases drives each case against a server that verifies the
+// request shape before responding.
+func runConnectorOpCases(t *testing.T, tests []connectorOpCase) {
+	t.Helper()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newConnectorTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				tt.checkReq(t, r)
+				if tt.payload == nil {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				if tt.status != 0 {
+					w.WriteHeader(tt.status)
+				}
+				json.NewEncoder(w).Encode(tt.payload)
+			})
+			if err := tt.call(t, client); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestListConnectors_LimitBoundaries(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -23,19 +75,11 @@ func TestListConnectors_LimitBoundaries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				limit := r.URL.Query().Get("limit")
-				if limit != tt.expectLimit {
-					t.Errorf("limit = %q, want %q", limit, tt.expectLimit)
-				}
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"data": []interface{}{},
-				})
-			}))
-			defer server.Close()
+			client := newConnectorTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				checkConnectorField(t, "limit", r.URL.Query().Get("limit"), tt.expectLimit)
+				writeJSON(w, map[string]interface{}{"data": []interface{}{}})
+			})
 
-			client := newTestClientWithServer(server.URL)
 			_, err := client.ListConnectors(context.Background(), ListConnectorsArgs{
 				BoardID: "board123",
 				Limit:   tt.inputLimit,
@@ -47,29 +91,63 @@ func TestListConnectors_LimitBoundaries(t *testing.T) {
 	}
 }
 
-func TestDeleteConnector_ValidationErrors(t *testing.T) {
+// TestConnector_ValidationErrors covers input validation across the connector
+// methods; every case must fail with a message naming the missing field.
+func TestConnector_ValidationErrors(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
+	offline := newTestClientWithServer("http://localhost")
+	ctx := context.Background()
 
 	tests := []struct {
 		name    string
-		args    DeleteConnectorArgs
+		call    func() error
 		errText string
 	}{
-		{
-			name:    "empty board_id",
-			args:    DeleteConnectorArgs{ConnectorID: "conn123"},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty connector_id",
-			args:    DeleteConnectorArgs{BoardID: "board123"},
-			errText: "connector_id is required",
-		},
+		{"delete with empty board_id", func() error {
+			_, err := client.DeleteConnector(ctx, DeleteConnectorArgs{ConnectorID: "conn123"})
+			return err
+		}, "board_id is required"},
+		{"delete with empty connector_id", func() error {
+			_, err := client.DeleteConnector(ctx, DeleteConnectorArgs{BoardID: "board123"})
+			return err
+		}, "connector_id is required"},
+		{"create with empty board_id", func() error {
+			_, err := client.CreateConnector(ctx, CreateConnectorArgs{StartItemID: "item1", EndItemID: "item2"})
+			return err
+		}, "board_id is required"},
+		{"create with empty start_item_id", func() error {
+			_, err := client.CreateConnector(ctx, CreateConnectorArgs{BoardID: "board123", EndItemID: "item2"})
+			return err
+		}, "start_item_id and end_item_id are required"},
+		{"create with empty end_item_id", func() error {
+			_, err := client.CreateConnector(ctx, CreateConnectorArgs{BoardID: "board123", StartItemID: "item1"})
+			return err
+		}, "start_item_id and end_item_id are required"},
+		{"get with empty board_id", func() error {
+			_, err := client.GetConnector(ctx, GetConnectorArgs{BoardID: "", ConnectorID: "conn456"})
+			return err
+		}, "board_id is required"},
+		{"get with empty connector_id", func() error {
+			_, err := client.GetConnector(ctx, GetConnectorArgs{BoardID: "board123", ConnectorID: ""})
+			return err
+		}, "connector_id is required"},
+		{"update with empty board ID", func() error {
+			_, err := offline.UpdateConnector(ctx, UpdateConnectorArgs{ConnectorID: "conn123"})
+			return err
+		}, "board_id is required"},
+		{"update with empty connector ID", func() error {
+			_, err := offline.UpdateConnector(ctx, UpdateConnectorArgs{BoardID: "board123"})
+			return err
+		}, "connector_id is required"},
+		{"update with no updates provided", func() error {
+			_, err := offline.UpdateConnector(ctx, UpdateConnectorArgs{BoardID: "board123", ConnectorID: "conn123"})
+			return err
+		}, "at least one update field is required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.DeleteConnector(context.Background(), tt.args)
+			err := tt.call()
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -80,238 +158,139 @@ func TestDeleteConnector_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestDeleteConnector_SuccessPath(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/connectors/conn456" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.DeleteConnector(context.Background(), DeleteConnectorArgs{
-		BoardID:     "board123",
-		ConnectorID: "conn456",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !result.Success {
-		t.Error("expected success to be true")
-	}
-}
-
-func TestCreateConnector_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/connectors" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "connector123",
-			"startItem": map[string]interface{}{
-				"id": "item1",
+// TestConnectorWriteOps_Success covers the happy path of the connector
+// create, update, and delete methods.
+func TestConnectorWriteOps_Success(t *testing.T) {
+	runConnectorOpCases(t, []connectorOpCase{
+		{
+			name:   "create",
+			status: http.StatusCreated,
+			payload: map[string]interface{}{
+				"id":        "connector123",
+				"startItem": map[string]interface{}{"id": "item1"},
+				"endItem":   map[string]interface{}{"id": "item2"},
 			},
-			"endItem": map[string]interface{}{
-				"id": "item2",
+			checkReq: func(t *testing.T, r *http.Request) {
+				checkConnectorField(t, "method", r.Method, http.MethodPost)
+				checkConnectorField(t, "path", r.URL.Path, "/boards/board123/connectors")
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CreateConnector(context.Background(), CreateConnectorArgs{
-		BoardID:     "board123",
-		StartItemID: "item1",
-		EndItemID:   "item2",
+			call: func(t *testing.T, client *Client) error {
+				result, err := client.CreateConnector(context.Background(), CreateConnectorArgs{BoardID: "board123", StartItemID: "item1", EndItemID: "item2"})
+				if err == nil {
+					checkConnectorField(t, "ID", result.ID, "connector123")
+				}
+				return err
+			},
+		},
+		{
+			name: "update caption",
+			payload: map[string]interface{}{
+				"id":       "conn123",
+				"captions": []map[string]interface{}{{"content": "Updated Caption"}},
+			},
+			checkReq: func(t *testing.T, r *http.Request) {
+				checkConnectorField(t, "method", r.Method, http.MethodPatch)
+				checkConnectorField(t, "path has /connectors/", strings.Contains(r.URL.Path, "/connectors/"), true)
+			},
+			call: func(t *testing.T, client *Client) error {
+				result, err := client.UpdateConnector(context.Background(), UpdateConnectorArgs{BoardID: "board123", ConnectorID: "conn123", Caption: "Updated Caption"})
+				if err == nil {
+					checkConnectorField(t, "ID", result.ID, "conn123")
+				}
+				return err
+			},
+		},
+		{
+			name: "delete reports success",
+			checkReq: func(t *testing.T, r *http.Request) {
+				checkConnectorField(t, "method", r.Method, http.MethodDelete)
+				checkConnectorField(t, "path", r.URL.Path, "/boards/board123/connectors/conn456")
+			},
+			call: func(t *testing.T, client *Client) error {
+				result, err := client.DeleteConnector(context.Background(), DeleteConnectorArgs{BoardID: "board123", ConnectorID: "conn456"})
+				if err == nil {
+					checkConnectorField(t, "Success", result.Success, true)
+				}
+				return err
+			},
+		},
+		{
+			name: "delete reports connector ID",
+			checkReq: func(t *testing.T, r *http.Request) {
+				checkConnectorField(t, "method", r.Method, http.MethodDelete)
+				checkConnectorField(t, "path has /connectors/", strings.Contains(r.URL.Path, "/connectors/"), true)
+			},
+			call: func(t *testing.T, client *Client) error {
+				result, err := client.DeleteConnector(context.Background(), DeleteConnectorArgs{BoardID: "board123", ConnectorID: "conn123"})
+				if err == nil {
+					checkConnectorField(t, "ID", result.ID, "conn123")
+				}
+				return err
+			},
+		},
 	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "connector123" {
-		t.Errorf("ID = %q, want 'connector123'", result.ID)
-	}
 }
 
-func TestCreateConnector_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    CreateConnectorArgs
-		errText string
-	}{
+// TestConnectorReadOps_Success covers the happy path of the connector list
+// and get methods.
+func TestConnectorReadOps_Success(t *testing.T) {
+	runConnectorOpCases(t, []connectorOpCase{
 		{
-			name:    "empty board_id",
-			args:    CreateConnectorArgs{StartItemID: "item1", EndItemID: "item2"},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty start_item_id",
-			args:    CreateConnectorArgs{BoardID: "board123", EndItemID: "item2"},
-			errText: "start_item_id and end_item_id are required",
-		},
-		{
-			name:    "empty end_item_id",
-			args:    CreateConnectorArgs{BoardID: "board123", StartItemID: "item1"},
-			errText: "start_item_id and end_item_id are required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateConnector(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
-}
-
-func TestListConnectors_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.HasPrefix(r.URL.Path, "/boards/board123/connectors") {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id": "conn1",
-					"startItem": map[string]interface{}{
-						"id": "item1",
-					},
-					"endItem": map[string]interface{}{
-						"id": "item2",
+			name: "list",
+			payload: map[string]interface{}{
+				"data": []map[string]interface{}{
+					{
+						"id":        "conn1",
+						"startItem": map[string]interface{}{"id": "item1"},
+						"endItem":   map[string]interface{}{"id": "item2"},
 					},
 				},
+				"size": 1,
 			},
-			"size": 1,
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.ListConnectors(context.Background(), ListConnectorsArgs{
-		BoardID: "board123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Count != 1 {
-		t.Errorf("Count = %d, want 1", result.Count)
-	}
-	if result.Connectors[0].ID != "conn1" {
-		t.Errorf("first connector ID = %q, want 'conn1'", result.Connectors[0].ID)
-	}
-}
-
-func TestGetConnector_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/connectors/conn456" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "conn456",
-			"startItem": map[string]interface{}{
-				"item": "start123",
+			checkReq: func(t *testing.T, r *http.Request) {
+				checkConnectorField(t, "method", r.Method, http.MethodGet)
+				checkConnectorField(t, "path prefix", strings.HasPrefix(r.URL.Path, "/boards/board123/connectors"), true)
 			},
-			"endItem": map[string]interface{}{
-				"item": "end456",
+			call: func(t *testing.T, client *Client) error {
+				result, err := client.ListConnectors(context.Background(), ListConnectorsArgs{BoardID: "board123"})
+				if err == nil {
+					checkConnectorField(t, "Count", result.Count, 1)
+					checkConnectorField(t, "first connector ID", result.Connectors[0].ID, "conn1")
+				}
+				return err
 			},
-			"style": map[string]interface{}{
-				"strokeColor": "#000000",
-				"strokeWidth": "2.0",
+		},
+		{
+			name: "get",
+			payload: map[string]interface{}{
+				"id":        "conn456",
+				"startItem": map[string]interface{}{"item": "start123"},
+				"endItem":   map[string]interface{}{"item": "end456"},
+				"style":     map[string]interface{}{"strokeColor": "#000000", "strokeWidth": "2.0"},
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.GetConnector(context.Background(), GetConnectorArgs{
-		BoardID:     "board123",
-		ConnectorID: "conn456",
+			checkReq: func(t *testing.T, r *http.Request) {
+				checkConnectorField(t, "method", r.Method, http.MethodGet)
+				checkConnectorField(t, "path", r.URL.Path, "/boards/board123/connectors/conn456")
+			},
+			call: func(t *testing.T, client *Client) error {
+				result, err := client.GetConnector(context.Background(), GetConnectorArgs{BoardID: "board123", ConnectorID: "conn456"})
+				if err == nil {
+					checkConnectorField(t, "ID", result.ID, "conn456")
+					checkConnectorField(t, "StartItemID", result.StartItemID, "start123")
+				}
+				return err
+			},
+		},
 	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "conn456" {
-		t.Errorf("ID = %q, want 'conn456'", result.ID)
-	}
-	if result.StartItemID != "start123" {
-		t.Errorf("StartItemID = %q, want 'start123'", result.StartItemID)
-	}
-}
-
-func TestGetConnector_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.GetConnector(context.Background(), GetConnectorArgs{
-		BoardID:     "",
-		ConnectorID: "conn456",
-	})
-
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
-	}
-}
-
-func TestGetConnector_EmptyConnectorID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.GetConnector(context.Background(), GetConnectorArgs{
-		BoardID:     "board123",
-		ConnectorID: "",
-	})
-
-	if err == nil {
-		t.Fatal("expected error for empty connector_id")
-	}
-	if !strings.Contains(err.Error(), "connector_id is required") {
-		t.Errorf("expected 'connector_id is required' error, got: %v", err)
-	}
 }
 
 func TestGetConnector_WithAllDetails(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":    "conn456",
-			"shape": "elbowed",
-			"startItem": map[string]interface{}{
-				"item": "start123",
-			},
-			"endItem": map[string]interface{}{
-				"item": "end456",
-			},
+	client := newConnectorTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
+			"id":        "conn456",
+			"shape":     "elbowed",
+			"startItem": map[string]interface{}{"item": "start123"},
+			"endItem":   map[string]interface{}{"item": "end456"},
 			"style": map[string]interface{}{
 				"startStrokeCap": "arrow",
 				"endStrokeCap":   "stealth",
@@ -323,10 +302,8 @@ func TestGetConnector_WithAllDetails(t *testing.T) {
 			"createdAt":  "2024-01-15T10:00:00Z",
 			"modifiedAt": "2024-01-16T15:30:00Z",
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetConnector(context.Background(), GetConnectorArgs{
 		BoardID:     "board123",
 		ConnectorID: "conn456",
@@ -335,18 +312,10 @@ func TestGetConnector_WithAllDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.StartCap != "arrow" {
-		t.Errorf("StartCap = %q, want 'arrow'", result.StartCap)
-	}
-	if result.EndCap != "stealth" {
-		t.Errorf("EndCap = %q, want 'stealth'", result.EndCap)
-	}
-	if result.Color != "#FF0000" {
-		t.Errorf("Color = %q, want '#FF0000'", result.Color)
-	}
-	if result.Caption != "Label text" {
-		t.Errorf("Caption = %q, want 'Label text'", result.Caption)
-	}
+	checkConnectorField(t, "StartCap", result.StartCap, "arrow")
+	checkConnectorField(t, "EndCap", result.EndCap, "stealth")
+	checkConnectorField(t, "Color", result.Color, "#FF0000")
+	checkConnectorField(t, "Caption", result.Caption, "Label text")
 	if result.CreatedAt == "" {
 		t.Error("CreatedAt should be set")
 	}
@@ -355,93 +324,15 @@ func TestGetConnector_WithAllDetails(t *testing.T) {
 	}
 }
 
-func TestUpdateConnector_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/connectors/") {
-			t.Errorf("expected connectors path, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "conn123",
-			"captions": []map[string]interface{}{
-				{"content": "Updated Caption"},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.UpdateConnector(context.Background(), UpdateConnectorArgs{
-		BoardID:     "board123",
-		ConnectorID: "conn123",
-		Caption:     "Updated Caption",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "conn123" {
-		t.Errorf("ID = %q, want 'conn123'", result.ID)
-	}
-}
-
-func TestUpdateConnector_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    UpdateConnectorArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    UpdateConnectorArgs{ConnectorID: "conn123"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "empty connector ID",
-			args:    UpdateConnectorArgs{BoardID: "board123"},
-			wantErr: "connector_id is required",
-		},
-		{
-			name:    "no updates provided",
-			args:    UpdateConnectorArgs{BoardID: "board123", ConnectorID: "conn123"},
-			wantErr: "at least one update field is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.UpdateConnector(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestUpdateConnector_WithStyle(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newConnectorTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 		// Verify shape (style) field
-		if body["shape"] != "curved" {
-			t.Errorf("shape = %v, want 'curved'", body["shape"])
-		}
+		checkConnectorField(t, "shape", body["shape"], interface{}("curved"))
+		writeJSON(w, map[string]interface{}{"id": "conn123"})
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "conn123"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.UpdateConnector(context.Background(), UpdateConnectorArgs{
 		BoardID:     "board123",
 		ConnectorID: "conn123",
@@ -451,36 +342,24 @@ func TestUpdateConnector_WithStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Error("expected success to be true")
-	}
+	checkConnectorField(t, "Success", result.Success, true)
 }
 
 func TestUpdateConnector_WithCapsAndColor(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newConnectorTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 		// Verify style object with caps and color
 		if style, ok := body["style"].(map[string]interface{}); !ok {
 			t.Error("expected style object in request body")
 		} else {
-			if style["startStrokeCap"] != "arrow" {
-				t.Errorf("startStrokeCap = %v, want 'arrow'", style["startStrokeCap"])
-			}
-			if style["endStrokeCap"] != "stealth" {
-				t.Errorf("endStrokeCap = %v, want 'stealth'", style["endStrokeCap"])
-			}
-			if style["strokeColor"] != "#ff0000" {
-				t.Errorf("strokeColor = %v, want '#ff0000'", style["strokeColor"])
-			}
+			checkConnectorField(t, "startStrokeCap", style["startStrokeCap"], interface{}("arrow"))
+			checkConnectorField(t, "endStrokeCap", style["endStrokeCap"], interface{}("stealth"))
+			checkConnectorField(t, "strokeColor", style["strokeColor"], interface{}("#ff0000"))
 		}
+		writeJSON(w, map[string]interface{}{"id": "conn123"})
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "conn123"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.UpdateConnector(context.Background(), UpdateConnectorArgs{
 		BoardID:     "board123",
 		ConnectorID: "conn123",
@@ -492,86 +371,42 @@ func TestUpdateConnector_WithCapsAndColor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Error("expected success to be true")
-	}
+	checkConnectorField(t, "Success", result.Success, true)
 }
 
-func TestDeleteConnector_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/connectors/") {
-			t.Errorf("expected connectors path, got %s", r.URL.Path)
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.DeleteConnector(context.Background(), DeleteConnectorArgs{
-		BoardID:     "board123",
-		ConnectorID: "conn123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+// TestListConnectors_QueryParams verifies that pagination arguments reach the
+// API as query-string parameters.
+func TestListConnectors_QueryParams(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      ListConnectorsArgs
+		wantParam string
+		wantValue string
+	}{
+		{
+			name:      "cursor is forwarded",
+			args:      ListConnectorsArgs{BoardID: "board123", Cursor: "next-page-cursor"},
+			wantParam: "cursor",
+			wantValue: "next-page-cursor",
+		},
+		{
+			name:      "limit is forwarded",
+			args:      ListConnectorsArgs{BoardID: "board123", Limit: 25},
+			wantParam: "limit",
+			wantValue: "25",
+		},
 	}
-	if result.ID != "conn123" {
-		t.Errorf("ID = %q, want 'conn123'", result.ID)
-	}
-}
 
-func TestListConnectors_WithCursor(t *testing.T) {
-	// Tests ListConnectors with cursor pagination
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("cursor") != "next-page-cursor" {
-			t.Errorf("cursor = %v, want 'next-page-cursor'", r.URL.Query().Get("cursor"))
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newConnectorTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				checkConnectorField(t, tt.wantParam, r.URL.Query().Get(tt.wantParam), tt.wantValue)
+				writeJSON(w, map[string]interface{}{"data": []map[string]interface{}{}})
+			})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{"id": "conn1", "type": "connector"},
-			},
+			if _, err := client.ListConnectors(context.Background(), tt.args); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListConnectors(context.Background(), ListConnectorsArgs{
-		BoardID: "board123",
-		Cursor:  "next-page-cursor",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestListConnectors_WithLimitParam(t *testing.T) {
-	// Tests ListConnectors with limit parameter
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("limit") != "25" {
-			t.Errorf("limit = %v, want '25'", r.URL.Query().Get("limit"))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListConnectors(context.Background(), ListConnectorsArgs{
-		BoardID: "board123",
-		Limit:   25,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -11,6 +11,65 @@ import (
 	"testing"
 )
 
+// =============================================================================
+// Shared sticky test helpers
+// =============================================================================
+
+// newStickyVerifyServer asserts each request matches "METHOD /path" and then
+// serves the given JSON response with the given status.
+func newStickyVerifyServer(t *testing.T, wantMethodAndPath string, status int, response map[string]interface{}) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Method + " " + r.URL.Path; got != wantMethodAndPath {
+			t.Errorf("request = %q, want %q", got, wantMethodAndPath)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+}
+
+// requireBodyField asserts one field of a decoded request body, addressed as
+// "section.field" (e.g. "geometry.width").
+func requireBodyField(t *testing.T, body map[string]interface{}, path string, want interface{}) {
+	t.Helper()
+	section, field, _ := strings.Cut(path, ".")
+	sec, ok := body[section].(map[string]interface{})
+	if !ok {
+		t.Errorf("expected %s in request body", section)
+		return
+	}
+	if sec[field] != want {
+		t.Errorf("%s = %v, want %v", path, sec[field], want)
+	}
+}
+
+// stickyValidationCase is one expected-error scenario for a sticky API call.
+type stickyValidationCase struct {
+	name    string
+	wantErr string
+	call    func() error
+}
+
+func runStickyValidationCases(t *testing.T, cases []stickyValidationCase) {
+	t.Helper()
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.call()
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Tests
+// =============================================================================
+
 func TestNormalizeStickyColor(t *testing.T) {
 	tests := []struct {
 		input  string
@@ -58,75 +117,81 @@ func TestCreateStickyArgs(t *testing.T) {
 	}
 }
 
-func TestCreateSticky_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/sticky_notes" {
-			t.Errorf("expected /boards/board123/sticky_notes, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "sticky-id",
-			"data": map[string]interface{}{
-				"content": "Test sticky",
-			},
-			"style": map[string]interface{}{
-				"fillColor": "light_yellow",
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CreateSticky(context.Background(), CreateStickyArgs{
-		BoardID: "board123",
-		Content: "Test sticky",
-		Color:   "yellow",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "sticky-id" {
-		t.Errorf("ID = %q, want 'sticky-id'", result.ID)
-	}
-	if result.Content != "Test sticky" {
-		t.Errorf("Content = %q, want 'Test sticky'", result.Content)
-	}
-}
-
-func TestCreateSticky_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
+// TestSticky_Success covers the create and update happy paths: the request
+// line must match, and the response must map onto the result struct.
+func TestSticky_Success(t *testing.T) {
 	tests := []struct {
-		name    string
-		args    CreateStickyArgs
-		errText string
+		name        string
+		wantRequest string
+		status      int
+		response    map[string]interface{}
+		call        func(*Client) (id, content string, err error)
+		wantID      string
+		wantContent string
 	}{
 		{
-			name:    "empty board_id",
-			args:    CreateStickyArgs{Content: "Test"},
-			errText: "board_id is required",
+			name:        "create sticky",
+			wantRequest: "POST /boards/board123/sticky_notes",
+			status:      http.StatusCreated,
+			response: map[string]interface{}{
+				"id":    "sticky-id",
+				"data":  map[string]interface{}{"content": "Test sticky"},
+				"style": map[string]interface{}{"fillColor": "light_yellow"},
+			},
+			call: func(client *Client) (string, string, error) {
+				result, err := client.CreateSticky(context.Background(), CreateStickyArgs{
+					BoardID: "board123",
+					Content: "Test sticky",
+					Color:   "yellow",
+				})
+				if err != nil {
+					return "", "", err
+				}
+				return result.ID, result.Content, nil
+			},
+			wantID:      "sticky-id",
+			wantContent: "Test sticky",
 		},
 		{
-			name:    "empty content",
-			args:    CreateStickyArgs{BoardID: "board123"},
-			errText: "content is required",
+			name:        "update sticky",
+			wantRequest: "PATCH /boards/board123/sticky_notes/sticky123",
+			status:      http.StatusOK,
+			response: map[string]interface{}{
+				"id":    "sticky123",
+				"data":  map[string]interface{}{"content": "Updated content", "shape": "square"},
+				"style": map[string]interface{}{"fillColor": "light_blue"},
+			},
+			call: func(client *Client) (string, string, error) {
+				result, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
+					BoardID: "board123",
+					ItemID:  "sticky123",
+					Content: strPtr("Updated content"),
+					Color:   strPtr("blue"),
+				})
+				if err != nil {
+					return "", "", err
+				}
+				return result.ID, result.Content, nil
+			},
+			wantID:      "sticky123",
+			wantContent: "Updated content",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateSticky(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
+			server := newStickyVerifyServer(t, tt.wantRequest, tt.status, tt.response)
+			defer server.Close()
+
+			id, content, err := tt.call(newTestClientWithServer(server.URL))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
+			if id != tt.wantID {
+				t.Errorf("ID = %q, want %q", id, tt.wantID)
+			}
+			if content != tt.wantContent {
+				t.Errorf("Content = %q, want %q", content, tt.wantContent)
 			}
 		})
 	}
@@ -135,30 +200,16 @@ func TestCreateSticky_ValidationErrors(t *testing.T) {
 func TestCreateSticky_WithWidthAndParent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify geometry
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else if geom["width"] != float64(250) {
-			t.Errorf("width = %v, want 250", geom["width"])
-		}
-		// Verify parent
-		if parent, ok := body["parent"].(map[string]interface{}); !ok {
-			t.Error("expected parent in request body")
-		} else if parent["id"] != "frame-abc" {
-			t.Errorf("parent.id = %v, want 'frame-abc'", parent["id"])
-		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		requireBodyField(t, body, "geometry.width", float64(250))
+		requireBodyField(t, body, "parent.id", "frame-abc")
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "sticky-geo",
-			"data": map[string]interface{}{
-				"content": "Wide sticky",
-			},
-			"style": map[string]interface{}{
-				"fillColor": "light_yellow",
-			},
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":    "sticky-geo",
+			"data":  map[string]interface{}{"content": "Wide sticky"},
+			"style": map[string]interface{}{"fillColor": "light_yellow"},
 		})
 	}))
 	defer server.Close()
@@ -184,7 +235,7 @@ func TestCreateStickyGrid_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt64(&callCount, 1)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"id": fmt.Sprintf("sticky%d", count),
 			"data": map[string]interface{}{
 				"content": "Test",
@@ -211,80 +262,86 @@ func TestCreateStickyGrid_Success(t *testing.T) {
 	}
 }
 
-func TestCreateStickyGrid_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
+// TestSticky_ValidationErrors covers every argument-validation failure across
+// CreateSticky, CreateStickyGrid, and UpdateSticky. Validation fires before
+// any HTTP request, so no server is needed.
+func TestSticky_ValidationErrors(t *testing.T) {
+	client := newTestClientWithServer("http://unused")
 
-	tests := []struct {
-		name    string
-		args    CreateStickyGridArgs
-		wantErr string
-	}{
+	runStickyValidationCases(t, []stickyValidationCase{
 		{
-			name:    "empty board ID",
-			args:    CreateStickyGridArgs{Contents: []string{"Test"}},
+			name:    "create sticky empty board_id",
 			wantErr: "board_id is required",
+			call: func() error {
+				_, err := client.CreateSticky(context.Background(), CreateStickyArgs{Content: "Test"})
+				return err
+			},
 		},
 		{
-			name:    "empty contents",
-			args:    CreateStickyGridArgs{BoardID: "board123"},
-			wantErr: "at least one content item is required",
+			name:    "create sticky empty content",
+			wantErr: "content is required",
+			call: func() error {
+				_, err := client.CreateSticky(context.Background(), CreateStickyArgs{BoardID: "board123"})
+				return err
+			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateStickyGrid(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUpdateSticky_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/sticky_notes/") {
-			t.Errorf("expected /sticky_notes/ in path, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "sticky123",
-			"data": map[string]interface{}{
-				"content": "Updated content",
-				"shape":   "square",
+		{
+			name:    "create sticky empty board_id mentions board_id",
+			wantErr: "board_id",
+			call: func() error {
+				_, err := client.CreateSticky(context.Background(), CreateStickyArgs{BoardID: "", Content: "test"})
+				return err
 			},
-			"style": map[string]interface{}{
-				"fillColor": "light_blue",
+		},
+		{
+			name:    "create sticky empty content mentions content",
+			wantErr: "content",
+			call: func() error {
+				_, err := client.CreateSticky(context.Background(), CreateStickyArgs{BoardID: "board123", Content: ""})
+				return err
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
-		BoardID: "board123",
-		ItemID:  "sticky123",
-		Content: strPtr("Updated content"),
-		Color:   strPtr("blue"),
+		},
+		{
+			name:    "grid empty board ID",
+			wantErr: "board_id is required",
+			call: func() error {
+				_, err := client.CreateStickyGrid(context.Background(), CreateStickyGridArgs{Contents: []string{"Test"}})
+				return err
+			},
+		},
+		{
+			name:    "grid empty contents",
+			wantErr: "at least one content item is required",
+			call: func() error {
+				_, err := client.CreateStickyGrid(context.Background(), CreateStickyGridArgs{BoardID: "board123"})
+				return err
+			},
+		},
+		{
+			name:    "update empty board_id",
+			wantErr: "",
+			call: func() error {
+				_, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
+					BoardID: "",
+					ItemID:  "sticky123",
+					Content: strPtr("test"),
+				})
+				return err
+			},
+		},
+		{
+			name:    "update empty item_id",
+			wantErr: "",
+			call: func() error {
+				_, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
+					BoardID: "board123",
+					ItemID:  "",
+					Content: strPtr("test"),
+				})
+				return err
+			},
+		},
 	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "sticky123" {
-		t.Errorf("ID = %q, want 'sticky123'", result.ID)
-	}
-	if result.Content != "Updated content" {
-		t.Errorf("Content = %q, want 'Updated content'", result.Content)
-	}
 }
 
 func TestUpdateSticky_NoChanges(t *testing.T) {
@@ -304,86 +361,21 @@ func TestUpdateSticky_NoChanges(t *testing.T) {
 	}
 }
 
-func TestUpdateSticky_InvalidBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
-		BoardID: "",
-		ItemID:  "sticky123",
-		Content: strPtr("test"),
-	})
-
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-}
-
-func TestUpdateSticky_InvalidItemID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	_, err := client.UpdateSticky(context.Background(), UpdateStickyArgs{
-		BoardID: "board123",
-		ItemID:  "",
-		Content: strPtr("test"),
-	})
-
-	if err == nil {
-		t.Fatal("expected error for empty item_id")
-	}
-}
-
 func TestUpdateSticky_WithAllFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify data section
-		if data, ok := body["data"].(map[string]interface{}); !ok {
-			t.Error("expected data in request body")
-		} else {
-			if data["content"] != "Updated content" {
-				t.Errorf("content = %v, want 'Updated content'", data["content"])
-			}
-			if data["shape"] != "circle" {
-				t.Errorf("shape = %v, want 'circle'", data["shape"])
-			}
-		}
-
-		// Verify style section
-		if style, ok := body["style"].(map[string]interface{}); !ok {
-			t.Error("expected style in request body")
-		} else if style["fillColor"] != "blue" {
-			t.Errorf("fillColor = %v, want 'blue'", style["fillColor"])
-		}
-
-		// Verify position section
-		if pos, ok := body["position"].(map[string]interface{}); !ok {
-			t.Error("expected position in request body")
-		} else {
-			if pos["x"] != float64(100) {
-				t.Errorf("x = %v, want 100", pos["x"])
-			}
-			if pos["y"] != float64(200) {
-				t.Errorf("y = %v, want 200", pos["y"])
-			}
-		}
-
-		// Verify geometry section
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else if geom["width"] != float64(300) {
-			t.Errorf("width = %v, want 300", geom["width"])
-		}
-
-		// Verify parent section
-		if parent, ok := body["parent"].(map[string]interface{}); !ok {
-			t.Error("expected parent in request body")
-		} else if parent["id"] != "frame123" {
-			t.Errorf("parent.id = %v, want 'frame123'", parent["id"])
-		}
+		requireBodyField(t, body, "data.content", "Updated content")
+		requireBodyField(t, body, "data.shape", "circle")
+		requireBodyField(t, body, "style.fillColor", "blue")
+		requireBodyField(t, body, "position.x", float64(100))
+		requireBodyField(t, body, "position.y", float64(200))
+		requireBodyField(t, body, "geometry.width", float64(300))
+		requireBodyField(t, body, "parent.id", "frame123")
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":    "sticky123",
 			"data":  map[string]interface{}{"content": "Updated content", "shape": "circle"},
 			"style": map[string]interface{}{"fillColor": "blue"},
@@ -417,35 +409,5 @@ func TestUpdateSticky_WithAllFields(t *testing.T) {
 	}
 	if result.ID != "sticky123" {
 		t.Errorf("ID = %v, want 'sticky123'", result.ID)
-	}
-}
-
-func TestCreateSticky_EmptyBoardID(t *testing.T) {
-	client := newTestClientWithServer("http://unused")
-	_, err := client.CreateSticky(context.Background(), CreateStickyArgs{
-		BoardID: "",
-		Content: "test",
-	})
-
-	if err == nil {
-		t.Error("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id") {
-		t.Errorf("error should mention board_id: %v", err)
-	}
-}
-
-func TestCreateSticky_EmptyContent(t *testing.T) {
-	client := newTestClientWithServer("http://unused")
-	_, err := client.CreateSticky(context.Background(), CreateStickyArgs{
-		BoardID: "board123",
-		Content: "",
-	})
-
-	if err == nil {
-		t.Error("expected error for empty content")
-	}
-	if !strings.Contains(err.Error(), "content") {
-		t.Errorf("error should mention content: %v", err)
 	}
 }

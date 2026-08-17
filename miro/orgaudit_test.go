@@ -54,6 +54,47 @@ func newOrgAuditServer(t *testing.T, body string, gotQuery *string) *httptest.Se
 	}))
 }
 
+// assertOrgAuditFlattenedContext checks that team, organization and IP were
+// lifted out of the nested context object onto the event.
+func assertOrgAuditFlattenedContext(t *testing.T, first OrgAuditEvent) {
+	t.Helper()
+	if first.TeamID != "t-1" || first.TeamName != "Design" {
+		t.Errorf("team = %q/%q, want t-1/Design", first.TeamID, first.TeamName)
+	}
+	if first.OrganizationID != "org-1" {
+		t.Errorf("organization = %q, want org-1", first.OrganizationID)
+	}
+	if first.IP != "203.0.113.7" {
+		t.Errorf("ip = %q, want 203.0.113.7", first.IP)
+	}
+}
+
+// assertOrgAuditActorAndPayload checks the actor, target object and details.
+func assertOrgAuditActorAndPayload(t *testing.T, first OrgAuditEvent) {
+	t.Helper()
+	if first.CreatedBy == nil || first.CreatedBy.Email != "olga@example.com" {
+		t.Errorf("createdBy = %+v, want the actor with email", first.CreatedBy)
+	}
+	if first.Object == nil || first.Object.Name != "Design Sprint" {
+		t.Errorf("object = %+v, want the target board", first.Object)
+	}
+	if first.Details["boardPolicy"] != "private" {
+		t.Errorf("details = %v, want boardPolicy preserved", first.Details)
+	}
+}
+
+// assertOrgAuditSparseEvent checks that an event with no context, actor or
+// object projects cleanly rather than panic or invent empty structs.
+func assertOrgAuditSparseEvent(t *testing.T, second OrgAuditEvent) {
+	t.Helper()
+	if second.CreatedBy != nil || second.Object != nil {
+		t.Errorf("sparse event gained structs: createdBy=%+v object=%+v", second.CreatedBy, second.Object)
+	}
+	if second.TeamID != "" || second.IP != "" {
+		t.Errorf("sparse event gained context: team=%q ip=%q", second.TeamID, second.IP)
+	}
+}
+
 // TestGetOrgAuditLogs_FlattensContext pins the projection. The API buries team,
 // organization and IP inside a nested context object; a caller filtering by
 // team should not have to walk it, so those are flattened onto the event.
@@ -74,35 +115,9 @@ func TestGetOrgAuditLogs_FlattensContext(t *testing.T) {
 		t.Fatalf("Count = %d, want 2", result.Count)
 	}
 
-	first := result.Events[0]
-	if first.TeamID != "t-1" || first.TeamName != "Design" {
-		t.Errorf("team = %q/%q, want t-1/Design", first.TeamID, first.TeamName)
-	}
-	if first.OrganizationID != "org-1" {
-		t.Errorf("organization = %q, want org-1", first.OrganizationID)
-	}
-	if first.IP != "203.0.113.7" {
-		t.Errorf("ip = %q, want 203.0.113.7", first.IP)
-	}
-	if first.CreatedBy == nil || first.CreatedBy.Email != "olga@example.com" {
-		t.Errorf("createdBy = %+v, want the actor with email", first.CreatedBy)
-	}
-	if first.Object == nil || first.Object.Name != "Design Sprint" {
-		t.Errorf("object = %+v, want the target board", first.Object)
-	}
-	if first.Details["boardPolicy"] != "private" {
-		t.Errorf("details = %v, want boardPolicy preserved", first.Details)
-	}
-
-	// An event with no context, actor or object must project cleanly rather
-	// than panic or invent empty structs.
-	second := result.Events[1]
-	if second.CreatedBy != nil || second.Object != nil {
-		t.Errorf("sparse event gained structs: createdBy=%+v object=%+v", second.CreatedBy, second.Object)
-	}
-	if second.TeamID != "" || second.IP != "" {
-		t.Errorf("sparse event gained context: team=%q ip=%q", second.TeamID, second.IP)
-	}
+	assertOrgAuditFlattenedContext(t, result.Events[0])
+	assertOrgAuditActorAndPayload(t, result.Events[0])
+	assertOrgAuditSparseEvent(t, result.Events[1])
 
 	// Cursor drives HasMore; the caller should not infer paging state itself.
 	if !result.HasMore || result.Cursor == "" {

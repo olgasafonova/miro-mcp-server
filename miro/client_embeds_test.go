@@ -9,36 +9,117 @@ import (
 	"testing"
 )
 
-func TestCreateEmbed_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/embeds") {
-			t.Errorf("expected embeds path, got %s", r.URL.Path)
-		}
+// embCheckRequest verifies the HTTP method and a URL path fragment of a request.
+func embCheckRequest(t *testing.T, r *http.Request, method, pathFragment string) {
+	t.Helper()
+	if r.Method != method {
+		t.Errorf("expected %s, got %s", method, r.Method)
+	}
+	if !strings.Contains(r.URL.Path, pathFragment) {
+		t.Errorf("expected %s in path, got %s", pathFragment, r.URL.Path)
+	}
+}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "embed123",
-			"data": map[string]interface{}{
+// embSection extracts a nested JSON object such as data or geometry from a request body.
+func embSection(t *testing.T, body map[string]interface{}, key string) map[string]interface{} {
+	t.Helper()
+	m, ok := body[key].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected %s in request body, got %v", key, body[key])
+	}
+	return m
+}
+
+// embCheckField verifies a field of a decoded JSON object.
+func embCheckField(t *testing.T, m map[string]interface{}, field string, want interface{}) {
+	t.Helper()
+	if m[field] != want {
+		t.Errorf("%s = %v, want %v", field, m[field], want)
+	}
+}
+
+// embCheckEq verifies a single result field against its expected value.
+func embCheckEq(t *testing.T, name string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// embServeJSON writes a JSON response.
+func embServeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
+}
+
+func TestEmbeds_Success(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   string
+		pathFrag string
+		respData map[string]interface{}
+		call     func(*Client) (id, url string, err error)
+		wantURL  string
+	}{
+		{
+			name:     "create embed",
+			method:   http.MethodPost,
+			pathFrag: "/embeds",
+			respData: map[string]interface{}{
 				"url": "https://youtube.com/watch?v=test",
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CreateEmbed(context.Background(), CreateEmbedArgs{
-		BoardID: "board123",
-		URL:     "https://youtube.com/watch?v=test",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+			call: func(c *Client) (string, string, error) {
+				result, err := c.CreateEmbed(context.Background(), CreateEmbedArgs{
+					BoardID: "board123",
+					URL:     "https://youtube.com/watch?v=test",
+				})
+				if err != nil {
+					return "", "", err
+				}
+				return result.ID, "", nil
+			},
+		},
+		{
+			name:     "update embed",
+			method:   http.MethodPatch,
+			pathFrag: "/embeds/",
+			respData: map[string]interface{}{
+				"url":         "https://youtube.com/watch?v=123",
+				"providerUrl": "youtube.com",
+			},
+			call: func(c *Client) (string, string, error) {
+				result, err := c.UpdateEmbed(context.Background(), UpdateEmbedArgs{
+					BoardID: "board123",
+					ItemID:  "embed123",
+					URL:     strPtr("https://youtube.com/watch?v=123"),
+				})
+				if err != nil {
+					return "", "", err
+				}
+				return result.ID, result.URL, nil
+			},
+			wantURL: "https://youtube.com/watch?v=123",
+		},
 	}
-	if result.ID != "embed123" {
-		t.Errorf("ID = %q, want 'embed123'", result.ID)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				embCheckRequest(t, r, tt.method, tt.pathFrag)
+				embServeJSON(w, map[string]interface{}{"id": "embed123", "data": tt.respData})
+			}))
+			defer server.Close()
+
+			client := newTestClientWithServer(server.URL)
+			id, url, err := tt.call(client)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			embCheckEq(t, "ID", id, "embed123")
+			if tt.wantURL != "" {
+				embCheckEq(t, "URL", url, tt.wantURL)
+			}
+		})
 	}
 }
 
@@ -81,20 +162,11 @@ func TestCreateEmbed_WithAllFields(t *testing.T) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify data section
-		data, ok := body["data"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'data' field")
-		}
-		if data["url"] != "https://youtube.com/watch?v=abc123" {
-			t.Errorf("url = %v, want 'https://youtube.com/watch?v=abc123'", data["url"])
-		}
-		if data["mode"] != "modal" {
-			t.Errorf("mode = %v, want 'modal'", data["mode"])
-		}
+		data := embSection(t, body, "data")
+		embCheckField(t, data, "url", "https://youtube.com/watch?v=abc123")
+		embCheckField(t, data, "mode", "modal")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		embServeJSON(w, map[string]interface{}{
 			"id":   "embed123",
 			"type": "embed",
 		})
@@ -118,45 +190,6 @@ func TestCreateEmbed_WithAllFields(t *testing.T) {
 	}
 }
 
-func TestUpdateEmbed_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/embeds/") {
-			t.Errorf("expected /embeds/ in path, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "embed123",
-			"data": map[string]interface{}{
-				"url":         "https://youtube.com/watch?v=123",
-				"providerUrl": "youtube.com",
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.UpdateEmbed(context.Background(), UpdateEmbedArgs{
-		BoardID: "board123",
-		ItemID:  "embed123",
-		URL:     strPtr("https://youtube.com/watch?v=123"),
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "embed123" {
-		t.Errorf("ID = %q, want 'embed123'", result.ID)
-	}
-	if result.URL != "https://youtube.com/watch?v=123" {
-		t.Errorf("URL = %q, want 'https://youtube.com/watch?v=123'", result.URL)
-	}
-}
-
 func TestUpdateEmbed_NoChanges(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
 
@@ -168,9 +201,7 @@ func TestUpdateEmbed_NoChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Message != "No changes specified" {
-		t.Errorf("Message = %q, want 'No changes specified'", result.Message)
-	}
+	embCheckEq(t, "Message", result.Message, "No changes specified")
 }
 
 func TestUpdateEmbed_Validation(t *testing.T) {
@@ -200,33 +231,15 @@ func TestUpdateEmbed_WithAllFields(t *testing.T) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify data section
-		if data, ok := body["data"].(map[string]interface{}); !ok {
-			t.Error("expected data in request body")
-		} else {
-			if data["url"] != "https://youtube.com/watch?v=456" {
-				t.Errorf("url = %v, want 'https://youtube.com/watch?v=456'", data["url"])
-			}
-			if data["mode"] != "modal" {
-				t.Errorf("mode = %v, want 'modal'", data["mode"])
-			}
-		}
+		data := embSection(t, body, "data")
+		embCheckField(t, data, "url", "https://youtube.com/watch?v=456")
+		embCheckField(t, data, "mode", "modal")
 
-		// Verify geometry section
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else {
-			if geom["width"] != float64(800) {
-				t.Errorf("width = %v, want 800", geom["width"])
-			}
-			if geom["height"] != float64(600) {
-				t.Errorf("height = %v, want 600", geom["height"])
-			}
-		}
+		geom := embSection(t, body, "geometry")
+		embCheckField(t, geom, "width", float64(800))
+		embCheckField(t, geom, "height", float64(600))
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		embServeJSON(w, map[string]interface{}{
 			"id": "embed123",
 			"data": map[string]interface{}{
 				"url":         "https://youtube.com/watch?v=456",
@@ -251,7 +264,5 @@ func TestUpdateEmbed_WithAllFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "embed123" {
-		t.Errorf("ID = %q, want 'embed123'", result.ID)
-	}
+	embCheckEq(t, "ID", result.ID, "embed123")
 }

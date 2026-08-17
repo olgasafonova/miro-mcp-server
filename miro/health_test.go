@@ -11,143 +11,118 @@ import (
 
 // testLogger is defined in client_test.go
 
-func TestHealthChecker_Check(t *testing.T) {
-	t.Run("shallow check returns report", func(t *testing.T) {
-		// Create mock server
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{},
-			})
-		}))
-		defer server.Close()
+// newHealthTestChecker starts a mock server answering every request with the
+// given status and payload, and returns a health checker whose client points
+// at it. The server is closed via t.Cleanup.
+func newHealthTestChecker(t *testing.T, status int, payload map[string]interface{}) *HealthChecker {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		json.NewEncoder(w).Encode(payload)
+	}))
+	t.Cleanup(server.Close)
 
-		config := &Config{
-			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
-			Timeout:     30 * time.Second,
-		}
-		client := NewClient(config, testLogger())
-		client.baseURL = server.URL
+	config := &Config{
+		AccessToken: validTestJWT,
+		Timeout:     30 * time.Second,
+	}
+	client := NewClient(config, testLogger())
+	client.baseURL = server.URL
+	return NewHealthChecker(client, "test-server", "1.0.0")
+}
 
-		healthChecker := NewHealthChecker(client, "test-server", "1.0.0")
-
-		report := healthChecker.Check(context.Background(), false)
-
-		if report.Status != HealthStatusHealthy {
-			t.Errorf("expected status %s, got %s", HealthStatusHealthy, report.Status)
-		}
-		if report.Server != "test-server" {
-			t.Errorf("expected server 'test-server', got '%s'", report.Server)
-		}
-		if report.Version != "1.0.0" {
-			t.Errorf("expected version '1.0.0', got '%s'", report.Version)
-		}
-		if report.Uptime == "" {
-			t.Error("expected non-empty uptime")
-		}
-
-		// Config component should be present
-		configComp, ok := report.Components["config"]
-		if !ok {
-			t.Error("expected config component in report")
-		} else if configComp.Status != HealthStatusHealthy {
-			t.Errorf("expected config status %s, got %s", HealthStatusHealthy, configComp.Status)
-		}
+func TestHealthChecker_ShallowCheck(t *testing.T) {
+	healthChecker := newHealthTestChecker(t, http.StatusOK, map[string]interface{}{
+		"data": []map[string]interface{}{},
 	})
 
-	t.Run("deep check tests API connectivity", func(t *testing.T) {
-		// Create mock server that responds to token validation via /boards
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{
-						"id":   "board123",
-						"name": "Test Board",
-						"owner": map[string]interface{}{
-							"id":   "owner123",
-							"name": "Test User",
-						},
-					},
+	report := healthChecker.Check(context.Background(), false)
+
+	if report.Status != HealthStatusHealthy {
+		t.Errorf("expected status %s, got %s", HealthStatusHealthy, report.Status)
+	}
+	if report.Server != "test-server" {
+		t.Errorf("expected server 'test-server', got '%s'", report.Server)
+	}
+	if report.Version != "1.0.0" {
+		t.Errorf("expected version '1.0.0', got '%s'", report.Version)
+	}
+	if report.Uptime == "" {
+		t.Error("expected non-empty uptime")
+	}
+
+	// Config component should be present
+	configComp, ok := report.Components["config"]
+	if !ok {
+		t.Error("expected config component in report")
+	} else if configComp.Status != HealthStatusHealthy {
+		t.Errorf("expected config status %s, got %s", HealthStatusHealthy, configComp.Status)
+	}
+}
+
+func TestHealthChecker_DeepCheck(t *testing.T) {
+	// Mock server responds to token validation via /boards
+	healthChecker := newHealthTestChecker(t, http.StatusOK, map[string]interface{}{
+		"data": []map[string]interface{}{
+			{
+				"id":   "board123",
+				"name": "Test Board",
+				"owner": map[string]interface{}{
+					"id":   "owner123",
+					"name": "Test User",
 				},
-			})
-		}))
-		defer server.Close()
-
-		config := &Config{
-			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
-			Timeout:     30 * time.Second,
-		}
-		client := NewClient(config, testLogger())
-		client.baseURL = server.URL
-
-		healthChecker := NewHealthChecker(client, "test-server", "1.0.0")
-
-		report := healthChecker.Check(context.Background(), true)
-
-		if report.Status != HealthStatusHealthy {
-			t.Errorf("expected status %s, got %s", HealthStatusHealthy, report.Status)
-		}
-
-		// API component should be present and healthy
-		apiComp, ok := report.Components["miro_api"]
-		if !ok {
-			t.Error("expected miro_api component in report")
-		} else {
-			if apiComp.Status != HealthStatusHealthy {
-				t.Errorf("expected miro_api status %s, got %s", HealthStatusHealthy, apiComp.Status)
-			}
-			if apiComp.Latency == "" {
-				t.Error("expected non-empty latency for deep check")
-			}
-		}
+			},
+		},
 	})
 
-	t.Run("API failure results in unhealthy status", func(t *testing.T) {
-		// Create mock server that returns error
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"status":  401,
-				"message": "Unauthorized",
-			})
-		}))
-		defer server.Close()
+	report := healthChecker.Check(context.Background(), true)
 
-		config := &Config{
-			AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
-			Timeout:     30 * time.Second,
+	if report.Status != HealthStatusHealthy {
+		t.Errorf("expected status %s, got %s", HealthStatusHealthy, report.Status)
+	}
+
+	// API component should be present and healthy
+	apiComp, ok := report.Components["miro_api"]
+	if !ok {
+		t.Error("expected miro_api component in report")
+	} else {
+		if apiComp.Status != HealthStatusHealthy {
+			t.Errorf("expected miro_api status %s, got %s", HealthStatusHealthy, apiComp.Status)
 		}
-		client := NewClient(config, testLogger())
-		client.baseURL = server.URL
-
-		healthChecker := NewHealthChecker(client, "test-server", "1.0.0")
-
-		report := healthChecker.Check(context.Background(), true)
-
-		if report.Status != HealthStatusUnhealthy {
-			t.Errorf("expected status %s, got %s", HealthStatusUnhealthy, report.Status)
+		if apiComp.Latency == "" {
+			t.Error("expected non-empty latency for deep check")
 		}
+	}
+}
 
-		apiComp := report.Components["miro_api"]
-		if apiComp.Status != HealthStatusUnhealthy {
-			t.Errorf("expected miro_api status %s, got %s", HealthStatusUnhealthy, apiComp.Status)
-		}
+func TestHealthChecker_APIFailureIsUnhealthy(t *testing.T) {
+	healthChecker := newHealthTestChecker(t, http.StatusUnauthorized, map[string]interface{}{
+		"status":  401,
+		"message": "Unauthorized",
 	})
 
-	t.Run("nil client results in unhealthy config", func(t *testing.T) {
-		healthChecker := NewHealthChecker(nil, "test-server", "1.0.0")
+	report := healthChecker.Check(context.Background(), true)
 
-		report := healthChecker.Check(context.Background(), false)
+	if report.Status != HealthStatusUnhealthy {
+		t.Errorf("expected status %s, got %s", HealthStatusUnhealthy, report.Status)
+	}
 
-		configComp := report.Components["config"]
-		if configComp.Status != HealthStatusUnhealthy {
-			t.Errorf("expected config status %s, got %s", HealthStatusUnhealthy, configComp.Status)
-		}
-	})
+	apiComp := report.Components["miro_api"]
+	if apiComp.Status != HealthStatusUnhealthy {
+		t.Errorf("expected miro_api status %s, got %s", HealthStatusUnhealthy, apiComp.Status)
+	}
+}
+
+func TestHealthChecker_NilClientIsUnhealthyConfig(t *testing.T) {
+	healthChecker := NewHealthChecker(nil, "test-server", "1.0.0")
+
+	report := healthChecker.Check(context.Background(), false)
+
+	configComp := report.Components["config"]
+	if configComp.Status != HealthStatusUnhealthy {
+		t.Errorf("expected config status %s, got %s", HealthStatusUnhealthy, configComp.Status)
+	}
 }
 
 func TestHealthReport_ToJSON(t *testing.T) {

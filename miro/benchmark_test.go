@@ -7,48 +7,55 @@ import (
 	"time"
 )
 
+// benchSerial resets the timer and runs fn b.N times.
+func benchSerial(b *testing.B, fn func()) {
+	b.Helper()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fn()
+	}
+}
+
+// benchParallel resets the timer and runs fn from parallel goroutines.
+func benchParallel(b *testing.B, fn func()) {
+	b.Helper()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			fn()
+		}
+	})
+}
+
 // =============================================================================
 // Cache Benchmarks
 // =============================================================================
 
-func BenchmarkCache_Get(b *testing.B) {
+// newPopulatedBenchCache returns a cache holding the "test-key" entry.
+func newPopulatedBenchCache() *Cache {
 	cache := NewCache(DefaultCacheConfig())
 	cache.Set("test-key", "test-value", time.Minute)
+	return cache
+}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cache.Get("test-key")
-	}
+func BenchmarkCache_Get(b *testing.B) {
+	cache := newPopulatedBenchCache()
+	benchSerial(b, func() { cache.Get("test-key") })
 }
 
 func BenchmarkCache_Set(b *testing.B) {
 	cache := NewCache(DefaultCacheConfig())
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cache.Set("test-key", "test-value", time.Minute)
-	}
+	benchSerial(b, func() { cache.Set("test-key", "test-value", time.Minute) })
 }
 
 func BenchmarkCache_GetMiss(b *testing.B) {
 	cache := NewCache(DefaultCacheConfig())
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cache.Get("nonexistent-key")
-	}
+	benchSerial(b, func() { cache.Get("nonexistent-key") })
 }
 
 func BenchmarkCache_ParallelGet(b *testing.B) {
-	cache := NewCache(DefaultCacheConfig())
-	cache.Set("test-key", "test-value", time.Minute)
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			cache.Get("test-key")
-		}
-	})
+	cache := newPopulatedBenchCache()
+	benchParallel(b, func() { cache.Get("test-key") })
 }
 
 func BenchmarkCache_ParallelSetGet(b *testing.B) {
@@ -92,23 +99,17 @@ func BenchmarkCache_InvalidatePrefix(b *testing.B) {
 
 func BenchmarkCircuitBreaker_Allow(b *testing.B) {
 	cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	benchSerial(b, func() {
 		cb.Allow()
 		cb.RecordSuccess()
-	}
+	})
 }
 
 func BenchmarkCircuitBreaker_ParallelAllow(b *testing.B) {
 	cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			if err := cb.Allow(); err == nil {
-				cb.RecordSuccess()
-			}
+	benchParallel(b, func() {
+		if err := cb.Allow(); err == nil {
+			cb.RecordSuccess()
 		}
 	})
 }
@@ -120,10 +121,7 @@ func BenchmarkCircuitBreakerRegistry_Get(b *testing.B) {
 	registry.Get("/items")
 	registry.Get("/tags")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		registry.Get("/boards")
-	}
+	benchSerial(b, func() { registry.Get("/boards") })
 }
 
 func BenchmarkCircuitBreakerRegistry_ParallelGet(b *testing.B) {
@@ -147,11 +145,7 @@ func BenchmarkCircuitBreakerRegistry_ParallelGet(b *testing.B) {
 func BenchmarkRateLimiter_Wait_NoDelay(b *testing.B) {
 	rl := NewAdaptiveRateLimiter(DefaultRateLimiterConfig())
 	ctx := context.Background()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rl.Wait(ctx)
-	}
+	benchSerial(b, func() { rl.Wait(ctx) })
 }
 
 func BenchmarkRateLimiter_UpdateFromResponse(b *testing.B) {
@@ -160,22 +154,13 @@ func BenchmarkRateLimiter_UpdateFromResponse(b *testing.B) {
 	resp.Header.Set("X-RateLimit-Limit", "100")
 	resp.Header.Set("X-RateLimit-Remaining", "50")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rl.UpdateFromResponse(resp)
-	}
+	benchSerial(b, func() { rl.UpdateFromResponse(resp) })
 }
 
 func BenchmarkRateLimiter_ParallelWait(b *testing.B) {
 	rl := NewAdaptiveRateLimiter(DefaultRateLimiterConfig())
 	ctx := context.Background()
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			rl.Wait(ctx)
-		}
-	})
+	benchParallel(b, func() { rl.Wait(ctx) })
 }
 
 // =============================================================================
@@ -201,46 +186,58 @@ func BenchmarkExtractEndpoint(b *testing.B) {
 // =============================================================================
 
 func BenchmarkCacheKeyItem(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		CacheKeyItem("board123", "item456")
-	}
+	benchSerial(b, func() { _ = CacheKeyItem("board123", "item456") })
 }
 
 func BenchmarkCacheKeyItems(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		CacheKeyItems("board123", "sticky_note", "cursor")
-	}
+	benchSerial(b, func() { _ = CacheKeyItems("board123", "sticky_note", "cursor") })
 }
 
 // =============================================================================
 // Combined Performance Tests
 // =============================================================================
 
+// benchPathEnv bundles the infrastructure a typical request path touches.
+type benchPathEnv struct {
+	cache      *Cache
+	cbRegistry *CircuitBreakerRegistry
+	rl         *AdaptiveRateLimiter
+	ctx        context.Context
+}
+
+func newBenchPathEnv() *benchPathEnv {
+	return &benchPathEnv{
+		cache:      NewCache(DefaultCacheConfig()),
+		cbRegistry: NewCircuitBreakerRegistry(DefaultCircuitBreakerConfig()),
+		rl:         NewAdaptiveRateLimiter(DefaultRateLimiterConfig()),
+		ctx:        context.Background(),
+	}
+}
+
+// allowAndWait checks the circuit breaker and rate limiter for the item
+// endpoint, returning the breaker so the caller can record the outcome.
+func (e *benchPathEnv) allowAndWait(b *testing.B) *CircuitBreaker {
+	cb := e.cbRegistry.Get("/boards/{id}/items/{id}")
+	if err := cb.Allow(); err != nil {
+		b.Fatal(err)
+	}
+	e.rl.Wait(e.ctx)
+	return cb
+}
+
 // BenchmarkTypicalReadPath simulates a typical read operation with caching
 func BenchmarkTypicalReadPath(b *testing.B) {
-	cache := NewCache(DefaultCacheConfig())
-	cbRegistry := NewCircuitBreakerRegistry(DefaultCircuitBreakerConfig())
-	rl := NewAdaptiveRateLimiter(DefaultRateLimiterConfig())
-	ctx := context.Background()
+	env := newBenchPathEnv()
 
 	// Pre-populate cache
-	cache.Set("item:board1:item1", "cached-data", time.Minute)
+	env.cache.Set("item:board1:item1", "cached-data", time.Minute)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// Check circuit breaker
-		cb := cbRegistry.Get("/boards/{id}/items/{id}")
-		if err := cb.Allow(); err != nil {
-			b.Fatal(err)
-		}
-
-		// Check rate limiter
-		rl.Wait(ctx)
+		cb := env.allowAndWait(b)
 
 		// Check cache
-		if _, ok := cache.Get("item:board1:item1"); !ok {
+		if _, ok := env.cache.Get("item:board1:item1"); !ok {
 			b.Fatal("expected cache hit")
 		}
 
@@ -250,28 +247,18 @@ func BenchmarkTypicalReadPath(b *testing.B) {
 
 // BenchmarkTypicalWritePath simulates a typical write operation with cache invalidation
 func BenchmarkTypicalWritePath(b *testing.B) {
-	cache := NewCache(DefaultCacheConfig())
-	cbRegistry := NewCircuitBreakerRegistry(DefaultCircuitBreakerConfig())
-	rl := NewAdaptiveRateLimiter(DefaultRateLimiterConfig())
-	ctx := context.Background()
+	env := newBenchPathEnv()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Pre-populate cache
-		cache.Set("item:board1:item1", "cached-data", time.Minute)
-		cache.Set("items:board1:sticky_note:", "list-data", time.Minute)
+		env.cache.Set("item:board1:item1", "cached-data", time.Minute)
+		env.cache.Set("items:board1:sticky_note:", "list-data", time.Minute)
 
-		// Check circuit breaker
-		cb := cbRegistry.Get("/boards/{id}/items/{id}")
-		if err := cb.Allow(); err != nil {
-			b.Fatal(err)
-		}
-
-		// Check rate limiter
-		rl.Wait(ctx)
+		cb := env.allowAndWait(b)
 
 		// Simulate write - invalidate cache
-		cache.InvalidateItem("board1", "item1")
+		env.cache.InvalidateItem("board1", "item1")
 
 		cb.RecordSuccess()
 	}

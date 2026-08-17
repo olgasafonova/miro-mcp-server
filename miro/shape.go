@@ -16,17 +16,6 @@ import (
 // created without an explicit dimension.
 const defaultShapeDimension = 200.0
 
-// shapeDefaultDimensions applies the per-shape default to any zero coordinate.
-func shapeDefaultDimensions(width, height float64) (float64, float64) {
-	if width == 0 {
-		width = defaultShapeDimension
-	}
-	if height == 0 {
-		height = defaultShapeDimension
-	}
-	return width, height
-}
-
 // shapeCoreBody bundles the "core" parameters every shape-create call shares
 // (data, position, geometry, parent). Style is built per-call because the
 // experimental endpoint uses different style fields than the standard one.
@@ -40,11 +29,24 @@ type shapeCoreBody struct {
 	parentID string
 }
 
+// dimensions returns the width and height with the per-shape default applied
+// to any zero coordinate.
+func (c shapeCoreBody) dimensions() (float64, float64) {
+	width, height := c.width, c.height
+	if width == 0 {
+		width = defaultShapeDimension
+	}
+	if height == 0 {
+		height = defaultShapeDimension
+	}
+	return width, height
+}
+
 // buildShapeBaseBody assembles the data + position + geometry + parent sections
 // shared by CreateShape and CreateShapeExperimental. The caller adds its own
 // style block before sending.
 func buildShapeBaseBody(c shapeCoreBody) map[string]interface{} {
-	width, height := shapeDefaultDimensions(c.width, c.height)
+	width, height := c.dimensions()
 	body := map[string]interface{}{
 		"data": map[string]interface{}{
 			"shape":   c.shape,
@@ -119,14 +121,27 @@ func buildExperimentalShapeStyle(fillColor, borderColor string) (map[string]inte
 	})
 }
 
+// colorField bundles the style-map key and error tag for an optional color
+// slot on PATCH-style endpoints.
+type colorField struct {
+	styleKey string
+	errorTag string
+}
+
+// shapeFillColorField governs the fill-color slot on shape updates.
+var shapeFillColorField = colorField{styleKey: "fillColor", errorTag: "color"}
+
+// shapeFontColorField governs the font-color slot on shape updates.
+var shapeFontColorField = colorField{styleKey: "fontColor", errorTag: "text_color"}
+
 // applyOptionalColorPtr is the *string variant of applyOptionalColor used by
 // PATCH-style endpoints where a nil pointer means "leave field unchanged".
 // It delegates to applyOptionalColor after dereferencing.
-func applyOptionalColorPtr(style map[string]interface{}, styleKey, errorTag string, value *string) error {
+func applyOptionalColorPtr(style map[string]interface{}, field colorField, value *string) error {
 	if value == nil {
 		return nil
 	}
-	return applyOptionalColor(style, shapeColorSpec{styleKey: styleKey, errorTag: errorTag, value: *value})
+	return applyOptionalColor(style, shapeColorSpec{styleKey: field.styleKey, errorTag: field.errorTag, value: *value})
 }
 
 // enumField bundles the metadata for a string-enum slot in a style map:
@@ -328,13 +343,13 @@ func (c *Client) CreateFlowchartShape(ctx context.Context, args CreateFlowchartS
 
 // buildShapeUpdateData assembles the "data" section for an UpdateShape call.
 // Returns nil when nothing to update so the caller can omit the key entirely.
-func buildShapeUpdateData(content, shapeType *string) map[string]interface{} {
+func buildShapeUpdateData(args UpdateShapeArgs) map[string]interface{} {
 	data := make(map[string]interface{})
-	if content != nil {
-		data["content"] = *content
+	if args.Content != nil {
+		data["content"] = *args.Content
 	}
-	if shapeType != nil {
-		data["shape"] = *shapeType
+	if args.ShapeType != nil {
+		data["shape"] = *args.ShapeType
 	}
 	if len(data) == 0 {
 		return nil
@@ -345,15 +360,15 @@ func buildShapeUpdateData(content, shapeType *string) map[string]interface{} {
 // buildShapeUpdateStyle assembles the "style" section for an UpdateShape call.
 // Returns nil when no style fields are supplied. The standard shapes endpoint
 // uses fillColor + fontColor (note: fontColor here, not color as in CreateShape).
-func buildShapeUpdateStyle(color, textColor, textAlign, textAlignVertical *string) (map[string]interface{}, error) {
+func buildShapeUpdateStyle(args UpdateShapeArgs) (map[string]interface{}, error) {
 	style := make(map[string]interface{})
-	if err := applyOptionalColorPtr(style, "fillColor", "color", color); err != nil {
+	if err := applyOptionalColorPtr(style, shapeFillColorField, args.Color); err != nil {
 		return nil, err
 	}
-	if err := applyOptionalColorPtr(style, "fontColor", "text_color", textColor); err != nil {
+	if err := applyOptionalColorPtr(style, shapeFontColorField, args.TextColor); err != nil {
 		return nil, err
 	}
-	if err := applyShapeTextAlignPtr(style, textAlign, textAlignVertical); err != nil {
+	if err := applyShapeTextAlignPtr(style, args.TextAlign, args.TextAlignVertical); err != nil {
 		return nil, err
 	}
 	if len(style) == 0 {
@@ -367,11 +382,11 @@ func buildShapeUpdateStyle(color, textColor, textAlign, textAlignVertical *strin
 func buildUpdateShapeBody(args UpdateShapeArgs) (map[string]interface{}, error) {
 	reqBody := make(map[string]interface{})
 
-	if data := buildShapeUpdateData(args.Content, args.ShapeType); data != nil {
+	if data := buildShapeUpdateData(args); data != nil {
 		reqBody["data"] = data
 	}
 
-	style, err := buildShapeUpdateStyle(args.Color, args.TextColor, args.TextAlign, args.TextAlignVertical)
+	style, err := buildShapeUpdateStyle(args)
 	if err != nil {
 		return nil, err
 	}

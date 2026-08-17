@@ -48,38 +48,53 @@ func (c *Client) CreateGroup(ctx context.Context, args CreateGroupArgs) (CreateG
 	}, nil
 }
 
+// groupPage is the data/cursor envelope returned by the paginated group endpoints.
+type groupPage[T any] struct {
+	Data   []T    `json:"data"`
+	Cursor string `json:"cursor,omitempty"`
+}
+
+// pagedPath appends the limit and optional cursor query parameters to basePath.
+func pagedPath(basePath string, limit int, cursor string) string {
+	path := fmt.Sprintf("%s?limit=%d", basePath, limit)
+	if cursor != "" {
+		path += "&cursor=" + cursor
+	}
+	return path
+}
+
+// fetchGroupPage issues the paginated GET shared by ListGroups and GetGroupItems
+// and decodes the page envelope.
+func fetchGroupPage[T any](ctx context.Context, c *Client, path string) (groupPage[T], error) {
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return groupPage[T]{}, err
+	}
+	var page groupPage[T]
+	if err := json.Unmarshal(respBody, &page); err != nil {
+		return groupPage[T]{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+	return page, nil
+}
+
 // ListGroups retrieves all groups on a board.
 func (c *Client) ListGroups(ctx context.Context, args ListGroupsArgs) (ListGroupsResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
 		return ListGroupsResult{}, err
 	}
 
-	limit := clampGroupItemsLimit(args.Limit)
-
-	path := fmt.Sprintf("/boards/%s/groups?limit=%d", args.BoardID, limit)
-	if args.Cursor != "" {
-		path += "&cursor=" + args.Cursor
-	}
-
-	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	path := pagedPath("/boards/"+args.BoardID+"/groups", clampGroupItemsLimit(args.Limit), args.Cursor)
+	page, err := fetchGroupPage[Group](ctx, c, path)
 	if err != nil {
 		return ListGroupsResult{}, err
 	}
 
-	var resp struct {
-		Data   []Group `json:"data"`
-		Cursor string  `json:"cursor,omitempty"`
-	}
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return ListGroupsResult{}, fmt.Errorf("failed to parse response: %w", err)
-	}
-
 	return ListGroupsResult{
-		Groups:  resp.Data,
-		Count:   len(resp.Data),
-		HasMore: resp.Cursor != "",
-		Cursor:  resp.Cursor,
-		Message: fmt.Sprintf("Found %d groups", len(resp.Data)),
+		Groups:  page.Data,
+		Count:   len(page.Data),
+		HasMore: page.Cursor != "",
+		Cursor:  page.Cursor,
+		Message: fmt.Sprintf("Found %d groups", len(page.Data)),
 	}, nil
 }
 
@@ -126,32 +141,19 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 		return GetGroupItemsResult{}, err
 	}
 
-	limit := clampGroupItemsLimit(args.Limit)
-
-	path := fmt.Sprintf("/boards/%s/groups/%s/items?limit=%d", args.BoardID, args.GroupID, limit)
-	if args.Cursor != "" {
-		path += "&cursor=" + args.Cursor
-	}
-
-	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	basePath := fmt.Sprintf("/boards/%s/groups/%s/items", args.BoardID, args.GroupID)
+	path := pagedPath(basePath, clampGroupItemsLimit(args.Limit), args.Cursor)
+	page, err := fetchGroupPage[json.RawMessage](ctx, c, path)
 	if err != nil {
 		return GetGroupItemsResult{}, err
 	}
 
-	var resp struct {
-		Data   []json.RawMessage `json:"data"`
-		Cursor string            `json:"cursor,omitempty"`
-	}
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		return GetGroupItemsResult{}, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	items := parseGroupItemSummaries(resp.Data)
+	items := parseGroupItemSummaries(page.Data)
 
 	return GetGroupItemsResult{
 		Items:   items,
 		Count:   len(items),
-		HasMore: resp.Cursor != "",
+		HasMore: page.Cursor != "",
 		Message: fmt.Sprintf("Found %d items in group", len(items)),
 	}, nil
 }

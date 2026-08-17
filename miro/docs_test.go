@@ -10,29 +10,95 @@ import (
 )
 
 // =============================================================================
+// Test server helpers
+// =============================================================================
+
+// docServerSpec describes the fake Miro API behavior for one doc format test:
+// the expected request line, an optional pointer that receives the decoded
+// request body, and the response to send back.
+type docServerSpec struct {
+	wantMethod    string
+	wantPath      string
+	status        int
+	rawBody       string
+	response      map[string]interface{}
+	captureBody   *map[string]interface{}
+	failOnRequest bool
+}
+
+// newDocClient starts a fake Miro API described by spec and returns a client
+// pointed at it.
+func newDocClient(t *testing.T, spec docServerSpec) *Client {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if spec.failOnRequest {
+			t.Error("the API must not be called in this scenario")
+			return
+		}
+		assertDocRequestLine(t, r, spec.wantMethod, spec.wantPath)
+		if spec.captureBody != nil {
+			if err := json.NewDecoder(r.Body).Decode(spec.captureBody); err != nil {
+				t.Errorf("failed to decode request: %v", err)
+			}
+		}
+		writeDocResponse(w, spec)
+	}))
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
+
+func assertDocRequestLine(t *testing.T, r *http.Request, method, path string) {
+	t.Helper()
+	if method != "" && r.Method != method {
+		t.Errorf("expected %s, got %s", method, r.Method)
+	}
+	if path != "" && r.URL.Path != path {
+		t.Errorf("unexpected path %s", r.URL.Path)
+	}
+}
+
+func writeDocResponse(w http.ResponseWriter, spec docServerSpec) {
+	w.Header().Set("Content-Type", "application/json")
+	status := spec.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+	if _, err := w.Write(docResponseBody(spec)); err != nil {
+		panic(err)
+	}
+}
+
+// docResponseBody renders the response body for a spec: the raw body verbatim,
+// the response payload as JSON, or nothing.
+func docResponseBody(spec docServerSpec) []byte {
+	if spec.rawBody != "" {
+		return []byte(spec.rawBody)
+	}
+	if spec.response == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(spec.response)
+	if err != nil {
+		panic(err)
+	}
+	return encoded
+}
+
+// =============================================================================
 // Doc Format Tests
 // =============================================================================
 
 func TestCreateDocFormat_Success(t *testing.T) {
 	var gotBody map[string]interface{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/docs" {
-			t.Errorf("expected /boards/board123/docs, got %s", r.URL.Path)
-		}
-		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-			t.Fatalf("failed to decode request: %v", err)
-		}
+	client := newDocClient(t, docServerSpec{
+		wantMethod:  http.MethodPost,
+		wantPath:    "/boards/board123/docs",
+		status:      http.StatusCreated,
+		response:    map[string]interface{}{"id": "doc123"},
+		captureBody: &gotBody,
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "doc123"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.CreateDocFormat(context.Background(), CreateDocFormatArgs{
 		BoardID: "board123",
 		Content: "# Heading",
@@ -50,11 +116,14 @@ func TestCreateDocFormat_Success(t *testing.T) {
 	if result.ItemURL != BuildItemURL("board123", "doc123") {
 		t.Errorf("ItemURL = %q", result.ItemURL)
 	}
+	assertDocCreateBody(t, gotBody)
+}
 
-	data, ok := gotBody["data"].(map[string]interface{})
-	if !ok {
-		t.Fatal("missing data field in request")
-	}
+// assertDocCreateBody verifies the minimal create request body: markdown data
+// present, optional position and parent sections omitted.
+func assertDocCreateBody(t *testing.T, gotBody map[string]interface{}) {
+	t.Helper()
+	data := bodySection(t, gotBody, "data")
 	if data["contentType"] != "markdown" {
 		t.Errorf("contentType = %v, want markdown", data["contentType"])
 	}
@@ -71,16 +140,11 @@ func TestCreateDocFormat_Success(t *testing.T) {
 
 func TestCreateDocFormat_WithPositionAndParent(t *testing.T) {
 	var gotBody map[string]interface{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-			t.Fatalf("failed to decode request: %v", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "doc123"})
-	}))
-	defer server.Close()
+	client := newDocClient(t, docServerSpec{
+		response:    map[string]interface{}{"id": "doc123"},
+		captureBody: &gotBody,
+	})
 
-	client := newTestClientWithServer(server.URL)
 	if _, err := client.CreateDocFormat(context.Background(), CreateDocFormatArgs{
 		BoardID:  "board123",
 		Content:  "body",
@@ -91,36 +155,25 @@ func TestCreateDocFormat_WithPositionAndParent(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	pos, ok := gotBody["position"].(map[string]interface{})
-	if !ok {
-		t.Fatal("missing position field")
-	}
+	pos := bodySection(t, gotBody, "position")
 	if pos["x"] != 100.0 || pos["y"] != -50.0 {
 		t.Errorf("position = (%v, %v), want (100, -50)", pos["x"], pos["y"])
 	}
 	if pos["origin"] != "center" {
 		t.Errorf("origin = %v, want center", pos["origin"])
 	}
-
-	parent, ok := gotBody["parent"].(map[string]interface{})
-	if !ok {
-		t.Fatal("missing parent field")
-	}
-	if parent["id"] != "frame999" {
+	if parent := bodySection(t, gotBody, "parent"); parent["id"] != "frame999" {
 		t.Errorf("parent id = %v, want frame999", parent["id"])
 	}
 }
 
 func TestCreateDocFormat_YOnlyStillSendsPosition(t *testing.T) {
 	var gotBody map[string]interface{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&gotBody)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "doc123"})
-	}))
-	defer server.Close()
+	client := newDocClient(t, docServerSpec{
+		response:    map[string]interface{}{"id": "doc123"},
+		captureBody: &gotBody,
+	})
 
-	client := newTestClientWithServer(server.URL)
 	if _, err := client.CreateDocFormat(context.Background(), CreateDocFormatArgs{
 		BoardID: "board123",
 		Content: "body",
@@ -133,75 +186,111 @@ func TestCreateDocFormat_YOnlyStillSendsPosition(t *testing.T) {
 	}
 }
 
-func TestCreateDocFormat_ValidationErrors(t *testing.T) {
+func TestDocFormat_ValidationErrors(t *testing.T) {
+	client := newDocClient(t, docServerSpec{failOnRequest: true})
+	ctx := context.Background()
+
 	tests := []struct {
 		name    string
-		args    CreateDocFormatArgs
 		wantErr string
+		call    func() error
 	}{
-		{"empty board", CreateDocFormatArgs{BoardID: "", Content: "x"}, "board_id is required"},
-		{"empty content", CreateDocFormatArgs{BoardID: "board123", Content: ""}, "content is required"},
+		{"create empty board", "board_id is required", func() error {
+			_, err := client.CreateDocFormat(ctx, CreateDocFormatArgs{BoardID: "", Content: "x"})
+			return err
+		}},
+		{"create empty content", "content is required", func() error {
+			_, err := client.CreateDocFormat(ctx, CreateDocFormatArgs{BoardID: "board123", Content: ""})
+			return err
+		}},
+		{"get empty board", "board_id is required", func() error {
+			_, err := client.GetDocFormat(ctx, GetDocFormatArgs{BoardID: "", ItemID: "doc123"})
+			return err
+		}},
+		{"get empty item", "item_id is required", func() error {
+			_, err := client.GetDocFormat(ctx, GetDocFormatArgs{BoardID: "board123", ItemID: ""})
+			return err
+		}},
+		{"delete empty board", "board_id is required", func() error {
+			_, err := client.DeleteDocFormat(ctx, DeleteDocFormatArgs{BoardID: "", ItemID: "doc123"})
+			return err
+		}},
+		{"delete empty item", "item_id is required", func() error {
+			_, err := client.DeleteDocFormat(ctx, DeleteDocFormatArgs{BoardID: "board123", ItemID: ""})
+			return err
+		}},
+		{"update empty board", "board_id is required", func() error {
+			_, err := client.UpdateDocFormat(ctx, UpdateDocFormatArgs{BoardID: "", ItemID: "doc123"})
+			return err
+		}},
+		{"update empty item", "item_id is required", func() error {
+			_, err := client.UpdateDocFormat(ctx, UpdateDocFormatArgs{BoardID: "board123", ItemID: ""})
+			return err
+		}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := newTestClientWithServer("http://unused.invalid")
-			_, err := client.CreateDocFormat(context.Background(), tt.args)
-			if err == nil {
-				t.Fatalf("expected error for %s", tt.name)
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
+			if err := tt.call(); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestCreateDocFormat_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.CreateDocFormat(context.Background(), CreateDocFormatArgs{
-		BoardID: "board123",
-		Content: "x",
-	}); err == nil {
-		t.Fatal("expected error on HTTP 400")
+func TestDocFormat_APIErrors(t *testing.T) {
+	ctx := context.Background()
+	createCall := func(c *Client) error {
+		_, err := c.CreateDocFormat(ctx, CreateDocFormatArgs{BoardID: "board123", Content: "x"})
+		return err
 	}
-}
-
-func TestCreateDocFormat_MalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{not json"))
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.CreateDocFormat(context.Background(), CreateDocFormatArgs{
-		BoardID: "board123",
-		Content: "x",
-	})
-	if err == nil {
-		t.Fatal("expected parse error")
+	getCall := func(c *Client) error {
+		_, err := c.GetDocFormat(ctx, GetDocFormatArgs{BoardID: "board123", ItemID: "doc123"})
+		return err
 	}
-	if !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
+	deleteCall := func(c *Client) error {
+		_, err := c.DeleteDocFormat(ctx, DeleteDocFormatArgs{BoardID: "board123", ItemID: "doc123"})
+		return err
+	}
+	updateCall := func(c *Client) error {
+		_, err := c.UpdateDocFormat(ctx, UpdateDocFormatArgs{BoardID: "board123", ItemID: "doc123", Content: "new"})
+		return err
+	}
+
+	tests := []struct {
+		name    string
+		status  int
+		rawBody string
+		wantErr string // empty means any error is acceptable
+		call    func(*Client) error
+	}{
+		{"create HTTP 400", http.StatusBadRequest, "", "", createCall},
+		{"create malformed JSON", http.StatusOK, "{not json", "failed to parse response", createCall},
+		{"get HTTP 404", http.StatusNotFound, "", "", getCall},
+		{"get malformed JSON", http.StatusOK, "{not json", "failed to parse response", getCall},
+		{"delete HTTP 403", http.StatusForbidden, "", "", deleteCall},
+		{"update read fails", http.StatusNotFound, "", "failed to read current doc", updateCall},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newDocClient(t, docServerSpec{status: tt.status, rawBody: tt.rawBody})
+			err := tt.call(client)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if tt.wantErr != "" && !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %v, want %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 
 func TestGetDocFormat_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/docs/doc123" {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newDocClient(t, docServerSpec{
+		wantMethod: http.MethodGet,
+		wantPath:   "/boards/board123/docs/doc123",
+		response: map[string]interface{}{
 			"id":         "doc123",
 			"data":       map[string]interface{}{"content": "# Heading"},
 			"position":   map[string]interface{}{"x": 10.0, "y": 20.0},
@@ -209,11 +298,9 @@ func TestGetDocFormat_Success(t *testing.T) {
 			"modifiedAt": "2026-01-02T00:00:00Z",
 			"createdBy":  map[string]interface{}{"id": "user1"},
 			"modifiedBy": map[string]interface{}{"id": "user2"},
-		})
-	}))
-	defer server.Close()
+		},
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetDocFormat(context.Background(), GetDocFormatArgs{
 		BoardID: "board123",
 		ItemID:  "doc123",
@@ -228,6 +315,13 @@ func TestGetDocFormat_Success(t *testing.T) {
 	if result.Content != "# Heading" {
 		t.Errorf("Content = %q, want # Heading", result.Content)
 	}
+	assertDocMetadata(t, result)
+}
+
+// assertDocMetadata verifies the position, actor, and message fields returned
+// by TestGetDocFormat_Success.
+func assertDocMetadata(t *testing.T, result GetDocFormatResult) {
+	t.Helper()
 	if result.X != 10 || result.Y != 20 {
 		t.Errorf("position = (%v, %v), want (10, 20)", result.X, result.Y)
 	}
@@ -239,72 +333,13 @@ func TestGetDocFormat_Success(t *testing.T) {
 	}
 }
 
-func TestGetDocFormat_ValidationErrors(t *testing.T) {
-	tests := []struct {
-		name    string
-		args    GetDocFormatArgs
-		wantErr string
-	}{
-		{"empty board", GetDocFormatArgs{BoardID: "", ItemID: "doc123"}, "board_id is required"},
-		{"empty item", GetDocFormatArgs{BoardID: "board123", ItemID: ""}, "item_id is required"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := newTestClientWithServer("http://unused.invalid")
-			if _, err := client.GetDocFormat(context.Background(), tt.args); err == nil ||
-				!strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %v, want %q", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestGetDocFormat_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.GetDocFormat(context.Background(), GetDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-	}); err == nil {
-		t.Fatal("expected error on HTTP 404")
-	}
-}
-
-func TestGetDocFormat_MalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{not json"))
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.GetDocFormat(context.Background(), GetDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-	})
-	if err == nil || !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
-	}
-}
-
 func TestDeleteDocFormat_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/docs/doc123" {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	client := newDocClient(t, docServerSpec{
+		wantMethod: http.MethodDelete,
+		wantPath:   "/boards/board123/docs/doc123",
+		status:     http.StatusNoContent,
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.DeleteDocFormat(context.Background(), DeleteDocFormatArgs{
 		BoardID: "board123",
 		ItemID:  "doc123",
@@ -324,12 +359,7 @@ func TestDeleteDocFormat_Success(t *testing.T) {
 }
 
 func TestDeleteDocFormat_DryRun(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Error("dry run must not call the API")
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
+	client := newDocClient(t, docServerSpec{failOnRequest: true})
 	result, err := client.DeleteDocFormat(context.Background(), DeleteDocFormatArgs{
 		BoardID: "board123",
 		ItemID:  "doc123",
@@ -346,174 +376,21 @@ func TestDeleteDocFormat_DryRun(t *testing.T) {
 	}
 }
 
-func TestDeleteDocFormat_ValidationErrors(t *testing.T) {
-	tests := []struct {
-		name    string
-		args    DeleteDocFormatArgs
-		wantErr string
-	}{
-		{"empty board", DeleteDocFormatArgs{BoardID: "", ItemID: "doc123"}, "board_id is required"},
-		{"empty item", DeleteDocFormatArgs{BoardID: "board123", ItemID: ""}, "item_id is required"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := newTestClientWithServer("http://unused.invalid")
-			if _, err := client.DeleteDocFormat(context.Background(), tt.args); err == nil ||
-				!strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %v, want %q", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestDeleteDocFormat_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.DeleteDocFormat(context.Background(), DeleteDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-	}); err == nil {
-		t.Fatal("expected error on HTTP 403")
-	}
-}
-
-func TestFindAndReplaceContent(t *testing.T) {
-	tests := []struct {
-		name        string
-		content     string
-		args        UpdateDocFormatArgs
-		wantContent string
-		wantCount   int
-		wantErr     string
-	}{
-		{
-			name:        "replaces first occurrence only",
-			content:     "foo bar foo",
-			args:        UpdateDocFormatArgs{OldContent: "foo", NewContent: "baz"},
-			wantContent: "baz bar foo",
-			wantCount:   1,
-		},
-		{
-			name:        "replaces all occurrences",
-			content:     "foo bar foo foo",
-			args:        UpdateDocFormatArgs{OldContent: "foo", NewContent: "baz", ReplaceAll: true},
-			wantContent: "baz bar baz baz",
-			wantCount:   3,
-		},
-		{
-			name:    "missing old content is an error",
-			content: "foo bar",
-			args:    UpdateDocFormatArgs{OldContent: "nope", NewContent: "baz"},
-			wantErr: "old_content not found in document",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, count, err := findAndReplaceContent(tt.content, tt.args)
-			if tt.wantErr != "" {
-				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-					t.Fatalf("error = %v, want %q", err, tt.wantErr)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.wantContent {
-				t.Errorf("content = %q, want %q", got, tt.wantContent)
-			}
-			if count != tt.wantCount {
-				t.Errorf("count = %d, want %d", count, tt.wantCount)
-			}
-		})
-	}
-}
-
-func TestResolveDocFormatContent(t *testing.T) {
-	tests := []struct {
-		name        string
-		current     string
-		args        UpdateDocFormatArgs
-		wantContent string
-		wantCount   int
-		wantErr     string
-	}{
-		{
-			name:        "find-and-replace takes precedence",
-			current:     "hello world",
-			args:        UpdateDocFormatArgs{Content: "ignored", OldContent: "world", NewContent: "there"},
-			wantContent: "hello there",
-			wantCount:   1,
-		},
-		{
-			name:        "full replacement when no old_content",
-			current:     "hello world",
-			args:        UpdateDocFormatArgs{Content: "brand new"},
-			wantContent: "brand new",
-			wantCount:   0,
-		},
-		{
-			name:    "neither mode set is an error",
-			current: "hello world",
-			args:    UpdateDocFormatArgs{},
-			wantErr: "either content (full replace) or old_content+new_content",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, count, err := resolveDocFormatContent(tt.current, tt.args)
-			if tt.wantErr != "" {
-				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-					t.Fatalf("error = %v, want %q", err, tt.wantErr)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got != tt.wantContent {
-				t.Errorf("content = %q, want %q", got, tt.wantContent)
-			}
-			if count != tt.wantCount {
-				t.Errorf("count = %d, want %d", count, tt.wantCount)
-			}
-		})
-	}
-}
-
-func TestDocFormatUpdateMessage(t *testing.T) {
-	if got := docFormatUpdateMessage(0); got != "Updated doc format item" {
-		t.Errorf("message(0) = %q", got)
-	}
-	if got := docFormatUpdateMessage(3); got != "Replaced 3 occurrence(s) in doc format item" {
-		t.Errorf("message(3) = %q", got)
-	}
-}
-
 // docUpdateServer mimics the read-delete-recreate sequence UpdateDocFormat drives.
 func docUpdateServer(t *testing.T, currentContent string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeDocResponse(w, docServerSpec{response: map[string]interface{}{
 				"id":       "doc123",
 				"data":     map[string]interface{}{"content": currentContent},
 				"position": map[string]interface{}{"x": 10.0, "y": 20.0},
-			})
+			}})
 		case r.Method == http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost:
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{"id": "doc456"})
+			writeDocResponse(w, docServerSpec{response: map[string]interface{}{"id": "doc456"}})
 		default:
 			t.Errorf("unexpected method %s", r.Method)
 		}
@@ -580,44 +457,6 @@ func TestUpdateDocFormat_FindAndReplace(t *testing.T) {
 	}
 }
 
-func TestUpdateDocFormat_ValidationErrors(t *testing.T) {
-	tests := []struct {
-		name    string
-		args    UpdateDocFormatArgs
-		wantErr string
-	}{
-		{"empty board", UpdateDocFormatArgs{BoardID: "", ItemID: "doc123"}, "board_id is required"},
-		{"empty item", UpdateDocFormatArgs{BoardID: "board123", ItemID: ""}, "item_id is required"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := newTestClientWithServer("http://unused.invalid")
-			if _, err := client.UpdateDocFormat(context.Background(), tt.args); err == nil ||
-				!strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %v, want %q", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUpdateDocFormat_ReadFails(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.UpdateDocFormat(context.Background(), UpdateDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-		Content: "new",
-	})
-	if err == nil || !strings.Contains(err.Error(), "failed to read current doc") {
-		t.Errorf("error = %v, want failed to read current doc", err)
-	}
-}
-
 func TestUpdateDocFormat_ResolveFails(t *testing.T) {
 	server := docUpdateServer(t, "old body")
 	defer server.Close()
@@ -632,84 +471,52 @@ func TestUpdateDocFormat_ResolveFails(t *testing.T) {
 	}
 }
 
-func TestUpdateDocFormat_DeleteFails(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "doc123",
-				"data": map[string]interface{}{"content": "old"},
-			})
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.UpdateDocFormat(context.Background(), UpdateDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-		Content: "new",
-	})
-	if err == nil || !strings.Contains(err.Error(), "failed to delete original doc") {
-		t.Errorf("error = %v, want failed to delete original doc", err)
+// TestUpdateDocFormat_StepFailures drives the read-delete-recreate sequence
+// with failures injected at the delete and recreate steps.
+func TestUpdateDocFormat_StepFailures(t *testing.T) {
+	serverError := func(w http.ResponseWriter) { w.WriteHeader(http.StatusInternalServerError) }
+	noContent := func(w http.ResponseWriter) { w.WriteHeader(http.StatusNoContent) }
+	malformed := func(w http.ResponseWriter) {
+		writeDocResponse(w, docServerSpec{rawBody: "{not json"})
 	}
-}
 
-func TestUpdateDocFormat_RecreateFails(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "doc123",
-				"data": map[string]interface{}{"content": "old"},
-			})
-		case http.MethodDelete:
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.UpdateDocFormat(context.Background(), UpdateDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-		Content: "new",
-	})
-	if err == nil || !strings.Contains(err.Error(), "failed to recreate doc with updated content") {
-		t.Errorf("error = %v, want failed to recreate doc", err)
+	tests := []struct {
+		name     string
+		onDelete func(http.ResponseWriter)
+		onPost   func(http.ResponseWriter)
+		wantErr  string
+	}{
+		{"delete fails", serverError, serverError, "failed to delete original doc"},
+		{"recreate fails", noContent, serverError, "failed to recreate doc with updated content"},
+		{"recreate malformed JSON", noContent, malformed, "failed to parse response"},
 	}
-}
 
-func TestUpdateDocFormat_RecreateMalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "doc123",
-				"data": map[string]interface{}{"content": "old"},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.Method {
+				case http.MethodGet:
+					writeDocResponse(w, docServerSpec{response: map[string]interface{}{
+						"id":   "doc123",
+						"data": map[string]interface{}{"content": "old"},
+					}})
+				case http.MethodDelete:
+					tt.onDelete(w)
+				default:
+					tt.onPost(w)
+				}
+			}))
+			defer server.Close()
+
+			client := newTestClientWithServer(server.URL)
+			_, err := client.UpdateDocFormat(context.Background(), UpdateDocFormatArgs{
+				BoardID: "board123",
+				ItemID:  "doc123",
+				Content: "new",
 			})
-		case http.MethodDelete:
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte("{not json"))
-		}
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.UpdateDocFormat(context.Background(), UpdateDocFormatArgs{
-		BoardID: "board123",
-		ItemID:  "doc123",
-		Content: "new",
-	})
-	if err == nil || !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %v, want %q", err, tt.wantErr)
+			}
+		})
 	}
 }

@@ -12,6 +12,196 @@ import (
 )
 
 // =============================================================================
+// Test server helpers
+// =============================================================================
+
+// diagramServerConfig controls how the fake Miro API behaves in diagram tests.
+// The zero value serves successful creation responses for every endpoint.
+type diagramServerConfig struct {
+	// failShape, when set, fails the nth shape creation call (1-based).
+	failShape func(call int32) bool
+	// inspectShape, when set, receives each decoded shape request body.
+	inspectShape   func(body map[string]interface{})
+	failConnectors bool
+	failFrames     bool
+	failGroups     bool
+}
+
+// newDiagramServer starts a fake Miro API for GenerateDiagram tests. It serves
+// shape, connector, frame, and group creation endpoints, generating sequential
+// item IDs, and fails the endpoints selected by cfg with HTTP 500.
+func newDiagramServer(t *testing.T, cfg diagramServerConfig) *httptest.Server {
+	t.Helper()
+	var shapeCount, connectorCount, frameCount atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		switch {
+		case strings.Contains(r.URL.Path, "/shapes"):
+			cfg.serveShape(w, r, shapeCount.Add(1))
+		case strings.Contains(r.URL.Path, "/connectors"):
+			serveItemCreation(w, cfg.failConnectors, fmt.Sprintf("conn%d", connectorCount.Add(1)), "connector")
+		case strings.Contains(r.URL.Path, "/frames"):
+			serveItemCreation(w, cfg.failFrames, fmt.Sprintf("frame%d", frameCount.Add(1)), "frame")
+		case strings.Contains(r.URL.Path, "/groups"):
+			cfg.serveGroup(w)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+// serveShape answers one shape creation call, honoring failShape and inspectShape.
+func (cfg diagramServerConfig) serveShape(w http.ResponseWriter, r *http.Request, call int32) {
+	if cfg.failShape != nil && cfg.failShape(call) {
+		writeDiagramServerError(w)
+		return
+	}
+	if cfg.inspectShape != nil {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			cfg.inspectShape(body)
+		}
+	}
+	writeDiagramItemCreated(w, fmt.Sprintf("shape%d", call), "shape")
+}
+
+// serveGroup answers a group creation call with a fixed group payload.
+func (cfg diagramServerConfig) serveGroup(w http.ResponseWriter) {
+	if cfg.failGroups {
+		writeDiagramServerError(w)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	encodeDiagramJSON(w, map[string]interface{}{
+		"id":    "group123",
+		"type":  "group",
+		"items": []string{"shape1", "shape2", "conn1"},
+	})
+}
+
+// serveItemCreation writes either a created item or a server error.
+func serveItemCreation(w http.ResponseWriter, fail bool, id, itemType string) {
+	if fail {
+		writeDiagramServerError(w)
+		return
+	}
+	writeDiagramItemCreated(w, id, itemType)
+}
+
+func writeDiagramItemCreated(w http.ResponseWriter, id, itemType string) {
+	w.WriteHeader(http.StatusCreated)
+	encodeDiagramJSON(w, map[string]interface{}{"id": id, "type": itemType})
+}
+
+func writeDiagramServerError(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusInternalServerError)
+	encodeDiagramJSON(w, map[string]interface{}{"message": "Internal server error"})
+}
+
+func encodeDiagramJSON(w http.ResponseWriter, payload map[string]interface{}) {
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		panic(err)
+	}
+}
+
+// generateDiagram runs GenerateDiagram against a fake API built from cfg and
+// fails the test on error.
+func generateDiagram(t *testing.T, cfg diagramServerConfig, args GenerateDiagramArgs) GenerateDiagramResult {
+	t.Helper()
+	server := newDiagramServer(t, cfg)
+	client := newTestClientWithServer(server.URL)
+	result, err := client.GenerateDiagram(context.Background(), args)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return result
+}
+
+// assertDiagramCounts verifies the node and connector counts in a result.
+func assertDiagramCounts(t *testing.T, result GenerateDiagramResult, wantNodes, wantConnectors int) {
+	t.Helper()
+	if result.NodesCreated != wantNodes {
+		t.Errorf("NodesCreated = %d, want %d", result.NodesCreated, wantNodes)
+	}
+	if result.ConnectorsCreated != wantConnectors {
+		t.Errorf("ConnectorsCreated = %d, want %d", result.ConnectorsCreated, wantConnectors)
+	}
+}
+
+// captureShapeField generates args on a fake API and returns the value of
+// body[outer][inner] from the last shape creation request, or nil if absent.
+func captureShapeField(t *testing.T, args GenerateDiagramArgs, outer, inner string) interface{} {
+	t.Helper()
+	var captured interface{}
+	cfg := diagramServerConfig{inspectShape: func(body map[string]interface{}) {
+		if v, ok := nestedField(body, outer, inner); ok {
+			captured = v
+		}
+	}}
+	generateDiagram(t, cfg, args)
+	return captured
+}
+
+// compoundWant holds the expected compound-item fields of a diagram result.
+type compoundWant struct {
+	mode, id, itemType string
+}
+
+// assertCompoundDiagram verifies the compound-item fields of a result,
+// including that the message mentions the output mode.
+func assertCompoundDiagram(t *testing.T, result GenerateDiagramResult, want compoundWant) {
+	t.Helper()
+	if result.OutputMode != want.mode {
+		t.Errorf("OutputMode = %q, want %q", result.OutputMode, want.mode)
+	}
+	if result.DiagramID != want.id {
+		t.Errorf("DiagramID = %q, want %q", result.DiagramID, want.id)
+	}
+	if result.DiagramType != want.itemType {
+		t.Errorf("DiagramType = %q, want %q", result.DiagramType, want.itemType)
+	}
+	if !strings.Contains(result.Message, want.mode) {
+		t.Errorf("Message = %q, want to contain %q", result.Message, want.mode)
+	}
+}
+
+// nestedField returns body[outer][inner] when both levels exist.
+func nestedField(body map[string]interface{}, outer, inner string) (interface{}, bool) {
+	m, ok := body[outer].(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	v, ok := m[inner]
+	return v, ok
+}
+
+// nestedFloat returns body[outer][inner] as a float64 when present.
+func nestedFloat(body map[string]interface{}, outer, inner string) (float64, bool) {
+	v, ok := nestedField(body, outer, inner)
+	if !ok {
+		return 0, false
+	}
+	f, ok := v.(float64)
+	return f, ok
+}
+
+// nestedString returns body[outer][inner] as a string when present.
+func nestedString(body map[string]interface{}, outer, inner string) (string, bool) {
+	v, ok := nestedField(body, outer, inner)
+	if !ok {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
+}
+
+// =============================================================================
 // GenerateDiagram Tests
 // =============================================================================
 
@@ -59,53 +249,12 @@ func TestGenerateDiagram_ValidationErrors(t *testing.T) {
 }
 
 func TestGenerateDiagram_SimpleFlowchart(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		// Handle shape creation
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		// Handle connector creation
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A[Start]-->B[End]",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
-	if result.NodesCreated != 2 {
-		t.Errorf("NodesCreated = %d, want 2", result.NodesCreated)
-	}
-	if result.ConnectorsCreated != 1 {
-		t.Errorf("ConnectorsCreated = %d, want 1", result.ConnectorsCreated)
-	}
+	assertDiagramCounts(t, result, 2, 1)
 	if len(result.NodeIDs) != 2 {
 		t.Errorf("len(NodeIDs) = %d, want 2", len(result.NodeIDs))
 	}
@@ -118,108 +267,25 @@ func TestGenerateDiagram_SimpleFlowchart(t *testing.T) {
 }
 
 func TestGenerateDiagram_WithDecisionNode(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
 	// Flowchart with decision node (diamond shape)
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: `flowchart TB
     A[Start] --> B{Decision}
     B -->|Yes| C[Success]
     B -->|No| D[Retry]`,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
-	if result.NodesCreated != 4 {
-		t.Errorf("NodesCreated = %d, want 4", result.NodesCreated)
-	}
-	if result.ConnectorsCreated != 3 {
-		t.Errorf("ConnectorsCreated = %d, want 3", result.ConnectorsCreated)
-	}
+	assertDiagramCounts(t, result, 4, 3)
 }
 
 func TestGenerateDiagram_SequenceDiagram(t *testing.T) {
-	var shapeCount, connectorCount, frameCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/frames") && r.Method == http.MethodPost {
-			count := frameCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("frame%d", count),
-				"type": "frame",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: `sequenceDiagram
     Alice->>Bob: Hello Bob!
     Bob-->>Alice: Hi Alice!`,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// Sequence diagrams create participant boxes and message arrows
 	if result.NodesCreated < 2 {
@@ -234,53 +300,24 @@ func TestGenerateDiagram_WithCustomPosition(t *testing.T) {
 	var receivedX, receivedY float64
 	var positionCaptured bool
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			// Capture position from first shape
-			if !positionCaptured {
-				var req map[string]interface{}
-				if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
-					if pos, ok := req["position"].(map[string]interface{}); ok {
-						receivedX = pos["x"].(float64)
-						receivedY = pos["y"].(float64)
-						positionCaptured = true
-					}
-				}
-			}
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "shape1",
-				"type": "shape",
-			})
+	cfg := diagramServerConfig{inspectShape: func(body map[string]interface{}) {
+		if positionCaptured {
 			return
 		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "conn1",
-				"type": "connector",
-			})
-			return
+		x, okX := nestedFloat(body, "position", "x")
+		y, okY := nestedFloat(body, "position", "y")
+		if okX && okY {
+			receivedX, receivedY = x, y
+			positionCaptured = true
 		}
+	}}
 
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	_, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	generateDiagram(t, cfg, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A[Start]-->B[End]",
 		StartX:  500,
 		StartY:  300,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// The first shape should have the custom start position applied
 	if receivedX < 500 || receivedY < 300 {
@@ -289,95 +326,26 @@ func TestGenerateDiagram_WithCustomPosition(t *testing.T) {
 }
 
 func TestGenerateDiagram_WithNodeWidth(t *testing.T) {
-	var receivedWidth float64
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			var req map[string]interface{}
-			if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
-				if geo, ok := req["geometry"].(map[string]interface{}); ok {
-					if width, ok := geo["width"].(float64); ok {
-						receivedWidth = width
-					}
-				}
-			}
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "shape1",
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "conn1",
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	_, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	receivedWidth := captureShapeField(t, GenerateDiagramArgs{
 		BoardID:   "board123",
 		Diagram:   "flowchart TB\n    A[Start]-->B[End]",
 		NodeWidth: 250,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	}, "geometry", "width")
 
-	if receivedWidth != 250 {
-		t.Errorf("node width = %f, want 250", receivedWidth)
+	if receivedWidth != 250.0 {
+		t.Errorf("node width = %v, want 250", receivedWidth)
 	}
 }
 
 func TestGenerateDiagram_ShapeCreationFailure(t *testing.T) {
-	var callCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := callCount.Add(1)
-			// Fail first shape, succeed on second
-			if count == 1 {
-				w.WriteHeader(http.StatusInternalServerError)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"message": "Internal server error",
-				})
-				return
-			}
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "shape2",
-				"type": "shape",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
+	// Fail first shape, succeed on second
+	cfg := diagramServerConfig{failShape: func(call int32) bool { return call == 1 }}
 
 	// Should still succeed with partial results (1 shape created, 1 failed)
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, cfg, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A[Start]-->B[End]",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// One shape should have been created despite the failure
 	if result.NodesCreated != 1 {
@@ -386,145 +354,33 @@ func TestGenerateDiagram_ShapeCreationFailure(t *testing.T) {
 }
 
 func TestGenerateDiagram_ConnectorCreationFailure(t *testing.T) {
-	var shapeCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			// Fail connector creation
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"message": "Internal server error",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{failConnectors: true}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A[Start]-->B[End]",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// Shapes should be created, connectors should fail gracefully
-	if result.NodesCreated != 2 {
-		t.Errorf("NodesCreated = %d, want 2", result.NodesCreated)
-	}
-	if result.ConnectorsCreated != 0 {
-		t.Errorf("ConnectorsCreated = %d, want 0 (all failed)", result.ConnectorsCreated)
-	}
+	assertDiagramCounts(t, result, 2, 0)
 }
 
 func TestGenerateDiagram_WithParentID(t *testing.T) {
-	var receivedParentID string
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			var req map[string]interface{}
-			if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
-				if parent, ok := req["parent"].(map[string]interface{}); ok {
-					if id, ok := parent["id"].(string); ok {
-						receivedParentID = id
-					}
-				}
-			}
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "shape1",
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "conn1",
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	_, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	receivedParentID := captureShapeField(t, GenerateDiagramArgs{
 		BoardID:  "board123",
 		Diagram:  "flowchart TB\n    A[Start]-->B[End]",
 		ParentID: "frame456",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	}, "parent", "id")
 
 	if receivedParentID != "frame456" {
-		t.Errorf("parent_id = %q, want 'frame456'", receivedParentID)
+		t.Errorf("parent_id = %v, want 'frame456'", receivedParentID)
 	}
 }
 
 func TestGenerateDiagram_LRDirection(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
 	// Test left-to-right direction
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart LR\n    A[Start]-->B[End]",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	if result.NodesCreated != 2 {
 		t.Errorf("NodesCreated = %d, want 2", result.NodesCreated)
@@ -532,44 +388,11 @@ func TestGenerateDiagram_LRDirection(t *testing.T) {
 }
 
 func TestGenerateDiagram_GraphKeyword(t *testing.T) {
-	var shapeCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "conn1",
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
 	// Test "graph" keyword (alias for flowchart)
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "graph TB\n    A-->B",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	if result.NodesCreated != 2 {
 		t.Errorf("NodesCreated = %d, want 2", result.NodesCreated)
@@ -579,39 +402,16 @@ func TestGenerateDiagram_GraphKeyword(t *testing.T) {
 func TestGenerateDiagram_CircleNode(t *testing.T) {
 	var receivedShapes []string
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			var req map[string]interface{}
-			if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
-				if data, ok := req["data"].(map[string]interface{}); ok {
-					if shape, ok := data["shape"].(string); ok {
-						receivedShapes = append(receivedShapes, shape)
-					}
-				}
-			}
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "shape1",
-				"type": "shape",
-			})
-			return
+	cfg := diagramServerConfig{inspectShape: func(body map[string]interface{}) {
+		if shape, ok := nestedString(body, "data", "shape"); ok {
+			receivedShapes = append(receivedShapes, shape)
 		}
+	}}
 
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	_, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	generateDiagram(t, cfg, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A((Circle Node))",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// Check that a circle shape was created
 	hasCircle := false
@@ -627,21 +427,18 @@ func TestGenerateDiagram_CircleNode(t *testing.T) {
 }
 
 func TestGenerateDiagram_EmptyResult(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// All requests fail
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
+	// All requests fail
+	cfg := diagramServerConfig{
+		failShape:      func(int32) bool { return true },
+		failConnectors: true,
+		failFrames:     true,
+		failGroups:     true,
+	}
 
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, cfg, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A[Start]-->B[End]",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// Should return empty result without error
 	if result.NodesCreated != 0 {
@@ -653,52 +450,12 @@ func TestGenerateDiagram_EmptyResult(t *testing.T) {
 }
 
 func TestGenerateDiagram_FrameCreationFailure(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		// Frames fail
-		if strings.Contains(r.URL.Path, "/frames") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	// Sequence diagram creates frames for participants
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	// Sequence diagram creates frames for participants; frames fail
+	result := generateDiagram(t, diagramServerConfig{failFrames: true}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: `sequenceDiagram
     Alice->>Bob: Hello`,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// Should handle frame failure gracefully
 	if result.FramesCreated != 0 {
@@ -711,46 +468,11 @@ func TestGenerateDiagram_FrameCreationFailure(t *testing.T) {
 // =============================================================================
 
 func TestGenerateDiagram_OutputModeDiscrete(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	// Default mode (discrete)
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID:    "board123",
 		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
 		OutputMode: "discrete",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	if result.OutputMode != "discrete" {
 		t.Errorf("OutputMode = %q, want 'discrete'", result.OutputMode)
@@ -764,190 +486,39 @@ func TestGenerateDiagram_OutputModeDiscrete(t *testing.T) {
 }
 
 func TestGenerateDiagram_OutputModeGrouped(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/groups") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":    "group123",
-				"type":  "group",
-				"items": []string{"shape1", "shape2", "conn1"},
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID:    "board123",
 		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
 		OutputMode: "grouped",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
-	if result.OutputMode != "grouped" {
-		t.Errorf("OutputMode = %q, want 'grouped'", result.OutputMode)
-	}
-	if result.DiagramID != "group123" {
-		t.Errorf("DiagramID = %q, want 'group123'", result.DiagramID)
-	}
-	if result.DiagramType != "group" {
-		t.Errorf("DiagramType = %q, want 'group'", result.DiagramType)
-	}
+	assertCompoundDiagram(t, result, compoundWant{mode: "grouped", id: "group123", itemType: "group"})
 	if !strings.Contains(result.DiagramURL, "group123") {
 		t.Errorf("DiagramURL = %q, want to contain 'group123'", result.DiagramURL)
-	}
-	if !strings.Contains(result.Message, "grouped") {
-		t.Errorf("Message = %q, want to contain 'grouped'", result.Message)
 	}
 }
 
 func TestGenerateDiagram_OutputModeFramed(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/frames") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "frame456",
-				"type": "frame",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID:    "board123",
 		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
 		OutputMode: "framed",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
-	if result.OutputMode != "framed" {
-		t.Errorf("OutputMode = %q, want 'framed'", result.OutputMode)
-	}
-	if result.DiagramID != "frame456" {
-		t.Errorf("DiagramID = %q, want 'frame456'", result.DiagramID)
-	}
-	if result.DiagramType != "frame" {
-		t.Errorf("DiagramType = %q, want 'frame'", result.DiagramType)
-	}
-	if !strings.Contains(result.Message, "framed") {
-		t.Errorf("Message = %q, want to contain 'framed'", result.Message)
-	}
+	assertCompoundDiagram(t, result, compoundWant{mode: "framed", id: "frame1", itemType: "frame"})
 	// Frame should be added to FrameIDs
-	if len(result.FrameIDs) == 0 || result.FrameIDs[0] != "frame456" {
-		t.Errorf("FrameIDs = %v, want ['frame456']", result.FrameIDs)
+	if len(result.FrameIDs) == 0 || result.FrameIDs[0] != "frame1" {
+		t.Errorf("FrameIDs = %v, want ['frame1']", result.FrameIDs)
 	}
 }
 
 func TestGenerateDiagram_OutputModeGroupedFailure(t *testing.T) {
-	var shapeCount, connectorCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			count := connectorCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("conn%d", count),
-				"type": "connector",
-			})
-			return
-		}
-
-		// Groups endpoint fails
-		if strings.Contains(r.URL.Path, "/groups") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"message": "Internal server error",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	// Groups endpoint fails
+	result := generateDiagram(t, diagramServerConfig{failGroups: true}, GenerateDiagramArgs{
 		BoardID:    "board123",
 		Diagram:    "flowchart TB\n    A[Start]-->B[End]",
 		OutputMode: "grouped",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	// Should still have created items, just not grouped
 	if result.NodesCreated != 2 {
@@ -962,44 +533,11 @@ func TestGenerateDiagram_OutputModeGroupedFailure(t *testing.T) {
 }
 
 func TestGenerateDiagram_OutputModeDefaultsToDiscrete(t *testing.T) {
-	var shapeCount atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		if strings.Contains(r.URL.Path, "/shapes") && r.Method == http.MethodPost {
-			count := shapeCount.Add(1)
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   fmt.Sprintf("shape%d", count),
-				"type": "shape",
-			})
-			return
-		}
-
-		if strings.Contains(r.URL.Path, "/connectors") && r.Method == http.MethodPost {
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id":   "conn1",
-				"type": "connector",
-			})
-			return
-		}
-
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-
 	// No OutputMode specified
-	result, err := client.GenerateDiagram(context.Background(), GenerateDiagramArgs{
+	result := generateDiagram(t, diagramServerConfig{}, GenerateDiagramArgs{
 		BoardID: "board123",
 		Diagram: "flowchart TB\n    A[Start]-->B[End]",
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
 	if result.OutputMode != "discrete" {
 		t.Errorf("OutputMode = %q, want 'discrete' (default)", result.OutputMode)

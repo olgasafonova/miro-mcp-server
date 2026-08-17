@@ -4,7 +4,7 @@ Run your [Miro](https://miro.com) workshops, retros, and planning sessions from 
 
 > **Community project** — Not officially affiliated with Miro. See [official options](#official-vs-community) below.
 
-**108 tools** | **Single binary** | **All platforms** | **All major AI tools**
+**109 tools** | **Single binary** | **All platforms** | **All major AI tools**
 
 [![CI](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/ci.yml)
 [![lint](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/olgasafonova/miro-mcp-server/actions/workflows/lint.yml)
@@ -146,7 +146,7 @@ go install github.com/olgasafonova/miro-cli/cmd/miro-cli@latest
 
 ## Companion MCP Apps server: `miro-mcp-apps`
 
-If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Eleven tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 108-tool CRUD surface, that one for visual at-a-glance views.
+If you want Miro data to render as interactive **UI** in the chat (cards, tables, color clusters, SVG graphs) instead of streamed JSON, there's a TypeScript sibling: [`miro-mcp-apps`](https://github.com/olgasafonova/miro-mcp-apps). Eleven tools built on the [MCP Apps extension](https://github.com/modelcontextprotocol/ext-apps) (SEP-1865), reusing the same `MIRO_ACCESS_TOKEN`. The two servers run side-by-side: this one for the 109-tool CRUD surface, that one for visual at-a-glance views.
 
 | You want… | Use |
 |---|---|
@@ -160,14 +160,14 @@ The MCP Apps pattern is TypeScript-only today (Go SDK has no `ext-apps` helpers)
 
 ## Token Efficiency
 
-The full tool surface (108 tools) costs roughly **20K tokens** of preload; the `essentials` profile trims that to ~2.7K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
+The full tool surface (109 tools) costs roughly **20.6K tokens** of preload; the `essentials` profile trims that to ~2.8K. For sessions where that footprint matters, set `MIRO_TOOLS_PROFILE=essentials` in your client config; the server then registers a curated 15-tool subset (boards, list/find/search, sticky/text/frame/connector creation, list/get/update/delete items) plus one discovery meta-tool. Agents reach the rest via `miro_tool_search` on demand.
 
 | Profile | Tools | Preload tokens (est.) |
 |---|---|---|
-| `full` (default) | 108 | ~19,879 |
-| `essentials` | 15 | ~2,719 |
+| `full` (default) | 109 | ~20,609 |
+| `essentials` | 15 | ~2,848 |
 
-Savings: **~17,200 tokens (86.3% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
+Savings: **~17,760 tokens (86.2% reduction)** when you opt into `essentials`. Description tokens are exact (JSON-marshaled); schema cost is estimated at 200 bytes per tool. Reproduce locally with `go run ./cmd/token-count/`.
 
 `miro_tool_search(query?, category?, limit?)` is registered in both profiles. It searches tool names, titles, descriptions, and categories with weighted keyword scoring (name 3×, title 2×, category 2.5×, description 1×), returns up to 50 matches, and never recommends itself. Use it when you don't know which tool to reach for, or to scope to a category before browsing. Empty query plus a category returns the category's tools alphabetically.
 
@@ -175,7 +175,7 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 
 ---
 
-## All 108 Tools
+## All 109 Tools
 
 <details>
 <summary><b>Board Management (9)</b></summary>
@@ -286,12 +286,13 @@ See [CONFIG.md](CONFIG.md) for the full env-var reference.
 </details>
 
 <details>
-<summary><b>Canvas SVG (2, local transform)</b></summary>
+<summary><b>Canvas SVG (3, local transform)</b></summary>
 
 | Tool | Description |
 |------|-------------|
-| `miro_read_board_svg` | Render board items as an SVG document (computed locally) |
-| `miro_create_from_svg` | Create shapes and text from SVG rect/circle/ellipse/text elements |
+| `miro_read_board_svg` | Render board items as an SVG document (computed locally); `frame_id` scopes the render to one frame |
+| `miro_create_from_svg` | Create items from SVG: shapes, text, stickies and frames (`data-type` hints), triangles, images, connectors (`line` with `data-start`/`data-end`) |
+| `miro_update_from_svg` | Apply an SVG diff keyed on `data-miro-id`: update in place, delete (`data-deleted`), create additively; read output is re-submittable |
 
 </details>
 
@@ -470,7 +471,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 108 (or 15 in `essentials` profile) | 65 |
+| **Tools** | 109 (or 15 in `essentials` profile) | 65 |
 | **Transport** | stdio + HTTP | HTTPS only (hosted at mcp.miro.com) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
@@ -479,7 +480,7 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 | **Diagram generation** | Mermaid, parsed locally; native diagram items readable via `miro_list_diagrams`/`miro_get_diagram` | Mermaid (`diagram_create_mermaid`, `diagram_update_mermaid`) plus a custom DSL |
 | **AI context** | No | Yes (`context_explore`, `context_get`) |
 | **Layout DSL** | Composed from bulk create + the [`miro-workflow`](skills/miro-workflow/) skill | Yes, but marked deprecated upstream in favour of the canvas tools |
-| **Canvas as SVG** | Read + create (local geometry transform; spatial approximation) | Yes (read, create, update from SVG) |
+| **Canvas as SVG** | Read + create + update (`data-miro-id` diff; local geometry transform; spatial approximation). Reads scope to a single frame via `frame_id`, and read output is directly re-submittable to the update tool | Yes (read, create, update from SVG). Reads are whole-board only, and read output is re-escaped, so it cannot be fed back to the update tool verbatim |
 | **Spaces & sections** | No | Yes (11 tools) — workspace-level grouping of boards, not board content |
 | **Comments** | Yes (create, list, get, reply, resolve; v2-experimental) | Yes (create, list, reply, resolve) |
 | **Prototypes** | No | Yes (read, create, upload URL) |
@@ -508,7 +509,7 @@ Board context is a design difference rather than a gap. `context_get` returns a 
 
 **When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, spaces and sections, comments, board context extraction, or SVG/prototype workflows.
 
-**When to use this server:** You need full REST coverage (108 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, richer board listing metadata, bulk ops, mindmaps, tags, connectors, or export.
+**When to use this server:** You need full REST coverage (109 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, richer board listing metadata, bulk ops, mindmaps, tags, connectors, or export.
 
 Both can coexist — use different MCP server names in your config.
 
@@ -613,7 +614,7 @@ MIRO_ACCESS_TOKEN=your-token npx @modelcontextprotocol/inspector miro-mcp-server
 ```
 
 Open `http://localhost:6274` to:
-- Browse all 108 tools with their schemas
+- Browse all 109 tools with their schemas
 - Test tool calls interactively
 - View raw JSON-RPC messages
 - Debug parameter validation
@@ -658,7 +659,7 @@ See [SETUP.md](SETUP.md) for configuration guides.
 | Free | 104 tools |
 | Team | 104 tools |
 | Business | 104 tools |
-| Enterprise | All 108 tools |
+| Enterprise | All 109 tools |
 
 Four tools need an Enterprise plan and fail with a hint saying so: the three PDF/SVG export tools (`miro_create_export_job`, `miro_get_export_job_status`, `miro_get_export_job_results`) and `miro_get_org_audit_logs`, which additionally needs the `auditlogs:read` scope. `miro_get_board_picture` works on every plan. Everything else works on any plan.
 

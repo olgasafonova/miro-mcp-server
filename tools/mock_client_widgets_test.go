@@ -138,6 +138,14 @@ func (m *MockClient) CreateFromSVG(ctx context.Context, args miro.CreateFromSVGA
 	})
 }
 
+func (m *MockClient) UpdateFromSVG(ctx context.Context, args miro.UpdateFromSVGArgs) (miro.UpdateFromSVGResult, error) {
+	m.recordCall("UpdateFromSVG", args)
+	return stub(ctx, m.UpdateFromSVGFn, args, miro.UpdateFromSVGResult{
+		Updated: []miro.SVGUpdatedItem{{ID: "item-1", Element: "rect"}},
+		Message: "Updated 1, deleted 0, created 0 item(s) (0 failed, 0 skipped)",
+	})
+}
+
 // =============================================================================
 // CodeWidgetService Implementation
 // =============================================================================

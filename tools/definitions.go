@@ -381,7 +381,9 @@ VOICE-FRIENDLY: "Deleted 5 items from the board"`,
 		HeaderParams: map[string]string{"board_id": "Board-Id"},
 		Description: `List items on a Miro board (max 50). For ALL items with auto-pagination, use miro_list_all_items. For text search, use miro_search_board.
 
-USE WHEN: "what's on the board", "show all stickies", "list shapes"`,
+USE WHEN: "what's on the board", "show all stickies", "list shapes"
+
+CAVEAT: Miro's REST index lags items created moments ago by Miro AI or the official Miro MCP composer, and interactive widgets (polls, kanban, timelines) never appear in it. Missing items on a fresh board are index lag, not deletion.`,
 	},
 	{
 		Name:     "miro_get_item",
@@ -833,6 +835,8 @@ VOICE-FRIENDLY: "Found 'Design Sprint' board - ready to work on it"`,
 
 USE WHEN: "summarize this board", "board stats", "what's the overview"
 
+CAVEAT: counts come from Miro's REST index, which lags items created moments ago by Miro AI or the official Miro MCP composer, and excludes interactive widgets (polls, kanban, timelines) entirely. A count lower than what the board shows visually is index lag, not data loss.
+
 VOICE-FRIENDLY: "Design Sprint has 15 stickies, 8 shapes, and 3 frames - 26 items total"`,
 	},
 	{
@@ -1277,14 +1281,15 @@ VOICE-FRIENDLY: "Resolved - 2 threads still open"`,
 		Title:    "Read Board as SVG",
 		Category: "read",
 		ReadOnly: true,
-		Description: `Render a board's items as an SVG document, computed locally from item geometry (no export job, no external service). Frames render as dashed outlines, shapes and stickies as filled rects/ellipses with labels, text as text, connectors as lines between item centers. Every element carries data-miro-id and data-miro-type attributes linking it back to the board item.
+		Description: `Render a board's items as an SVG document, computed locally from item geometry (no export job, no external service). Frames render as dashed outlines, shapes and stickies as filled rects/ellipses with labels, text as text, connectors as lines between item centers. Every element carries data-miro-id and data-miro-type attributes linking it back to the board item, and the document is directly re-submittable to miro_update_from_svg after editing.
 
-USE WHEN: "show me the board as SVG", "vector snapshot of the layout", "diff two boards visually", or feeding a board's spatial layout to a tool that reads SVG.
+USE WHEN: "show me the board as SVG", "show me just this frame", "vector snapshot of the layout", "diff two boards visually", or feeding a board's spatial layout to a tool that reads SVG.
 
 NOT FOR: pixel-accurate rendering (use miro_get_board_picture) or full content analysis (use miro_get_board_content). This is a spatial approximation: images render as placeholder rects and rich styling is reduced to fill colors.
 
 PARAMETERS:
 - board_id: Required. max_items: cap on items fetched (default 500, max 2000).
+- frame_id: Optional. Scope the render to one frame and its children; child coordinates come back relative to the frame's top-left corner, with the frame outline at (0,0).
 
 RETURNS: svg (the document), item_count, skipped (items with no visual mapping), truncated.`,
 	},
@@ -1293,17 +1298,36 @@ RETURNS: svg (the document), item_count, skipped (items with no visual mapping),
 		Method:   "CreateFromSVG",
 		Title:    "Create Items from SVG",
 		Category: "create",
-		Description: `Create board items from an SVG document, parsed locally. Supported elements: rect (-> rectangle shape; rx>0 -> round_rectangle), circle and ellipse (-> circle shape), text (-> text item), g with transform="translate(x,y)" (offset applied to children, nesting supported). Fill colors carry over. Unsupported elements (path, polygon, line, image, ...) are itemized in the response as skipped, never silently dropped.
+		Description: `Create board items from an SVG document, parsed locally. Supported elements: rect (-> rectangle shape; rx>0 -> round_rectangle; data-type="sticky" -> sticky note with data-content text; data-type="frame" -> frame with data-title), circle and ellipse (-> circle shape), polygon with 3 points (-> triangle shape), text (-> text item), image with a public href (-> image item), line with data-start/data-end referencing other elements' id attributes (-> connector, created after the referenced items; data-caption -> label), g with transform="translate(x,y)" (offset applied to children, nesting supported). Fill colors carry over. Unsupported elements (path, multi-point polygon, ...) are itemized in the response as skipped, never silently dropped.
 
 USE WHEN: "put this SVG on the board", "recreate this wireframe as board items", importing a diagram from a tool that exports SVG.
 
-NOT FOR: pixel-faithful SVG import (Miro has no vector item type; this maps to native shapes) or Mermaid diagrams (use miro_generate_diagram).
+NOT FOR: pixel-faithful SVG import (Miro has no vector item type; this maps to native shapes), Mermaid diagrams (use miro_generate_diagram), or editing existing items (use miro_update_from_svg).
 
 PARAMETERS:
 - board_id, svg: Required. SVG source, max 1 MiB, max 200 drawable elements per call.
 - offset_x, offset_y: Optional placement offset for the whole batch.
 
 RETURNS: created (id, type, source element per item), skipped (element + reason), count. On a mid-batch failure the created list still names every item that landed, so the caller can verify or clean up.`,
+	},
+	{
+		Name:        "miro_update_from_svg",
+		Method:      "UpdateFromSVG",
+		Title:       "Update Items from SVG",
+		Category:    "update",
+		Destructive: true,
+		Description: `Apply an SVG document to a board as a diff keyed on data-miro-id, parsed locally. Elements carrying data-miro-id update the matching item in place: geometry is restated as a unit (x, y, width, height together; a partial restatement fails that item), fill -> color, text content -> content. WARNING: elements with data-miro-id AND data-deleted="true" permanently delete the item; confirm with the user first. Elements WITHOUT data-miro-id are created additively, same dialect as miro_create_from_svg. The output of miro_read_board_svg is directly re-submittable here: edit it and send it back.
+
+Two failure classes: a malformed document (bad XML, unescaped &) fails the whole request with nothing applied; a per-item semantic error (unknown id, partial geometry) lands in the failed list while the rest of the batch applies.
+
+USE WHEN: "move these items", "recolor the stickies in this layout", "apply my edited SVG back to the board", iterating on a layout read via miro_read_board_svg.
+
+NOT FOR: first-time creation (use miro_create_from_svg) or connector edits (use miro_update_connector; connectors are create-only in this dialect).
+
+PARAMETERS:
+- board_id, svg: Required. SVG source, max 1 MiB, max 200 drawable elements per call.
+
+RETURNS: updated (id + element), deleted (ids), created (additive items), failed (id + reason per semantic failure), skipped (element + reason).`,
 	},
 
 	// ==========================================================================

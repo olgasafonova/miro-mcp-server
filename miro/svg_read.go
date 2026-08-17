@@ -210,11 +210,74 @@ func wrapSVGDocument(body string, bounds *svgBounds) string {
 		body)
 }
 
+// collectFrameItems pages through a frame's children up to maxItems. The
+// returned truncated flag reports whether more children remained.
+func (c *Client) collectFrameItems(ctx context.Context, boardID, frameID string, maxItems int) ([]ItemSummary, bool, error) {
+	var items []ItemSummary
+	cursor := ""
+	for {
+		page, err := c.GetFrameItems(ctx, GetFrameItemsArgs{
+			BoardID: boardID, FrameID: frameID,
+			Limit: 100, Cursor: cursor, DetailLevel: "full",
+		})
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to list frame items: %w", err)
+		}
+		items = append(items, page.Items...)
+		if len(items) >= maxItems {
+			return items[:maxItems], page.HasMore || len(items) > maxItems, nil
+		}
+		if !page.HasMore {
+			return items, false, nil
+		}
+		cursor = page.Cursor
+	}
+}
+
+// readFrameSVG renders one frame and its children. Child coordinates come
+// back frame-relative (center-anchored, origin at the frame's top-left), so
+// the frame outline is drawn at (0,0) and children render as returned. This
+// is the scoped read the official Miro MCP composer lacks: its
+// canvas_read_as_svg always returns the whole board.
+func (c *Client) readFrameSVG(ctx context.Context, args ReadBoardSVGArgs) (ReadBoardSVGResult, error) {
+	frame, err := c.GetFrame(ctx, GetFrameArgs{BoardID: args.BoardID, FrameID: args.FrameID})
+	if err != nil {
+		return ReadBoardSVGResult{}, fmt.Errorf("failed to get frame: %w", err)
+	}
+
+	items, truncated, err := c.collectFrameItems(ctx, args.BoardID, args.FrameID, clampSVGMaxItems(args.MaxItems))
+	if err != nil {
+		return ReadBoardSVGResult{}, err
+	}
+
+	var body strings.Builder
+	bounds := &svgBounds{}
+	bounds.add(0, 0, frame.Width, frame.Height)
+	fmt.Fprintf(&body, `<rect x="0" y="0" width="%.1f" height="%.1f" fill="none" stroke="#999" stroke-dasharray="6,3" data-miro-id=%q data-miro-type="frame"/>`+"\n",
+		frame.Width, frame.Height, frame.ID)
+	if frame.Title != "" {
+		fmt.Fprintf(&body, `<text x="4" y="-6" font-size="12" fill="#666">%s</text>`+"\n", html.EscapeString(frame.Title))
+	}
+	rendered, skipped := renderSVGItems(&body, items, bounds)
+
+	return ReadBoardSVGResult{
+		SVG:       wrapSVGDocument(body.String(), bounds),
+		ItemCount: rendered,
+		Skipped:   skipped,
+		Truncated: truncated,
+		Message:   fmt.Sprintf("Rendered frame %q with %d item(s) as SVG (%d skipped); child coordinates are relative to the frame's top-left", frame.ID, rendered, skipped),
+	}, nil
+}
+
 // ReadBoardSVG renders a board's items as an SVG document, computed locally
-// from the item listing. Connector endpoints resolve to item centers.
+// from the item listing. Connector endpoints resolve to item centers. With
+// frame_id set, the render is scoped to that frame and its children.
 func (c *Client) ReadBoardSVG(ctx context.Context, args ReadBoardSVGArgs) (ReadBoardSVGResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
 		return ReadBoardSVGResult{}, err
+	}
+	if args.FrameID != "" {
+		return c.readFrameSVG(ctx, args)
 	}
 
 	items, err := c.ListAllItems(ctx, ListAllItemsArgs{

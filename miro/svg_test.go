@@ -133,7 +133,7 @@ func TestParseSVGElements_NestedTranslate(t *testing.T) {
 func TestParseSVGElements_UnsupportedAreReported(t *testing.T) {
 	svg := `<svg>
 		<path d="M0 0 L10 10"/>
-		<polygon points="0,0 10,0 5,10"/>
+		<polygon points="0,0 10,0 5,10 10,10"/>
 		<line x1="0" y1="0" x2="10" y2="10"/>
 		<rect x="0" y="0" width="10" height="10"/>
 	</svg>`
@@ -146,7 +146,7 @@ func TestParseSVGElements_UnsupportedAreReported(t *testing.T) {
 		t.Errorf("got %d elements, want 1 (the rect)", len(elements))
 	}
 	if len(skipped) != 3 {
-		t.Fatalf("skipped = %d, want 3 (path, polygon, line)", len(skipped))
+		t.Fatalf("skipped = %d, want 3 (path, 4-point polygon, referenceless line)", len(skipped))
 	}
 	names := map[string]bool{}
 	for _, s := range skipped {

@@ -118,6 +118,7 @@ type MockClient struct {
 	ResolveCommentFn func(ctx context.Context, args miro.ResolveCommentArgs) (miro.ResolveCommentResult, error)
 	ReadBoardSVGFn   func(ctx context.Context, args miro.ReadBoardSVGArgs) (miro.ReadBoardSVGResult, error)
 	CreateFromSVGFn  func(ctx context.Context, args miro.CreateFromSVGArgs) (miro.CreateFromSVGResult, error)
+	UpdateFromSVGFn  func(ctx context.Context, args miro.UpdateFromSVGArgs) (miro.UpdateFromSVGResult, error)
 
 	GetOrgAuditLogsFn func(ctx context.Context, args miro.GetOrgAuditLogsArgs) (miro.GetOrgAuditLogsResult, error)
 

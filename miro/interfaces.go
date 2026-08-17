@@ -140,6 +140,7 @@ type OrgAuditService interface {
 type SVGService interface {
 	ReadBoardSVG(ctx context.Context, args ReadBoardSVGArgs) (ReadBoardSVGResult, error)
 	CreateFromSVG(ctx context.Context, args CreateFromSVGArgs) (CreateFromSVGResult, error)
+	UpdateFromSVG(ctx context.Context, args UpdateFromSVGArgs) (UpdateFromSVGResult, error)
 }
 
 // FrameService handles frame-specific operations (beyond create).

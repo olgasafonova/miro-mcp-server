@@ -52,14 +52,34 @@ func isExperimentalAccessDenied(apiErr *APIError) bool {
 	return apiErr.IsForbidden()
 }
 
+// codeWidgetWriteFields carries the argument fields shared by the create and
+// update code-widget tools. The two exported arg structs project onto it via
+// their writeFields methods.
+type codeWidgetWriteFields struct {
+	boardID  string
+	code     string
+	title    string
+	parentID string
+}
+
+// writeFields projects CreateCodeWidgetArgs onto the shared write fields.
+func (a CreateCodeWidgetArgs) writeFields() codeWidgetWriteFields {
+	return codeWidgetWriteFields{boardID: a.BoardID, code: a.Code, title: a.Title, parentID: a.ParentID}
+}
+
+// writeFields projects UpdateCodeWidgetArgs onto the shared write fields.
+func (a UpdateCodeWidgetArgs) writeFields() codeWidgetWriteFields {
+	return codeWidgetWriteFields{boardID: a.BoardID, code: a.Code, title: a.Title, parentID: a.ParentID}
+}
+
 // validateCodeWidgetData checks the API-documented field caps shared by
 // create and update.
-func validateCodeWidgetData(code, title string) error {
-	if len(code) > maxCodeWidgetCodeLength {
-		return fmt.Errorf("code exceeds %d characters (got %d); split the snippet across multiple widgets", maxCodeWidgetCodeLength, len(code))
+func validateCodeWidgetData(f codeWidgetWriteFields) error {
+	if len(f.code) > maxCodeWidgetCodeLength {
+		return fmt.Errorf("code exceeds %d characters (got %d); split the snippet across multiple widgets", maxCodeWidgetCodeLength, len(f.code))
 	}
-	if len(title) > maxCodeWidgetTitleLength {
-		return fmt.Errorf("title exceeds %d characters (got %d)", maxCodeWidgetTitleLength, len(title))
+	if len(f.title) > maxCodeWidgetTitleLength {
+		return fmt.Errorf("title exceeds %d characters (got %d)", maxCodeWidgetTitleLength, len(f.title))
 	}
 	return nil
 }
@@ -97,20 +117,20 @@ func buildCodeWidgetData(code, language, title string, lineNumbersVisible *bool)
 
 // validateCodeWidgetWriteArgs checks the ID formats and field caps shared by
 // create and update requests.
-func validateCodeWidgetWriteArgs(boardID, code, title, parentID string) error {
-	if err := ValidateBoardID(boardID); err != nil {
+func validateCodeWidgetWriteArgs(f codeWidgetWriteFields) error {
+	if err := ValidateBoardID(f.boardID); err != nil {
 		return err
 	}
-	if err := validateCodeWidgetData(code, title); err != nil {
+	if err := validateCodeWidgetData(f); err != nil {
 		return err
 	}
-	return validateOptionalParentID(parentID)
+	return validateOptionalParentID(f.parentID)
 }
 
 // validateCreateCodeWidgetArgs checks required fields and ID formats before
 // a create request is issued.
 func validateCreateCodeWidgetArgs(args CreateCodeWidgetArgs) error {
-	if err := validateCodeWidgetWriteArgs(args.BoardID, args.Code, args.Title, args.ParentID); err != nil {
+	if err := validateCodeWidgetWriteArgs(args.writeFields()); err != nil {
 		return err
 	}
 	if args.Code == "" {
@@ -132,7 +152,7 @@ func validateOptionalParentID(parentID string) error {
 
 // buildCodeWidgetWriteBody assembles the data/geometry/parent fields shared
 // by create and update request bodies.
-func buildCodeWidgetWriteBody(data, geo map[string]interface{}, parentID string) map[string]interface{} {
+func buildCodeWidgetWriteBody(data, geo map[string]interface{}, f codeWidgetWriteFields) map[string]interface{} {
 	reqBody := map[string]interface{}{}
 	if data != nil {
 		reqBody["data"] = data
@@ -140,8 +160,8 @@ func buildCodeWidgetWriteBody(data, geo map[string]interface{}, parentID string)
 	if geo != nil {
 		reqBody["geometry"] = geo
 	}
-	if parentID != "" {
-		reqBody["parent"] = map[string]interface{}{"id": parentID}
+	if f.parentID != "" {
+		reqBody["parent"] = map[string]interface{}{"id": f.parentID}
 	}
 	return reqBody
 }
@@ -153,7 +173,7 @@ func buildCreateCodeWidgetBody(args CreateCodeWidgetArgs) map[string]interface{}
 	reqBody := buildCodeWidgetWriteBody(
 		buildCodeWidgetData(args.Code, args.Language, args.Title, args.LineNumbersVisible),
 		buildCodeWidgetGeometry(args.Width, args.Height),
-		args.ParentID,
+		args.writeFields(),
 	)
 	if args.X != 0 || args.Y != 0 {
 		reqBody["position"] = map[string]interface{}{
@@ -381,7 +401,7 @@ func validateUpdateCodeWidgetArgs(args UpdateCodeWidgetArgs) error {
 	if err := ValidateItemID(args.ItemID); err != nil {
 		return fmt.Errorf("invalid item_id: %w", err)
 	}
-	return validateCodeWidgetWriteArgs(args.BoardID, args.Code, args.Title, args.ParentID)
+	return validateCodeWidgetWriteArgs(args.writeFields())
 }
 
 // buildUpdateCodeWidgetBody assembles the request body for an update call;
@@ -390,7 +410,7 @@ func buildUpdateCodeWidgetBody(args UpdateCodeWidgetArgs) map[string]interface{}
 	return buildCodeWidgetWriteBody(
 		buildCodeWidgetData(args.Code, args.Language, args.Title, args.LineNumbersVisible),
 		buildCodeWidgetGeometry(args.Width, args.Height),
-		args.ParentID,
+		args.writeFields(),
 	)
 }
 

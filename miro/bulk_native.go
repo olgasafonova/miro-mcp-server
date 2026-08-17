@@ -65,41 +65,9 @@ func bulkCreateItemBody(boardID string, item BulkCreateItem) (map[string]interfa
 		})
 
 	case "shape":
-		shapeArgs := CreateShapeArgs{
-			BoardID:           boardID,
-			Shape:             item.Shape,
-			Content:           item.Content,
-			X:                 item.X,
-			Y:                 item.Y,
-			Width:             item.Width,
-			Height:            item.Height,
-			Color:             item.Color,
-			TextColor:         item.TextColor,
-			TextAlign:         item.TextAlign,
-			TextAlignVertical: item.TextAlignVertical,
-			FontSize:          item.FontSize,
-			ParentID:          item.ParentID,
-		}
-		if err := validateShapeCreateArgs(shapeArgs.BoardID, shapeArgs.Shape); err != nil {
-			return nil, err
-		}
-		// Same style composition CreateShape performs: base body carries data,
-		// position, geometry and parent; style is assembled separately and
-		// attached. Reusing these three helpers rather than re-deriving is what
-		// keeps colour normalization and text alignment identical across paths.
-		body = buildShapeBaseBody(shapeArgs.toCoreBody())
-		style, err := buildCreateShapeStyle(shapeArgs.Color, shapeArgs.TextColor)
+		body, err = bulkShapeBody(boardID, item)
 		if err != nil {
 			return nil, err
-		}
-		if err := applyShapeTextAlign(style, shapeArgs.TextAlign, shapeArgs.TextAlignVertical); err != nil {
-			return nil, err
-		}
-		if shapeArgs.FontSize > 0 {
-			style["fontSize"] = strconv.Itoa(shapeArgs.FontSize)
-		}
-		if len(style) > 0 {
-			body["style"] = style
 		}
 
 	case "text":
@@ -130,6 +98,48 @@ func bulkCreateItemBody(boardID string, item BulkCreateItem) (map[string]interfa
 	// The native endpoint discriminates on a top-level "type"; the per-endpoint
 	// builders above have no reason to set it, since their URL carries the type.
 	body["type"] = item.Type
+	return body, nil
+}
+
+// bulkShapeBody maps a shape BulkCreateItem onto the native wire body.
+//
+// Same style composition CreateShape performs: base body carries data,
+// position, geometry and parent; style is assembled separately and
+// attached. Reusing these three helpers rather than re-deriving is what
+// keeps colour normalization and text alignment identical across paths.
+func bulkShapeBody(boardID string, item BulkCreateItem) (map[string]interface{}, error) {
+	shapeArgs := CreateShapeArgs{
+		BoardID:           boardID,
+		Shape:             item.Shape,
+		Content:           item.Content,
+		X:                 item.X,
+		Y:                 item.Y,
+		Width:             item.Width,
+		Height:            item.Height,
+		Color:             item.Color,
+		TextColor:         item.TextColor,
+		TextAlign:         item.TextAlign,
+		TextAlignVertical: item.TextAlignVertical,
+		FontSize:          item.FontSize,
+		ParentID:          item.ParentID,
+	}
+	if err := validateShapeCreateArgs(shapeArgs.BoardID, shapeArgs.Shape); err != nil {
+		return nil, err
+	}
+	body := buildShapeBaseBody(shapeArgs.toCoreBody())
+	style, err := buildCreateShapeStyle(shapeArgs.Color, shapeArgs.TextColor)
+	if err != nil {
+		return nil, err
+	}
+	if err := applyShapeTextAlign(style, shapeArgs.TextAlign, shapeArgs.TextAlignVertical); err != nil {
+		return nil, err
+	}
+	if shapeArgs.FontSize > 0 {
+		style["fontSize"] = strconv.Itoa(shapeArgs.FontSize)
+	}
+	if len(style) > 0 {
+		body["style"] = style
+	}
 	return body, nil
 }
 

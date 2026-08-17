@@ -73,11 +73,11 @@ var staticSuggestions = map[int]string{
 	http.StatusServiceUnavailable:  "Miro API is temporarily unavailable. Try again in a few minutes.",
 }
 
-// rateLimitSuggestion produces the 429 message, formatted with RetryAfter
-// when present.
-func (e *APIError) rateLimitSuggestion() string {
-	if e.RetryAfter > 0 {
-		return fmt.Sprintf("Rate limit exceeded. Wait %d seconds before retrying.", e.RetryAfter)
+// rateLimitSuggestion produces the 429 message, formatted with the
+// retry-after seconds when present.
+func rateLimitSuggestion(retryAfter int) string {
+	if retryAfter > 0 {
+		return fmt.Sprintf("Rate limit exceeded. Wait %d seconds before retrying.", retryAfter)
 	}
 	return "Rate limit exceeded. Wait a moment before retrying, or reduce request frequency."
 }
@@ -85,7 +85,7 @@ func (e *APIError) rateLimitSuggestion() string {
 // Suggestion returns actionable guidance for resolving the error.
 func (e *APIError) Suggestion() string {
 	if e.StatusCode == http.StatusTooManyRequests {
-		return e.rateLimitSuggestion()
+		return rateLimitSuggestion(e.RetryAfter)
 	}
 	return staticSuggestions[e.StatusCode]
 }
@@ -105,9 +105,20 @@ func ParseAPIError(resp *http.Response, body []byte) *APIError {
 	apiErr := &APIError{
 		StatusCode: resp.StatusCode,
 	}
+	apiErr.fillFromBody(body)
 
-	// Try to parse as JSON error envelope. Only fields that JSON-decoded
-	// reach apiErr; raw body is dropped on every code path.
+	// Parse Retry-After header for rate limits
+	if resp.StatusCode == http.StatusTooManyRequests {
+		apiErr.RetryAfter = retryAfterSeconds(resp)
+	}
+
+	return apiErr
+}
+
+// fillFromBody populates the JSON envelope fields from the response body.
+// Only fields that JSON-decoded reach the error; the raw body is dropped on
+// every code path.
+func (e *APIError) fillFromBody(body []byte) {
 	var jsonErr struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
@@ -116,26 +127,35 @@ func ParseAPIError(resp *http.Response, body []byte) *APIError {
 		Context string `json:"context"`
 	}
 	if err := json.Unmarshal(body, &jsonErr); err == nil && jsonErr.Message != "" {
-		apiErr.Code = jsonErr.Code
-		apiErr.Message = jsonErr.Message
-		apiErr.Type = jsonErr.Type
-		apiErr.Context = jsonErr.Context
+		e.Code = jsonErr.Code
+		e.Message = jsonErr.Message
+		e.Type = jsonErr.Type
+		e.Context = jsonErr.Context
 	} else {
 		// Non-JSON, malformed JSON, or JSON without a usable message field.
 		// Don't leak the raw body — return a stable status string instead.
-		apiErr.Message = http.StatusText(resp.StatusCode)
+		e.Message = http.StatusText(e.StatusCode)
 	}
+}
 
-	// Parse Retry-After header for rate limits
-	if resp.StatusCode == http.StatusTooManyRequests {
-		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
-			if seconds, err := strconv.Atoi(retryAfter); err == nil {
-				apiErr.RetryAfter = seconds
-			}
-		}
+// retryAfterSeconds parses the Retry-After header; 0 when absent or malformed.
+func retryAfterSeconds(resp *http.Response) int {
+	retryAfter := resp.Header.Get("Retry-After")
+	if retryAfter == "" {
+		return 0
 	}
+	seconds, err := strconv.Atoi(retryAfter)
+	if err != nil {
+		return 0
+	}
+	return seconds
+}
 
-	return apiErr
+// asAPIError unwraps err to the *APIError in its chain, if any.
+func asAPIError(err error) (*APIError, bool) {
+	var apiErr *APIError
+	ok := errors.As(err, &apiErr)
+	return apiErr, ok
 }
 
 // WrapError wraps an error with additional context.
@@ -144,15 +164,21 @@ func WrapError(err error, operation string) error {
 		return nil
 	}
 
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
-		// Add suggestion for API errors
-		if suggestion := apiErr.Suggestion(); suggestion != "" {
-			return fmt.Errorf("%s failed: %w. Suggestion: %s", operation, err, suggestion)
-		}
+	// Add suggestion for API errors
+	if suggestion := suggestionFor(err); suggestion != "" {
+		return fmt.Errorf("%s failed: %w. Suggestion: %s", operation, err, suggestion)
 	}
 
 	return fmt.Errorf("%s failed: %w", operation, err)
+}
+
+// suggestionFor returns the actionable suggestion when err carries an APIError,
+// or the empty string otherwise.
+func suggestionFor(err error) string {
+	if apiErr, ok := asAPIError(err); ok {
+		return apiErr.Suggestion()
+	}
+	return ""
 }
 
 // IsRateLimitError checks if an error is a rate limit error.
@@ -160,11 +186,16 @@ func IsRateLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := asAPIError(err); ok {
 		return apiErr.IsRateLimited()
 	}
 	// Fallback to string matching for wrapped errors
+	return mentionsRateLimit(err)
+}
+
+// mentionsRateLimit reports whether a wrapped error's text looks rate-limit
+// shaped (a 429 status or the words "rate limit").
+func mentionsRateLimit(err error) bool {
 	return strings.Contains(err.Error(), "429") || strings.Contains(strings.ToLower(err.Error()), "rate limit")
 }
 
@@ -173,8 +204,7 @@ func IsAuthError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := asAPIError(err); ok {
 		return apiErr.IsUnauthorized() || apiErr.IsForbidden()
 	}
 	return false
@@ -185,8 +215,7 @@ func IsNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var apiErr *APIError
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := asAPIError(err); ok {
 		return apiErr.IsNotFound()
 	}
 	return false
@@ -197,8 +226,7 @@ func GetRetryAfter(err error) time.Duration {
 	if err == nil {
 		return 0
 	}
-	var apiErr *APIError
-	if errors.As(err, &apiErr) && apiErr.RetryAfter > 0 {
+	if apiErr, ok := asAPIError(err); ok && apiErr.RetryAfter > 0 {
 		return time.Duration(apiErr.RetryAfter) * time.Second
 	}
 	return 0

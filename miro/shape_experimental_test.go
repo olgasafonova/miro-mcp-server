@@ -13,53 +13,55 @@ import (
 // Experimental / flowchart shape tests
 // =============================================================================
 
-func TestBuildExperimentalShapeStyle(t *testing.T) {
-	t.Run("maps to the experimental key names", func(t *testing.T) {
-		style, err := buildExperimentalShapeStyle("#006400", "#000000")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if style["fillColor"] != "#006400" {
-			t.Errorf("fillColor = %v, want #006400", style["fillColor"])
-		}
-		if style["borderColor"] != "#000000" {
-			t.Errorf("borderColor = %v, want #000000", style["borderColor"])
-		}
-		// The non-experimental endpoint uses "color"; this one must not.
-		if _, present := style["color"]; present {
-			t.Error("experimental style must not carry a plain color key")
-		}
-	})
+// seCheckEq verifies a single value against its expected value.
+func seCheckEq(t *testing.T, name string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
 
-	t.Run("resolves named colors", func(t *testing.T) {
-		style, err := buildExperimentalShapeStyle("red", "")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if style["fillColor"] == "red" {
-			t.Error("named color should resolve to a hex value")
-		}
-	})
+func TestBuildExperimentalShapeStyle_MapsToExperimentalKeyNames(t *testing.T) {
+	style, err := buildExperimentalShapeStyle("#006400", "#000000")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	seCheckEq(t, "fillColor", style["fillColor"], "#006400")
+	seCheckEq(t, "borderColor", style["borderColor"], "#000000")
+	// The non-experimental endpoint uses "color"; this one must not.
+	if _, present := style["color"]; present {
+		t.Error("experimental style must not carry a plain color key")
+	}
+}
 
-	t.Run("omits empty colors", func(t *testing.T) {
-		style, err := buildExperimentalShapeStyle("", "")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(style) != 0 {
-			t.Errorf("style = %v, want empty when no colors are set", style)
-		}
-	})
+func TestBuildExperimentalShapeStyle_ResolvesNamedColors(t *testing.T) {
+	style, err := buildExperimentalShapeStyle("red", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if style["fillColor"] == "red" {
+		t.Error("named color should resolve to a hex value")
+	}
+}
 
-	t.Run("rejects an unknown color", func(t *testing.T) {
-		_, err := buildExperimentalShapeStyle("chartreuse-ish", "")
-		if err == nil {
-			t.Fatal("expected an error for an unrecognized color")
-		}
-		if !strings.Contains(err.Error(), "fill_color") {
-			t.Errorf("error = %v, want the fill_color tag named", err)
-		}
-	})
+func TestBuildExperimentalShapeStyle_OmitsEmptyColors(t *testing.T) {
+	style, err := buildExperimentalShapeStyle("", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(style) != 0 {
+		t.Errorf("style = %v, want empty when no colors are set", style)
+	}
+}
+
+func TestBuildExperimentalShapeStyle_RejectsUnknownColor(t *testing.T) {
+	_, err := buildExperimentalShapeStyle("chartreuse-ish", "")
+	if err == nil {
+		t.Fatal("expected an error for an unrecognized color")
+	}
+	if !strings.Contains(err.Error(), "fill_color") {
+		t.Errorf("error = %v, want the fill_color tag named", err)
+	}
 }
 
 func TestCreateShapeExperimentalArgs_ToCoreBody(t *testing.T) {
@@ -78,39 +80,55 @@ func TestCreateShapeExperimentalArgs_ToCoreBody(t *testing.T) {
 
 	core := args.toCoreBody()
 
-	if core.boardID != "board123" {
-		t.Errorf("boardID = %q, want board123", core.boardID)
-	}
-	if core.shape != "flow_chart_predefined_process" {
-		t.Errorf("shape = %q", core.shape)
-	}
-	if core.content != "Process step" {
-		t.Errorf("content = %q", core.content)
-	}
-	if core.x != 10 || core.y != 20 {
-		t.Errorf("position = (%v, %v), want (10, 20)", core.x, core.y)
-	}
-	if core.width != 300 || core.height != 150 {
-		t.Errorf("geometry = (%v, %v), want (300, 150)", core.width, core.height)
-	}
-	if core.parentID != "frame999" {
-		t.Errorf("parentID = %q, want frame999", core.parentID)
-	}
+	seCheckEq(t, "boardID", core.boardID, "board123")
+	seCheckEq(t, "shape", core.shape, "flow_chart_predefined_process")
+	seCheckEq(t, "content", core.content, "Process step")
+	seCheckEq(t, "x", core.x, float64(10))
+	seCheckEq(t, "y", core.y, float64(20))
+	seCheckEq(t, "width", core.width, float64(300))
+	seCheckEq(t, "height", core.height, float64(150))
+	seCheckEq(t, "parentID", core.parentID, "frame999")
 }
 
-func TestCreateShapeExperimental_Success(t *testing.T) {
-	var gotBody map[string]interface{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// seCaptureServer returns a server that checks for POST, captures the request
+// body into gotBody, and responds with the given item id.
+func seCaptureServer(t *testing.T, id string, gotBody *map[string]interface{}) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
-		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(gotBody); err != nil {
 			t.Fatalf("decoding request: %v", err)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "shape123"})
+		json.NewEncoder(w).Encode(map[string]interface{}{"id": id})
 	}))
+}
+
+// seCheckStencilResult verifies the created item id and the stencil-shape wording.
+func seCheckStencilResult(t *testing.T, gotID, wantID, message string) {
+	t.Helper()
+	seCheckEq(t, "ID", gotID, wantID)
+	if !strings.Contains(message, "stencil shape") {
+		t.Errorf("Message = %q, want it to mention a stencil shape", message)
+	}
+}
+
+// seBlock extracts a nested block such as data or style from a captured request body.
+func seBlock(t *testing.T, body map[string]interface{}, key string) map[string]interface{} {
+	t.Helper()
+	m, ok := body[key].(map[string]interface{})
+	if !ok {
+		t.Fatalf("missing %s block in request", key)
+	}
+	return m
+}
+
+func TestCreateShapeExperimental_Success(t *testing.T) {
+	var gotBody map[string]interface{}
+	server := seCaptureServer(t, "shape123", &gotBody)
 	defer server.Close()
 
 	client := newTestClientWithServer(server.URL)
@@ -124,20 +142,8 @@ func TestCreateShapeExperimental_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.ID != "shape123" {
-		t.Errorf("ID = %q, want shape123", result.ID)
-	}
-	if !strings.Contains(result.Message, "stencil shape") {
-		t.Errorf("Message = %q, want it to mention a stencil shape", result.Message)
-	}
-
-	style, ok := gotBody["style"].(map[string]interface{})
-	if !ok {
-		t.Fatal("missing style block in request")
-	}
-	if style["fillColor"] != "#006400" {
-		t.Errorf("request fillColor = %v, want #006400", style["fillColor"])
-	}
+	seCheckStencilResult(t, result.ID, "shape123", result.Message)
+	seCheckEq(t, "request fillColor", seBlock(t, gotBody, "style")["fillColor"], "#006400")
 }
 
 func TestCreateShapeExperimental_ValidationErrors(t *testing.T) {
@@ -159,46 +165,58 @@ func TestCreateShapeExperimental_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestCreateShapeExperimental_BadColorIsRejectedBeforeTheCall(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Error("an invalid color must be rejected before any API call")
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.CreateShapeExperimental(context.Background(), CreateShapeExperimentalArgs{
-		BoardID:   "board123",
-		Shape:     "rectangle",
-		FillColor: "not-a-real-color",
-	}); err == nil {
-		t.Fatal("expected an error for an invalid fill color")
+func TestCreateShapeExperimental_Errors(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler func(*testing.T) http.HandlerFunc
+		args    CreateShapeExperimentalArgs
+		wantMsg string
+	}{
+		{
+			name: "bad color is rejected before the call",
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(_ http.ResponseWriter, _ *http.Request) {
+					t.Error("an invalid color must be rejected before any API call")
+				}
+			},
+			args: CreateShapeExperimentalArgs{
+				BoardID:   "board123",
+				Shape:     "rectangle",
+				FillColor: "not-a-real-color",
+			},
+			wantMsg: "expected an error for an invalid fill color",
+		},
+		{
+			name: "API error",
+			handler: func(_ *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusBadRequest)
+				}
+			},
+			args: CreateShapeExperimentalArgs{
+				BoardID: "board123",
+				Shape:   "rectangle",
+			},
+			wantMsg: "expected an error on HTTP 400",
+		},
 	}
-}
 
-func TestCreateShapeExperimental_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer server.Close()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(tt.handler(t))
+			defer server.Close()
 
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.CreateShapeExperimental(context.Background(), CreateShapeExperimentalArgs{
-		BoardID: "board123",
-		Shape:   "rectangle",
-	}); err == nil {
-		t.Fatal("expected an error on HTTP 400")
+			client := newTestClientWithServer(server.URL)
+			if _, err := client.CreateShapeExperimental(context.Background(), tt.args); err == nil {
+				t.Fatal(tt.wantMsg)
+			}
+		})
 	}
 }
 
 func TestCreateFlowchartShape_DelegatesToExperimental(t *testing.T) {
 	var gotBody map[string]interface{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-			t.Fatalf("decoding request: %v", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "flow123"})
-	}))
+	server := seCaptureServer(t, "flow123", &gotBody)
 	defer server.Close()
 
 	client := newTestClientWithServer(server.URL)
@@ -214,23 +232,10 @@ func TestCreateFlowchartShape_DelegatesToExperimental(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.ID != "flow123" {
-		t.Errorf("ID = %q, want flow123", result.ID)
-	}
-	if !strings.Contains(result.Message, "stencil shape") {
-		t.Errorf("Message = %q, want the experimental stencil wording", result.Message)
-	}
-
-	data, ok := gotBody["data"].(map[string]interface{})
-	if !ok {
-		t.Fatal("missing data block in request")
-	}
-	if data["shape"] != "rhombus" {
-		t.Errorf("request shape = %v, want rhombus", data["shape"])
-	}
-	if data["content"] != "Decision?" {
-		t.Errorf("request content = %v, want Decision?", data["content"])
-	}
+	seCheckStencilResult(t, result.ID, "flow123", result.Message)
+	data := seBlock(t, gotBody, "data")
+	seCheckEq(t, "request shape", data["shape"], "rhombus")
+	seCheckEq(t, "request content", data["content"], "Decision?")
 }
 
 func TestCreateFlowchartShape_ValidationError(t *testing.T) {

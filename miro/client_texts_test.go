@@ -9,23 +9,67 @@ import (
 	"testing"
 )
 
+// txCheckMethod verifies the HTTP method of a request.
+func txCheckMethod(t *testing.T, r *http.Request, want string) {
+	t.Helper()
+	if r.Method != want {
+		t.Errorf("expected %s, got %s", want, r.Method)
+	}
+}
+
+// txDecodeBody decodes a JSON request body into a generic map.
+func txDecodeBody(t *testing.T, r *http.Request) map[string]interface{} {
+	t.Helper()
+	var body map[string]interface{}
+	json.NewDecoder(r.Body).Decode(&body)
+	return body
+}
+
+// txSection extracts a nested JSON object such as data, style, position, geometry, or parent.
+func txSection(t *testing.T, body map[string]interface{}, key string) map[string]interface{} {
+	t.Helper()
+	m, ok := body[key].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected %s in request body, got %v", key, body[key])
+	}
+	return m
+}
+
+// txCheckField verifies a field of a decoded JSON object.
+func txCheckField(t *testing.T, m map[string]interface{}, field string, want interface{}) {
+	t.Helper()
+	if m[field] != want {
+		t.Errorf("%s = %v, want %v", field, m[field], want)
+	}
+}
+
+// txCheckEq verifies a single result field against its expected value.
+func txCheckEq(t *testing.T, name string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// txServeCreated writes a JSON 201 response for a created text item.
+func txServeCreated(w http.ResponseWriter, id, content string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id": id,
+		"data": map[string]interface{}{
+			"content": content,
+		},
+	})
+}
+
 func TestCreateText_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
+		txCheckMethod(t, r, http.MethodPost)
 		if r.URL.Path != "/boards/board123/texts" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "text123",
-			"data": map[string]interface{}{
-				"content": "Hello World",
-			},
-		})
+		txServeCreated(w, "text123", "Hello World")
 	}))
 	defer server.Close()
 
@@ -40,12 +84,8 @@ func TestCreateText_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "text123" {
-		t.Errorf("ID = %q, want 'text123'", result.ID)
-	}
-	if result.Content != "Hello World" {
-		t.Errorf("Content = %q, want 'Hello World'", result.Content)
-	}
+	txCheckEq(t, "ID", result.ID, "text123")
+	txCheckEq(t, "Content", result.Content, "Hello World")
 }
 
 func TestCreateText_ValidationErrors(t *testing.T) {
@@ -83,28 +123,10 @@ func TestCreateText_ValidationErrors(t *testing.T) {
 
 func TestCreateText_WithStyle(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify style is included
-		if style, ok := body["style"].(map[string]interface{}); !ok {
-			t.Error("expected style in request body")
-		} else {
-			if style["fontSize"] != "24" {
-				t.Errorf("fontSize = %v, want '24'", style["fontSize"])
-			}
-			if style["color"] != "#ff0000" {
-				t.Errorf("color = %v, want '#ff0000'", style["color"])
-			}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "text-styled",
-			"data": map[string]interface{}{
-				"content": "Styled text",
-			},
-		})
+		style := txSection(t, txDecodeBody(t, r), "style")
+		txCheckField(t, style, "fontSize", "24")
+		txCheckField(t, style, "color", "#ff0000")
+		txServeCreated(w, "text-styled", "Styled text")
 	}))
 	defer server.Close()
 
@@ -119,36 +141,15 @@ func TestCreateText_WithStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "text-styled" {
-		t.Errorf("ID = %q, want 'text-styled'", result.ID)
-	}
+	txCheckEq(t, "ID", result.ID, "text-styled")
 }
 
 func TestCreateText_WithGeometryAndParent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		// Verify geometry
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else if geom["width"] != float64(300) {
-			t.Errorf("width = %v, want 300", geom["width"])
-		}
-		// Verify parent
-		if parent, ok := body["parent"].(map[string]interface{}); !ok {
-			t.Error("expected parent in request body")
-		} else if parent["id"] != "frame123" {
-			t.Errorf("parent.id = %v, want 'frame123'", parent["id"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "text-geom",
-			"data": map[string]interface{}{
-				"content": "Text with width",
-			},
-		})
+		body := txDecodeBody(t, r)
+		txCheckField(t, txSection(t, body, "geometry"), "width", float64(300))
+		txCheckField(t, txSection(t, body, "parent"), "id", "frame123")
+		txServeCreated(w, "text-geom", "Text with width")
 	}))
 	defer server.Close()
 
@@ -163,16 +164,12 @@ func TestCreateText_WithGeometryAndParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "text-geom" {
-		t.Errorf("ID = %q, want 'text-geom'", result.ID)
-	}
+	txCheckEq(t, "ID", result.ID, "text-geom")
 }
 
 func TestUpdateText_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
+		txCheckMethod(t, r, http.MethodPatch)
 		if !strings.Contains(r.URL.Path, "/texts/") {
 			t.Errorf("expected /texts/ in path, got %s", r.URL.Path)
 		}
@@ -204,12 +201,8 @@ func TestUpdateText_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "text123" {
-		t.Errorf("ID = %q, want 'text123'", result.ID)
-	}
-	if result.Content != "Updated text" {
-		t.Errorf("Content = %q, want 'Updated text'", result.Content)
-	}
+	txCheckEq(t, "ID", result.ID, "text123")
+	txCheckEq(t, "Content", result.Content, "Updated text")
 }
 
 func TestUpdateText_NoChanges(t *testing.T) {
@@ -223,63 +216,26 @@ func TestUpdateText_NoChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Message != "No changes specified" {
-		t.Errorf("Message = %q, want 'No changes specified'", result.Message)
-	}
+	txCheckEq(t, "Message", result.Message, "No changes specified")
 }
 
 func TestUpdateText_WithAllFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		body := txDecodeBody(t, r)
 
-		// Verify data section
-		if data, ok := body["data"].(map[string]interface{}); !ok {
-			t.Error("expected data in request body")
-		} else if data["content"] != "Updated text content" {
-			t.Errorf("content = %v, want 'Updated text content'", data["content"])
-		}
+		txCheckField(t, txSection(t, body, "data"), "content", "Updated text content")
 
-		// Verify style section
-		if style, ok := body["style"].(map[string]interface{}); !ok {
-			t.Error("expected style in request body")
-		} else {
-			if style["fontSize"] != "18" {
-				t.Errorf("fontSize = %v, want '18'", style["fontSize"])
-			}
-			if style["textAlign"] != "center" {
-				t.Errorf("textAlign = %v, want 'center'", style["textAlign"])
-			}
-			if style["color"] != "#333333" {
-				t.Errorf("color = %v, want '#333333'", style["color"])
-			}
-		}
+		style := txSection(t, body, "style")
+		txCheckField(t, style, "fontSize", "18")
+		txCheckField(t, style, "textAlign", "center")
+		txCheckField(t, style, "color", "#333333")
 
-		// Verify position section
-		if pos, ok := body["position"].(map[string]interface{}); !ok {
-			t.Error("expected position in request body")
-		} else {
-			if pos["x"] != float64(100) {
-				t.Errorf("x = %v, want 100", pos["x"])
-			}
-			if pos["y"] != float64(200) {
-				t.Errorf("y = %v, want 200", pos["y"])
-			}
-		}
+		pos := txSection(t, body, "position")
+		txCheckField(t, pos, "x", float64(100))
+		txCheckField(t, pos, "y", float64(200))
 
-		// Verify geometry section
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else if geom["width"] != float64(400) {
-			t.Errorf("width = %v, want 400", geom["width"])
-		}
-
-		// Verify parent section
-		if parent, ok := body["parent"].(map[string]interface{}); !ok {
-			t.Error("expected parent in request body")
-		} else if parent["id"] != "frame-abc" {
-			t.Errorf("parent.id = %v, want 'frame-abc'", parent["id"])
-		}
+		txCheckField(t, txSection(t, body, "geometry"), "width", float64(400))
+		txCheckField(t, txSection(t, body, "parent"), "id", "frame-abc")
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -316,7 +272,5 @@ func TestUpdateText_WithAllFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "text123" {
-		t.Errorf("ID = %v, want 'text123'", result.ID)
-	}
+	txCheckEq(t, "ID", result.ID, "text123")
 }

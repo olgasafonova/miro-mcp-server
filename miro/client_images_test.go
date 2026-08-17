@@ -45,29 +45,63 @@ func TestCreateImage_Success(t *testing.T) {
 	}
 }
 
-func TestCreateImage_ValidationErrors(t *testing.T) {
+// imgCheckEq verifies a single result field against its expected value.
+func imgCheckEq(t *testing.T, name string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// imgCreateImage calls CreateImage with the given args and discards the result.
+func imgCreateImage(args CreateImageArgs) func(*Client) error {
+	return func(c *Client) error {
+		_, err := c.CreateImage(context.Background(), args)
+		return err
+	}
+}
+
+// imgGetImage calls GetImage with the given args and discards the result.
+func imgGetImage(args GetImageArgs) func(*Client) error {
+	return func(c *Client) error {
+		_, err := c.GetImage(context.Background(), args)
+		return err
+	}
+}
+
+func TestImages_ValidationErrors(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
 
 	tests := []struct {
 		name    string
-		args    CreateImageArgs
+		call    func(*Client) error
 		errText string
 	}{
 		{
-			name:    "empty board_id",
-			args:    CreateImageArgs{URL: "https://example.com/img.png"},
+			name:    "create image empty board_id",
+			call:    imgCreateImage(CreateImageArgs{URL: "https://example.com/img.png"}),
 			errText: "board_id is required",
 		},
 		{
-			name:    "empty url",
-			args:    CreateImageArgs{BoardID: "board123"},
+			name:    "create image empty url",
+			call:    imgCreateImage(CreateImageArgs{BoardID: "board123"}),
 			errText: "url is required",
+		},
+		{
+			name:    "get image empty board_id",
+			call:    imgGetImage(GetImageArgs{ItemID: "img456"}),
+			errText: "board_id is required",
+		},
+		{
+			name:    "get image empty item_id",
+			call:    imgGetImage(GetImageArgs{BoardID: "board123"}),
+			errText: "item_id is required",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateImage(context.Background(), tt.args)
+			err := tt.call(client)
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -117,57 +151,12 @@ func TestGetImage_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "img456" {
-		t.Errorf("ID = %q, want 'img456'", result.ID)
-	}
-	if result.Title != "Logo" {
-		t.Errorf("Title = %q, want 'Logo'", result.Title)
-	}
-	if result.ImageURL != "https://miro.com/images/img456.png" {
-		t.Errorf("ImageURL = %q, want 'https://miro.com/images/img456.png'", result.ImageURL)
-	}
-	if result.Width != 800.0 {
-		t.Errorf("Width = %f, want 800", result.Width)
-	}
-	if result.Height != 600.0 {
-		t.Errorf("Height = %f, want 600", result.Height)
-	}
-	if result.ParentID != "frame1" {
-		t.Errorf("ParentID = %q, want 'frame1'", result.ParentID)
-	}
-}
-
-func TestGetImage_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    GetImageArgs
-		errText string
-	}{
-		{
-			name:    "empty board_id",
-			args:    GetImageArgs{ItemID: "img456"},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty item_id",
-			args:    GetImageArgs{BoardID: "board123"},
-			errText: "item_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.GetImage(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
+	imgCheckEq(t, "ID", result.ID, "img456")
+	imgCheckEq(t, "Title", result.Title, "Logo")
+	imgCheckEq(t, "ImageURL", result.ImageURL, "https://miro.com/images/img456.png")
+	imgCheckEq(t, "Width", result.Width, 800.0)
+	imgCheckEq(t, "Height", result.Height, 600.0)
+	imgCheckEq(t, "ParentID", result.ParentID, "frame1")
 }
 
 func TestCreateImage_WithAllFields(t *testing.T) {

@@ -9,29 +9,81 @@ import (
 	"testing"
 )
 
+// cwCheckRequest verifies the HTTP method and URL path suffix of a request.
+func cwCheckRequest(t *testing.T, r *http.Request, method, pathSuffix string) {
+	t.Helper()
+	if r.Method != method {
+		t.Errorf("expected %s, got %s", method, r.Method)
+	}
+	if !strings.HasSuffix(r.URL.Path, pathSuffix) {
+		t.Errorf("unexpected path %s", r.URL.Path)
+	}
+}
+
+// cwDecodeBody decodes a JSON request body into a generic map.
+func cwDecodeBody(t *testing.T, r *http.Request) map[string]interface{} {
+	t.Helper()
+	var body map[string]interface{}
+	json.NewDecoder(r.Body).Decode(&body)
+	return body
+}
+
+// cwCheckField verifies a top-level field of a decoded JSON body.
+func cwCheckField(t *testing.T, body map[string]interface{}, field string, want interface{}) {
+	t.Helper()
+	if body[field] != want {
+		t.Errorf("%s = %v, want %v", field, body[field], want)
+	}
+}
+
+// cwNested extracts a nested JSON object such as data, parent, or position.
+func cwNested(t *testing.T, body map[string]interface{}, key string) map[string]interface{} {
+	t.Helper()
+	m, ok := body[key].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected %s object in request body, got %v", key, body[key])
+	}
+	return m
+}
+
+// cwCheckEq verifies a single result field against its expected value.
+func cwCheckEq(t *testing.T, name string, got, want interface{}) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// cwCheckNonEmpty verifies that a result field is populated.
+func cwCheckNonEmpty(t *testing.T, name, got string) {
+	t.Helper()
+	if got == "" {
+		t.Errorf("expected non-empty %s", name)
+	}
+}
+
+// cwCheckLimitParam verifies the limit query parameter of a list request.
+func cwCheckLimitParam(t *testing.T, r *http.Request, want string) {
+	t.Helper()
+	if got := r.URL.Query().Get("limit"); got != want {
+		t.Errorf("limit = %q, want %q", got, want)
+	}
+}
+
+// cwServeJSON writes a JSON response.
+func cwServeJSON(w http.ResponseWriter, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
+}
+
 func TestCreateCodeWidget_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/code_widgets") {
-			t.Errorf("expected code_widgets path, got %s", r.URL.Path)
-		}
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		data, ok := body["data"].(map[string]interface{})
-		if !ok {
-			t.Fatal("expected data in request body")
-		}
-		if data["code"] != `fmt.Println("hi")` {
-			t.Errorf("code = %v", data["code"])
-		}
-		if data["language"] != "go" {
-			t.Errorf("language = %v, want 'go'", data["language"])
-		}
+		cwCheckRequest(t, r, http.MethodPost, "/code_widgets")
+		data := cwNested(t, cwDecodeBody(t, r), "data")
+		cwCheckField(t, data, "code", `fmt.Println("hi")`)
+		cwCheckField(t, data, "language", "go")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		cwServeJSON(w, map[string]interface{}{
 			"id": "cw123",
 			"data": map[string]interface{}{
 				"title":    "My Snippet",
@@ -52,15 +104,9 @@ func TestCreateCodeWidget_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "cw123" {
-		t.Errorf("ID = %q, want 'cw123'", result.ID)
-	}
-	if result.ItemURL == "" {
-		t.Error("expected non-empty ItemURL")
-	}
-	if result.Language != "go" {
-		t.Errorf("Language = %q, want 'go'", result.Language)
-	}
+	cwCheckEq(t, "ID", result.ID, "cw123")
+	cwCheckNonEmpty(t, "ItemURL", result.ItemURL)
+	cwCheckEq(t, "Language", result.Language, "go")
 }
 
 func TestCreateCodeWidget_Validation(t *testing.T) {
@@ -92,24 +138,14 @@ func TestCreateCodeWidget_Validation(t *testing.T) {
 
 func TestCreateCodeWidget_WithParentAndGeometry(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		body := cwDecodeBody(t, r)
+		cwCheckField(t, cwNested(t, body, "parent"), "id", "frame123")
+		cwCheckField(t, cwNested(t, body, "geometry"), "width", float64(400))
+		pos := cwNested(t, body, "position")
+		cwCheckField(t, pos, "x", float64(10))
+		cwCheckField(t, pos, "origin", "center")
 
-		parent, ok := body["parent"].(map[string]interface{})
-		if !ok || parent["id"] != "frame123" {
-			t.Errorf("expected parent.id 'frame123', got %v", body["parent"])
-		}
-		geo, ok := body["geometry"].(map[string]interface{})
-		if !ok || geo["width"] != float64(400) {
-			t.Errorf("expected geometry.width 400, got %v", body["geometry"])
-		}
-		pos, ok := body["position"].(map[string]interface{})
-		if !ok || pos["x"] != float64(10) || pos["origin"] != "center" {
-			t.Errorf("expected position with x=10 origin=center, got %v", body["position"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "cw456", "data": map[string]interface{}{}})
+		cwServeJSON(w, map[string]interface{}{"id": "cw456", "data": map[string]interface{}{}})
 	}))
 	defer server.Close()
 
@@ -130,15 +166,9 @@ func TestCreateCodeWidget_WithParentAndGeometry(t *testing.T) {
 
 func TestGetCodeWidget_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/code_widgets/cw123") {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
+		cwCheckRequest(t, r, http.MethodGet, "/code_widgets/cw123")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		cwServeJSON(w, map[string]interface{}{
 			"id": "cw123",
 			"data": map[string]interface{}{
 				"code":               "print('hi')",
@@ -164,24 +194,16 @@ func TestGetCodeWidget_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Code != "print('hi')" || result.Language != "python" {
-		t.Errorf("unexpected data: %+v", result)
-	}
-	if !result.LineNumbersVisible {
-		t.Error("expected LineNumbersVisible true")
-	}
-	if result.X != 15.5 || result.Y != -3.0 {
-		t.Errorf("position = (%v, %v)", result.X, result.Y)
-	}
-	if result.Width != 300 || result.Height != 150 {
-		t.Errorf("geometry = (%v, %v)", result.Width, result.Height)
-	}
-	if result.ParentID != "frame9" {
-		t.Errorf("ParentID = %q", result.ParentID)
-	}
-	if result.CreatedAt == "" || result.ModifiedAt == "" {
-		t.Error("expected timestamps")
-	}
+	cwCheckEq(t, "Code", result.Code, "print('hi')")
+	cwCheckEq(t, "Language", result.Language, "python")
+	cwCheckEq(t, "LineNumbersVisible", result.LineNumbersVisible, true)
+	cwCheckEq(t, "X", result.X, 15.5)
+	cwCheckEq(t, "Y", result.Y, -3.0)
+	cwCheckEq(t, "Width", result.Width, float64(300))
+	cwCheckEq(t, "Height", result.Height, float64(150))
+	cwCheckEq(t, "ParentID", result.ParentID, "frame9")
+	cwCheckNonEmpty(t, "CreatedAt", result.CreatedAt)
+	cwCheckNonEmpty(t, "ModifiedAt", result.ModifiedAt)
 }
 
 func TestGetCodeWidget_NotFoundExperimentalHint(t *testing.T) {
@@ -212,15 +234,20 @@ func TestGetCodeWidget_NotFoundExperimentalHint(t *testing.T) {
 	}
 }
 
+// cwCheckTruncatedPreview verifies that a long code preview is cut to 80 chars with an ellipsis.
+func cwCheckTruncatedPreview(t *testing.T, preview string) {
+	t.Helper()
+	if len(preview) != 80 || !strings.HasSuffix(preview, "...") {
+		t.Errorf("preview not truncated to 80 with ellipsis: %q (len %d)", preview, len(preview))
+	}
+}
+
 func TestListCodeWidgets_DefaultLimitAndPreview(t *testing.T) {
 	longCode := strings.Repeat("a", 200)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("limit"); got != "50" {
-			t.Errorf("limit = %q, want '50'", got)
-		}
+		cwCheckLimitParam(t, r, "50")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		cwServeJSON(w, map[string]interface{}{
 			"data": []map[string]interface{}{
 				{
 					"id":   "cw-1",
@@ -246,27 +273,17 @@ func TestListCodeWidgets_DefaultLimitAndPreview(t *testing.T) {
 	if result.Count != 2 {
 		t.Fatalf("Count = %d, want 2", result.Count)
 	}
-	if len(result.Widgets[0].CodePreview) != 80 || !strings.HasSuffix(result.Widgets[0].CodePreview, "...") {
-		t.Errorf("preview not truncated to 80 with ellipsis: %q (len %d)", result.Widgets[0].CodePreview, len(result.Widgets[0].CodePreview))
-	}
-	if result.Widgets[1].CodePreview != "short" {
-		t.Errorf("short code should pass through, got %q", result.Widgets[1].CodePreview)
-	}
-	if result.Widgets[1].ParentID != "frame1" {
-		t.Errorf("ParentID = %q", result.Widgets[1].ParentID)
-	}
-	if !result.HasMore || result.Cursor != "next-page" {
-		t.Errorf("pagination: HasMore=%v Cursor=%q", result.HasMore, result.Cursor)
-	}
+	cwCheckTruncatedPreview(t, result.Widgets[0].CodePreview)
+	cwCheckEq(t, "Widgets[1].CodePreview", result.Widgets[1].CodePreview, "short")
+	cwCheckEq(t, "Widgets[1].ParentID", result.Widgets[1].ParentID, "frame1")
+	cwCheckEq(t, "HasMore", result.HasMore, true)
+	cwCheckEq(t, "Cursor", result.Cursor, "next-page")
 }
 
 func TestListCodeWidgets_CapsLimit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("limit"); got != "100" {
-			t.Errorf("limit = %q, want capped '100'", got)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": []map[string]interface{}{}})
+		cwCheckLimitParam(t, r, "100")
+		cwServeJSON(w, map[string]interface{}{"data": []map[string]interface{}{}})
 	}))
 	defer server.Close()
 
@@ -278,24 +295,14 @@ func TestListCodeWidgets_CapsLimit(t *testing.T) {
 
 func TestUpdateCodeWidget_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/code_widgets/cw123") {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		data, ok := body["data"].(map[string]interface{})
-		if !ok || data["code"] != "updated" {
-			t.Errorf("expected data.code 'updated', got %v", body["data"])
-		}
+		cwCheckRequest(t, r, http.MethodPatch, "/code_widgets/cw123")
+		body := cwDecodeBody(t, r)
+		cwCheckField(t, cwNested(t, body, "data"), "code", "updated")
 		if _, hasPos := body["position"]; hasPos {
 			t.Error("update must not send position; that's MoveCodeWidget's job")
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "cw123"})
+		cwServeJSON(w, map[string]interface{}{"id": "cw123"})
 	}))
 	defer server.Close()
 
@@ -309,9 +316,7 @@ func TestUpdateCodeWidget_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "cw123" {
-		t.Errorf("ID = %q", result.ID)
-	}
+	cwCheckEq(t, "ID", result.ID, "cw123")
 }
 
 func TestUpdateCodeWidget_NoFields(t *testing.T) {
@@ -327,20 +332,13 @@ func TestUpdateCodeWidget_NoFields(t *testing.T) {
 
 func TestMoveCodeWidget_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/code_widgets/cw123/position") {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-		if body["x"] != float64(250) || body["y"] != float64(-80) || body["origin"] != "center" {
-			t.Errorf("unexpected body: %v", body)
-		}
+		cwCheckRequest(t, r, http.MethodPatch, "/code_widgets/cw123/position")
+		body := cwDecodeBody(t, r)
+		cwCheckField(t, body, "x", float64(250))
+		cwCheckField(t, body, "y", float64(-80))
+		cwCheckField(t, body, "origin", "center")
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "cw123"})
+		cwServeJSON(w, map[string]interface{}{"id": "cw123"})
 	}))
 	defer server.Close()
 
@@ -355,21 +353,15 @@ func TestMoveCodeWidget_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.X != 250 || result.Y != -80 {
-		t.Errorf("result position = (%v, %v)", result.X, result.Y)
-	}
+	cwCheckEq(t, "X", result.X, float64(250))
+	cwCheckEq(t, "Y", result.Y, float64(-80))
 }
 
 func TestDeleteCodeWidget_Success(t *testing.T) {
 	var called bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/code_widgets/cw123") {
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
+		cwCheckRequest(t, r, http.MethodDelete, "/code_widgets/cw123")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()

@@ -9,26 +9,66 @@ import (
 	"testing"
 )
 
-func TestCreateMindmapNode_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if !strings.HasSuffix(r.URL.Path, "/mindmap_nodes") {
-			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
-		}
+// newMindmapTestClient starts a test server with the given handler and returns
+// a client pointed at it. The server is closed automatically at test end.
+func newMindmapTestClient(t *testing.T, handler http.HandlerFunc) *Client {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+// checkMindmapField fails the test when got differs from want.
+func checkMindmapField[T comparable](t *testing.T, name string, got, want T) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
+// mindmapNodeWire builds the wire-format JSON for one mindmap node.
+func mindmapNodeWire(id, content string, isRoot bool, parentID string) map[string]interface{} {
+	node := map[string]interface{}{
+		"id": id,
+		"data": map[string]interface{}{
+			"isRoot": isRoot,
+			"nodeView": map[string]interface{}{
+				"data": map[string]interface{}{
+					"content": content,
+				},
+			},
+		},
+	}
+	if parentID != "" {
+		node["parent"] = map[string]interface{}{"id": parentID}
+	}
+	return node
+}
+
+// mindmapListPayload builds the wire-format list response for mindmap nodes.
+func mindmapListPayload(cursor string, nodes ...map[string]interface{}) map[string]interface{} {
+	items := make([]interface{}, 0, len(nodes))
+	for _, n := range nodes {
+		items = append(items, n)
+	}
+	return map[string]interface{}{
+		"data":   items,
+		"cursor": cursor,
+	}
+}
+
+func TestCreateMindmapNode_Success(t *testing.T) {
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkMindmapField(t, "method", r.Method, http.MethodPost)
+		checkMindmapField(t, "path has /mindmap_nodes suffix", strings.HasSuffix(r.URL.Path, "/mindmap_nodes"), true)
+		writeJSON(w, map[string]interface{}{
 			"id": "mindmap123",
 			"data": map[string]interface{}{
 				"content": "Root Node",
 			},
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
 		BoardID: "board123",
 		Content: "Root Node",
@@ -39,16 +79,12 @@ func TestCreateMindmapNode_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "mindmap123" {
-		t.Errorf("ID = %q, want 'mindmap123'", result.ID)
-	}
-	if result.Content != "Root Node" {
-		t.Errorf("Content = %q, want 'Root Node'", result.Content)
-	}
+	checkMindmapField(t, "ID", result.ID, "mindmap123")
+	checkMindmapField(t, "Content", result.Content, "Root Node")
 }
 
 func TestCreateMindmapNode_WithParent(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
@@ -56,12 +92,8 @@ func TestCreateMindmapNode_WithParent(t *testing.T) {
 		if !ok {
 			t.Error("expected parent in request body")
 		}
-		if parent["id"] != "parent123" {
-			t.Errorf("parent id = %v, want 'parent123'", parent["id"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		checkMindmapField(t, "parent id", parent["id"], interface{}("parent123"))
+		writeJSON(w, map[string]interface{}{
 			"id": "child123",
 			"data": map[string]interface{}{
 				"content": "Child Node",
@@ -70,10 +102,8 @@ func TestCreateMindmapNode_WithParent(t *testing.T) {
 				"id": "parent123",
 			},
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
 		BoardID:  "board123",
 		Content:  "Child Node",
@@ -83,39 +113,149 @@ func TestCreateMindmapNode_WithParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ParentID != "parent123" {
-		t.Errorf("ParentID = %q, want 'parent123'", result.ParentID)
-	}
+	checkMindmapField(t, "ParentID", result.ParentID, "parent123")
 }
 
-func TestCreateMindmapNode_ValidationErrors(t *testing.T) {
+// TestMindmapNode_ValidationErrors covers input validation across the mindmap
+// CRUD methods; every case must fail with a message naming the missing field.
+func TestMindmapNode_ValidationErrors(t *testing.T) {
 	client := newTestClientWithServer("http://localhost")
+	ctx := context.Background()
 
 	tests := []struct {
 		name    string
-		args    CreateMindmapNodeArgs
+		call    func() error
 		wantErr string
 	}{
 		{
-			name:    "empty board ID",
-			args:    CreateMindmapNodeArgs{Content: "Test"},
+			name: "create with empty board ID",
+			call: func() error {
+				_, err := client.CreateMindmapNode(ctx, CreateMindmapNodeArgs{Content: "Test"})
+				return err
+			},
 			wantErr: "board_id is required",
 		},
 		{
-			name:    "empty content",
-			args:    CreateMindmapNodeArgs{BoardID: "board123"},
+			name: "create with empty content",
+			call: func() error {
+				_, err := client.CreateMindmapNode(ctx, CreateMindmapNodeArgs{BoardID: "board123"})
+				return err
+			},
 			wantErr: "content is required",
+		},
+		{
+			name: "get with empty board ID",
+			call: func() error {
+				_, err := client.GetMindmapNode(ctx, GetMindmapNodeArgs{NodeID: "node123"})
+				return err
+			},
+			wantErr: "board_id is required",
+		},
+		{
+			name: "get with empty node ID",
+			call: func() error {
+				_, err := client.GetMindmapNode(ctx, GetMindmapNodeArgs{BoardID: "board123"})
+				return err
+			},
+			wantErr: "node_id is required",
+		},
+		{
+			name: "delete with empty board ID",
+			call: func() error {
+				_, err := client.DeleteMindmapNode(ctx, DeleteMindmapNodeArgs{NodeID: "node123"})
+				return err
+			},
+			wantErr: "board_id is required",
+		},
+		{
+			name: "delete with empty node ID",
+			call: func() error {
+				_, err := client.DeleteMindmapNode(ctx, DeleteMindmapNodeArgs{BoardID: "board123"})
+				return err
+			},
+			wantErr: "node_id is required",
+		},
+		{
+			name: "list with empty board ID",
+			call: func() error {
+				_, err := client.ListMindmapNodes(ctx, ListMindmapNodesArgs{})
+				return err
+			},
+			wantErr: "board_id is required",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.CreateMindmapNode(context.Background(), tt.args)
+			err := tt.call()
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestMindmapNode_EmptyArgs exercises the same validation paths on a client
+// built directly from config, without a test server behind it.
+func TestMindmapNode_EmptyArgs(t *testing.T) {
+	client := NewClient(testConfig(), testLogger())
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "list with empty board_id",
+			call: func() error {
+				_, err := client.ListMindmapNodes(ctx, ListMindmapNodesArgs{BoardID: ""})
+				return err
+			},
+		},
+		{
+			name: "create with empty content",
+			call: func() error {
+				_, err := client.CreateMindmapNode(ctx, CreateMindmapNodeArgs{BoardID: "board123", Content: ""})
+				return err
+			},
+		},
+		{
+			name: "delete with empty board_id",
+			call: func() error {
+				_, err := client.DeleteMindmapNode(ctx, DeleteMindmapNodeArgs{BoardID: "", NodeID: "node123"})
+				return err
+			},
+		},
+		{
+			name: "delete with empty node_id",
+			call: func() error {
+				_, err := client.DeleteMindmapNode(ctx, DeleteMindmapNodeArgs{BoardID: "board123", NodeID: ""})
+				return err
+			},
+		},
+		{
+			name: "get with empty board_id",
+			call: func() error {
+				_, err := client.GetMindmapNode(ctx, GetMindmapNodeArgs{BoardID: "", NodeID: "node123"})
+				return err
+			},
+		},
+		{
+			name: "get with empty node_id",
+			call: func() error {
+				_, err := client.GetMindmapNode(ctx, GetMindmapNodeArgs{BoardID: "board123", NodeID: ""})
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(); err == nil {
+				t.Error("expected error for empty argument")
 			}
 		})
 	}
@@ -141,16 +281,10 @@ func TestTruncateMindmap(t *testing.T) {
 }
 
 func TestGetMindmapNode_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/mindmap_nodes/") {
-			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkMindmapField(t, "method", r.Method, http.MethodGet)
+		checkMindmapField(t, "path contains /mindmap_nodes/", strings.Contains(r.URL.Path, "/mindmap_nodes/"), true)
+		writeJSON(w, map[string]interface{}{
 			"id": "node123",
 			"position": map[string]interface{}{
 				"x": 100.0,
@@ -172,10 +306,8 @@ func TestGetMindmapNode_Success(t *testing.T) {
 			"createdAt":  "2024-01-01T00:00:00Z",
 			"modifiedAt": "2024-01-02T00:00:00Z",
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetMindmapNode(context.Background(), GetMindmapNodeArgs{
 		BoardID: "board123",
 		NodeID:  "node123",
@@ -184,100 +316,23 @@ func TestGetMindmapNode_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "node123" {
-		t.Errorf("ID = %q, want 'node123'", result.ID)
-	}
-	if result.Content != "Root Node" {
-		t.Errorf("Content = %q, want 'Root Node'", result.Content)
-	}
-	if !result.IsRoot {
-		t.Error("IsRoot = false, want true")
-	}
-	if len(result.ChildIDs) != 2 {
-		t.Errorf("ChildIDs count = %d, want 2", len(result.ChildIDs))
-	}
-	if result.X != 100.0 {
-		t.Errorf("X = %f, want 100.0", result.X)
-	}
-}
-
-func TestGetMindmapNode_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    GetMindmapNodeArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    GetMindmapNodeArgs{NodeID: "node123"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "empty node ID",
-			args:    GetMindmapNodeArgs{BoardID: "board123"},
-			wantErr: "node_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.GetMindmapNode(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
+	checkMindmapField(t, "ID", result.ID, "node123")
+	checkMindmapField(t, "Content", result.Content, "Root Node")
+	checkMindmapField(t, "IsRoot", result.IsRoot, true)
+	checkMindmapField(t, "ChildIDs count", len(result.ChildIDs), 2)
+	checkMindmapField(t, "X", result.X, 100.0)
 }
 
 func TestListMindmapNodes_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/mindmap_nodes") {
-			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
-		}
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkMindmapField(t, "method", r.Method, http.MethodGet)
+		checkMindmapField(t, "path contains /mindmap_nodes", strings.Contains(r.URL.Path, "/mindmap_nodes"), true)
+		writeJSON(w, mindmapListPayload("",
+			mindmapNodeWire("node1", "Root", true, ""),
+			mindmapNodeWire("node2", "Child", false, "node1"),
+		))
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id": "node1",
-					"data": map[string]interface{}{
-						"isRoot": true,
-						"nodeView": map[string]interface{}{
-							"data": map[string]interface{}{
-								"content": "Root",
-							},
-						},
-					},
-				},
-				{
-					"id": "node2",
-					"data": map[string]interface{}{
-						"isRoot": false,
-						"nodeView": map[string]interface{}{
-							"data": map[string]interface{}{
-								"content": "Child",
-							},
-						},
-					},
-					"parent": map[string]interface{}{
-						"id": "node1",
-					},
-				},
-			},
-			"cursor": "",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
 		BoardID: "board123",
 	})
@@ -285,58 +340,20 @@ func TestListMindmapNodes_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 2 {
-		t.Errorf("Count = %d, want 2", result.Count)
-	}
-	if len(result.Nodes) != 2 {
-		t.Errorf("Nodes count = %d, want 2", len(result.Nodes))
-	}
-	if result.Nodes[0].ID != "node1" {
-		t.Errorf("Nodes[0].ID = %q, want 'node1'", result.Nodes[0].ID)
-	}
-	if !result.Nodes[0].IsRoot {
-		t.Error("Nodes[0].IsRoot = false, want true")
-	}
-	if result.Nodes[1].ParentID != "node1" {
-		t.Errorf("Nodes[1].ParentID = %q, want 'node1'", result.Nodes[1].ParentID)
-	}
-}
-
-func TestListMindmapNodes_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{})
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("error = %q, want containing 'board_id is required'", err.Error())
-	}
+	checkMindmapField(t, "Count", result.Count, 2)
+	checkMindmapField(t, "Nodes count", len(result.Nodes), 2)
+	checkMindmapField(t, "Nodes[0].ID", result.Nodes[0].ID, "node1")
+	checkMindmapField(t, "Nodes[0].IsRoot", result.Nodes[0].IsRoot, true)
+	checkMindmapField(t, "Nodes[1].ParentID", result.Nodes[1].ParentID, "node1")
 }
 
 func TestListMindmapNodes_WithPagination(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{
-					"id": "node1",
-					"data": map[string]interface{}{
-						"isRoot": true,
-						"nodeView": map[string]interface{}{
-							"data": map[string]interface{}{
-								"content": "Node",
-							},
-						},
-					},
-				},
-			},
-			"cursor": "next_page",
-		})
-	}))
-	defer server.Close()
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, mindmapListPayload("next_page",
+			mindmapNodeWire("node1", "Node", true, ""),
+		))
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
 		BoardID: "board123",
 		Limit:   10,
@@ -345,25 +362,16 @@ func TestListMindmapNodes_WithPagination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.HasMore {
-		t.Error("HasMore = false, want true")
-	}
+	checkMindmapField(t, "HasMore", result.HasMore, true)
 }
 
 func TestDeleteMindmapNode_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/mindmap_nodes/") {
-			t.Errorf("expected mindmap_nodes path, got %s", r.URL.Path)
-		}
-
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkMindmapField(t, "method", r.Method, http.MethodDelete)
+		checkMindmapField(t, "path contains /mindmap_nodes/", strings.Contains(r.URL.Path, "/mindmap_nodes/"), true)
 		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.DeleteMindmapNode(context.Background(), DeleteMindmapNodeArgs{
 		BoardID: "board123",
 		NodeID:  "node123",
@@ -372,50 +380,13 @@ func TestDeleteMindmapNode_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Error("Success = false, want true")
-	}
-	if result.ID != "node123" {
-		t.Errorf("ID = %q, want 'node123'", result.ID)
-	}
-}
-
-func TestDeleteMindmapNode_ValidationErrors(t *testing.T) {
-	client := newTestClientWithServer("http://localhost")
-
-	tests := []struct {
-		name    string
-		args    DeleteMindmapNodeArgs
-		wantErr string
-	}{
-		{
-			name:    "empty board ID",
-			args:    DeleteMindmapNodeArgs{NodeID: "node123"},
-			wantErr: "board_id is required",
-		},
-		{
-			name:    "empty node ID",
-			args:    DeleteMindmapNodeArgs{BoardID: "board123"},
-			wantErr: "node_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.DeleteMindmapNode(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-			}
-		})
-	}
+	checkMindmapField(t, "Success", result.Success, true)
+	checkMindmapField(t, "ID", result.ID, "node123")
 }
 
 func TestCreateMindmapNode_WithPosition(t *testing.T) {
 	// Tests CreateMindmapNode with x, y position (root node)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
@@ -423,16 +394,12 @@ func TestCreateMindmapNode_WithPosition(t *testing.T) {
 		if _, ok := body["position"]; !ok {
 			t.Error("expected 'position' field for root node")
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, map[string]interface{}{
 			"id":   "node123",
 			"type": "mindmap_node",
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
 		BoardID: "board123",
 		Content: "Root Node",
@@ -445,96 +412,53 @@ func TestCreateMindmapNode_WithPosition(t *testing.T) {
 	}
 }
 
-func TestListMindmapNodes_WithCursor(t *testing.T) {
-	// Tests ListMindmapNodes with cursor pagination
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("cursor") != "abc123" {
-			t.Errorf("cursor = %v, want 'abc123'", r.URL.Query().Get("cursor"))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{
-				{"id": "node1", "type": "mindmap_node"},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
-		BoardID: "board123",
-		Cursor:  "abc123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+// TestListMindmapNodes_QueryParams verifies that pagination arguments reach
+// the API as query-string parameters.
+func TestListMindmapNodes_QueryParams(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      ListMindmapNodesArgs
+		wantQuery string
+	}{
+		{
+			name:      "cursor is forwarded",
+			args:      ListMindmapNodesArgs{BoardID: "board123", Cursor: "abc123"},
+			wantQuery: "cursor=abc123",
+		},
+		{
+			name:      "cursor pagination",
+			args:      ListMindmapNodesArgs{BoardID: "board123", Cursor: "abc123"},
+			wantQuery: "cursor=abc123",
+		},
+		{
+			name:      "limit clamped to 100",
+			args:      ListMindmapNodesArgs{BoardID: "board123", Limit: 500},
+			wantQuery: "limit=100",
+		},
 	}
-}
 
-// Tests for ListMindmapNodes error paths
-func TestListMindmapNodes_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
-		BoardID: "",
-	})
-	if err == nil {
-		t.Error("expected error for empty board_id")
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				if !strings.Contains(r.URL.RawQuery, tt.wantQuery) {
+					t.Errorf("expected %q in query string, got: %s", tt.wantQuery, r.URL.RawQuery)
+				}
+				writeJSON(w, mindmapListPayload(""))
+			})
 
-func TestListMindmapNodes_WithCursorPagination(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.RawQuery, "cursor=abc123") {
-			t.Errorf("expected cursor in query string, got: %s", r.URL.RawQuery)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []interface{}{},
+			if _, err := client.ListMindmapNodes(context.Background(), tt.args); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
-		BoardID: "board123",
-		Cursor:  "abc123",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestListMindmapNodes_LimitClampTo100(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.RawQuery, "limit=100") {
-			t.Errorf("expected limit=100, got: %s", r.URL.RawQuery)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []interface{}{},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
-		BoardID: "board123",
-		Limit:   500, // Should be clamped to 100
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestListMindmapNodes_JSONParseError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{invalid json}`))
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
 		BoardID: "board123",
 	})
@@ -544,120 +468,27 @@ func TestListMindmapNodes_JSONParseError(t *testing.T) {
 }
 
 func TestListMindmapNodes_WithParentNode(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []interface{}{
-				map[string]interface{}{
-					"id": "node1",
-					"data": map[string]interface{}{
-						"isRoot": true,
-						"nodeView": map[string]interface{}{
-							"data": map[string]interface{}{
-								"content": "Root Node",
-							},
-						},
-					},
-				},
-				map[string]interface{}{
-					"id": "node2",
-					"data": map[string]interface{}{
-						"isRoot": false,
-						"nodeView": map[string]interface{}{
-							"data": map[string]interface{}{
-								"content": "Child Node",
-							},
-						},
-					},
-					"parent": map[string]interface{}{
-						"id": "node1",
-					},
-				},
-			},
-			"cursor": "next_cursor",
-		})
-	}))
-	defer server.Close()
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, mindmapListPayload("next_cursor",
+			mindmapNodeWire("node1", "Root Node", true, ""),
+			mindmapNodeWire("node2", "Child Node", false, "node1"),
+		))
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListMindmapNodes(context.Background(), ListMindmapNodesArgs{
 		BoardID: "board123",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 2 {
-		t.Errorf("expected 2 nodes, got: %d", result.Count)
-	}
-	if !result.HasMore {
-		t.Error("expected HasMore=true when cursor is present")
-	}
-	if result.Nodes[1].ParentID != "node1" {
-		t.Errorf("expected parent_id=node1, got: %s", result.Nodes[1].ParentID)
-	}
-}
-
-// Tests for CreateMindmapNode error paths
-func TestCreateMindmapNode_EmptyContent(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
-		BoardID: "board123",
-		Content: "",
-	})
-	if err == nil {
-		t.Error("expected error for empty content")
-	}
-}
-
-// Tests for DeleteMindmapNode error paths
-func TestDeleteMindmapNode_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.DeleteMindmapNode(context.Background(), DeleteMindmapNodeArgs{
-		BoardID: "",
-		NodeID:  "node123",
-	})
-	if err == nil {
-		t.Error("expected error for empty board_id")
-	}
-}
-
-func TestDeleteMindmapNode_EmptyNodeID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.DeleteMindmapNode(context.Background(), DeleteMindmapNodeArgs{
-		BoardID: "board123",
-		NodeID:  "",
-	})
-	if err == nil {
-		t.Error("expected error for empty node_id")
-	}
-}
-
-// Tests for GetMindmapNode error paths
-func TestGetMindmapNode_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.GetMindmapNode(context.Background(), GetMindmapNodeArgs{
-		BoardID: "",
-		NodeID:  "node123",
-	})
-	if err == nil {
-		t.Error("expected error for empty board_id")
-	}
-}
-
-func TestGetMindmapNode_EmptyNodeID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.GetMindmapNode(context.Background(), GetMindmapNodeArgs{
-		BoardID: "board123",
-		NodeID:  "",
-	})
-	if err == nil {
-		t.Error("expected error for empty node_id")
-	}
+	checkMindmapField(t, "Count", result.Count, 2)
+	checkMindmapField(t, "HasMore", result.HasMore, true)
+	checkMindmapField(t, "Nodes[1].ParentID", result.Nodes[1].ParentID, "node1")
 }
 
 func TestDeleteItem_FallsBackToMindmapNodeOn404(t *testing.T) {
 	var calls []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		calls = append(calls, r.Method+" "+r.URL.Path)
 		if strings.Contains(r.URL.Path, "/items/") {
 			w.WriteHeader(http.StatusNotFound)
@@ -669,10 +500,8 @@ func TestDeleteItem_FallsBackToMindmapNodeOn404(t *testing.T) {
 			return
 		}
 		t.Fatalf("unexpected path: %s", r.URL.Path)
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.DeleteItem(context.Background(), DeleteItemArgs{
 		BoardID: "board123",
 		ItemID:  "node-abc",
@@ -689,7 +518,7 @@ func TestDeleteItem_FallsBackToMindmapNodeOn404(t *testing.T) {
 }
 
 func TestCreateMindmapNode_ChildAcceptsPosition(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newMindmapTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode body: %v", err)
@@ -701,12 +530,8 @@ func TestCreateMindmapNode_ChildAcceptsPosition(t *testing.T) {
 		if !ok {
 			t.Fatal("expected position in request body even with parent set")
 		}
-		if pos["x"] != float64(150) {
-			t.Errorf("position.x = %v, want 150", pos["x"])
-		}
-		if pos["y"] != float64(250) {
-			t.Errorf("position.y = %v, want 250", pos["y"])
-		}
+		checkMindmapField(t, "position.x", pos["x"], interface{}(float64(150)))
+		checkMindmapField(t, "position.y", pos["y"], interface{}(float64(250)))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -717,10 +542,8 @@ func TestCreateMindmapNode_ChildAcceptsPosition(t *testing.T) {
 			},
 			"parent": map[string]interface{}{"id": "root123"},
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.CreateMindmapNode(context.Background(), CreateMindmapNodeArgs{
 		BoardID:  "board123",
 		Content:  "Child",

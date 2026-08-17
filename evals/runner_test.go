@@ -35,38 +35,48 @@ func (m *MockSelector) SelectTool(prompt string) (string, map[string]interface{}
 	return "", nil, nil
 }
 
-func TestLoadToolSelectionSuite(t *testing.T) {
-	suite, err := LoadToolSelectionSuite("tool_selection.json")
+// mustLoadSuite loads an eval suite from path, failing the test on error.
+func mustLoadSuite[S any](t *testing.T, load func(string) (S, error), path string) S {
+	t.Helper()
+	suite, err := load(path)
 	if err != nil {
-		t.Fatalf("Failed to load tool selection suite: %v", err)
+		t.Fatalf("Failed to load %s: %v", path, err)
 	}
+	return suite
+}
 
-	if suite.Name == "" {
+// assertSuiteHeader checks the common suite fields: a name and 1+ tests.
+func assertSuiteHeader(t *testing.T, name string, testCount int) {
+	t.Helper()
+	if name == "" {
 		t.Error("Suite name should not be empty")
 	}
-
-	if len(suite.Tests) == 0 {
+	if testCount == 0 {
 		t.Error("Suite should have tests")
-	}
-
-	// Check first test has required fields
-	test := suite.Tests[0]
-	if test.ID == "" {
-		t.Error("Test ID should not be empty")
-	}
-	if test.Prompt == "" {
-		t.Error("Test prompt should not be empty")
-	}
-	if test.ExpectedTool == "" {
-		t.Error("Test expected_tool should not be empty")
 	}
 }
 
-func TestLoadConfusionPairSuite(t *testing.T) {
-	suite, err := LoadConfusionPairSuite("confusion_pairs.json")
-	if err != nil {
-		t.Fatalf("Failed to load confusion pairs suite: %v", err)
+// assertRequiredField fails when a loaded test's required field is empty.
+func assertRequiredField(t *testing.T, value, label string) {
+	t.Helper()
+	if value == "" {
+		t.Errorf("Test %s should not be empty", label)
 	}
+}
+
+func TestLoadToolSelectionSuite(t *testing.T) {
+	suite := mustLoadSuite(t, LoadToolSelectionSuite, "tool_selection.json")
+	assertSuiteHeader(t, suite.Name, len(suite.Tests))
+
+	// Check first test has required fields
+	test := suite.Tests[0]
+	assertRequiredField(t, test.ID, "ID")
+	assertRequiredField(t, test.Prompt, "prompt")
+	assertRequiredField(t, test.ExpectedTool, "expected_tool")
+}
+
+func TestLoadConfusionPairSuite(t *testing.T) {
+	suite := mustLoadSuite(t, LoadConfusionPairSuite, "confusion_pairs.json")
 
 	if suite.Name == "" {
 		t.Error("Suite name should not be empty")
@@ -87,30 +97,14 @@ func TestLoadConfusionPairSuite(t *testing.T) {
 }
 
 func TestLoadArgumentSuite(t *testing.T) {
-	suite, err := LoadArgumentSuite("argument_correctness.json")
-	if err != nil {
-		t.Fatalf("Failed to load argument suite: %v", err)
-	}
-
-	if suite.Name == "" {
-		t.Error("Suite name should not be empty")
-	}
-
-	if len(suite.Tests) == 0 {
-		t.Error("Suite should have tests")
-	}
+	suite := mustLoadSuite(t, LoadArgumentSuite, "argument_correctness.json")
+	assertSuiteHeader(t, suite.Name, len(suite.Tests))
 
 	// Check first test has required fields
 	test := suite.Tests[0]
-	if test.ID == "" {
-		t.Error("Test ID should not be empty")
-	}
-	if test.Tool == "" {
-		t.Error("Test tool should not be empty")
-	}
-	if test.Prompt == "" {
-		t.Error("Test prompt should not be empty")
-	}
+	assertRequiredField(t, test.ID, "ID")
+	assertRequiredField(t, test.Tool, "tool")
+	assertRequiredField(t, test.Prompt, "prompt")
 }
 
 func TestEvaluateToolSelection(t *testing.T) {

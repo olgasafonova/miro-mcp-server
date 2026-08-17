@@ -399,3 +399,131 @@ func TestReadBoardSVG_FrameScoped(t *testing.T) {
 		t.Errorf("Message = %q, want the frame-relative coordinate note", result.Message)
 	}
 }
+
+func TestUpdateFromSVG_DeleteFailureLandsInFailed(t *testing.T) {
+	var reqs []recordedRequest
+	// DeleteItem retries a failed delete against the experimental
+	// mindmap-node endpoint, so both paths end in "locked" and must 404.
+	server := newUpdateServer(&reqs, "locked")
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateFromSVG(context.Background(), UpdateFromSVGArgs{
+		BoardID: "board1",
+		SVG: `<svg>
+			<rect data-miro-id="locked" data-deleted="true" x="0" y="0" width="10" height="10"/>
+			<rect data-miro-id="gone" data-deleted="true" x="0" y="0" width="10" height="10"/>
+		</svg>`,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Failed) != 1 || result.Failed[0].ID != "locked" {
+		t.Errorf("Failed = %+v, want the locked item only", result.Failed)
+	}
+	if len(result.Deleted) != 1 || result.Deleted[0] != "gone" {
+		t.Errorf("Deleted = %v, want [gone] still applied", result.Deleted)
+	}
+}
+
+func TestUpdateFromSVG_PartialGeometryFailsThatItem(t *testing.T) {
+	var reqs []recordedRequest
+	server := newUpdateServer(&reqs)
+	defer server.Close()
+
+	// An image parses with height 0 (only href and width are required), so an
+	// identified image without height exercises the geometry-as-a-unit rule.
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateFromSVG(context.Background(), UpdateFromSVGArgs{
+		BoardID: "board1",
+		SVG:     `<svg><image data-miro-id="m1" href="https://example.com/p.png" x="0" y="0" width="100"/></svg>`,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Failed) != 1 || !strings.Contains(result.Failed[0].Reason, "full geometry") {
+		t.Errorf("Failed = %+v, want geometry-as-a-unit refusal", result.Failed)
+	}
+	if findRequest(reqs, http.MethodPatch, "/items/m1") != nil {
+		t.Error("PATCH sent despite partial geometry")
+	}
+}
+
+// newPagedFrameServer serves the frame plus two pages of children linked by a
+// cursor.
+func newPagedFrameServer() *httptest.Server {
+	child := func(id string, x float64) map[string]interface{} {
+		return map[string]interface{}{
+			"id": id, "type": "sticky_note",
+			"position": map[string]interface{}{"x": x, "y": 100.0},
+			"geometry": map[string]interface{}{"width": 100.0, "height": 100.0},
+			"data":     map[string]interface{}{"content": "<p>s</p>"},
+		}
+	}
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/frames/") {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"id":       "f1",
+				"geometry": map[string]interface{}{"width": 800.0, "height": 600.0},
+			})
+			return
+		}
+		if r.URL.Query().Get("cursor") == "page2" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{child("s2", 300.0)}, "cursor": ""})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": []interface{}{child("s1", 100.0)}, "cursor": "page2"})
+	}))
+}
+
+func TestReadBoardSVG_FrameScopedPaginates(t *testing.T) {
+	server := newPagedFrameServer()
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.ReadBoardSVG(context.Background(), ReadBoardSVGArgs{BoardID: "board1", FrameID: "f1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ItemCount != 2 {
+		t.Errorf("ItemCount = %d, want 2 (both pages collected)", result.ItemCount)
+	}
+	requireSVGContains(t, result.SVG, `data-miro-id="s1"`, "page-1 child")
+	requireSVGContains(t, result.SVG, `data-miro-id="s2"`, "page-2 child")
+	if result.Truncated {
+		t.Error("Truncated = true, want false when all pages fit")
+	}
+}
+
+func TestUpdateFromSVG_ElementCapRejects(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString("<svg>")
+	for range maxSVGCreateElements + 1 {
+		sb.WriteString(`<rect x="0" y="0" width="5" height="5"/>`)
+	}
+	sb.WriteString("</svg>")
+
+	client := newTestClientWithServer("http://unused")
+	_, err := client.UpdateFromSVG(context.Background(), UpdateFromSVGArgs{BoardID: "board1", SVG: sb.String()})
+	if err == nil || !strings.Contains(err.Error(), "cap") {
+		t.Errorf("oversized SVG accepted or wrong error: %v", err)
+	}
+}
+
+func TestReadBoardSVG_FrameScopedTruncatesAtMaxItems(t *testing.T) {
+	server := newPagedFrameServer()
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.ReadBoardSVG(context.Background(), ReadBoardSVGArgs{BoardID: "board1", FrameID: "f1", MaxItems: 1})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ItemCount != 1 {
+		t.Errorf("ItemCount = %d, want 1 (capped)", result.ItemCount)
+	}
+	if !result.Truncated {
+		t.Error("Truncated = false, want true when more children remain")
+	}
+}

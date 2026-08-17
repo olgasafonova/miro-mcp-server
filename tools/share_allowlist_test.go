@@ -6,19 +6,40 @@ import (
 	"testing"
 )
 
-func TestShareAllowlist_ValidateAllowedDomain(t *testing.T) {
-	allow := NewShareAllowlist([]string{"tietoevry.com", "tieto.com"}, "test")
-
-	cases := []string{
-		"jane@tietoevry.com",
-		"JANE@TietoEvry.com", // mixed case
-		"  bob@tieto.com  ",  // whitespace
-	}
-	for _, email := range cases {
+// assertAllAllowed verifies that every email in the list passes Validate.
+func assertAllAllowed(t *testing.T, allow *ShareAllowlist, emails []string) {
+	t.Helper()
+	for _, email := range emails {
 		if err := allow.Validate(email); err != nil {
 			t.Errorf("Validate(%q) returned error %v; want nil", email, err)
 		}
 	}
+}
+
+// assertRejectionMentions verifies that Validate rejects the email and that the
+// rejection error names each of the given substrings.
+func assertRejectionMentions(t *testing.T, allow *ShareAllowlist, email string, substrings ...string) {
+	t.Helper()
+	err := allow.Validate(email)
+	if err == nil {
+		t.Fatal("expected rejection")
+	}
+	msg := err.Error()
+	for _, want := range substrings {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error should mention %q; got %q", want, msg)
+		}
+	}
+}
+
+func TestShareAllowlist_ValidateAllowedDomain(t *testing.T) {
+	allow := NewShareAllowlist([]string{"tietoevry.com", "tieto.com"}, "test")
+
+	assertAllAllowed(t, allow, []string{
+		"jane@tietoevry.com",
+		"JANE@TietoEvry.com", // mixed case
+		"  bob@tieto.com  ",  // whitespace
+	})
 }
 
 func TestShareAllowlist_ValidateRejectsDisallowedDomain(t *testing.T) {
@@ -57,17 +78,8 @@ func TestShareAllowlist_EmptyAllowlistRejectsEverything(t *testing.T) {
 
 func TestShareAllowlist_RejectionErrorNamesDomainAndSource(t *testing.T) {
 	allow := NewShareAllowlist([]string{"tietoevry.com"}, "unit test")
-	err := allow.Validate("attacker@evil.example")
-	if err == nil {
-		t.Fatal("expected rejection")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "evil.example") {
-		t.Errorf("error should name the offending domain; got %q", msg)
-	}
-	if !strings.Contains(msg, "unit test") {
-		t.Errorf("error should name the allowlist source; got %q", msg)
-	}
+	// The error must name the offending domain and the allowlist source.
+	assertRejectionMentions(t, allow, "attacker@evil.example", "evil.example", "unit test")
 }
 
 func TestShareAllowlist_NormalizesEntries(t *testing.T) {
@@ -151,16 +163,11 @@ func TestShareAllowlist_ExactEmailAllowsExactMatch(t *testing.T) {
 	allow := NewShareAllowlist(nil, "unset").
 		WithEmails([]string{"jane@tietoevry.com"}, "test")
 
-	cases := []string{
+	assertAllAllowed(t, allow, []string{
 		"jane@tietoevry.com",
 		"JANE@TietoEvry.com", // mixed case
 		"  jane@tietoevry.com  ",
-	}
-	for _, email := range cases {
-		if err := allow.Validate(email); err != nil {
-			t.Errorf("Validate(%q) returned error %v; want nil", email, err)
-		}
-	}
+	})
 }
 
 // TestShareAllowlist_ExactEmailIsAuthoritative_NoWeakening is the core guarantee
@@ -191,17 +198,8 @@ func TestShareAllowlist_ExactEmailRejectionNamesEmailAndSource(t *testing.T) {
 	allow := NewShareAllowlist(nil, "unset").
 		WithEmails([]string{"jane@tietoevry.com"}, "unit test")
 
-	err := allow.Validate("attacker@evil.example")
-	if err == nil {
-		t.Fatal("expected rejection")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "attacker@evil.example") {
-		t.Errorf("error should name the offending email; got %q", msg)
-	}
-	if !strings.Contains(msg, "unit test") {
-		t.Errorf("error should name the exact-email source; got %q", msg)
-	}
+	// The error must name the offending email and the exact-email source.
+	assertRejectionMentions(t, allow, "attacker@evil.example", "attacker@evil.example", "unit test")
 }
 
 func TestShareAllowlist_ExactEmailAloneIsNotEmpty(t *testing.T) {

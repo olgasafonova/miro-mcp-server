@@ -104,21 +104,34 @@ func TestAllToolsHeaderParamsAreWellFormed(t *testing.T) {
 		"miro_list_items": {"board_id": "Board-Id"},
 	}
 
+	got := collectHeaderParams()
+
+	if len(got) != len(want) {
+		t.Errorf("tools with HeaderParams = %v, want %v", got, want)
+	}
+	for name, params := range want {
+		assertHeaderParamsMatch(t, name, got[name], params)
+	}
+}
+
+// collectHeaderParams gathers the HeaderParams of every tool that declares any.
+func collectHeaderParams() map[string]map[string]string {
 	got := map[string]map[string]string{}
 	for _, spec := range AllTools {
 		if len(spec.HeaderParams) > 0 {
 			got[spec.Name] = spec.HeaderParams
 		}
 	}
+	return got
+}
 
-	if len(got) != len(want) {
-		t.Errorf("tools with HeaderParams = %v, want %v", got, want)
-	}
-	for name, params := range want {
-		for prop, header := range params {
-			if got[name][prop] != header {
-				t.Errorf("%s HeaderParams[%s] = %q, want %q", name, prop, got[name][prop], header)
-			}
+// assertHeaderParamsMatch checks one tool's declared header params against the
+// expected property-to-header mapping.
+func assertHeaderParamsMatch(t *testing.T, name string, got, want map[string]string) {
+	t.Helper()
+	for prop, header := range want {
+		if got[prop] != header {
+			t.Errorf("%s HeaderParams[%s] = %q, want %q", name, prop, got[prop], header)
 		}
 	}
 }

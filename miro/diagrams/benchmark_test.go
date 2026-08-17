@@ -10,14 +10,10 @@ import (
 // Benchmark: Flowchart Parsing
 // =============================================================================
 
-// BenchmarkParseMermaid_SmallFlowchart benchmarks parsing a 5-node flowchart.
-func BenchmarkParseMermaid_SmallFlowchart(b *testing.B) {
-	input := `flowchart TB
-    A[Start] --> B[Process 1]
-    B --> C{Decision}
-    C -->|Yes| D[Action]
-    C -->|No| E[End]`
-
+// benchmarkParseMermaid runs ParseMermaid over input b.N times, failing the
+// benchmark on any parse error.
+func benchmarkParseMermaid(b *testing.B, input string) {
+	b.Helper()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := ParseMermaid(input)
@@ -25,45 +21,30 @@ func BenchmarkParseMermaid_SmallFlowchart(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// BenchmarkParseMermaid_SmallFlowchart benchmarks parsing a 5-node flowchart.
+func BenchmarkParseMermaid_SmallFlowchart(b *testing.B) {
+	benchmarkParseMermaid(b, `flowchart TB
+    A[Start] --> B[Process 1]
+    B --> C{Decision}
+    C -->|Yes| D[Action]
+    C -->|No| E[End]`)
 }
 
 // BenchmarkParseMermaid_MediumFlowchart benchmarks parsing a 20-node flowchart.
 func BenchmarkParseMermaid_MediumFlowchart(b *testing.B) {
-	input := generateFlowchart(20)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
+	benchmarkParseMermaid(b, generateFlowchart(20))
 }
 
 // BenchmarkParseMermaid_LargeFlowchart benchmarks parsing a 100-node flowchart.
 func BenchmarkParseMermaid_LargeFlowchart(b *testing.B) {
-	input := generateFlowchart(100)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
+	benchmarkParseMermaid(b, generateFlowchart(100))
 }
 
 // BenchmarkParseMermaid_HugeFlowchart benchmarks parsing a 500-node flowchart.
 func BenchmarkParseMermaid_HugeFlowchart(b *testing.B) {
-	input := generateFlowchart(500)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
+	benchmarkParseMermaid(b, generateFlowchart(500))
 }
 
 // =============================================================================
@@ -81,39 +62,17 @@ func BenchmarkParseSequence_Small(b *testing.B) {
     B-->>A: Fine thanks
     A->>B: Bye`
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
+	benchmarkParseMermaid(b, input)
 }
 
 // BenchmarkParseSequence_Medium benchmarks parsing a 50-message sequence diagram.
 func BenchmarkParseSequence_Medium(b *testing.B) {
-	input := generateSequenceDiagram(5, 50)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
+	benchmarkParseMermaid(b, generateSequenceDiagram(5, 50))
 }
 
 // BenchmarkParseSequence_Large benchmarks parsing a 200-message sequence diagram.
 func BenchmarkParseSequence_Large(b *testing.B) {
-	input := generateSequenceDiagram(10, 200)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
+	benchmarkParseMermaid(b, generateSequenceDiagram(10, 200))
 }
 
 // =============================================================================
@@ -195,9 +154,11 @@ func BenchmarkLayout_Allocs(b *testing.B) {
 // Benchmark: End-to-End (Parse + Layout)
 // =============================================================================
 
-// BenchmarkEndToEnd_SmallFlowchart benchmarks full diagram processing.
-func BenchmarkEndToEnd_SmallFlowchart(b *testing.B) {
-	input := generateFlowchart(10)
+// benchmarkEndToEnd runs the full parse-plus-layout pipeline b.N times for a
+// generated flowchart with nodeCount nodes.
+func benchmarkEndToEnd(b *testing.B, nodeCount int) {
+	b.Helper()
+	input := generateFlowchart(nodeCount)
 	config := DefaultLayoutConfig()
 
 	b.ResetTimer()
@@ -210,19 +171,14 @@ func BenchmarkEndToEnd_SmallFlowchart(b *testing.B) {
 	}
 }
 
+// BenchmarkEndToEnd_SmallFlowchart benchmarks full diagram processing.
+func BenchmarkEndToEnd_SmallFlowchart(b *testing.B) {
+	benchmarkEndToEnd(b, 10)
+}
+
 // BenchmarkEndToEnd_LargeFlowchart benchmarks full diagram processing for large graphs.
 func BenchmarkEndToEnd_LargeFlowchart(b *testing.B) {
-	input := generateFlowchart(100)
-	config := DefaultLayoutConfig()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		diagram, err := ParseMermaid(input)
-		if err != nil {
-			b.Fatal(err)
-		}
-		Layout(diagram, config)
-	}
+	benchmarkEndToEnd(b, 100)
 }
 
 // =============================================================================

@@ -65,19 +65,35 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
-func itemJSON(id, itemType, content string, x, y float64) map[string]interface{} {
+func itemJSON(id, itemType, content string, xy [2]float64) map[string]interface{} {
 	return map[string]interface{}{
 		"id":       id,
 		"type":     itemType,
-		"position": map[string]interface{}{"x": x, "y": y},
+		"position": map[string]interface{}{"x": xy[0], "y": xy[1]},
 		"data":     map[string]interface{}{"content": content},
+	}
+}
+
+// requireIntField asserts one named int value.
+func requireIntField(t *testing.T, name string, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %d, want %d", name, got, want)
+	}
+}
+
+// requireStringField asserts one named string value.
+func requireStringField(t *testing.T, name, got, want string) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %q, want %q", name, got, want)
 	}
 }
 
 func TestGetBoardSummary_RecentItemsCappedAtFive(t *testing.T) {
 	var items []map[string]interface{}
 	for i := 0; i < 9; i++ {
-		items = append(items, itemJSON(fmt.Sprintf("i%d", i), "sticky_note", "x", 0, 0))
+		items = append(items, itemJSON(fmt.Sprintf("i%d", i), "sticky_note", "x", [2]float64{0, 0}))
 	}
 
 	srv := boardContentServer{
@@ -118,8 +134,8 @@ func TestGetBoardContent_Success(t *testing.T) {
 		items: func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]interface{}{
 				"data": []map[string]interface{}{
-					itemJSON("f1", "frame", "Frame One", 0, 0),
-					itemJSON("s1", "sticky_note", "hello", 10, 10),
+					itemJSON("f1", "frame", "Frame One", [2]float64{0, 0}),
+					itemJSON("s1", "sticky_note", "hello", [2]float64{10, 10}),
 				},
 				"size": 2,
 			})
@@ -133,21 +149,13 @@ func TestGetBoardContent_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.ID != "board123" {
-		t.Errorf("ID = %q, want board123", result.ID)
-	}
+	requireStringField(t, "ID", result.ID, "board123")
 	if len(result.Frames) != 1 {
 		t.Fatalf("Frames = %d, want 1", len(result.Frames))
 	}
-	if result.Frames[0].Title != "Frame One" {
-		t.Errorf("frame title = %q, want Frame One", result.Frames[0].Title)
-	}
-	if len(result.ItemsByType.StickyNotes) != 1 {
-		t.Errorf("StickyNotes = %d, want 1", len(result.ItemsByType.StickyNotes))
-	}
-	if result.ContentSummary.UniqueEntries != 2 {
-		t.Errorf("UniqueEntries = %d, want 2", result.ContentSummary.UniqueEntries)
-	}
+	requireStringField(t, "frame title", result.Frames[0].Title, "Frame One")
+	requireIntField(t, "StickyNotes", len(result.ItemsByType.StickyNotes), 1)
+	requireIntField(t, "UniqueEntries", result.ContentSummary.UniqueEntries, 2)
 	if result.Connectors != nil {
 		t.Error("Connectors should be nil when IncludeConnectors is false")
 	}
@@ -164,8 +172,8 @@ func TestGetBoardContent_WithConnectorsAndTags(t *testing.T) {
 		items: func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]interface{}{
 				"data": []map[string]interface{}{
-					itemJSON("s1", "sticky_note", "start", 0, 0),
-					itemJSON("s2", "shape", "end", 10, 10),
+					itemJSON("s1", "sticky_note", "start", [2]float64{0, 0}),
+					itemJSON("s2", "shape", "end", [2]float64{10, 10}),
 				},
 				"size": 2,
 			})
@@ -204,20 +212,17 @@ func TestGetBoardContent_WithConnectorsAndTags(t *testing.T) {
 	if len(result.Connectors) != 1 {
 		t.Fatalf("Connectors = %d, want 1", len(result.Connectors))
 	}
-	if result.Connectors[0].StartItemType != "sticky_note" {
-		t.Errorf("StartItemType = %q, want sticky_note", result.Connectors[0].StartItemType)
-	}
-	if result.Connectors[0].EndItemType != "shape" {
-		t.Errorf("EndItemType = %q, want shape", result.Connectors[0].EndItemType)
-	}
+	requireStringField(t, "StartItemType", result.Connectors[0].StartItemType, "sticky_note")
+	requireStringField(t, "EndItemType", result.Connectors[0].EndItemType, "shape")
 	if len(result.Tags) != 1 {
 		t.Fatalf("Tags = %d, want 1", len(result.Tags))
 	}
-	if result.Tags[0].Title != "Urgent" {
-		t.Errorf("tag title = %q, want Urgent", result.Tags[0].Title)
+	requireStringField(t, "tag title", result.Tags[0].Title, "Urgent")
+	if !strings.Contains(result.Message, "1 connectors") {
+		t.Errorf("Message = %q, want a connector count", result.Message)
 	}
-	if !strings.Contains(result.Message, "1 connectors") || !strings.Contains(result.Message, "1 tags") {
-		t.Errorf("Message = %q, want connector and tag counts", result.Message)
+	if !strings.Contains(result.Message, "1 tags") {
+		t.Errorf("Message = %q, want a tag count", result.Message)
 	}
 }
 
@@ -390,18 +395,12 @@ func TestFrameContextFromItem(t *testing.T) {
 
 	got := frameContextFromItem(frame, items)
 
-	if got.ID != "f1" {
-		t.Errorf("ID = %q, want f1", got.ID)
+	requireStringField(t, "ID", got.ID, "f1")
+	requireStringField(t, "Title", got.Title, "Planning")
+	if [4]float64{got.X, got.Y, got.Width, got.Height} != [4]float64{1, 2, 300, 200} {
+		t.Errorf("geometry = (%v,%v,%v,%v), want (1,2,300,200)", got.X, got.Y, got.Width, got.Height)
 	}
-	if got.Title != "Planning" {
-		t.Errorf("Title = %q, want Planning", got.Title)
-	}
-	if got.X != 1 || got.Y != 2 || got.Width != 300 || got.Height != 200 {
-		t.Errorf("geometry = (%v,%v,%v,%v)", got.X, got.Y, got.Width, got.Height)
-	}
-	if len(got.Children) != 1 {
-		t.Errorf("Children = %d, want 1", len(got.Children))
-	}
+	requireIntField(t, "Children", len(got.Children), 1)
 }
 
 func TestBuildFrameHierarchy(t *testing.T) {
@@ -455,27 +454,17 @@ func TestAssembleBoardContentResult(t *testing.T) {
 
 	got := assembleBoardContentResult(board, allItems, agg, frames)
 
-	if got.ID != "board123" || got.Name != "Test Board" {
-		t.Errorf("board fields = %q / %q", got.ID, got.Name)
-	}
-	if got.CreatedAt != "2026-01-01T00:00:00Z" {
-		t.Errorf("CreatedAt = %q", got.CreatedAt)
-	}
-	if got.ModifiedAt != "" {
-		t.Errorf("ModifiedAt = %q, want empty for zero time", got.ModifiedAt)
-	}
-	if got.TotalItems != 2 {
-		t.Errorf("TotalItems = %d, want 2", got.TotalItems)
-	}
+	requireStringField(t, "ID", got.ID, "board123")
+	requireStringField(t, "Name", got.Name, "Test Board")
+	requireStringField(t, "CreatedAt", got.CreatedAt, "2026-01-01T00:00:00Z")
+	requireStringField(t, "ModifiedAt (zero time)", got.ModifiedAt, "")
+	requireIntField(t, "TotalItems", got.TotalItems, 2)
 	if !got.Truncated {
 		t.Error("Truncated should carry through")
 	}
-	if got.ContentSummary.UniqueEntries != 2 || got.ContentSummary.TotalChars != 3 {
-		t.Errorf("ContentSummary = %+v", got.ContentSummary)
-	}
-	if len(got.Frames) != 1 {
-		t.Errorf("Frames = %d, want 1", len(got.Frames))
-	}
+	requireIntField(t, "UniqueEntries", got.ContentSummary.UniqueEntries, 2)
+	requireIntField(t, "TotalChars", got.ContentSummary.TotalChars, 3)
+	requireIntField(t, "Frames", len(got.Frames), 1)
 }
 
 func TestBuildBoardContentMessage(t *testing.T) {

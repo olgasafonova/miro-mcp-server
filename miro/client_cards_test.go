@@ -9,42 +9,84 @@ import (
 	"testing"
 )
 
-func TestCreateCard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/cards" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "card123",
-			"data": map[string]interface{}{
-				"title":       "Task Card",
-				"description": "Do something",
+// TestCard_Success covers the create and update happy paths: the request line
+// must match, and the response must map onto the result struct.
+func TestCard_Success(t *testing.T) {
+	tests := []struct {
+		name        string
+		wantRequest string
+		status      int
+		response    map[string]interface{}
+		call        func(*Client) (id, title string, err error)
+		wantID      string
+		wantTitle   string
+	}{
+		{
+			name:        "create card",
+			wantRequest: "POST /boards/board123/cards",
+			status:      http.StatusCreated,
+			response: map[string]interface{}{
+				"id": "card123",
+				"data": map[string]interface{}{
+					"title":       "Task Card",
+					"description": "Do something",
+				},
 			},
+			call: func(client *Client) (string, string, error) {
+				result, err := client.CreateCard(context.Background(), CreateCardArgs{
+					BoardID:     "board123",
+					Title:       "Task Card",
+					Description: "Do something",
+				})
+				if err != nil {
+					return "", "", err
+				}
+				return result.ID, result.Title, nil
+			},
+			wantID:    "card123",
+			wantTitle: "Task Card",
+		},
+		{
+			name:        "update card",
+			wantRequest: "PATCH /boards/board123/cards/card123",
+			status:      http.StatusOK,
+			response: map[string]interface{}{
+				"id": "card123",
+				"data": map[string]interface{}{
+					"title":       "Updated card",
+					"description": "New description",
+				},
+				"dueDate": "2025-01-01",
+			},
+			call: func(client *Client) (string, string, error) {
+				result, err := client.UpdateCard(context.Background(), UpdateCardArgs{
+					BoardID:     "board123",
+					ItemID:      "card123",
+					Title:       strPtr("Updated card"),
+					Description: strPtr("New description"),
+				})
+				if err != nil {
+					return "", "", err
+				}
+				return result.ID, result.Title, nil
+			},
+			wantID:    "card123",
+			wantTitle: "Updated card",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newStickyVerifyServer(t, tt.wantRequest, tt.status, tt.response)
+			defer server.Close()
+
+			id, title, err := tt.call(newTestClientWithServer(server.URL))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			requireStringField(t, "ID", id, tt.wantID)
+			requireStringField(t, "Title", title, tt.wantTitle)
 		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.CreateCard(context.Background(), CreateCardArgs{
-		BoardID:     "board123",
-		Title:       "Task Card",
-		Description: "Do something",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "card123" {
-		t.Errorf("ID = %q, want 'card123'", result.ID)
-	}
-	if result.Title != "Task Card" {
-		t.Errorf("Title = %q, want 'Task Card'", result.Title)
 	}
 }
 
@@ -81,47 +123,6 @@ func TestCreateCard_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestUpdateCard_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/cards/") {
-			t.Errorf("expected /cards/ in path, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "card123",
-			"data": map[string]interface{}{
-				"title":       "Updated card",
-				"description": "New description",
-			},
-			"dueDate": "2025-01-01",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.UpdateCard(context.Background(), UpdateCardArgs{
-		BoardID:     "board123",
-		ItemID:      "card123",
-		Title:       strPtr("Updated card"),
-		Description: strPtr("New description"),
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ID != "card123" {
-		t.Errorf("ID = %q, want 'card123'", result.ID)
-	}
-	if result.Title != "Updated card" {
-		t.Errorf("Title = %q, want 'Updated card'", result.Title)
-	}
-}
-
 func TestUpdateCard_NoChanges(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
 
@@ -141,48 +142,15 @@ func TestUpdateCard_NoChanges(t *testing.T) {
 func TestUpdateCard_WithAllFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify data section
-		if data, ok := body["data"].(map[string]interface{}); !ok {
-			t.Error("expected data in request body")
-		} else {
-			if data["title"] != "Updated Title" {
-				t.Errorf("title = %v, want 'Updated Title'", data["title"])
-			}
-			if data["description"] != "New description" {
-				t.Errorf("description = %v, want 'New description'", data["description"])
-			}
-			if data["dueDate"] != "2025-12-31" {
-				t.Errorf("dueDate = %v, want '2025-12-31'", data["dueDate"])
-			}
-		}
-
-		// Verify position section
-		if pos, ok := body["position"].(map[string]interface{}); !ok {
-			t.Error("expected position in request body")
-		} else {
-			if pos["x"] != float64(150) {
-				t.Errorf("x = %v, want 150", pos["x"])
-			}
-			if pos["y"] != float64(250) {
-				t.Errorf("y = %v, want 250", pos["y"])
-			}
-		}
-
-		// Verify geometry section
-		if geom, ok := body["geometry"].(map[string]interface{}); !ok {
-			t.Error("expected geometry in request body")
-		} else if geom["width"] != float64(350) {
-			t.Errorf("width = %v, want 350", geom["width"])
-		}
-
-		// Verify parent section
-		if parent, ok := body["parent"].(map[string]interface{}); !ok {
-			t.Error("expected parent in request body")
-		} else if parent["id"] != "frame-card" {
-			t.Errorf("parent.id = %v, want 'frame-card'", parent["id"])
-		}
+		requireBodyField(t, body, "data.title", "Updated Title")
+		requireBodyField(t, body, "data.description", "New description")
+		requireBodyField(t, body, "data.dueDate", "2025-12-31")
+		requireBodyField(t, body, "position.x", float64(150))
+		requireBodyField(t, body, "position.y", float64(250))
+		requireBodyField(t, body, "geometry.width", float64(350))
+		requireBodyField(t, body, "parent.id", "frame-card")
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -266,49 +234,15 @@ func TestCreateCard_WithAllFields(t *testing.T) {
 	// Tests CreateCard with all optional fields to improve coverage
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 
-		// Verify data section
-		data, ok := body["data"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'data' field")
-		}
-		if data["title"] != "Test Card" {
-			t.Errorf("title = %v, want 'Test Card'", data["title"])
-		}
-		if data["description"] != "Card description" {
-			t.Errorf("description = %v, want 'Card description'", data["description"])
-		}
-		if data["dueDate"] != "2024-12-31" {
-			t.Errorf("dueDate = %v, want '2024-12-31'", data["dueDate"])
-		}
-
-		// Verify position
-		pos, ok := body["position"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'position' field")
-		}
-		if pos["x"] != float64(100) || pos["y"] != float64(200) {
-			t.Errorf("position = %v, want x=100, y=200", pos)
-		}
-
-		// Verify geometry
-		geom, ok := body["geometry"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'geometry' field")
-		}
-		if geom["width"] != float64(300) {
-			t.Errorf("width = %v, want 300", geom["width"])
-		}
-
-		// Verify parent
-		parent, ok := body["parent"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'parent' field")
-		}
-		if parent["id"] != "frame123" {
-			t.Errorf("parent.id = %v, want 'frame123'", parent["id"])
-		}
+		requireBodyField(t, body, "data.title", "Test Card")
+		requireBodyField(t, body, "data.description", "Card description")
+		requireBodyField(t, body, "data.dueDate", "2024-12-31")
+		requireBodyField(t, body, "position.x", float64(100))
+		requireBodyField(t, body, "position.y", float64(200))
+		requireBodyField(t, body, "geometry.width", float64(300))
+		requireBodyField(t, body, "parent.id", "frame123")
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -335,33 +269,69 @@ func TestCreateCard_WithAllFields(t *testing.T) {
 	}
 }
 
-func TestGetAppCard_WithNilFields(t *testing.T) {
-	// Tests GetAppCard when some fields are nil
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "appcard123",
-			"type": "app_card",
-			"data": map[string]interface{}{
-				"title":       "Test App Card",
-				"description": "",
-				"fields":      nil,
+// TestGetAppCard_ResponseParsing covers app card responses both with nil
+// optional fields and with populated custom fields.
+func TestGetAppCard_ResponseParsing(t *testing.T) {
+	tests := []struct {
+		name      string
+		response  map[string]interface{}
+		wantID    string
+		wantTitle string
+	}{
+		{
+			name: "nil optional fields",
+			response: map[string]interface{}{
+				"id":   "appcard123",
+				"type": "app_card",
+				"data": map[string]interface{}{
+					"title":       "Test App Card",
+					"description": "",
+					"fields":      nil,
+				},
 			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.GetAppCard(context.Background(), GetAppCardArgs{
-		BoardID: "board123",
-		ItemID:  "appcard123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+			wantID:    "appcard123",
+			wantTitle: "Test App Card",
+		},
+		{
+			name: "custom fields in response",
+			response: map[string]interface{}{
+				"id":   "appcard123",
+				"type": "app_card",
+				"data": map[string]interface{}{
+					"title":       "Test Card",
+					"description": "A test description",
+					"status":      "connected",
+					"fields": []map[string]interface{}{
+						{"value": "Field 1", "fillColor": "#FF0000"},
+						{"value": "Field 2", "fillColor": "#00FF00"},
+					},
+				},
+			},
+			wantID:    "appcard123",
+			wantTitle: "Test Card",
+		},
 	}
-	if result.ID != "appcard123" {
-		t.Errorf("ID = %v, want 'appcard123'", result.ID)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(tt.response)
+			}))
+			defer server.Close()
+
+			client := newTestClientWithServer(server.URL)
+			result, err := client.GetAppCard(context.Background(), GetAppCardArgs{
+				BoardID: "board123",
+				ItemID:  "appcard123",
+			})
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			requireStringField(t, "ID", result.ID, tt.wantID)
+			requireStringField(t, "Title", result.Title, tt.wantTitle)
+		})
 	}
 }
 
@@ -431,40 +401,6 @@ func TestUpdateAppCard_WithAllFields(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestGetAppCard_WithFields(t *testing.T) {
-	// Tests GetAppCard with custom fields in response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "appcard123",
-			"type": "app_card",
-			"data": map[string]interface{}{
-				"title":       "Test Card",
-				"description": "A test description",
-				"status":      "connected",
-				"fields": []map[string]interface{}{
-					{"value": "Field 1", "fillColor": "#FF0000"},
-					{"value": "Field 2", "fillColor": "#00FF00"},
-				},
-			},
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	result, err := client.GetAppCard(context.Background(), GetAppCardArgs{
-		BoardID: "board123",
-		ItemID:  "appcard123",
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Title != "Test Card" {
-		t.Errorf("Title = %v, want 'Test Card'", result.Title)
 	}
 }
 

@@ -15,11 +15,8 @@ import (
 
 func TestListDiagrams_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/diagrams" {
-			t.Errorf("expected /boards/board123/diagrams, got %s", r.URL.Path)
+		if got := r.Method + " " + r.URL.Path; got != "GET /boards/board123/diagrams" {
+			t.Errorf("request = %q, want GET /boards/board123/diagrams", got)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -50,44 +47,23 @@ func TestListDiagrams_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.Count != 1 {
-		t.Errorf("Count = %d, want 1", result.Count)
-	}
-	if result.Total != 1 {
-		t.Errorf("Total = %d, want 1", result.Total)
-	}
-	if result.Cursor != "next-cursor" {
-		t.Errorf("Cursor = %q, want %q", result.Cursor, "next-cursor")
-	}
-	if result.Message != "Found 1 diagrams on board" {
-		t.Errorf("Message = %q", result.Message)
-	}
+	requireIntField(t, "Count", result.Count, 1)
+	requireIntField(t, "Total", result.Total, 1)
+	requireStringField(t, "Cursor", result.Cursor, "next-cursor")
+	requireStringField(t, "Message", result.Message, "Found 1 diagrams on board")
 
 	d := result.Diagrams[0]
-	if d.ID != "diagram123" {
-		t.Errorf("ID = %q, want diagram123", d.ID)
+	requireStringField(t, "ID", d.ID, "diagram123")
+	requireStringField(t, "Type", d.Type, "diagram")
+	requireStringField(t, "Title", d.Title, "Architecture")
+	if [4]float64{d.X, d.Y, d.Width, d.Height} != [4]float64{10.5, 20.5, 1200, 700} {
+		t.Errorf("position/geometry = (%v, %v, %v, %v), want (10.5, 20.5, 1200, 700)", d.X, d.Y, d.Width, d.Height)
 	}
-	if d.Type != "diagram" {
-		t.Errorf("Type = %q, want diagram", d.Type)
-	}
-	if d.Title != "Architecture" {
-		t.Errorf("Title = %q, want Architecture", d.Title)
-	}
-	if d.X != 10.5 || d.Y != 20.5 {
-		t.Errorf("position = (%v, %v), want (10.5, 20.5)", d.X, d.Y)
-	}
-	if d.Width != 1200 || d.Height != 700 {
-		t.Errorf("geometry = (%v, %v), want (1200, 700)", d.Width, d.Height)
-	}
-	if d.CreatedAt != "2026-05-07T11:14:41Z" || d.ModifiedAt != "2026-05-08T09:00:00Z" {
-		t.Errorf("timestamps = (%q, %q)", d.CreatedAt, d.ModifiedAt)
-	}
-	if d.CreatedBy != "user1" || d.ModifiedBy != "user2" {
-		t.Errorf("actors = (%q, %q), want (user1, user2)", d.CreatedBy, d.ModifiedBy)
-	}
-	if d.ItemURL != BuildItemURL("board123", "diagram123") {
-		t.Errorf("ItemURL = %q", d.ItemURL)
-	}
+	requireStringField(t, "CreatedAt", d.CreatedAt, "2026-05-07T11:14:41Z")
+	requireStringField(t, "ModifiedAt", d.ModifiedAt, "2026-05-08T09:00:00Z")
+	requireStringField(t, "CreatedBy", d.CreatedBy, "user1")
+	requireStringField(t, "ModifiedBy", d.ModifiedBy, "user2")
+	requireStringField(t, "ItemURL", d.ItemURL, BuildItemURL("board123", "diagram123"))
 }
 
 func TestListDiagrams_Empty(t *testing.T) {
@@ -102,15 +78,9 @@ func TestListDiagrams_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 0 {
-		t.Errorf("Count = %d, want 0", result.Count)
-	}
-	if len(result.Diagrams) != 0 {
-		t.Errorf("Diagrams = %d entries, want 0", len(result.Diagrams))
-	}
-	if result.Message != "Found 0 diagrams on board" {
-		t.Errorf("Message = %q", result.Message)
-	}
+	requireIntField(t, "Count", result.Count, 0)
+	requireIntField(t, "Diagrams entries", len(result.Diagrams), 0)
+	requireStringField(t, "Message", result.Message, "Found 0 diagrams on board")
 }
 
 func TestListDiagrams_LimitClamping(t *testing.T) {
@@ -182,42 +152,55 @@ func TestListDiagrams_InvalidBoardID(t *testing.T) {
 	}
 }
 
-func TestListDiagrams_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.ListDiagrams(context.Background(), ListDiagramsArgs{BoardID: "board123"}); err == nil {
-		t.Fatal("expected error on HTTP 500")
+// TestDiagramReads_ErrorResponses covers API errors and malformed JSON for
+// both ListDiagrams and GetDiagram.
+func TestDiagramReads_ErrorResponses(t *testing.T) {
+	listDiagrams := func(client *Client) error {
+		_, err := client.ListDiagrams(context.Background(), ListDiagramsArgs{BoardID: "board123"})
+		return err
 	}
-}
-
-func TestListDiagrams_MalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{not json"))
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.ListDiagrams(context.Background(), ListDiagramsArgs{BoardID: "board123"})
-	if err == nil {
-		t.Fatal("expected parse error")
+	getDiagram := func(client *Client) error {
+		_, err := client.GetDiagram(context.Background(), GetDiagramArgs{BoardID: "board123", ItemID: "diagram123"})
+		return err
 	}
-	if !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
+
+	tests := []struct {
+		name    string
+		status  int
+		body    string
+		wantErr string
+		call    func(*Client) error
+	}{
+		{"list diagrams HTTP 500", http.StatusInternalServerError, "", "", listDiagrams},
+		{"get diagram HTTP 404", http.StatusNotFound, "", "", getDiagram},
+		{"list diagrams malformed JSON", http.StatusOK, "{not json", "failed to parse response", listDiagrams},
+		{"get diagram malformed JSON", http.StatusOK, "{not json", "failed to parse response", getDiagram},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			err := tt.call(newTestClientWithServer(server.URL))
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %v, want containing %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 
 func TestGetDiagram_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/diagrams/diagram123" {
-			t.Errorf("unexpected path %s", r.URL.Path)
+		if got := r.Method + " " + r.URL.Path; got != "GET /boards/board123/diagrams/diagram123" {
+			t.Errorf("request = %q, want GET /boards/board123/diagrams/diagram123", got)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -245,30 +228,16 @@ func TestGetDiagram_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if result.ID != "diagram123" {
-		t.Errorf("ID = %q, want diagram123", result.ID)
+	requireStringField(t, "ID", result.ID, "diagram123")
+	requireStringField(t, "Title", result.Title, "Architecture")
+	requireStringField(t, "ParentID", result.ParentID, "frame999")
+	if [4]float64{result.X, result.Y, result.Width, result.Height} != [4]float64{1, 2, 1200, 700} {
+		t.Errorf("position/geometry = (%v, %v, %v, %v), want (1, 2, 1200, 700)", result.X, result.Y, result.Width, result.Height)
 	}
-	if result.Title != "Architecture" {
-		t.Errorf("Title = %q, want Architecture", result.Title)
-	}
-	if result.ParentID != "frame999" {
-		t.Errorf("ParentID = %q, want frame999", result.ParentID)
-	}
-	if result.X != 1 || result.Y != 2 {
-		t.Errorf("position = (%v, %v), want (1, 2)", result.X, result.Y)
-	}
-	if result.Width != 1200 || result.Height != 700 {
-		t.Errorf("geometry = (%v, %v), want (1200, 700)", result.Width, result.Height)
-	}
-	if result.CreatedBy != "user1" || result.ModifiedBy != "user2" {
-		t.Errorf("actors = (%q, %q), want (user1, user2)", result.CreatedBy, result.ModifiedBy)
-	}
-	if result.Message != "Retrieved diagram metadata" {
-		t.Errorf("Message = %q", result.Message)
-	}
-	if result.ItemURL != BuildItemURL("board123", "diagram123") {
-		t.Errorf("ItemURL = %q", result.ItemURL)
-	}
+	requireStringField(t, "CreatedBy", result.CreatedBy, "user1")
+	requireStringField(t, "ModifiedBy", result.ModifiedBy, "user2")
+	requireStringField(t, "Message", result.Message, "Retrieved diagram metadata")
+	requireStringField(t, "ItemURL", result.ItemURL, BuildItemURL("board123", "diagram123"))
 }
 
 func TestGetDiagram_NoParent(t *testing.T) {
@@ -289,12 +258,8 @@ func TestGetDiagram_NoParent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ParentID != "" {
-		t.Errorf("ParentID = %q, want empty", result.ParentID)
-	}
-	if result.Title != "" {
-		t.Errorf("Title = %q, want empty", result.Title)
-	}
+	requireStringField(t, "ParentID", result.ParentID, "")
+	requireStringField(t, "Title", result.Title, "")
 }
 
 func TestGetDiagram_InvalidIDs(t *testing.T) {
@@ -318,40 +283,5 @@ func TestGetDiagram_InvalidIDs(t *testing.T) {
 				t.Errorf("error = %v, want %q", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestGetDiagram_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	if _, err := client.GetDiagram(context.Background(), GetDiagramArgs{
-		BoardID: "board123",
-		ItemID:  "diagram123",
-	}); err == nil {
-		t.Fatal("expected error on HTTP 404")
-	}
-}
-
-func TestGetDiagram_MalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{not json"))
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
-	_, err := client.GetDiagram(context.Background(), GetDiagramArgs{
-		BoardID: "board123",
-		ItemID:  "diagram123",
-	})
-	if err == nil {
-		t.Fatal("expected parse error")
-	}
-	if !strings.Contains(err.Error(), "failed to parse response") {
-		t.Errorf("error = %v, want failed to parse response", err)
 	}
 }

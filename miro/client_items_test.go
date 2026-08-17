@@ -10,6 +10,23 @@ import (
 	"testing"
 )
 
+// newItemTestClient starts a test server with the given handler and returns a
+// client pointed at it. The server is closed automatically at test end.
+func newItemTestClient(t *testing.T, handler http.HandlerFunc) *Client {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	return newTestClientWithServer(server.URL)
+}
+
+// checkItemField fails the test when got differs from want.
+func checkItemField[T comparable](t *testing.T, name string, got, want T) {
+	t.Helper()
+	if got != want {
+		t.Errorf("%s = %v, want %v", name, got, want)
+	}
+}
+
 func TestValidateItemID(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -24,55 +41,35 @@ func TestValidateItemID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateItemID(tt.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateItemID(%q) error = %v, wantErr %v", tt.id, err, tt.wantErr)
-			}
+			checkItemField(t, "ValidateItemID("+tt.id+") error presence", err != nil, tt.wantErr)
 		})
 	}
 }
 
 func TestListItems_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
-		if !strings.HasPrefix(r.URL.Path, "/boards/board123/items") {
-			t.Errorf("expected /boards/board123/items, got %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkItemField(t, "method", r.Method, http.MethodGet)
+		checkItemField(t, "path prefix", strings.HasPrefix(r.URL.Path, "/boards/board123/items"), true)
+		writeJSON(w, map[string]interface{}{
 			"data": []map[string]interface{}{
 				{
-					"id":   "item1",
-					"type": "sticky_note",
-					"position": map[string]interface{}{
-						"x": 100.0,
-						"y": 200.0,
-					},
-					"data": map[string]interface{}{
-						"content": "Test sticky",
-					},
+					"id":       "item1",
+					"type":     "sticky_note",
+					"position": map[string]interface{}{"x": 100.0, "y": 200.0},
+					"data":     map[string]interface{}{"content": "Test sticky"},
 				},
 				{
-					"id":   "item2",
-					"type": "shape",
-					"position": map[string]interface{}{
-						"x": 300.0,
-						"y": 400.0,
-					},
-					"data": map[string]interface{}{
-						"content": "Test shape",
-					},
+					"id":       "item2",
+					"type":     "shape",
+					"position": map[string]interface{}{"x": 300.0, "y": 400.0},
+					"data":     map[string]interface{}{"content": "Test shape"},
 				},
 			},
 			"cursor": "next-page-cursor",
 			"size":   2,
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListItems(context.Background(), ListItemsArgs{
 		BoardID: "board123",
 		Limit:   10,
@@ -81,47 +78,21 @@ func TestListItems_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 2 {
-		t.Errorf("Count = %d, want 2", result.Count)
-	}
-	if !result.HasMore {
-		t.Error("HasMore should be true")
-	}
-	if result.Items[0].ID != "item1" {
-		t.Errorf("first item ID = %q, want 'item1'", result.Items[0].ID)
-	}
-	if result.Items[0].Type != "sticky_note" {
-		t.Errorf("first item type = %q, want 'sticky_note'", result.Items[0].Type)
-	}
-}
-
-func TestListItems_EmptyBoardID(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-	_, err := client.ListItems(context.Background(), ListItemsArgs{})
-
-	if err == nil {
-		t.Fatal("expected error for empty board_id")
-	}
-	if !strings.Contains(err.Error(), "board_id is required") {
-		t.Errorf("expected 'board_id is required' error, got: %v", err)
-	}
+	checkItemField(t, "Count", result.Count, 2)
+	checkItemField(t, "HasMore", result.HasMore, true)
+	checkItemField(t, "first item ID", result.Items[0].ID, "item1")
+	checkItemField(t, "first item type", result.Items[0].Type, "sticky_note")
 }
 
 func TestListItems_WithTypeFilter(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("type") != "sticky_note" {
-			t.Errorf("expected type=sticky_note, got %s", r.URL.Query().Get("type"))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkItemField(t, "type filter", r.URL.Query().Get("type"), "sticky_note")
+		writeJSON(w, map[string]interface{}{
 			"data": []map[string]interface{}{},
 			"size": 0,
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.ListItems(context.Background(), ListItemsArgs{
 		BoardID: "board123",
 		Type:    "sticky_note",
@@ -133,39 +104,21 @@ func TestListItems_WithTypeFilter(t *testing.T) {
 }
 
 func TestGetItem_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/boards/board123/items/item456" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":   "item456",
-			"type": "sticky_note",
-			"position": map[string]interface{}{
-				"x": 150.0,
-				"y": 250.0,
-			},
-			"geometry": map[string]interface{}{
-				"width":  200.0,
-				"height": 200.0,
-			},
-			"data": map[string]interface{}{
-				"content": "Detailed content",
-			},
-			"style": map[string]interface{}{
-				"fillColor": "light_yellow",
-			},
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkItemField(t, "path", r.URL.Path, "/boards/board123/items/item456")
+		writeJSON(w, map[string]interface{}{
+			"id":         "item456",
+			"type":       "sticky_note",
+			"position":   map[string]interface{}{"x": 150.0, "y": 250.0},
+			"geometry":   map[string]interface{}{"width": 200.0, "height": 200.0},
+			"data":       map[string]interface{}{"content": "Detailed content"},
+			"style":      map[string]interface{}{"fillColor": "light_yellow"},
 			"createdAt":  "2024-01-01T00:00:00Z",
 			"modifiedAt": "2024-01-02T00:00:00Z",
-			"createdBy": map[string]interface{}{
-				"name": "John Doe",
-			},
+			"createdBy":  map[string]interface{}{"name": "John Doe"},
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetItem(context.Background(), GetItemArgs{
 		BoardID: "board123",
 		ItemID:  "item456",
@@ -174,46 +127,34 @@ func TestGetItem_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "item456" {
-		t.Errorf("ID = %q, want 'item456'", result.ID)
-	}
-	if result.Content != "Detailed content" {
-		t.Errorf("Content = %q, want 'Detailed content'", result.Content)
-	}
-	if result.X != 150.0 {
-		t.Errorf("X = %f, want 150.0", result.X)
-	}
-	if result.Width != 200.0 {
-		t.Errorf("Width = %f, want 200.0", result.Width)
-	}
-	if result.CreatedBy != "John Doe" {
-		t.Errorf("CreatedBy = %q, want 'John Doe'", result.CreatedBy)
-	}
+	checkItemField(t, "ID", result.ID, "item456")
+	checkItemField(t, "Content", result.Content, "Detailed content")
+	checkItemField(t, "X", result.X, 150.0)
+	checkItemField(t, "Width", result.Width, 200.0)
+	checkItemField(t, "CreatedBy", result.CreatedBy, "John Doe")
 }
 
-func TestGetItem_ValidationErrors(t *testing.T) {
+// TestItem_ValidationErrors covers input validation across the generic item
+// methods; every case must fail with a message naming the missing field.
+func TestItem_ValidationErrors(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
+	ctx := context.Background()
 
 	tests := []struct {
 		name    string
-		args    GetItemArgs
+		call    func() error
 		errText string
 	}{
-		{
-			name:    "empty board_id",
-			args:    GetItemArgs{ItemID: "item123"},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty item_id",
-			args:    GetItemArgs{BoardID: "board123"},
-			errText: "item_id is required",
-		},
+		{"get with empty board_id", func() error { _, err := client.GetItem(ctx, GetItemArgs{ItemID: "item123"}); return err }, "board_id is required"},
+		{"get with empty item_id", func() error { _, err := client.GetItem(ctx, GetItemArgs{BoardID: "board123"}); return err }, "item_id is required"},
+		{"delete with empty board_id", func() error { _, err := client.DeleteItem(ctx, DeleteItemArgs{ItemID: "item123"}); return err }, "board_id is required"},
+		{"delete with empty item_id", func() error { _, err := client.DeleteItem(ctx, DeleteItemArgs{BoardID: "board123"}); return err }, "item_id is required"},
+		{"list with empty board_id", func() error { _, err := client.ListItems(ctx, ListItemsArgs{}); return err }, "board_id is required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.GetItem(context.Background(), tt.args)
+			err := tt.call()
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -225,13 +166,9 @@ func TestGetItem_ValidationErrors(t *testing.T) {
 }
 
 func TestUpdateItem_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPatch {
-			t.Errorf("expected PATCH, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/items/item456" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkItemField(t, "method", r.Method, http.MethodPatch)
+		checkItemField(t, "path", r.URL.Path, "/boards/board123/items/item456")
 
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
@@ -240,16 +177,9 @@ func TestUpdateItem_Success(t *testing.T) {
 		if _, ok := body["data"]; !ok {
 			t.Error("expected 'data' field in request body")
 		}
+		writeJSON(w, map[string]interface{}{"id": "item456"})
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id": "item456",
-		})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	content := "Updated content"
 	result, err := client.UpdateItem(context.Background(), UpdateItemArgs{
 		BoardID: "board123",
@@ -260,12 +190,8 @@ func TestUpdateItem_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Error("Success should be true")
-	}
-	if result.ItemID != "item456" {
-		t.Errorf("ItemID = %q, want 'item456'", result.ItemID)
-	}
+	checkItemField(t, "Success", result.Success, true)
+	checkItemField(t, "ItemID", result.ItemID, "item456")
 }
 
 func TestUpdateItem_NoChanges(t *testing.T) {
@@ -280,114 +206,69 @@ func TestUpdateItem_NoChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Error("Success should be true even with no changes")
-	}
-	if result.Message != "No changes specified" {
-		t.Errorf("Message = %q, want 'No changes specified'", result.Message)
-	}
+	checkItemField(t, "Success", result.Success, true)
+	checkItemField(t, "Message", result.Message, "No changes specified")
 }
 
-func TestUpdateItem_PositionUpdate(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		pos, ok := body["position"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'position' field in request body")
-		}
-		if pos["x"] != 500.0 {
-			t.Errorf("x = %v, want 500.0", pos["x"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "item456"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
+// TestUpdateItem_PartialFields verifies that position and geometry updates
+// place the expected numeric values in the request body.
+func TestUpdateItem_PartialFields(t *testing.T) {
 	x := 500.0
-	_, err := client.UpdateItem(context.Background(), UpdateItemArgs{
-		BoardID: "board123",
-		ItemID:  "item456",
-		X:       &x,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestUpdateItem_WithYPosition(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		pos, ok := body["position"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'position' field in request body")
-		}
-		if pos["y"] != float64(300) {
-			t.Errorf("y = %v, want 300", pos["y"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "item456"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	y := float64(300)
-	_, err := client.UpdateItem(context.Background(), UpdateItemArgs{
-		BoardID: "board123",
-		ItemID:  "item456",
-		Y:       &y,
-	})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestUpdateItem_WithGeometry(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&body)
-
-		geom, ok := body["geometry"].(map[string]interface{})
-		if !ok {
-			t.Error("expected 'geometry' field in request body")
-		}
-		if geom["width"] != float64(400) {
-			t.Errorf("width = %v, want 400", geom["width"])
-		}
-		if geom["height"] != float64(250) {
-			t.Errorf("height = %v, want 250", geom["height"])
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "item456"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	width := float64(400)
 	height := float64(250)
-	_, err := client.UpdateItem(context.Background(), UpdateItemArgs{
-		BoardID: "board123",
-		ItemID:  "item456",
-		Width:   &width,
-		Height:  &height,
-	})
 
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	tests := []struct {
+		name      string
+		args      UpdateItemArgs
+		bodyField string
+		want      map[string]float64
+	}{
+		{
+			name:      "x position update",
+			args:      UpdateItemArgs{BoardID: "board123", ItemID: "item456", X: &x},
+			bodyField: "position",
+			want:      map[string]float64{"x": 500.0},
+		},
+		{
+			name:      "y position update",
+			args:      UpdateItemArgs{BoardID: "board123", ItemID: "item456", Y: &y},
+			bodyField: "position",
+			want:      map[string]float64{"y": 300},
+		},
+		{
+			name:      "geometry update",
+			args:      UpdateItemArgs{BoardID: "board123", ItemID: "item456", Width: &width, Height: &height},
+			bodyField: "geometry",
+			want:      map[string]float64{"width": 400, "height": 250},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]interface{}
+				json.NewDecoder(r.Body).Decode(&body)
+
+				field, ok := body[tt.bodyField].(map[string]interface{})
+				if !ok {
+					t.Errorf("expected %q field in request body", tt.bodyField)
+				}
+				for key, want := range tt.want {
+					checkItemField(t, tt.bodyField+"."+key, field[key], interface{}(want))
+				}
+				writeJSON(w, map[string]interface{}{"id": "item456"})
+			})
+
+			if _, err := client.UpdateItem(context.Background(), tt.args); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }
 
 func TestUpdateItem_WithColorAndParent(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&body)
 
@@ -395,23 +276,19 @@ func TestUpdateItem_WithColorAndParent(t *testing.T) {
 		// to Miro because the items endpoint requires hex (regression from 26-04-2026).
 		if style, ok := body["style"].(map[string]interface{}); !ok {
 			t.Error("expected 'style' field in request body")
-		} else if style["fillColor"] != "#008000" {
-			t.Errorf("fillColor = %v, want '#008000' (green normalized to hex)", style["fillColor"])
+		} else {
+			checkItemField(t, "fillColor (green normalized to hex)", style["fillColor"], interface{}("#008000"))
 		}
 
 		// Verify parent
 		if parent, ok := body["parent"].(map[string]interface{}); !ok {
 			t.Error("expected 'parent' field in request body")
-		} else if parent["id"] != "frame-123" {
-			t.Errorf("parent.id = %v, want 'frame-123'", parent["id"])
+		} else {
+			checkItemField(t, "parent.id", parent["id"], interface{}("frame-123"))
 		}
+		writeJSON(w, map[string]interface{}{"id": "item456"})
+	})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"id": "item456"})
-	}))
-	defer server.Close()
-
-	client := newTestClientWithServer(server.URL)
 	color := "green"
 	parentID := "frame-123"
 	_, err := client.UpdateItem(context.Background(), UpdateItemArgs{
@@ -427,19 +304,12 @@ func TestUpdateItem_WithColorAndParent(t *testing.T) {
 }
 
 func TestDeleteItem_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodDelete {
-			t.Errorf("expected DELETE, got %s", r.Method)
-		}
-		if r.URL.Path != "/boards/board123/items/item456" {
-			t.Errorf("unexpected path: %s", r.URL.Path)
-		}
-
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		checkItemField(t, "method", r.Method, http.MethodDelete)
+		checkItemField(t, "path", r.URL.Path, "/boards/board123/items/item456")
 		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.DeleteItem(context.Background(), DeleteItemArgs{
 		BoardID: "board123",
 		ItemID:  "item456",
@@ -448,73 +318,32 @@ func TestDeleteItem_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Error("Success should be true")
-	}
-	if result.ItemID != "item456" {
-		t.Errorf("ItemID = %q, want 'item456'", result.ItemID)
-	}
-}
-
-func TestDeleteItem_ValidationErrors(t *testing.T) {
-	client := NewClient(testConfig(), testLogger())
-
-	tests := []struct {
-		name    string
-		args    DeleteItemArgs
-		errText string
-	}{
-		{
-			name:    "empty board_id",
-			args:    DeleteItemArgs{ItemID: "item123"},
-			errText: "board_id is required",
-		},
-		{
-			name:    "empty item_id",
-			args:    DeleteItemArgs{BoardID: "board123"},
-			errText: "item_id is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.DeleteItem(context.Background(), tt.args)
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.errText) {
-				t.Errorf("expected error containing %q, got: %v", tt.errText, err)
-			}
-		})
-	}
+	checkItemField(t, "Success", result.Success, true)
+	checkItemField(t, "ItemID", result.ItemID, "item456")
 }
 
 func TestListAllItems_Success(t *testing.T) {
 	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		w.Header().Set("Content-Type", "application/json")
-
 		if callCount == 1 {
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			writeJSON(w, map[string]interface{}{
 				"data": []map[string]interface{}{
 					{"id": "item1", "type": "sticky_note"},
 					{"id": "item2", "type": "sticky_note"},
 				},
 				"cursor": "page2",
 			})
-		} else {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
-					{"id": "item3", "type": "shape"},
-				},
-				"cursor": "",
-			})
+			return
 		}
-	}))
-	defer server.Close()
+		writeJSON(w, map[string]interface{}{
+			"data": []map[string]interface{}{
+				{"id": "item3", "type": "shape"},
+			},
+			"cursor": "",
+		})
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListAllItems(context.Background(), ListAllItemsArgs{
 		BoardID: "board123",
 	})
@@ -522,17 +351,12 @@ func TestListAllItems_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 3 {
-		t.Errorf("Count = %d, want 3", result.Count)
-	}
-	if result.TotalPages != 2 {
-		t.Errorf("TotalPages = %d, want 2", result.TotalPages)
-	}
+	checkItemField(t, "Count", result.Count, 3)
+	checkItemField(t, "TotalPages", result.TotalPages, 2)
 }
 
 func TestListAllItems_MaxItemsLimit(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		// Return more items than max
 		items := make([]map[string]interface{}, 10)
 		for i := 0; i < 10; i++ {
@@ -541,14 +365,12 @@ func TestListAllItems_MaxItemsLimit(t *testing.T) {
 				"type": "sticky_note",
 			}
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		writeJSON(w, map[string]interface{}{
 			"data":   items,
 			"cursor": "more",
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.ListAllItems(context.Background(), ListAllItemsArgs{
 		BoardID:  "board123",
 		MaxItems: 5,
@@ -557,19 +379,14 @@ func TestListAllItems_MaxItemsLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Count != 5 {
-		t.Errorf("Count = %d, want 5 (max items limit)", result.Count)
-	}
-	if !result.Truncated {
-		t.Error("Truncated should be true")
-	}
+	checkItemField(t, "Count (max items limit)", result.Count, 5)
+	checkItemField(t, "Truncated", result.Truncated, true)
 }
 
 func TestGetItem_WithLinks(t *testing.T) {
 	// Tests GetItem when item has links
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]interface{}{
 			"id":   "item123",
 			"type": "sticky_note",
 			"links": map[string]interface{}{
@@ -577,10 +394,8 @@ func TestGetItem_WithLinks(t *testing.T) {
 				"related": "https://api.miro.com/v2/boards/board123",
 			},
 		})
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	result, err := client.GetItem(context.Background(), GetItemArgs{
 		BoardID: "board123",
 		ItemID:  "item123",
@@ -589,9 +404,7 @@ func TestGetItem_WithLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ID != "item123" {
-		t.Errorf("ID = %v, want 'item123'", result.ID)
-	}
+	checkItemField(t, "ID", result.ID, "item123")
 }
 
 func TestValidateItemID_TooLong(t *testing.T) {
@@ -602,9 +415,7 @@ func TestValidateItemID_TooLong(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for ID that's too long")
 	}
-	if !strings.Contains(err.Error(), "too long") {
-		t.Errorf("error should mention 'too long': %v", err)
-	}
+	checkItemField(t, "error mentions 'too long'", strings.Contains(err.Error(), "too long"), true)
 }
 
 func TestValidateItemID_InvalidCharacters(t *testing.T) {
@@ -614,20 +425,16 @@ func TestValidateItemID_InvalidCharacters(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for ID with invalid characters")
 	}
-	if !strings.Contains(err.Error(), "invalid characters") {
-		t.Errorf("error should mention 'invalid characters': %v", err)
-	}
+	checkItemField(t, "error mentions 'invalid characters'", strings.Contains(err.Error(), "invalid characters"), true)
 }
 
 func TestDeleteItem_NoFallbackOn500(t *testing.T) {
 	var calls []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		calls = append(calls, r.Method+" "+r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
+	})
 
-	client := newTestClientWithServer(server.URL)
 	_, err := client.DeleteItem(context.Background(), DeleteItemArgs{
 		BoardID: "board123",
 		ItemID:  "item-xyz",
@@ -647,14 +454,11 @@ func TestDeleteItem_NoFallbackOn500(t *testing.T) {
 
 func TestBulkUpdate_NoTypeFallsBackToGenericItemsEndpoint(t *testing.T) {
 	var paths []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newItemTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"id": "item1"})
-	}))
-	defer server.Close()
+		writeJSON(w, map[string]interface{}{"id": "item1"})
+	})
 
-	client := newTestClientWithServer(server.URL)
 	content := "renamed"
 	_, err := client.BulkUpdate(context.Background(), BulkUpdateArgs{
 		BoardID: "board123",

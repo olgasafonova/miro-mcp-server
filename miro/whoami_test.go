@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -31,6 +32,18 @@ func newWhoAmIServer(t *testing.T, body string, gotPath *string) *httptest.Serve
 	}))
 }
 
+// assertWhoAmIEntity checks one entity against its expected value.
+func assertWhoAmIEntity(t *testing.T, label string, got *WhoAmIEntity, want WhoAmIEntity) {
+	t.Helper()
+	if got == nil {
+		t.Errorf("%s = nil, want %+v", label, want)
+		return
+	}
+	if *got != want {
+		t.Errorf("%s = %+v, want %+v", label, *got, want)
+	}
+}
+
 func TestWhoAmIParsesTokenContext(t *testing.T) {
 	var gotPath string
 	server := newWhoAmIServer(t, whoAmISample, &gotPath)
@@ -45,19 +58,11 @@ func TestWhoAmIParsesTokenContext(t *testing.T) {
 	if gotPath != "/oauth-token" {
 		t.Errorf("path = %q, want /oauth-token", gotPath)
 	}
-	if result.User == nil || result.User.ID != "u-1" || result.User.Name != "Olga Safonova" {
-		t.Errorf("user = %+v, want u-1/Olga Safonova", result.User)
-	}
-	if result.Team == nil || result.Team.ID != "t-1" || result.Team.Name != "Dev team" {
-		t.Errorf("team = %+v, want t-1/Dev team", result.Team)
-	}
-	if result.Organization == nil || result.Organization.ID != "org-1" {
-		t.Errorf("organization = %+v, want org-1", result.Organization)
-	}
-	if result.Application == nil || result.Application.ID != "app-1" || result.Application.Name != "Go Miro" {
-		t.Errorf("application = %+v, want app-1/Go Miro", result.Application)
-	}
-	if len(result.Scopes) != 2 || result.Scopes[0] != "boards:write" || result.Scopes[1] != "boards:read" {
+	assertWhoAmIEntity(t, "user", result.User, WhoAmIEntity{ID: "u-1", Name: "Olga Safonova"})
+	assertWhoAmIEntity(t, "team", result.Team, WhoAmIEntity{ID: "t-1", Name: "Dev team"})
+	assertWhoAmIEntity(t, "organization", result.Organization, WhoAmIEntity{ID: "org-1", Name: "Dev team"})
+	assertWhoAmIEntity(t, "application", result.Application, WhoAmIEntity{ID: "app-1", Name: "Go Miro"})
+	if !reflect.DeepEqual(result.Scopes, []string{"boards:write", "boards:read"}) {
 		t.Errorf("scopes = %v, want [boards:write boards:read]", result.Scopes)
 	}
 }

@@ -18,10 +18,15 @@ type apiWhoAmIEntity struct {
 	Name string `json:"name"`
 }
 
+// isBlank reports an entity the API sent with no identifying fields.
+func (e *apiWhoAmIEntity) isBlank() bool {
+	return e.ID == "" && e.Name == ""
+}
+
 // toEntity projects a wire entity, collapsing an absent one to nil so the
 // result omits it entirely.
 func (e *apiWhoAmIEntity) toEntity() *WhoAmIEntity {
-	if e == nil || (e.ID == "" && e.Name == "") {
+	if e == nil || e.isBlank() {
 		return nil
 	}
 	return &WhoAmIEntity{ID: e.ID, Name: e.Name}

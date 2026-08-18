@@ -151,9 +151,10 @@ type FrameService interface {
 	GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (GetFrameItemsResult, error)
 }
 
-// TokenService handles authentication validation.
+// TokenService handles authentication validation and token introspection.
 type TokenService interface {
 	ValidateToken(ctx context.Context) (*UserInfo, error)
+	WhoAmI(ctx context.Context, args WhoAmIArgs) (WhoAmIResult, error)
 }
 
 // ExportService handles board export operations.

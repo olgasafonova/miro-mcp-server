@@ -1420,6 +1420,18 @@ created_after and created_before are BOTH REQUIRED — the API has no default wi
 RETURNS: Cursor-paginated events with actor (name/email), target object, event type, category, team, and source IP.`,
 	},
 	{
+		Name:     "miro_who_am_i",
+		Method:   "WhoAmI",
+		Title:    "Who Am I (Token Introspection)",
+		Category: "read",
+		ReadOnly: true,
+		Description: `Introspect the access token this server is using — whose it is, which team and organization it is scoped to, and which scopes it carries (GET /v1/oauth-token).
+
+USE WHEN a call returned 403 or you need to know what this token may do BEFORE blaming the endpoint: a missing scope (e.g. auditlogs:read) and a genuinely forbidden resource look identical from the status alone.
+
+RETURNS: user, team, organization, application (each id + name), and the scopes list.`,
+	},
+	{
 		Name:     "miro_get_desire_paths",
 		Method:   "GetDesirePathReport",
 		Title:    "Get Desire Path Report",

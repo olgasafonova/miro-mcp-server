@@ -1,7 +1,7 @@
 # Miro MCP Server
 
 ## Project
-Go MCP server for Miro REST API v2. 109 tools across boards, items, diagrams, mindmaps, code widgets, comments, canvas SVG, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
+Go MCP server for Miro REST API v2. 110 tools across boards, items, diagrams, mindmaps, code widgets, comments, canvas SVG, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
 
 ## Architecture
 - `main.go` — entry point, dual stdio/HTTP transport, health/metrics endpoints, token validation
@@ -26,11 +26,11 @@ Go MCP server for Miro REST API v2. 109 tools across boards, items, diagrams, mi
 - All API methods live on the `MiroClient` interface for testability (mock in `tools/mock_client_test.go`)
 - Mermaid diagrams parsed locally (no external service), supporting flowchart + sequenceDiagram
 
-## Tool Categories (109 total)
+## Tool Categories (110 total)
 - **Board Management** (9): list, find, get, create, copy, update, delete, summary, content
 - **Board Members** (5): list, get, share, update, remove
 - **Create Items** (15): sticky, shape, flowchart shape, text, connector, frame, card, app card, image, document, embed, bulk create/update/delete, sticky grid
-- **Read Items** (7): list, list all (paginated), get, search, get image/document/app card
+- **Read Items** (8): list, list all (paginated), get, search, get image/document/app card, who am i (token introspection)
 - **Update/Delete** (9): update/delete for sticky, shape, text, card, image, document, embed, generic item
 - **Tags** (9): create, list, get, attach, detach, get item tags, get items by tag, update, delete
 - **Connectors** (4): list, get, update, delete

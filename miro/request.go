@@ -326,6 +326,19 @@ func (c *Client) requestExperimental(ctx context.Context, method, path string, b
 	return c.request(ctx, method, path, body)
 }
 
+// requestV1 makes a request to the legacy v1 API. Only token introspection
+// (GET /v1/oauth-token) still lives there; everything else is v2.
+func (c *Client) requestV1(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	// Only swap to v1 if using production URL (preserve test server URLs)
+	if c.baseURL == BaseURL {
+		originalBaseURL := c.baseURL
+		c.baseURL = V1BaseURL
+		defer func() { c.baseURL = originalBaseURL }()
+	}
+
+	return c.request(ctx, method, path, body)
+}
+
 // =============================================================================
 // Caching helpers
 // =============================================================================

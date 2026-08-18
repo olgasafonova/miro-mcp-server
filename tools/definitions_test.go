@@ -133,7 +133,8 @@ func TestToolCount(t *testing.T) {
 	// unreleased: +1 miro_get_org_audit_logs (Miro Enterprise GET /v2/audit/logs) = 106
 	//             +2 native diagram read tools (list_diagrams, get_diagram; GET /v2/boards/{id}/diagrams) = 108
 	//             +1 miro_update_from_svg (data-miro-id diff: update/delete/additive create) = 109
-	expectedCount := 109
+	//             +1 miro_who_am_i (token introspection, GET /v1/oauth-token) = 110
+	expectedCount := 110
 	if len(AllTools) != expectedCount {
 		t.Errorf("expected %d tools, got %d", expectedCount, len(AllTools))
 	}

@@ -137,6 +137,7 @@ type MockClient struct {
 
 	// Token operations
 	ValidateTokenFn func(ctx context.Context) (*miro.UserInfo, error)
+	WhoAmIFn        func(ctx context.Context, args miro.WhoAmIArgs) (miro.WhoAmIResult, error)
 
 	// Export operations
 	GetBoardPictureFn     func(ctx context.Context, args miro.GetBoardPictureArgs) (miro.GetBoardPictureResult, error)
@@ -383,6 +384,15 @@ func (m *MockClient) ValidateToken(ctx context.Context) (*miro.UserInfo, error) 
 		Name:  "Test User",
 		Email: "test@example.com",
 	}, nil
+}
+
+func (m *MockClient) WhoAmI(ctx context.Context, args miro.WhoAmIArgs) (miro.WhoAmIResult, error) {
+	m.recordCall("WhoAmI", args)
+	return stub(ctx, m.WhoAmIFn, args, miro.WhoAmIResult{
+		User:   &miro.WhoAmIEntity{ID: "user-123", Name: "Test User"},
+		Team:   &miro.WhoAmIEntity{ID: "team-123", Name: "Test Team"},
+		Scopes: []string{"boards:read", "boards:write"},
+	})
 }
 
 // =============================================================================

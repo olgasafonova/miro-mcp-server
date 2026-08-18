@@ -53,6 +53,10 @@ const (
 	// ExperimentalBaseURL is the Miro REST API v2-experimental base URL.
 	ExperimentalBaseURL = "https://api.miro.com/v2-experimental"
 
+	// V1BaseURL is the legacy Miro REST API v1 base URL. Only token
+	// introspection (GET /v1/oauth-token) still lives there.
+	V1BaseURL = "https://api.miro.com/v1"
+
 	// DefaultTimeout is the default HTTP request timeout.
 	DefaultTimeout = 30 * time.Second
 

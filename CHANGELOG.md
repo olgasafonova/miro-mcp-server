@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`miro_who_am_i` (1)**: token introspection via `GET /v1/oauth-token` — whose token this server is running on, which team and organization it is scoped to, and which scopes it carries. The REST twin of the official connector's `user_who_am_i`, and the missing first step when debugging a 403: a token without the needed scope and a genuinely forbidden resource are indistinguishable from the status alone, so check the scopes before blaming the endpoint.
+
+  The endpoint is the one piece of token introspection Miro never ported to v2, so the client gains a narrow v1 base-URL path (`V1BaseURL` + `requestV1`) alongside the existing v2 and v2-experimental ones. Deliberately uncached: the point of the tool is a live answer. Wire shape captured by live probe 18-08-2026 — a plain personal access token answers 200 with user, team, organization, application and scopes. Tool count: 109 → 110.
+
+- **SVG canvas round trip: frame-scoped read, update-from-svg diff, richer create dialect.** Grounded in David Balkind's canvas-composer probe campaign (Aug 2026), which mapped the official Miro MCP's SVG surface against this server:
+
+  - `miro_read_board_svg` gains `frame_id`: render one frame with frame-relative child coordinates (the official composer's reads are whole-board only).
+  - New `miro_update_from_svg`: a diff keyed on `data-miro-id` — update in place, remove via `data-deleted`, create additively. Two failure classes: malformed XML fails the whole request; semantic errors land in a `failed` list while the rest of the batch applies. Read output is re-submittable by construction (the official composer's reads are re-escaped and are not). Tool count: 108 → 109.
+  - `miro_create_from_svg` dialect extended: `data-type` sticky/frame hints, 3-point polygon → triangle, `image href`, and `line` + `data-start`/`data-end` → connector via two-pass authored-id resolution.
+  - Eventual-consistency caveats added to `miro_get_board_summary` and `miro_list_items`: the REST index lags composer-created items, and interactive widgets never appear in the REST enumeration.
+
 ### Changed
 
 - **CodeScene Code Health raised to 10.0 across the repo** (measured per file with the CodeScene CLI/MCP). 63 files refactored — structure only: test setup/assertion boilerplate extracted into local helpers, duplicated test pairs merged into table-driven tests with every case preserved as a named subtest, and five oversized files split by responsibility (`client_test.go` → utils/export/bulk/resilience, `handlers_test.go` and `mock_client_test.go` → per-area files, `oauth_test.go` → provider/store/server/flow, `audit_test.go` → memory/file/factory). No exported signature, error string, JSON tag, or API path changed. Five files stay Green at 9.38–9.68 rather than 10.0 because their remaining finding is the exported API's own string parameters (`miro/cache.go`, `tools/share_allowlist.go`, `miro/diagrams/errors.go`, `miro/diagrams/mermaid.go`, `miro/diagrams/sequence.go`) — reshaping those surfaces for a score is contortion, not health.

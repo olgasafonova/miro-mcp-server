@@ -132,11 +132,22 @@ type TextItem struct {
 // Connector Types
 // =============================================================================
 
-// ConnectorEndpoint defines one end of a connector.
+// ConnectorAnchor is a connector endpoint's relative position on the
+// connected item. The API answers these as percentage strings ("0%" to
+// "100%" per axis), not numbers — verified live 18-08-2026 — so this is
+// deliberately not Position.
+type ConnectorAnchor struct {
+	X string `json:"x,omitempty"`
+	Y string `json:"y,omitempty"`
+}
+
+// ConnectorEndpoint defines one end of a connector. The connected
+// item's id arrives as "id" on the wire (the old json:"item" tag read a
+// field the API never sends, so endpoint ids parsed as empty).
 type ConnectorEndpoint struct {
-	ItemID   string    `json:"item,omitempty"`     // ID of connected item
-	Position *Position `json:"position,omitempty"` // Position if not connected to item
-	SnapTo   string    `json:"snapTo,omitempty"`   // "auto", "top", "right", "bottom", "left"
+	ItemID   string           `json:"id,omitempty"`       // ID of connected item
+	Position *ConnectorAnchor `json:"position,omitempty"` // Relative anchor on the item
+	SnapTo   string           `json:"snapTo,omitempty"`   // "auto", "top", "right", "bottom", "left"
 }
 
 // ConnectorStyle defines connector appearance.

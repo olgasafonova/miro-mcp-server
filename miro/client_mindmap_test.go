@@ -431,9 +431,9 @@ func TestListMindmapNodes_QueryParams(t *testing.T) {
 			wantQuery: "cursor=abc123",
 		},
 		{
-			name:      "limit clamped to 100",
+			name:      "limit clamped to 50 (endpoint max; 51+ is a live 400)",
 			args:      ListMindmapNodesArgs{BoardID: "board123", Limit: 500},
-			wantQuery: "limit=100",
+			wantQuery: "limit=50",
 		},
 	}
 

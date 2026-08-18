@@ -13,7 +13,8 @@ import (
 // =============================================================================
 
 // clampConnectorLimit normalizes a requested page size to the connector
-// endpoint's bounds (Miro API minimum 10, maximum 100).
+// endpoint's bounds (Miro API minimum 10, maximum 50 — limit=51 and
+// limit=100 both answer 400, verified live 18-08-2026).
 func clampConnectorLimit(limit int) int {
 	if limit <= 0 {
 		limit = 50
@@ -21,8 +22,8 @@ func clampConnectorLimit(limit int) int {
 	if limit < 10 {
 		return 10
 	}
-	if limit > 100 {
-		return 100
+	if limit > MaxConnectorLimit {
+		return MaxConnectorLimit
 	}
 	return limit
 }

@@ -218,7 +218,7 @@ func (c *Client) collectFrameItems(ctx context.Context, boardID, frameID string,
 	for {
 		page, err := c.GetFrameItems(ctx, GetFrameItemsArgs{
 			BoardID: boardID, FrameID: frameID,
-			Limit: 100, Cursor: cursor, DetailLevel: "full",
+			Limit: MaxItemLimit, Cursor: cursor, DetailLevel: "full",
 		})
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to list frame items: %w", err)
@@ -292,7 +292,7 @@ func (c *Client) ReadBoardSVG(ctx context.Context, args ReadBoardSVGArgs) (ReadB
 	// Connectors are best-effort decoration; a failure there shouldn't sink
 	// the render.
 	var connectors []ConnectorSummary
-	if connResult, connErr := c.ListConnectors(ctx, ListConnectorsArgs{BoardID: args.BoardID, Limit: 100}); connErr == nil {
+	if connResult, connErr := c.ListConnectors(ctx, ListConnectorsArgs{BoardID: args.BoardID, Limit: MaxConnectorLimit}); connErr == nil {
 		connectors = connResult.Connectors
 	}
 

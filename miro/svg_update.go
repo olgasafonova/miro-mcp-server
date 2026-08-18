@@ -77,9 +77,17 @@ func (c *Client) applySVGUpdate(ctx context.Context, boardID string, el svgEleme
 	out.updated = append(out.updated, SVGUpdatedItem{ID: el.miroID, Element: el.name})
 }
 
-// applySVGDelete deletes one identified element.
+// applySVGDelete deletes one identified element. Connectors are not
+// reachable through the generic items endpoint (DELETE there is a 404,
+// verified live 18-08-2026), so lines route to DeleteConnector.
 func (c *Client) applySVGDelete(ctx context.Context, boardID string, el svgElement, out *svgUpdateOutcome) {
-	if _, err := c.DeleteItem(ctx, DeleteItemArgs{BoardID: boardID, ItemID: el.miroID}); err != nil {
+	var err error
+	if el.name == "line" {
+		_, err = c.DeleteConnector(ctx, DeleteConnectorArgs{BoardID: boardID, ConnectorID: el.miroID})
+	} else {
+		_, err = c.DeleteItem(ctx, DeleteItemArgs{BoardID: boardID, ItemID: el.miroID})
+	}
+	if err != nil {
 		out.fail(el, err.Error())
 		return
 	}

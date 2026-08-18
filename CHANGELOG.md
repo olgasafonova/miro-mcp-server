@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Connector reads work against the live API.** `miro_list_connectors` and `miro_get_connector` parsed the connected item's id from a `"item"` key the API never sends (endpoint ids came back empty), and typed the endpoint's relative anchor as numbers when the wire carries percentage strings (`"x": "100%"`) — so any connector attached to an item failed the whole call with a parse error. Both found 18-08-2026 while porting the SVG dialect to miro-cli: the unit fixtures encoded the imagined wire shape, so tests passed while every live read was broken. Fixtures now mirror a captured live response. Consequence fixed along the way: `miro_read_board_svg` and the board-summary connector enrichment swallow connector errors as best-effort, so connectors silently never appeared in either — they render now.
+
+- **Page-size caps corrected to the API's real maximum of 50.** Connectors, frame items, and mindmap nodes all clamped requested limits to 100, but the live endpoints answer 400 to anything above 50 (`limit=51` and `limit=100` both verified 18-08-2026). Affected paths either errored outright (`miro_get_frame_items`, `miro_list_mindmap_nodes` with a large limit) or silently degraded (the frame-scoped SVG read's child listing, the connector fetches above). All clamps now cap at 50, matching the `MaxItemLimit` the plain items listing already enforced.
+
+- **`miro_update_from_svg` accepts minimal deletion markers and deletes connectors.** A bare `<rect data-miro-id="X" data-deleted="true"/>` was skipped as degenerate geometry (an empty `<text>` marker likewise as empty content) — deletion needs identity, not geometry, so markers now bypass those checks. And a `<line>` deletion routed to the generic items endpoint, which answers 404 for connectors; it now routes to the connectors endpoint. Both found by the miro-cli port's live smoke test and fixed in both codebases.
+
 ## [1.24.0] - 2026-08-18
 
 ### Added

@@ -24,6 +24,10 @@ const (
 	// MaxItemLimitExtended is the max limit for endpoints supporting 100 items.
 	MaxItemLimitExtended = 100
 
+	// MaxConnectorLimit is the maximum connectors allowed per request.
+	// limit=51 and limit=100 both answer 400 (verified live 18-08-2026).
+	MaxConnectorLimit = 50
+
 	// DefaultSearchLimit is the default search results to return.
 	DefaultSearchLimit = 20
 

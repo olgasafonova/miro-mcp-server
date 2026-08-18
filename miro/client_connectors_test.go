@@ -69,7 +69,7 @@ func TestListConnectors_LimitBoundaries(t *testing.T) {
 	}{
 		{"zero limit defaults to 50", 0, "50"},
 		{"limit below 10 becomes 10", 5, "10"},
-		{"limit above 100 becomes 100", 200, "100"},
+		{"limit above 50 becomes 50 (endpoint max; 51+ is a live 400)", 200, "50"},
 		{"valid limit passes through", 30, "30"},
 	}
 
@@ -264,8 +264,8 @@ func TestConnectorReadOps_Success(t *testing.T) {
 			name: "get",
 			payload: map[string]interface{}{
 				"id":        "conn456",
-				"startItem": map[string]interface{}{"item": "start123"},
-				"endItem":   map[string]interface{}{"item": "end456"},
+				"startItem": map[string]interface{}{"id": "start123", "position": map[string]interface{}{"x": "100%", "y": "50%"}},
+				"endItem":   map[string]interface{}{"id": "end456", "position": map[string]interface{}{"x": "0%", "y": "50%"}},
 				"style":     map[string]interface{}{"strokeColor": "#000000", "strokeWidth": "2.0"},
 			},
 			checkReq: func(t *testing.T, r *http.Request) {
@@ -289,8 +289,8 @@ func TestGetConnector_WithAllDetails(t *testing.T) {
 		writeJSON(w, map[string]interface{}{
 			"id":        "conn456",
 			"shape":     "elbowed",
-			"startItem": map[string]interface{}{"item": "start123"},
-			"endItem":   map[string]interface{}{"item": "end456"},
+			"startItem": map[string]interface{}{"id": "start123", "position": map[string]interface{}{"x": "100%", "y": "50%"}},
+			"endItem":   map[string]interface{}{"id": "end456", "position": map[string]interface{}{"x": "0%", "y": "50%"}},
 			"style": map[string]interface{}{
 				"startStrokeCap": "arrow",
 				"endStrokeCap":   "stealth",

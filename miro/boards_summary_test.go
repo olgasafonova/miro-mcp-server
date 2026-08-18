@@ -183,8 +183,8 @@ func TestGetBoardContent_WithConnectorsAndTags(t *testing.T) {
 				"data": []map[string]interface{}{
 					{
 						"id":        "c1",
-						"startItem": map[string]interface{}{"item": "s1"},
-						"endItem":   map[string]interface{}{"item": "s2"},
+						"startItem": map[string]interface{}{"id": "s1"},
+						"endItem":   map[string]interface{}{"id": "s2"},
 					},
 				},
 			})

@@ -242,7 +242,7 @@ func assembleBoardContentResult(board GetBoardResult, allItems ListAllItemsResul
 func (c *Client) loadConnectorContexts(ctx context.Context, boardID string, itemMap map[string]ItemSummary) []ConnectorContext {
 	connectors, err := c.ListConnectors(ctx, ListConnectorsArgs{
 		BoardID: boardID,
-		Limit:   100,
+		Limit:   MaxConnectorLimit,
 	})
 	if err != nil {
 		return nil

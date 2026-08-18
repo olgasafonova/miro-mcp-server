@@ -135,9 +135,13 @@ func (st *svgParseState) pushGroup(attrs svgAttrs) {
 }
 
 // addDrawable appends a parsed element, or records a skip when its geometry
-// is degenerate. The shared exit point for every shape converter.
+// is degenerate. The shared exit point for every shape converter. A deletion
+// marker (data-miro-id + data-deleted) is kept regardless of geometry:
+// deleting an item needs its identity, nothing else, so
+// `<rect data-miro-id="X" data-deleted="true"/>` is a valid minimal diff.
 func (st *svgParseState) addDrawable(el svgElement, valid bool, reason string) {
-	if !valid {
+	deletionMarker := el.miroID != "" && el.deleted
+	if !valid && !deletionMarker {
 		st.skip(el.name, reason)
 		return
 	}
@@ -307,12 +311,14 @@ func (st *svgParseState) closeGroup() {
 	}
 }
 
-// closeText finalizes a </text>, keeping non-blank content only.
+// closeText finalizes a </text>, keeping non-blank content only — or a blank
+// one when it is a deletion marker, which needs no content.
 func (st *svgParseState) closeText() {
 	if st.textBuf == nil {
 		return
 	}
-	if s := strings.TrimSpace(st.textBuf.text); s != "" {
+	deletion := st.textBuf.miroID != "" && st.textBuf.deleted
+	if s := strings.TrimSpace(st.textBuf.text); s != "" || deletion {
 		st.textBuf.text = s
 		st.elements = append(st.elements, *st.textBuf)
 	} else {

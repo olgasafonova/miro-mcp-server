@@ -527,3 +527,39 @@ func TestReadBoardSVG_FrameScopedTruncatesAtMaxItems(t *testing.T) {
 		t.Error("Truncated = false, want true when more children remain")
 	}
 }
+
+// TestUpdateFromSVG_MinimalDeletionMarkers pins two fixes forced by the
+// miro-cli port's live smoke test (18-08-2026): a deletion marker needs
+// no geometry or content, and a line deletion routes to the connectors
+// endpoint because DELETE on the generic items endpoint answers 404 for
+// connectors.
+func TestUpdateFromSVG_MinimalDeletionMarkers(t *testing.T) {
+	var reqs []recordedRequest
+	server := newUpdateServer(&reqs)
+	defer server.Close()
+
+	client := newTestClientWithServer(server.URL)
+	result, err := client.UpdateFromSVG(context.Background(), UpdateFromSVGArgs{
+		BoardID: "board1",
+		SVG: `<svg>
+			<rect data-miro-id="r1" data-deleted="true"/>
+			<text data-miro-id="t1" data-deleted="true"></text>
+			<line data-miro-id="c1" data-deleted="true"/>
+		</svg>`,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Deleted) != 3 {
+		t.Fatalf("Deleted = %v, want r1 t1 c1 (skipped: %+v)", result.Deleted, result.Skipped)
+	}
+	if findRequest(reqs, http.MethodDelete, "/items/r1") == nil {
+		t.Error("no DELETE on the items endpoint for r1")
+	}
+	if findRequest(reqs, http.MethodDelete, "/items/t1") == nil {
+		t.Error("no DELETE on the items endpoint for t1")
+	}
+	if findRequest(reqs, http.MethodDelete, "/connectors/c1") == nil {
+		t.Error("no DELETE on the connectors endpoint for c1; the generic items route answers 404 for connectors")
+	}
+}

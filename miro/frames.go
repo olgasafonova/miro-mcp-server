@@ -295,13 +295,14 @@ func (c *Client) GetFrameItems(ctx context.Context, args GetFrameItemsArgs) (Get
 }
 
 // clampFrameItemsLimit normalizes a requested page size to the items
-// endpoint's bounds.
+// endpoint's bounds. The endpoint's maximum is 50: limit=51 and
+// limit=100 both answer 400 (verified live 18-08-2026).
 func clampFrameItemsLimit(limit int) int {
 	if limit <= 0 {
-		return 50
+		return MaxItemLimit
 	}
-	if limit > 100 {
-		return 100
+	if limit > MaxItemLimit {
+		return MaxItemLimit
 	}
 	return limit
 }

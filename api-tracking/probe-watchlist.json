@@ -1,0 +1,70 @@
+{
+  "comment": "Suspected-but-undocumented Miro API paths, probed live by live-probe.py alongside the weekly spec diff. known_status is the last verified answer; any deviation is the file-an-issue signal. Rationale: the spec baseline (miroapp/api-clients) omits endpoints Miro actually ships — comments answered a plain PAT for weeks while absent from the spec (bead 7rh). Placeholders: {board_id}, {team_id}, {table_id} are resolved by the probe script at run time.",
+  "verified": "2026-08-18",
+  "probes": [
+    {
+      "name": "board sections (list)",
+      "method": "GET",
+      "path": "/v2/boards/{board_id}/sections",
+      "known_status": 400,
+      "signal": "Route EXISTS in the v2 gateway (400 Validation failure, not 404 No endpoint) but is feature-gated or needs a param we did not guess. A flip to 200 means sections reached public REST.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "board prototypes (list)",
+      "method": "GET",
+      "path": "/v2/boards/{board_id}/prototypes",
+      "known_status": 400,
+      "signal": "Same as sections: the route exists but is not usable as probed. A flip to 200 means prototypes reached public REST.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "spaces (v2)",
+      "method": "GET",
+      "path": "/v2/spaces",
+      "known_status": 404,
+      "signal": "Hosted-connector-only today (404 No endpoint). Any change means spaces are reaching public REST.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "spaces (v2-experimental)",
+      "method": "GET",
+      "path": "/v2-experimental/spaces",
+      "known_status": 404,
+      "signal": "Hosted-connector-only today. Any change means spaces are reaching the experimental REST surface.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "team spaces",
+      "method": "GET",
+      "path": "/v2/teams/{team_id}/spaces",
+      "known_status": 404,
+      "signal": "Hosted-connector-only today. Any change means team-scoped spaces are reaching public REST.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "board layout",
+      "method": "GET",
+      "path": "/v2/boards/{board_id}/layout",
+      "known_status": 404,
+      "signal": "The official connector's layout DSL has no public REST twin. Any change means layout endpoints are landing.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "data table rows",
+      "method": "GET",
+      "path": "/v2/boards/{board_id}/data_table_formats/{table_id}/rows",
+      "known_status": 404,
+      "signal": "Table metadata is public (miro_list_tables/miro_get_table) but row access is hosted-only. Any change unlocks row CRUD tools.",
+      "source": "bead u9a, coverage-matrix probes 15-08-2026"
+    },
+    {
+      "name": "image resource fetch",
+      "method": "GET",
+      "path": "/v2/boards/{board_id}/resources/images/0?format=preview&redirect=false",
+      "known_status": 400,
+      "signal": "Every image item carries data.imageUrl pointing at resource id 0, and fetching it is a 400 'Has illegal integer number value'. A working fetch on any image item means the miro-mcp-apps board-svg view can embed real image bits in place of placeholder glyphs.",
+      "source": "bead u9a NOTES, board-svg fidelity round (miro-mcp-apps PR #6), 15-08-2026"
+    }
+  ]
+}

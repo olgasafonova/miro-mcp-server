@@ -51,3 +51,13 @@ Monday.
 
 In CI the probe step needs a `MIRO_PROBE_TOKEN` repository secret; without it
 the step is skipped and only the spec diff runs.
+
+## The official-surface baseline
+
+`official-mcp-surface.json` records the tool names the **official hosted Miro
+MCP server** registers, with an enumeration history. The README's
+Official-vs-Community comparison cites its count. Unlike the spec diff and the
+live probes, this one cannot run in CI: enumeration needs an authenticated
+claude.ai (or MCP OAuth) session against `mcp.miro.com`. Re-enumerate monthly
+or when Miro announces — diff against the file, update it and the README
+comparison on drift (bead 6kn is the recurring tracker).

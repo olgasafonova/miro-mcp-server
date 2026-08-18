@@ -32,7 +32,7 @@ import (
 
 const (
 	ServerName    = "miro-mcp-server"
-	ServerVersion = "1.23.0"
+	ServerVersion = "1.24.0"
 )
 
 // SEP-2549 cache hints. Two tiers, split by what actually changes underneath.

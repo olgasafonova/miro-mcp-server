@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-08-18
+
 ### Added
+
+- **`miro_list_diagrams` + `miro_get_diagram` (2)**: read native diagram items via `GET /v2/boards/{id}/diagrams`, an endpoint that answers real data on a plain personal access token but appears in neither Miro's OpenAPI spec baseline nor the docs — a live probe on 15-08-2026 is the evidence. The surface is read-only: `POST` returns 405 `methodNotSupported`, so diagram creation stays with Miro's UI and hosted tooling (the official connector's `diagram_create_mermaid`). Returns item metadata (id, title, position, size, parent frame, timestamps); the diagram's internal nodes and edges are not exposed by the API.
+
+  Distinct from `miro_generate_diagram`, which parses Mermaid locally and draws regular shapes and connectors — those never show up as native diagram items, and both tool descriptions now say so. Tool count: 106 → 108.
+
+- **`miro_get_org_audit_logs` (1)**: wraps Miro's organization audit log, `GET /v2/audit/logs` — who did what across the Miro workspace, including actions taken outside this server. Enterprise plan and the `auditlogs:read` scope; 403 and 404 carry a hint saying so, because on this endpoint a non-Enterprise org, a missing scope, and a genuinely absent resource are indistinguishable from the status alone. A 400 deliberately does not get the hint: that is what a malformed time window returns, and a plan hint would send the caller after the wrong problem.
+
+  `created_after` and `created_before` are both required and validated locally, since the API has no default window and answers a missing bound with an opaque 400. The nested `context` object is flattened, so `team_id`, `team_name`, `organization_id` and `ip` sit directly on each event rather than making callers walk it. Miro retains 90 days; older events are only available via the CSV export in the admin UI, which this does not wrap. Tool count: 105 → 106.
 
 - **`miro_who_am_i` (1)**: token introspection via `GET /v1/oauth-token` — whose token this server is running on, which team and organization it is scoped to, and which scopes it carries. The REST twin of the official connector's `user_who_am_i`, and the missing first step when debugging a 403: a token without the needed scope and a genuinely forbidden resource are indistinguishable from the status alone, so check the scopes before blaming the endpoint.
 
@@ -24,18 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CodeScene Code Health raised to 10.0 across the repo** (measured per file with the CodeScene CLI/MCP). 63 files refactored — structure only: test setup/assertion boilerplate extracted into local helpers, duplicated test pairs merged into table-driven tests with every case preserved as a named subtest, and five oversized files split by responsibility (`client_test.go` → utils/export/bulk/resilience, `handlers_test.go` and `mock_client_test.go` → per-area files, `oauth_test.go` → provider/store/server/flow, `audit_test.go` → memory/file/factory). No exported signature, error string, JSON tag, or API path changed. Five files stay Green at 9.38–9.68 rather than 10.0 because their remaining finding is the exported API's own string parameters (`miro/cache.go`, `tools/share_allowlist.go`, `miro/diagrams/errors.go`, `miro/diagrams/mermaid.go`, `miro/diagrams/sequence.go`) — reshaping those surfaces for a score is contortion, not health.
 
-### Added
-
-- **`miro_list_diagrams` + `miro_get_diagram` (2)**: read native diagram items via `GET /v2/boards/{id}/diagrams`, an endpoint that answers real data on a plain personal access token but appears in neither Miro's OpenAPI spec baseline nor the docs — a live probe on 15-08-2026 is the evidence. The surface is read-only: `POST` returns 405 `methodNotSupported`, so diagram creation stays with Miro's UI and hosted tooling (the official connector's `diagram_create_mermaid`). Returns item metadata (id, title, position, size, parent frame, timestamps); the diagram's internal nodes and edges are not exposed by the API.
-
-  Distinct from `miro_generate_diagram`, which parses Mermaid locally and draws regular shapes and connectors — those never show up as native diagram items, and both tool descriptions now say so. Tool count: 106 → 108.
-
-- **`miro_get_org_audit_logs` (1)**: wraps Miro's organization audit log, `GET /v2/audit/logs` — who did what across the Miro workspace, including actions taken outside this server. Enterprise plan and the `auditlogs:read` scope; 403 and 404 carry a hint saying so, because on this endpoint a non-Enterprise org, a missing scope, and a genuinely absent resource are indistinguishable from the status alone. A 400 deliberately does not get the hint: that is what a malformed time window returns, and a plan hint would send the caller after the wrong problem.
-
-  `created_after` and `created_before` are both required and validated locally, since the API has no default window and answers a missing bound with an opaque 400. The nested `context` object is flattened, so `team_id`, `team_name`, `organization_id` and `ip` sit directly on each event rather than making callers walk it. Miro retains 90 days; older events are only available via the CSV export in the admin UI, which this does not wrap. Tool count: 105 → 106.
-
-### Changed
-
 - **`miro_bulk_create` now issues one request instead of one per item.** It called the typed single-create endpoint N times in parallel; it now posts to Miro's native `POST /v2/boards/{board_id}/items/bulk`. `MaxBulkItems` was already 20, the endpoint's own cap, so every request this server accepts fits in a single call — 20 stickies cost 1 request rather than 20, which is the rate-limit pressure the change is for.
 
   The endpoint is **transactional**: if one item fails, none are created. That conflicts with this server's per-item contract, where 19 of 20 may land, so the fallback is deliberately narrow. A `400` means the batch was rejected on validation, and transactionality proves nothing was created — so it falls back to the old per-item fan-out, which cannot double-create and is the only way to report *which* item was bad. Any other failure (429, 5xx, network, timeout) leaves the outcome unknown, because the transaction may have committed with the response lost; there it does **not** fall back, and reports every item failed and retriable with a message saying the outcome is not provable. Falling back on those would be the bug that duplicates a whole batch.
@@ -44,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`miro_get_audit_log`'s description now says which audit log it means.** It reads this server's local execution log, not Miro's — a distinction the name alone does not carry, and one that got easier to trip over now that both exist. Both descriptions name the other tool. The name itself is unchanged; renaming it would break existing callers for a problem that sharper wording fixes.
 
-- **README account-compatibility table corrected.** It claimed every plan had "full access to all tools", which was already untrue for the three PDF/SVG export tools and would now also be untrue for the org audit log. It now gives 102 tools on Free/Team/Business and names the four Enterprise-only tools. `miro_get_board_picture` works on every plan and is not one of them.
+- **README account-compatibility table corrected.** It claimed every plan had "full access to all tools", which was already untrue for the three PDF/SVG export tools and would now also be untrue for the org audit log. It now gives 106 tools on Free/Team/Business (of 110 at release) and names the four Enterprise-only tools. `miro_get_board_picture` works on every plan and is not one of them.
 
 ### Fixed
 

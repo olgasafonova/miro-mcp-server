@@ -359,9 +359,12 @@ func registerResourcesAndPrompts(server *mcp.Server, client *miro.Client, logger
 // buildServerCard constructs the SEP-2127 server card for HTTP discovery.
 func buildServerCard() *servercard.ServerCard {
 	cardOpts := servercard.Options{
-		Name:        "io.github.olgasafonova/miro-mcp-server",
-		Version:     ServerVersion,
-		Description: "MCP server for Miro whiteboards. 92 tools for boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit, with miro_tool_search for discovery. Voice-friendly.",
+		Name:    "io.github.olgasafonova/miro-mcp-server",
+		Version: ServerVersion,
+		// Tool count is derived from AllTools, never written down. This string is
+		// what a client reads before it connects, and a hardcoded number here goes
+		// stale the next time a tool is added, silently.
+		Description: fmt.Sprintf("MCP server for Miro whiteboards. %d tools for boards, items, diagrams, mindmaps, tags, groups, connectors, export, and audit, including miro_tool_search for discovery. Voice-friendly.", len(tools.AllTools)),
 		Title:       "Miro MCP Server",
 		WebsiteURL:  "https://github.com/olgasafonova/miro-mcp-server",
 		Repository: &servercard.Repository{

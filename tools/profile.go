@@ -1,10 +1,11 @@
 package tools
 
 // Profile selects which tools the MCP server registers at startup. Operators
-// pick this via MIRO_TOOLS_PROFILE: full (default — all 91 tools) or
-// essentials (the meta-tool plus ~15 high-frequency tools). The essentials
-// profile is graceful degradation for clients without API-level tool_search;
-// agents discover the rest via miro_tool_search on demand.
+// pick this via MIRO_TOOLS_PROFILE: full (default — every tool in AllTools)
+// or essentials (the discovery meta-tool plus 14 high-frequency tools, 15 in
+// all). The essentials profile is graceful degradation for clients without
+// API-level tool_search; agents discover the rest via miro_tool_search on
+// demand.
 type Profile string
 
 const (

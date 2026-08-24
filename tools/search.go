@@ -65,7 +65,7 @@ This is a discovery tool. After picking a tool from the result, call it directly
 // SearchTools implements the miro_tool_search handler. It is a pure
 // in-process search over the registered AllTools list — no Miro API calls,
 // no network. Used to keep token cost low when an agent doesn't know
-// which of the 90+ tools to reach for.
+// which of the registered tools to reach for.
 func (h *HandlerRegistry) SearchTools(_ context.Context, args ToolSearchArgs) (ToolSearchResult, error) {
 	matches := scoreTools(args, AllTools)
 

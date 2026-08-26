@@ -80,3 +80,39 @@ jobs:
 
       - name: Verify binary exists
         run: ls -la miro-mcp-server*
+
+  # Stable aggregate context. Required-status-check lists name this job and
+  # never a matrix leg: a leg's context embeds its matrix values ("build (linux,
+  # arm64)"), so changing the build matrix renames the context and branch
+  # protection then waits forever for a name nothing emits. That is exactly what
+  # blocked every PR merge on this repo from 23-12-2025 to 26-08-2026, when the
+  # protect-main ruleset required a bare "build" that CI never emitted.
+  #
+  # Scope note: `golangci` lives in lint.yml, a separate workflow, so it cannot
+  # be a `needs:` here. Its context name carries no matrix values and is already
+  # stable, so it stays separately required alongside this job.
+  #
+  # `if: always()` is what makes the assertion below possible. Without it this
+  # job is skipped whenever a dependency fails, is skipped, or is cancelled, and
+  # GitHub counts a skipped required check as satisfied. With it the job always
+  # runs, and the step fails on any dependency result that is not exactly
+  # "success" - failure, skipped and cancelled all fail the aggregate. For a
+  # matrix dependency, needs.<job>.result is the roll-up over every leg.
+  all-checks:
+    name: all-checks
+    if: always()
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert every dependency succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s\n' "$NEEDS"
+          bad=$(printf '%s' "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"')
+          if [ -n "$bad" ]; then
+            echo "::error::Aggregate failed; these jobs did not succeed:"
+            printf '%s\n' "$bad"
+            exit 1
+          fi
+          echo "All dependencies succeeded."

@@ -46,7 +46,15 @@ func (f *AuthFlow) Login(ctx context.Context) (*TokenSet, error) {
 		return nil, fmt.Errorf("failed to start callback server: %w", err)
 	}
 	server.Start()
-	defer server.Stop(ctx)
+	// Deliberate discard: this is teardown of a short-lived local callback
+	// server on a path that already has its own result to return. A shutdown
+	// failure cannot change the outcome of the flow, and surfacing it would
+	// mask the real error. Logged rather than silently dropped.
+	defer func() {
+		if err := server.Stop(ctx); err != nil {
+			f.logger.Warn("callback server shutdown failed", "error", err)
+		}
+	}()
 
 	// Run the browser round trip, then trade the code for stored tokens
 	code, err := f.authorize(ctx, server, state)

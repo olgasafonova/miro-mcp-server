@@ -64,7 +64,23 @@ Why: a swallowed error costs more than a loud one because there is nothing to se
 
 Codifies: `CHANGELOG.md` `[Unreleased]` "Connector reads work against the live API"; `rules/agent-interface-design.md` principle 6; the `claude -p` incident in `reference_claude_md_...` config memory, where a silently swallowed condition cost six days of debugging (10-08 to 15-08-2026).
 
-**Enforcement: none, and the lint configuration currently claims otherwise.** `errcheck` is **not** in the enabled linter list in `.golangci.yml`; the enabled set is `govet`, `gosec`, `ineffassign`, `staticcheck`, `unused`. The `gosec` exclusion for `G104` carries the comment "Covered by errcheck or intentionally ignored", which is false in this repository. Running `errcheck` standalone on 26-08-2026 found two unchecked writes in production code, both in the health endpoint: `main.go:512` (`fmt.Fprintf`) and `main.go:515` (`w.Write`), plus eight in test files. Enabling `errcheck` and fixing those two is the smallest change that would make this article's enforcement claim true.
+**Enforcement: mechanically checked, as of 26-08-2026.** `errcheck` is in the enabled linter list in `.golangci.yml` and runs on every pull request via `lint.yml`. Test files are excluded by an explicit rule with a stated reason; production code is not excluded, which is what this article depends on.
+
+It was not always true. Until 26-08-2026 this article had no enforcement at all, and the lint configuration actively claimed otherwise: `errcheck` was absent from the enabled set (`govet`, `gosec`, `ineffassign`, `staticcheck`, `unused`) while the `gosec` exclusion for `G104` carried the comment "Covered by errcheck or intentionally ignored". That comment was the only evidence for a check that was switched off, and `golangci-lint run ./...` reported `0 issues` throughout. Enabling `errcheck` surfaced nine unchecked returns in production code, not the two a reading of the config had predicted:
+
+| Site | What was lost |
+|---|---|
+| `main.go` health endpoint, two writes | response write failures unreported |
+| `miro/audit/file.go` newline after each event | a failed newline leaves a torn JSONL record no reader can parse |
+| `miro/audit/file.go` flush before `Query` | a query after a failed flush silently omits buffered events |
+| `miro/audit/file.go` flush inside `Close` | buffered audit events lost while `Close` returns nil |
+| `miro/oauth/auth.go` callback server shutdown | now logged rather than dropped |
+| `miro/text.go` font-size parse | deliberate, zero is the documented unspecified value |
+| `miro/metrics.go`, three scrape writes | deliberate, scraper disconnect is unrecoverable |
+
+Four were real defects in the audit log, the component whose entire purpose is not losing records. Three are deliberate discards, now written as `_, _ =` with the reason in a comment: this article forbids *silent* discarding, not discarding.
+
+The generalisable point, and the reason this paragraph stays in the document rather than being deleted once fixed: **an exclusion is only as trustworthy as the check it defers to, and nothing verifies that the deferred-to check exists.** A green suite is a receipt, not evidence.
 
 ---
 

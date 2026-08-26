@@ -93,7 +93,11 @@ func (l *FileLogger) writeEvent(event Event) error {
 	if err != nil {
 		return fmt.Errorf("failed to write event: %w", err)
 	}
-	l.writer.WriteByte('\n')
+	// A failed newline leaves a torn JSONL record that no reader can parse,
+	// so it is an error rather than a best-effort write.
+	if err := l.writer.WriteByte('\n'); err != nil {
+		return fmt.Errorf("failed to terminate event line: %w", err)
+	}
 	l.fileSize += int64(n + 1)
 
 	return nil
@@ -164,12 +168,16 @@ func (l *FileLogger) cleanupOldFiles() {
 }
 
 // flushBufferIfNeeded writes any buffered events to disk before a query.
-func (l *FileLogger) flushBufferIfNeeded() {
+// The error is returned rather than swallowed: a query that runs after a
+// failed flush silently omits the buffered events, which is a wrong answer
+// from an audit log rather than a degraded one.
+func (l *FileLogger) flushBufferIfNeeded() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if len(l.buffer) > 0 {
-		l.flushLocked()
+		return l.flushLocked()
 	}
+	return nil
 }
 
 // listJSONLFilesSorted returns the absolute paths of all .jsonl files in the
@@ -228,7 +236,9 @@ func applyLimit(events []Event, limit int) ([]Event, bool) {
 
 // Query retrieves audit events matching the specified criteria.
 func (l *FileLogger) Query(ctx context.Context, opts QueryOptions) (*QueryResult, error) {
-	l.flushBufferIfNeeded()
+	if err := l.flushBufferIfNeeded(); err != nil {
+		return nil, fmt.Errorf("failed to flush buffered events before query: %w", err)
+	}
 
 	files, err := l.listJSONLFilesSorted()
 	if err != nil {
@@ -310,15 +320,22 @@ func (l *FileLogger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Flush buffer
-	l.flushLocked()
+	// A discarded flush error here loses buffered audit events while Close
+	// reports success. Both failures are reported, and the file is closed
+	// either way so the descriptor is never leaked.
+	flushErr := l.flushLocked()
 
-	// Close file
 	if l.file != nil {
-		l.writer.Flush()
-		return l.file.Close()
+		if err := l.writer.Flush(); err != nil && flushErr == nil {
+			flushErr = fmt.Errorf("failed to flush writer: %w", err)
+		}
+		closeErr := l.file.Close()
+		if flushErr != nil {
+			return flushErr
+		}
+		return closeErr
 	}
-	return nil
+	return flushErr
 }
 
 // CurrentFilePath returns the path of the current log file.

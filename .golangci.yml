@@ -6,6 +6,7 @@ run:
 linters:
   default: none
   enable:
+    - errcheck
     - govet
     - gosec
     - ineffassign
@@ -15,7 +16,11 @@ linters:
     gosec:
       excludes:
         - G101  # False positives on URL constants and test fixtures
-        - G104  # Covered by errcheck or intentionally ignored (audit log writes)
+        # G104 duplicates errcheck, which is enabled above. Before 26-08-2026
+        # this line said "Covered by errcheck" while errcheck was NOT enabled,
+        # so unhandled errors were checked by nothing and the suite still
+        # reported clean. See CONSTITUTION.md Article IV.
+        - G104
         - G115  # Integer overflow: bounded by MaxRetries constant
         - G204  # Subprocess launch for browser open (oauth login flow, user-initiated)
         - G304  # File paths from config/env, not user input
@@ -32,6 +37,14 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+      # errcheck in tests only. Test setup and teardown deliberately ignore
+      # returns (os.Chdir in a defer, priming a mock, discarding a benchmark
+      # result), and a failed setup surfaces as a failed assertion anyway.
+      # Production code is NOT excluded: Article IV of CONSTITUTION.md depends
+      # on errcheck running there, and it does.
+      - path: _test\.go
+        linters:
+          - errcheck
       # G117: struct fields named AccessToken/RefreshToken/ClientSecret are not hardcoded secrets
       - text: "G117"
         linters:

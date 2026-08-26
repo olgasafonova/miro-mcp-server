@@ -243,14 +243,21 @@ type promMetric struct {
 }
 
 // write renders the metric's HELP/TYPE header and sample line.
+//
+// Deliberate discard: this is a Prometheus scrape response. A write error
+// means the scraper disconnected mid-response, the partial body is already
+// unusable to it, and no caller up the stack can act on the error. Threading
+// a return through all fourteen call sites would add noise without changing
+// behaviour, so the discard is explicit and reasoned here rather than silent
+// at each line. See CONSTITUTION.md Article IV.
 func (p promMetric) write(w http.ResponseWriter) {
 	series := p.name
 	if p.labelKey != "" {
 		series += "{" + p.labelKey + "=\"" + p.labelValue + "\"}"
 	}
-	w.Write([]byte("# HELP " + p.name + " " + p.help + "\n"))
-	w.Write([]byte("# TYPE " + p.name + " " + p.metricType + "\n"))
-	w.Write([]byte(series + " " + strconv.FormatFloat(p.value, 'f', -1, 64) + "\n\n"))
+	_, _ = w.Write([]byte("# HELP " + p.name + " " + p.help + "\n"))
+	_, _ = w.Write([]byte("# TYPE " + p.name + " " + p.metricType + "\n"))
+	_, _ = w.Write([]byte(series + " " + strconv.FormatFloat(p.value, 'f', -1, 64) + "\n\n"))
 }
 
 // writeCounter renders an unlabeled counter metric.

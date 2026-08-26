@@ -218,8 +218,12 @@ func (c *Client) UpdateText(ctx context.Context, args UpdateTextArgs) (UpdateTex
 
 	c.cache.InvalidateItem(args.BoardID, args.ItemID)
 
+	// Deliberate discard: Miro omits or returns a non-numeric font size on
+	// some item shapes, and a zero fontSize is the documented "unspecified"
+	// value in UpdateTextResult. Failing the whole update over a cosmetic
+	// field the caller did not ask about would be the worse behaviour.
 	var fontSize int
-	fmt.Sscanf(resp.Style.FontSize, "%d", &fontSize)
+	_, _ = fmt.Sscanf(resp.Style.FontSize, "%d", &fontSize)
 
 	return UpdateTextResult{
 		ID:       resp.ID,

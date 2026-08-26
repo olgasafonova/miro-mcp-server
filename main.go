@@ -509,10 +509,14 @@ func buildHealthHandler(checker *miro.HealthChecker, logger *slog.Logger) http.H
 		jsonBytes, err := report.ToJSON()
 		if err != nil {
 			logger.Error("Failed to marshal health report", "error", err)
-			fmt.Fprintf(w, `{"status":"unhealthy","error":"failed to generate report"}`)
+			if _, werr := fmt.Fprintf(w, `{"status":"unhealthy","error":"failed to generate report"}`); werr != nil {
+				logger.Error("Failed to write health fallback response", "error", werr)
+			}
 			return
 		}
-		w.Write(jsonBytes)
+		if _, werr := w.Write(jsonBytes); werr != nil {
+			logger.Error("Failed to write health response", "error", werr)
+		}
 	}
 }
 

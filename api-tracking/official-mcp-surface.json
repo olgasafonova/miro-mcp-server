@@ -1,7 +1,7 @@
 {
-  "comment": "Tool names the OFFICIAL hosted Miro MCP server (mcp.miro.com) registers, enumerated via an authenticated claude.ai connector session. The README's Official-vs-Community comparison cites len(tools). Re-enumerate monthly or on Miro announcements (bead 6kn); this needs an interactive authenticated session, so it stays manual \u2014 CI cannot do it. Diff against this file and update both it and README on drift.",
-  "enumerated": "2026-08-18",
-  "count": 63,
+  "comment": "Tool names the OFFICIAL hosted Miro MCP server (mcp.miro.com) registers, enumerated via an authenticated claude.ai connector session. The README's Official-vs-Community comparison cites len(tools). Re-enumerate monthly or on Miro announcements (bead 6kn); this needs an interactive authenticated session, so it stays manual — CI cannot do it. Diff against this file and update both it and README on drift.",
+  "enumerated": "2026-09-09",
+  "count": 61,
   "history": [
     {
       "date": "2026-08-13",
@@ -15,7 +15,12 @@
     {
       "date": "2026-08-18",
       "count": 63,
-      "note": "board_trash and space_delete removed \u2014 the surface's only hard-destructive verbs"
+      "note": "board_trash and space_delete removed — the surface's only hard-destructive verbs"
+    },
+    {
+      "date": "2026-09-09",
+      "count": 61,
+      "note": "all five code_widget_* tools removed; canvas_search, canvas_load_format_skill and content_item_list_roles added. layout_* still registered but self-describe as deprecated in favour of the canvas tools"
     }
   ],
   "tools": [
@@ -33,17 +38,15 @@
     "board_update_metadata",
     "canvas_create_from_svg",
     "canvas_get_canvas_composer_skill",
+    "canvas_load_format_skill",
     "canvas_read_as_svg",
+    "canvas_search",
     "canvas_update_from_svg",
-    "code_widget_create",
-    "code_widget_delete",
-    "code_widget_get",
-    "code_widget_list_items",
-    "code_widget_update",
     "comment_create",
     "comment_list_comments",
     "comment_reply",
     "comment_resolve",
+    "content_item_list_roles",
     "context_explore",
     "context_get",
     "diagram_create_mermaid",

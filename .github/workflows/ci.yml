@@ -32,8 +32,13 @@ jobs:
           fi
 
       - name: Run govulncheck
+        # Pinned: x/vuln v1.8.0 (09-2026) requires go >= 1.26 and fails to
+        # install under GOTOOLCHAIN=local on the 1.25 runner. v1.7.0 is the
+        # last release that builds on 1.25; the vulnerability DB is fetched
+        # at run time, so the pin does not stale the findings. Unpin when
+        # go-version moves to 1.26.
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           govulncheck ./... || echo "::warning::govulncheck found vulnerabilities (see above). Stdlib issues resolve with Go patch updates."
 
       - name: Run tests

@@ -38,6 +38,7 @@ type ListBoardsArgs struct {
 type ListBoardsResult struct {
 	Boards  []BoardSummary `json:"boards"`
 	Count   int            `json:"count"`
+	Total   int            `json:"total"`
 	HasMore bool           `json:"has_more"`
 	Offset  string         `json:"offset,omitempty"`
 }

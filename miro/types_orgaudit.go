@@ -19,6 +19,14 @@ const (
 const DefaultOrgAuditLimit = 50
 
 // MaxOrgAuditLimit caps a requested page size.
+// MaxOrgAuditLimit is the largest page this client will request.
+//
+// UNVERIFIED. Unlike every other limit constant here, this one has not been
+// checked against the live API: /audit/logs answers 403 "Required scopes:
+// auditlogs:read" before it validates the limit, so the ceiling is
+// unreachable without an Enterprise token carrying that scope. Four sibling
+// endpoints advertised 100 and all four turned out to cap at 50, so treat
+// this value as a claim rather than a fact until someone probes it.
 const MaxOrgAuditLimit = 100
 
 // GetOrgAuditLogsArgs specifies the query for Miro's organization audit log.

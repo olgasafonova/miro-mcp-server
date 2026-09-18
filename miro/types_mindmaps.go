@@ -70,7 +70,7 @@ type GetMindmapNodeResult struct {
 // ListMindmapNodesArgs contains parameters for listing mindmap nodes.
 type ListMindmapNodesArgs struct {
 	BoardID string `json:"board_id" jsonschema:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"Max nodes to return (default 50, max 100)"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max nodes to return, 10-50 (default 50). Miro rejects anything outside that window"`
 	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 }
 

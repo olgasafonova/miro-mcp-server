@@ -304,7 +304,9 @@ func clampFrameItemsLimit(limit int) int {
 	if limit > MaxItemLimit {
 		return MaxItemLimit
 	}
-	return limit
+	// GetFrameItems reaches the items endpoint via parent_item_id, so it
+	// inherits that endpoint's minimum page size.
+	return atLeastMinPage(limit)
 }
 
 // parseFrameItems converts raw item entries into summaries using the shared

@@ -20,7 +20,7 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 	}
 
 	params := url.Values{}
-	limit := clampGroupItemsLimit(args.Limit)
+	limit := clampMemberLimit(args.Limit)
 	params.Set("limit", strconv.Itoa(limit))
 	if args.Offset != "" {
 		params.Set("offset", args.Offset)
@@ -48,6 +48,17 @@ func (c *Client) ListBoardMembers(ctx context.Context, args ListBoardMembersArgs
 		HasMore: resp.Offset > 0 && len(resp.Data) >= limit,
 		Message: boardMembersMessage(len(resp.Data)),
 	}, nil
+}
+
+// clampMemberLimit normalizes a requested page size. Unlike the items,
+// connectors and groups endpoints, /boards/{id}/members accepts a page size
+// below MinPagedLimit, so no floor is applied and a caller asking for five
+// members receives five.
+func clampMemberLimit(limit int) int {
+	if limit > 0 && limit <= MaxItemLimitExtended {
+		return limit
+	}
+	return DefaultItemLimit
 }
 
 // boardMembersMessage describes a member listing, with an explicit

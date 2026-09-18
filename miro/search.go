@@ -42,7 +42,7 @@ func searchBoardPath(args SearchBoardArgs) string {
 	if args.Type != "" {
 		params.Set("type", args.Type)
 	}
-	params.Set("limit", strconv.Itoa(searchBoardLimit(args.Limit)))
+	params.Set("limit", strconv.Itoa(atLeastMinPage(searchBoardLimit(args.Limit))))
 	return "/boards/" + args.BoardID + "/items?" + params.Encode()
 }
 

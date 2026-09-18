@@ -290,7 +290,7 @@ type Embed struct {
 type ListItemsArgs struct {
 	BoardID     string `json:"board_id" jsonschema:"Board ID"`
 	Type        string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, connector, frame"`
-	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 100)"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 100). Values below 10 are raised to 10, the smallest page size the items endpoint accepts"`
 	Cursor      string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }
@@ -404,7 +404,7 @@ type SearchBoardArgs struct {
 	BoardID string `json:"board_id" jsonschema:"Board ID to search"`
 	Query   string `json:"query" jsonschema:"Text to search for in item content"`
 	Type    string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, frame"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"Max results (default 20, max 50)"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max results (default 20, max 50). Values below 10 are raised to 10, the smallest page size the items endpoint accepts"`
 }
 
 // SearchBoardResult contains matching items.

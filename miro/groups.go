@@ -162,7 +162,7 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 // (including values above the extended maximum) fall back to the default.
 func clampGroupItemsLimit(limit int) int {
 	if limit > 0 && limit <= MaxItemLimitExtended {
-		return limit
+		return atLeastMinPage(limit)
 	}
 	return DefaultItemLimit
 }

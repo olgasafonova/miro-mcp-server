@@ -823,6 +823,8 @@ USE WHEN: "find board named X", "get the Design Sprint board"
 
 RETURNS: id, name, description, view_link, team_id, team_name, owner (id + name), created_at, modified_at. Answers "who owns this board" and "when was it last changed" without a follow-up miro_get_board.
 
+MATCH QUALITY: the match field says how the board was reached - "exact", "prefix", "contains", or "none". A "none" result is the nearest candidate rather than a match: nothing with that name was found, and the board returned is a guess. Check match before acting on the board ID.
+
 VOICE-FRIENDLY: "Found 'Design Sprint' board - ready to work on it"`,
 	},
 	{

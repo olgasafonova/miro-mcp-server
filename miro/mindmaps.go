@@ -215,6 +215,10 @@ func (c *Client) ListMindmapNodes(ctx context.Context, args ListMindmapNodesArgs
 		return ListMindmapNodesResult{}, err
 	}
 
+	// mindmap_nodes enforces the same [10, 50] page-size window as the items
+	// endpoint (verified live 18-09-2026: limit=9 answers "Minimum page size
+	// is 10", limit=51 and limit=100 answer "Maximum page size is 50"), so it
+	// shares that clamp rather than defining an identical one.
 	limit := clampFrameItemsLimit(args.Limit)
 
 	path := fmt.Sprintf("/boards/%s/mindmap_nodes?limit=%d", args.BoardID, limit)

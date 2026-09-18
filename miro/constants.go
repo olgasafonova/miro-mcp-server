@@ -18,10 +18,16 @@ const (
 	// DefaultItemLimit is the default number of items to return.
 	DefaultItemLimit = 50
 
-	// MaxItemLimit is the maximum items allowed per request (varies by endpoint).
+	// MaxItemLimit is the largest page the items endpoint serves, and the
+	// ceiling the tags, frames and search paths share. limit=51 and limit=100
+	// both answer 400 (error code 2.0703, "maximum items page size is 50"),
+	// verified live against api.miro.com on 18-09-2026. With MinPagedLimit
+	// below, the usable window on /boards/{id}/items is exactly [10, 50].
 	MaxItemLimit = 50
 
-	// MaxItemLimitExtended is the max limit for endpoints supporting 100 items.
+	// MaxItemLimitExtended is the max limit for the endpoints that do serve
+	// 100 per page: board members, group items and code widgets. It does not
+	// apply to the items endpoint, which stops at MaxItemLimit.
 	MaxItemLimitExtended = 100
 
 	// MinPagedLimit is the smallest page size the items, connectors and groups

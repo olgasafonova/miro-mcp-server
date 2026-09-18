@@ -290,7 +290,7 @@ type Embed struct {
 type ListItemsArgs struct {
 	BoardID     string `json:"board_id" jsonschema:"Board ID"`
 	Type        string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, connector, frame"`
-	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 100). Values below 10 are raised to 10, the smallest page size the items endpoint accepts"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return, 10-50 (default 50). Miro rejects anything outside that window, so a higher value is capped at 50 and a lower one raised to 10"`
 	Cursor      string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }

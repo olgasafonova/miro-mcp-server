@@ -48,12 +48,15 @@ type ListCommentsArgs struct {
 	Offset  int    `json:"offset,omitempty" jsonschema:"Zero-based offset for pagination"`
 }
 
-// ListCommentsResult contains the comment threads on a board.
+// ListCommentsResult contains the comment threads on a board. Offset is the
+// cursor for the next page, ready to be passed straight back as the offset
+// argument; it is zero when the collection is exhausted.
 type ListCommentsResult struct {
 	Comments []CommentSummary `json:"comments"`
 	Count    int              `json:"count"`
 	Total    int              `json:"total"`
 	HasMore  bool             `json:"has_more"`
+	Offset   int              `json:"offset,omitempty"`
 	Message  string           `json:"message,omitempty"`
 }
 

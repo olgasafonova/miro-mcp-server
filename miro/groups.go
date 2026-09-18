@@ -154,6 +154,7 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 		Items:   items,
 		Count:   len(items),
 		HasMore: page.Cursor != "",
+		Cursor:  page.Cursor,
 		Message: fmt.Sprintf("Found %d items in group", len(items)),
 	}, nil
 }

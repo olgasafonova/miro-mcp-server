@@ -171,11 +171,15 @@ type GetItemsByTagArgs struct {
 	Offset  int    `json:"offset,omitempty" jsonschema:"Offset for pagination"`
 }
 
-// GetItemsByTagResult contains items matching the tag filter.
+// GetItemsByTagResult contains items matching the tag filter. Offset is the
+// cursor for the next page, ready to be passed straight back as the offset
+// argument; it is zero when the collection is exhausted.
 type GetItemsByTagResult struct {
 	Items   []ItemSummary `json:"items"`
 	Count   int           `json:"count"`
+	Total   int           `json:"total"`
 	HasMore bool          `json:"has_more"`
+	Offset  int           `json:"offset,omitempty"`
 	TagID   string        `json:"tag_id"`
 	Message string        `json:"message"`
 }

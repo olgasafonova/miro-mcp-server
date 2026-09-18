@@ -78,11 +78,14 @@ type GetGroupItemsArgs struct {
 	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 }
 
-// GetGroupItemsResult contains the items in a group.
+// GetGroupItemsResult contains the items in a group. Cursor is the token for
+// the next page, ready to be passed straight back as the cursor argument; it
+// is empty when the collection is exhausted.
 type GetGroupItemsResult struct {
 	Items   []ItemSummary `json:"items"`
 	Count   int           `json:"count"`
 	HasMore bool          `json:"has_more"`
+	Cursor  string        `json:"cursor,omitempty"`
 	Message string        `json:"message"`
 }
 

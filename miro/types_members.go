@@ -23,11 +23,15 @@ type ListBoardMembersArgs struct {
 	Offset  string `json:"offset,omitempty" jsonschema:"Pagination cursor"`
 }
 
-// ListBoardMembersResult contains the list of board members.
+// ListBoardMembersResult contains the list of board members. Offset is the
+// cursor for the next page, ready to be passed straight back as the offset
+// argument; it is empty when the collection is exhausted.
 type ListBoardMembersResult struct {
 	Members []BoardMember `json:"members"`
 	Count   int           `json:"count"`
+	Total   int           `json:"total"`
 	HasMore bool          `json:"has_more"`
+	Offset  string        `json:"offset,omitempty"`
 	Message string        `json:"message"`
 }
 

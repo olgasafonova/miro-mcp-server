@@ -468,31 +468,33 @@ sequenceDiagram
 
 ## Official vs Community
 
-Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025 and has grown it substantially since. Comparison refreshed 09-09-2026 by enumerating the **61 tools** the hosted server actually registers at `mcp.miro.com`, rather than counting the [documented set](https://developers.miro.com/docs/miro-mcp-prompts) — the docs lag the deployment in both directions: `board_trash` and `space_delete`, present on 17-08-2026, were gone the next day, leaving the surface with no hard-destructive verbs, and all five `code_widget_*` tools present on 18-08-2026 were gone by 09-09-2026, while `canvas_search`, `canvas_load_format_skill` and `content_item_list_roles` arrived. Recent additions come from their changelogs on [new MCP tools](https://developers.miro.com/changelog/new-miro-mcp-server-tools-create-items-boards-code-widgets-read-comments-and-more) and [code widget endpoints](https://developers.miro.com/changelog/new-endpoints-create-and-manage-code-widgets).
+Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 2025 and has grown it substantially since. Comparison refreshed 18-09-2026 by enumerating the **45 tools** the hosted server actually registers at `mcp.miro.com`, rather than counting the [documented set](https://developers.miro.com/docs/miro-mcp-prompts) — the docs lag the deployment in both directions, and the surface moves fast enough that a count is perishable: 65 on 13-08-2026, 63 on 18-08, 61 on 09-09, 45 on 18-09.
+
+The September drop is a consolidation rather than attrition. Every one of the sixteen removed tools is a content read or write path superseded by the `canvas_*` family — `board_list_items`, `board_show`, `context_explore`, `context_get`, all three `diagram_*`, all three `doc_*`, all four `layout_*` — and the server's own connection instructions now lead with Canvas Composer SVG as "Miro's unified interaction/representation protocol for the canvas". The 09-09 pass saw it coming: `layout_*` were still registered but already self-describing as deprecated in favour of canvas. Earlier churn: `board_trash` and `space_delete`, present on 17-08-2026, were gone the next day, leaving the surface with no hard-destructive verbs; all five `code_widget_*` tools present on 18-08 were gone by 09-09, while `canvas_search`, `canvas_load_format_skill` and `content_item_list_roles` arrived. Recent additions come from their changelogs on [new MCP tools](https://developers.miro.com/changelog/new-miro-mcp-server-tools-create-items-boards-code-widgets-read-comments-and-more) and [code widget endpoints](https://developers.miro.com/changelog/new-endpoints-create-and-manage-code-widgets).
 
 | Feature | This Server | Official Miro MCP |
 |---------|-------------|-------------------|
-| **Tools** | 110 (or 15 in `essentials` profile) | 61 |
+| **Tools** | 110 (or 15 in `essentials` profile) | 45 |
 | **Transport** | stdio + HTTP | HTTPS only (hosted at mcp.miro.com) |
 | **Self-hosting** | Yes | No |
 | **Offline mode** | Yes | No |
 | **Auth** | Token + OAuth2 | OAuth 2.1, dynamic client registration (Enterprise orgs need admin enablement) |
 | **Board list metadata** | id, owner, team, created/modified timestamps | name and URL |
-| **Diagram generation** | Mermaid, parsed locally; native diagram items readable via `miro_list_diagrams`/`miro_get_diagram` | Mermaid (`diagram_create_mermaid`, `diagram_update_mermaid`) plus a custom DSL |
-| **AI context** | No | Yes (`context_explore`, `context_get`) |
-| **Layout DSL** | Composed from bulk create + the [`miro-workflow`](skills/miro-workflow/) skill | Yes, but marked deprecated upstream in favour of the canvas tools |
+| **Diagram generation** | Mermaid, parsed locally; native diagram items readable via `miro_list_diagrams`/`miro_get_diagram` | None since 18-09-2026 (`diagram_create_mermaid`, `diagram_update_mermaid` and `diagram_get_mermaid_instructions` removed; diagrams now go through the canvas SVG tools) |
+| **AI context** | No | None since 18-09-2026 (`context_explore` and `context_get` removed) |
+| **Layout DSL** | Composed from bulk create + the [`miro-workflow`](skills/miro-workflow/) skill | None since 18-09-2026 — all four `layout_*` tools removed, having self-described as deprecated in favour of the canvas tools on 09-09 |
 | **Canvas as SVG** | Read + create + update (`data-miro-id` diff; local geometry transform; spatial approximation). Reads scope to a single frame via `frame_id`, and read output is directly re-submittable to the update tool | Yes (read, create, update from SVG). Reads scope to a rectangle or a `widget_ids` list and refuse areas above 500 widgets; `canvas_search` (pattern and regex over the SVG) narrows the scope first. Read output is re-escaped, so it cannot be fed back to the update tool verbatim |
 | **Spaces & sections** | No | Yes (10 tools) — workspace-level grouping of boards, not board content |
 | **Comments** | Yes (create, list, get, reply, resolve; v2-experimental) | Yes (create, list, reply, resolve) |
 | **Prototypes** | No | Yes (read, create, upload URL) |
 | **Code widgets** | 6 tools incl. position move (v2-experimental) | None since 09-09-2026 (5 tools on 18-08-2026) |
-| **Docs & Tables** | Doc formats + table read | Doc create/update + table create/sync/history |
+| **Docs & Tables** | Doc formats + table read | Tables only (create/sync/history); all three `doc_*` tools removed 18-09-2026 |
 | **Images** | Create, upload, update from file | Create, upload URL, get data/URL |
 | **Bulk operations** | Yes | Partial (`table_sync_rows` upsert only) |
 | **Mindmaps** | Yes | No |
 | **Tags & Groups** | Yes | No |
 | **Connectors CRUD** | Yes | No |
-| **Item-level CRUD** | Yes (sticky, shape, text, card, image, document, embed, frame) | Layout DSL, not per-item verbs |
+| **Item-level CRUD** | Yes (sticky, shape, text, card, image, document, embed, frame) | Canvas SVG, not per-item verbs |
 | **Board sharing / members** | Yes (allowlist-gated) | Sharing, role updates and `content_item_list_roles` for the read side; no member CRUD |
 | **Export** | Yes (PDF/SVG) | No |
 | **Current user** | Derived from board owner | Yes (`user_who_am_i`) |
@@ -506,9 +508,9 @@ Miro released their [official MCP server](https://miro.com/ai/mcp/) in December 
 
 **Where the differences come from.** Spaces, sections, canvas-SVG and prototypes have no endpoints in the [public REST API v2](https://developers.miro.com/reference/api-reference) — checked 13-08-2026 against the 114-path OpenAPI spec tracked in `api-tracking/`, and re-checked by probing the live API, since the spec omits endpoints Miro does ship. Those run on Miro-internal APIs. The reverse also holds: mindmaps, tags, groups, connectors and export are public REST surfaces the official server has not wrapped.
 
-Board context is a design difference rather than a gap. `context_get` returns a server-side AI summary of a board; `miro_get_board_content` returns the structured content itself — items by type, frame hierarchy, connectors and tags — and lets the model already in your session do the summarizing, with no second inference hop.
+Board context used to be a design difference rather than a gap, and as of 18-09-2026 it is neither: `context_get` returned a server-side AI summary of a board and has been removed along with `context_explore`. `miro_get_board_content` returns the structured content itself — items by type, frame hierarchy, connectors and tags — and lets the model already in your session do the summarizing, with no second inference hop.
 
-**When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, spaces and sections, comments, board context extraction, or SVG/prototype workflows.
+**When to use the official server:** You want zero-setup via plugin marketplace, OAuth 2.1 enterprise security, spaces and sections, comments, or SVG/prototype workflows. Board context extraction is no longer among them — those tools were removed on 18-09-2026.
 
 **When to use this server:** You need full REST coverage (110 tools, or a tunable 15-tool `essentials` mode), offline/self-hosted operation, richer board listing metadata, bulk ops, mindmaps, tags, connectors, or export.
 

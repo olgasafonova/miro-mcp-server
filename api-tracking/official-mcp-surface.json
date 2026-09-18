@@ -1,7 +1,7 @@
 {
-  "comment": "Tool names the OFFICIAL hosted Miro MCP server (mcp.miro.com) registers, enumerated via an authenticated claude.ai connector session. The README's Official-vs-Community comparison cites len(tools). Re-enumerate monthly or on Miro announcements (bead 6kn); this needs an interactive authenticated session, so it stays manual — CI cannot do it. Diff against this file and update both it and README on drift.",
-  "enumerated": "2026-09-09",
-  "count": 61,
+  "comment": "Tool names the OFFICIAL hosted Miro MCP server (mcp.miro.com) registers, enumerated via an authenticated claude.ai connector session. The README's Official-vs-Community comparison cites len(tools). Re-enumerate monthly or on Miro announcements (bead 6kn); this needs an interactive authenticated session, so it stays manual \u2014 CI cannot do it. Diff against this file and update both it and README on drift.",
+  "enumerated": "2026-09-18",
+  "count": 45,
   "history": [
     {
       "date": "2026-08-13",
@@ -15,26 +15,31 @@
     {
       "date": "2026-08-18",
       "count": 63,
-      "note": "board_trash and space_delete removed — the surface's only hard-destructive verbs"
+      "note": "board_trash and space_delete removed \u2014 the surface's only hard-destructive verbs"
     },
     {
       "date": "2026-09-09",
       "count": 61,
       "note": "all five code_widget_* tools removed; canvas_search, canvas_load_format_skill and content_item_list_roles added. layout_* still registered but self-describe as deprecated in favour of the canvas tools"
+    },
+    {
+      "date": "2026-09-18",
+      "count": 45,
+      "note": "61 -> 45, the largest drop yet and all removals: board_list_items, board_show, context_explore, context_get, all three diagram_*, all three doc_*, all four layout_*, import-claude-design-from-url, record_ui_feedback. One coherent story rather than attrition - every removed tool is a content read/write path superseded by canvas_*, and the server's own connection instructions now lead with Canvas Composer SVG as 'Miro's unified interaction/representation protocol for the canvas'. The 09-09 pass predicted this: layout_* were already self-describing as deprecated in favour of canvas.",
+      "channel": "Claude Code MCP client against mcp.miro.com, scopes boards:read boards:write openid email",
+      "caveat": "Prior passes enumerated via a claude.ai connector; this one used Claude Code, so a scope-gated difference cannot be fully excluded. Evidence against that reading: every write tool survives (board_create, space_create, table_create, section_create, comment_create) while reads were removed, which is the opposite of what scope gating produces. Re-enumerate via claude.ai next pass to close it out."
     }
   ],
   "tools": [
     "board_create",
     "board_create_format",
     "board_get_space",
-    "board_list_items",
     "board_move",
     "board_move_to_team",
     "board_restore",
     "board_role_update",
     "board_search_boards",
     "board_share",
-    "board_show",
     "board_update_metadata",
     "canvas_create_from_svg",
     "canvas_get_canvas_composer_skill",
@@ -47,28 +52,14 @@
     "comment_reply",
     "comment_resolve",
     "content_item_list_roles",
-    "context_explore",
-    "context_get",
-    "diagram_create_mermaid",
-    "diagram_get_mermaid_instructions",
-    "diagram_update_mermaid",
-    "doc_create",
-    "doc_get",
-    "doc_update",
     "image_create",
     "image_get_data",
     "image_get_upload_url",
     "image_get_url",
-    "import-claude-design-from-url",
-    "layout_create",
-    "layout_get_dsl",
-    "layout_read",
-    "layout_update",
     "preview_resource_poll",
     "prototype_create",
     "prototype_get_upload_url",
     "prototype_read",
-    "record_ui_feedback",
     "section_create",
     "section_delete",
     "section_update_metadata",

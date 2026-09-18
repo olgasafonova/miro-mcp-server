@@ -269,13 +269,18 @@ func (c *Client) loadConnectorContexts(ctx context.Context, boardID string, item
 // loadTagContexts fetches tag definitions for the board. Per-item tag
 // membership is intentionally not computed (would require an extra API call
 // per tag). Returns nil on fetch error.
+//
+// ListTags pages, so a board with more tags than one page would otherwise be
+// summarized from the first page alone with nothing saying so. The summary is
+// a fixed-cost overview rather than an inventory, so it reads a bounded number
+// of pages and stops; maxSummaryTagPages bounds the cost.
 func (c *Client) loadTagContexts(ctx context.Context, boardID string) []TagContext {
-	tags, err := c.ListTags(ctx, ListTagsArgs{BoardID: boardID})
+	tags, err := c.loadAllSummaryTags(ctx, boardID)
 	if err != nil {
 		return nil
 	}
-	out := make([]TagContext, 0, len(tags.Tags))
-	for _, tag := range tags.Tags {
+	out := make([]TagContext, 0, len(tags))
+	for _, tag := range tags {
 		out = append(out, TagContext{
 			ID:    tag.ID,
 			Title: tag.Title,
@@ -307,4 +312,33 @@ func buildBoardContentMessage(boardName string, counts boardContentCounts) strin
 		parts = append(parts, fmt.Sprintf("%d tags", counts.tags))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// maxSummaryTagPages bounds how many pages of tags a board summary reads. The
+// summary is an overview, not an inventory, so it trades completeness on a
+// pathologically tagged board for a predictable number of requests.
+const maxSummaryTagPages = 5
+
+// loadAllSummaryTags walks the tag listing up to maxSummaryTagPages.
+func (c *Client) loadAllSummaryTags(ctx context.Context, boardID string) ([]Tag, error) {
+	var all []Tag
+	offset := 0
+
+	for page := 0; page < maxSummaryTagPages; page++ {
+		res, err := c.ListTags(ctx, ListTagsArgs{BoardID: boardID, Offset: offset})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, res.Tags...)
+		if !res.HasMore {
+			break
+		}
+		// A cursor that is absent or does not advance would re-read the same
+		// page until the cap, so treat it as the end.
+		if res.Offset == 0 || res.Offset == offset {
+			break
+		}
+		offset = res.Offset
+	}
+	return all, nil
 }

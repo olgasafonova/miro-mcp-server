@@ -513,7 +513,9 @@ VOICE-FRIENDLY: "Created red tag 'Urgent'"`,
 		Title:    "List Tags",
 		Category: "tags",
 		ReadOnly: true,
-		Description: `List all tag definitions on a board with IDs, titles, and colors. Use tag IDs from this response with miro_attach_tag, miro_detach_tag, and miro_get_items_by_tag.
+		Description: `List tag definitions on a board with IDs, titles, and colors. Use tag IDs from this response with miro_attach_tag, miro_detach_tag, and miro_get_items_by_tag.
+
+PAGING: returns up to 50 tags per call. Check has_more and pass the returned offset to read the rest; total reports how many exist.
 
 USE WHEN: "show all tags", "what tags exist", "list labels", or before attaching a tag to get its ID
 

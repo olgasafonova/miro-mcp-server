@@ -77,7 +77,7 @@ type GetFrameItemsArgs struct {
 	BoardID     string `json:"board_id" jsonschema:"Board ID"`
 	FrameID     string `json:"frame_id" jsonschema:"Frame ID to get items from"`
 	Type        string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, card, image"`
-	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return (default 50, max 100)"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"Max items to return, 10-50 (default 50). Reaches the items endpoint, which rejects anything outside that window"`
 	Cursor      string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 	DetailLevel string `json:"detail_level,omitempty" jsonschema:"Response detail level: 'minimal' (default) returns basic fields, 'full' includes style, geometry, timestamps, and creator info"`
 }

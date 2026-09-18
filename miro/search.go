@@ -145,9 +145,8 @@ func (s *searchScan) consumePage(items []ItemSummary) searchStop {
 // mirrors collectAllItems' cursor loop; the difference is that the cap driving
 // the loop counts items scanned rather than items returned.
 //
-// The page size is MaxItemLimit rather than collectAllItems' MaxItemLimitExtended
-// because buildListItemsPath silently falls back to DefaultItemLimit for any
-// value above MaxItemLimit, so the larger constant never reaches the wire.
+// MaxItemLimit is the largest page the items endpoint serves, so asking for
+// more would buy nothing even if it were accepted.
 func (c *Client) collectSearchMatches(ctx context.Context, args SearchBoardArgs, scan *searchScan) (searchStop, error) {
 	cursor := ""
 	for {

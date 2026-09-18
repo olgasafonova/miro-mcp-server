@@ -129,7 +129,10 @@ func TestGetGroupItems_EmptyIsTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetGroupItems: %v", err)
 	}
-	if res.HasMore || res.Count != 0 || res.Cursor != "" {
-		t.Errorf("HasMore=%v Count=%d Cursor=%q, want false, 0 and \"\"", res.HasMore, res.Count, res.Cursor)
+	if res.Count != 0 {
+		t.Errorf("Count = %d, want 0", res.Count)
+	}
+	if res.HasMore || res.Cursor != "" {
+		t.Errorf("HasMore=%v Cursor=%q, want false and \"\"", res.HasMore, res.Cursor)
 	}
 }

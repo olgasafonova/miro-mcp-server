@@ -7,13 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-09-18
+
 ### Fixed
+
+- **Board listing stopped at the first page and said that was all of it.** `has_more` was computed as `resp.Offset > 0 && len(data) >= limit`, but Miro echoes back the offset of the page it just served rather than the next one, so page one always carries `offset=0` and the condition was unconditionally false. Verified against the live API rather than inferred from the spec — a request for `offset=1` answers `offset=1` — and reproduced end to end on a 13-board account at `limit=5`, where page one returned `Count=5 HasMore=false Offset=""`. An agent listing boards was told those five were everything, with an empty cursor and no way to continue. Reported by a user as "cannot search multiple boards", which is what the defect looks like from outside.
+
+  A second defect sat underneath, masked by the first: because the echoed offset names the current page, it was also handed back as the next cursor, so following it refetched the same page forever. Removing the `> 0` guard alone would have turned a silent truncation into an infinite loop. The next cursor is now derived from the offset we *requested* plus the rows received, which is correct regardless of what the API echoes. `total` was already parsed and discarded; it now decides `has_more` and is surfaced on the result.
+
+- **`miro_search_board` read one page of the board and reported the rest as absent.** It fetched a single page, filtered client-side, and never followed the cursor — so a match past the first page came back as a confident "No items found matching X", indistinguishable from a genuinely empty board. The caller's `limit` was also forwarded as the API page size, making it govern how much of the board was *scanned* rather than how many matches returned; one board and one query gave 5 matches at `limit=10` and 13 at `limit=20`. Search now pages until the match cap fills, the board is exhausted, or a scan cap is reached, and reports `items_scanned` and `truncated` so an exhaustive absence is distinguishable from a partial one.
+
+- **Any page size below 10 was a hard 400 on four call paths.** Miro enforces a minimum of 10 on the items, connectors and groups endpoints (`2.0703`, "minimum items page size is 10"), and `miro_search_board`, `miro_list_items`, `miro_get_frame_items` and `miro_list_groups` forwarded the caller's limit unclamped. An agent asking for the top five matches got a bare "Bad Request" with nothing naming the cause. `clampConnectorLimit` already carried this floor, so the minimum was known for one endpoint and never generalised. The members endpoint has no such floor and deliberately keeps none, with a test asserting the items floor does not leak onto it.
+
+- **Four list results advertised `has_more` with no way to act on it.** `ListBoardMembers`, `GetItemsByTag`, `GetGroupItems` and `ListComments` each accepted a `limit` and an offset or cursor as *input* while returning no cursor at all — the input side of pagination was implemented and the output side was not. `GetGroupItems` computed `has_more` from a cursor that was in scope on that very line and then dropped it, while `ListGroups` twenty lines above returned it correctly. `ListBoardMembers` additionally carried the same wrong `has_more` expression as board listing. All four now return what the caller needs, with `total` where the API provides it.
+
+- **`GetItemsByTag` reported a full final page as evidence of another page.** It inferred `has_more` from `len(items) >= limit`, which false-positives on every exact multiple of the page size. The tags endpoint returns `total`, so the test is now exact.
+
+- **`miro_list_tags` could not be paged past its first page at all.** It sent a `limit` and parsed only `data` — no `total`, no `offset`, no `has_more`, and no offset input — so a board with more tags than one page silently presented as having only that page. This also corrected `loadTagContexts`, which fed board summaries from a first page it treated as the complete tag set.
+
+- **`miro_find_board` searched only the first 20 matches, and reported a guess as a find.** The name lookup was pinned to `Limit: 20` with no paging, so an exact match beyond the first page lost to a weaker partial match on it. Separately, when nothing matched any tier the tool returned the first board of page one wrapped in `Found board '<name>'` — a board that matched nothing, described as a hit. The result now carries `match` (`exact`, `prefix`, `contains` or `none`) and the message tells the truth in each case, including naming the tier on a success so a caller that wanted an exact board can tell it got a substring match instead. Worth stating precisely: Miro's `query` filters by name substring, so the no-match path is close to unreachable today and this is a latent wrong answer rather than one firing in production.
+
+- **Four tools advertised a maximum page size the API rejects.** `miro_list_items`, `miro_list_connectors`, `miro_get_frame_items` and `miro_list_mindmap_nodes` all documented `max 100` while every one of those endpoints answers 400 above 50 — the items endpoint's usable window is exactly `[10, 50]`. The clamps had been corrected to 50 in the previous cycle; the advertised values had not, so the schemas kept claiming something the API refuses. `collectAllItems` also requested 100 on every call and worked only because `buildListItemsPath` silently downgraded it, an invalid request made valid by accident; it now asks for a size the endpoint accepts. `MaxOrgAuditLimit` is the fifth of these and is now labelled unverified in place: `/audit/logs` answers 403 on scope before it validates the limit, so its ceiling is unreachable without an Enterprise token.
 
 - **Connector reads work against the live API.** `miro_list_connectors` and `miro_get_connector` parsed the connected item's id from a `"item"` key the API never sends (endpoint ids came back empty), and typed the endpoint's relative anchor as numbers when the wire carries percentage strings (`"x": "100%"`) — so any connector attached to an item failed the whole call with a parse error. Both found 18-08-2026 while porting the SVG dialect to miro-cli: the unit fixtures encoded the imagined wire shape, so tests passed while every live read was broken. Fixtures now mirror a captured live response. Consequence fixed along the way: `miro_read_board_svg` and the board-summary connector enrichment swallow connector errors as best-effort, so connectors silently never appeared in either — they render now.
 
 - **Page-size caps corrected to the API's real maximum of 50.** Connectors, frame items, and mindmap nodes all clamped requested limits to 100, but the live endpoints answer 400 to anything above 50 (`limit=51` and `limit=100` both verified 18-08-2026). Affected paths either errored outright (`miro_get_frame_items`, `miro_list_mindmap_nodes` with a large limit) or silently degraded (the frame-scoped SVG read's child listing, the connector fetches above). All clamps now cap at 50, matching the `MaxItemLimit` the plain items listing already enforced.
 
 - **`miro_update_from_svg` accepts minimal deletion markers and deletes connectors.** A bare `<rect data-miro-id="X" data-deleted="true"/>` was skipped as degenerate geometry (an empty `<text>` marker likewise as empty content) — deletion needs identity, not geometry, so markers now bypass those checks. And a `<line>` deletion routed to the generic items endpoint, which answers 404 for connectors; it now routes to the connectors endpoint. Both found by the miro-cli port's live smoke test and fixed in both codebases.
+
+### Changed
+
+- **New fields on paginated responses.** `total`, `has_more` and `offset` where the endpoint supports them, `cursor` on group items, `match` on board lookup, and `items_scanned` plus `truncated` on board search. All additive; no field was renamed or removed.
+
+- **Observable behaviour changes that are bug fixes rather than breaks.** `ListComments` reports `has_more: true` on a full page where it previously said `false`; `miro_find_board`'s message text changed in all four outcomes; and a negative offset now returns an error on `GetItemsByTag` and `ListComments` instead of being silently dropped and serving page one. A consumer parsing message strings would notice the second.
+
+### Internal
+
+- Offset pagination is now one implementation (`miro/pagination_offset.go`) shared by boards, members, comments and items-by-tag, rather than four copies of a rule that was wrong in two of them. The five pagination test suites share one harness, which added coverage rather than removing it: the exact-multiple boundary existed only in the tags suite and now runs against every offset endpoint.
+
+- Every file touched in this cycle is at CodeScene Code Health 10.0, with the change-set gate reporting zero findings.
+
 
 ## [1.24.0] - 2026-08-18
 

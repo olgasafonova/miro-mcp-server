@@ -40,27 +40,111 @@ func fakeBoardsPager(t *testing.T, total int, omitTotal bool) *httptest.Server {
 	}))
 }
 
-// A full first page of a larger collection must advertise more and hand back
-// a usable cursor. Regression: HasMore was `resp.Offset > 0 && ...`, which is
-// always false on page 1 because the echoed offset is 0.
-func TestListBoards_FirstPageAdvertisesMore(t *testing.T) {
-	server := fakeBoardsPager(t, 500, false)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
+// TestListBoards_Pagination covers how one page reports the existence of the
+// next. The regressions guarded here are that HasMore was `resp.Offset > 0 &&
+// ...`, always false on page one because the echoed offset is 0, and that the
+// cursor returned was the offset just requested rather than the following one.
+func TestListBoards_Pagination(t *testing.T) {
+	tests := []struct {
+		name        string
+		total       int
+		omitTotal   bool
+		limit       int
+		offset      string
+		wantHasMore bool
+		wantOffset  string
+		wantTotal   int
+	}{
+		{
+			name:  "full first page of a larger collection advertises more",
+			total: 500, limit: 50,
+			wantHasMore: true, wantOffset: "50", wantTotal: 500,
+		},
+		{
+			name:  "second page advances the cursor rather than repeating it",
+			total: 500, limit: 50, offset: "50",
+			wantHasMore: true, wantOffset: "100", wantTotal: 500,
+		},
+		{
+			name:  "collection fitting in one page is terminal",
+			total: 13, limit: 50,
+			wantHasMore: false, wantOffset: "", wantTotal: 13,
+		},
+		{
+			name:  "empty collection is terminal",
+			total: 0, limit: 50,
+			wantHasMore: false, wantOffset: "", wantTotal: 0,
+		},
+		{
+			name:  "offset past the end is terminal",
+			total: 13, limit: 5, offset: "100",
+			wantHasMore: false, wantOffset: "", wantTotal: 13,
+		},
+		{
+			// total is not marked required in Miro's OpenAPI spec, so its
+			// absence must not be read as the end of the collection.
+			name:  "absent total falls back to the full-page heuristic",
+			total: 500, omitTotal: true, limit: 50,
+			wantHasMore: true, wantOffset: "50",
+		},
+		{
+			name:  "absent total with a short page is terminal",
+			total: 13, omitTotal: true, limit: 50,
+			wantHasMore: false, wantOffset: "",
+		},
+	}
 
-	res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 50})
-	if err != nil {
-		t.Fatalf("ListBoards: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := fakeBoardsPager(t, tt.total, tt.omitTotal)
+			defer server.Close()
+
+			res, err := newTestClientWithServer(server.URL).ListBoards(
+				context.Background(),
+				ListBoardsArgs{Limit: tt.limit, Offset: tt.offset},
+			)
+			if err != nil {
+				t.Fatalf("ListBoards: %v", err)
+			}
+			if res.HasMore != tt.wantHasMore {
+				t.Errorf("HasMore = %v, want %v", res.HasMore, tt.wantHasMore)
+			}
+			if res.Offset != tt.wantOffset {
+				t.Errorf("Offset = %q, want %q", res.Offset, tt.wantOffset)
+			}
+			if res.Total != tt.wantTotal {
+				t.Errorf("Total = %d, want %d", res.Total, tt.wantTotal)
+			}
+		})
 	}
-	if !res.HasMore {
-		t.Errorf("HasMore = false, want true (50 of 500 boards returned)")
+}
+
+// walkAllBoards pages from the start and returns the ids seen, in order of
+// arrival. It fails the test rather than returning an error, so the caller
+// stays a straight-line assertion.
+func walkAllBoards(t *testing.T, c *Client, limit int) []string {
+	t.Helper()
+
+	var ids []string
+	offset := ""
+	for pages := 0; pages <= 50; pages++ {
+		res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: limit, Offset: offset})
+		if err != nil {
+			t.Fatalf("page %d: %v", pages, err)
+		}
+		for _, b := range res.Boards {
+			ids = append(ids, b.ID)
+		}
+		if !res.HasMore {
+			return ids
+		}
+		if res.Offset == offset {
+			t.Fatalf("cursor stalled at %q — following it would refetch the same page", offset)
+		}
+		offset = res.Offset
 	}
-	if res.Offset != "50" {
-		t.Errorf("Offset = %q, want \"50\"", res.Offset)
-	}
-	if res.Total != 500 {
-		t.Errorf("Total = %d, want 500", res.Total)
-	}
+	t.Fatal("pagination did not terminate within 50 pages")
+	return nil
 }
 
 // Walking every page must terminate and yield each board exactly once.
@@ -70,117 +154,22 @@ func TestListBoards_FullWalkTerminatesWithoutDuplicates(t *testing.T) {
 	const total = 137
 	server := fakeBoardsPager(t, total, false)
 	defer server.Close()
-	c := newTestClientWithServer(server.URL)
 
-	seen := map[string]bool{}
-	offset := ""
-	for pages := 0; ; pages++ {
-		if pages > 50 {
-			t.Fatal("pagination did not terminate")
+	ids := walkAllBoards(t, newTestClientWithServer(server.URL), 50)
+
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			t.Fatalf("duplicate board %s — cursor did not advance", id)
 		}
-		res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 50, Offset: offset})
-		if err != nil {
-			t.Fatalf("page %d: %v", pages, err)
-		}
-		for _, b := range res.Boards {
-			if seen[b.ID] {
-				t.Fatalf("duplicate board %s — cursor did not advance", b.ID)
-			}
-			seen[b.ID] = true
-		}
-		if !res.HasMore {
-			break
-		}
-		if res.Offset == offset {
-			t.Fatalf("cursor stalled at %q", offset)
-		}
-		offset = res.Offset
+		seen[id] = true
 	}
 	if len(seen) != total {
 		t.Errorf("collected %d boards, want %d", len(seen), total)
 	}
 }
 
-// A collection that fits in one page is terminal.
-func TestListBoards_SinglePageIsTerminal(t *testing.T) {
-	server := fakeBoardsPager(t, 13, false)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-
-	res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 50})
-	if err != nil {
-		t.Fatalf("ListBoards: %v", err)
-	}
-	if res.HasMore || res.Offset != "" {
-		t.Errorf("HasMore=%v Offset=%q, want false and \"\"", res.HasMore, res.Offset)
-	}
-}
-
-// An empty collection must not advertise more.
-func TestListBoards_EmptyIsTerminal(t *testing.T) {
-	server := fakeBoardsPager(t, 0, false)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-
-	res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 50})
-	if err != nil {
-		t.Fatalf("ListBoards: %v", err)
-	}
-	if res.HasMore || res.Count != 0 {
-		t.Errorf("HasMore=%v Count=%d, want false and 0", res.HasMore, res.Count)
-	}
-}
-
-// An offset past the end is terminal rather than looping.
-func TestListBoards_OffsetPastEndIsTerminal(t *testing.T) {
-	server := fakeBoardsPager(t, 13, false)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-
-	res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 5, Offset: "100"})
-	if err != nil {
-		t.Fatalf("ListBoards: %v", err)
-	}
-	if res.HasMore {
-		t.Errorf("HasMore = true past the end, want false")
-	}
-}
-
-// `total` is not marked required in Miro's OpenAPI spec. When it is absent we
-// fall back to the full-page heuristic rather than reporting a false end.
-func TestListBoards_FallsBackWhenTotalAbsent(t *testing.T) {
-	server := fakeBoardsPager(t, 500, true)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-
-	res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 50})
-	if err != nil {
-		t.Fatalf("ListBoards: %v", err)
-	}
-	if !res.HasMore {
-		t.Error("HasMore = false with total absent and a full page, want true")
-	}
-	if res.Offset != "50" {
-		t.Errorf("Offset = %q, want \"50\"", res.Offset)
-	}
-}
-
-// A short page with no total is the end of the collection.
-func TestListBoards_ShortPageWithoutTotalIsTerminal(t *testing.T) {
-	server := fakeBoardsPager(t, 13, true)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-
-	res, err := c.ListBoards(context.Background(), ListBoardsArgs{Limit: 50})
-	if err != nil {
-		t.Fatalf("ListBoards: %v", err)
-	}
-	if res.HasMore {
-		t.Error("HasMore = true on a short page with no total, want false")
-	}
-}
-
-// A non-numeric offset is rejected instead of silently becoming 0.
+// A non-numeric or negative offset is rejected instead of silently becoming 0.
 func TestListBoards_RejectsInvalidOffset(t *testing.T) {
 	server := fakeBoardsPager(t, 13, false)
 	defer server.Close()

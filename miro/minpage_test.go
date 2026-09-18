@@ -44,67 +44,55 @@ func TestAtLeastMinPage(t *testing.T) {
 	}
 }
 
-// Regression: SearchBoard forwarded the caller's result limit as the API page
-// size, so any limit below 10 returned a bare HTTP 400.
-func TestSearchBoard_SmallLimitIsRaisedNotRejected(t *testing.T) {
-	for _, lim := range []int{1, 5, 9, 10, 20} {
-		var seen int
-		server := strictPageServer(t, &seen)
-		c := newTestClientWithServer(server.URL)
-		_, err := c.SearchBoard(context.Background(), SearchBoardArgs{
-			BoardID: "uXjVLmnBBBB=", Query: "x", Limit: lim,
+// TestFlooredEndpoints_SmallLimitIsRaisedNotRejected covers every call path
+// that reaches an endpoint enforcing the minimum page size. The regression is
+// that each forwarded the caller's limit unclamped, so any value from 1 to 9
+// came back as a bare HTTP 400 rather than a short page.
+//
+// GetFrameItems is included because it reaches the items endpoint through
+// parent_item_id rather than a frames path of its own.
+func TestFlooredEndpoints_SmallLimitIsRaisedNotRejected(t *testing.T) {
+	const board = "uXjVLmnBBBB="
+
+	calls := map[string]func(*Client, int) error{
+		"SearchBoard": func(c *Client, limit int) error {
+			_, err := c.SearchBoard(context.Background(), SearchBoardArgs{
+				BoardID: board, Query: "x", Limit: limit,
+			})
+			return err
+		},
+		"ListItems": func(c *Client, limit int) error {
+			_, err := c.ListItems(context.Background(), ListItemsArgs{BoardID: board, Limit: limit})
+			return err
+		},
+		"GetFrameItems": func(c *Client, limit int) error {
+			_, err := c.GetFrameItems(context.Background(), GetFrameItemsArgs{
+				BoardID: board, FrameID: "123", Limit: limit,
+			})
+			return err
+		},
+		"ListGroups": func(c *Client, limit int) error {
+			_, err := c.ListGroups(context.Background(), ListGroupsArgs{BoardID: board, Limit: limit})
+			return err
+		},
+	}
+
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			for _, limit := range []int{1, 5, 9, 10, 20} {
+				var seen int
+				server := strictPageServer(t, &seen)
+				err := call(newTestClientWithServer(server.URL), limit)
+				server.Close()
+
+				if err != nil {
+					t.Errorf("limit=%d: %v (sent limit=%d)", limit, err, seen)
+				}
+				if seen < MinPagedLimit {
+					t.Errorf("limit=%d: sent %d to the API, below the minimum", limit, seen)
+				}
+			}
 		})
-		server.Close()
-		if err != nil {
-			t.Errorf("limit=%d: %v (sent limit=%d)", lim, err, seen)
-		}
-		if seen < MinPagedLimit {
-			t.Errorf("limit=%d: sent %d to the API, below the minimum", lim, seen)
-		}
-	}
-}
-
-func TestListItems_SmallLimitIsRaisedNotRejected(t *testing.T) {
-	for _, lim := range []int{1, 5, 9, 10} {
-		var seen int
-		server := strictPageServer(t, &seen)
-		c := newTestClientWithServer(server.URL)
-		_, err := c.ListItems(context.Background(), ListItemsArgs{BoardID: "uXjVLmnBBBB=", Limit: lim})
-		server.Close()
-		if err != nil {
-			t.Errorf("limit=%d: %v (sent limit=%d)", lim, err, seen)
-		}
-		if seen < MinPagedLimit {
-			t.Errorf("limit=%d: sent %d to the API, below the minimum", lim, seen)
-		}
-	}
-}
-
-func TestGetFrameItems_SmallLimitIsRaised(t *testing.T) {
-	var seen int
-	server := strictPageServer(t, &seen)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-	if _, err := c.GetFrameItems(context.Background(), GetFrameItemsArgs{
-		BoardID: "uXjVLmnBBBB=", FrameID: "123", Limit: 3,
-	}); err != nil {
-		t.Errorf("GetFrameItems limit=3: %v (sent %d)", err, seen)
-	}
-	if seen < MinPagedLimit {
-		t.Errorf("sent limit=%d, below the minimum", seen)
-	}
-}
-
-func TestListGroups_SmallLimitIsRaised(t *testing.T) {
-	var seen int
-	server := strictPageServer(t, &seen)
-	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-	if _, err := c.ListGroups(context.Background(), ListGroupsArgs{BoardID: "uXjVLmnBBBB=", Limit: 2}); err != nil {
-		t.Errorf("ListGroups limit=2: %v (sent %d)", err, seen)
-	}
-	if seen < MinPagedLimit {
-		t.Errorf("sent limit=%d, below the minimum", seen)
 	}
 }
 
@@ -127,10 +115,11 @@ func TestListBoardMembers_SmallLimitIsForwardedUnchanged(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []any{}, "total": 0, "offset": 0})
 	}))
 	defer server.Close()
-	c := newTestClientWithServer(server.URL)
-	if _, err := c.ListBoardMembers(context.Background(), ListBoardMembersArgs{
-		BoardID: "uXjVLmnBBBB=", Limit: 5,
-	}); err != nil {
+
+	if _, err := newTestClientWithServer(server.URL).ListBoardMembers(
+		context.Background(),
+		ListBoardMembersArgs{BoardID: "uXjVLmnBBBB=", Limit: 5},
+	); err != nil {
 		t.Fatalf("ListBoardMembers: %v", err)
 	}
 	if seen != 5 {

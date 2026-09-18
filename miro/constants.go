@@ -41,6 +41,13 @@ const (
 	// MaxSearchLimit is the maximum search results allowed.
 	MaxSearchLimit = 50
 
+	// DefaultSearchScanItems is how many items SearchBoard reads before it
+	// gives up on the rest of the board. The items endpoint has no text
+	// filter, so search pages the board and matches client-side; scan depth
+	// is therefore a separate budget from the result limit. At MaxItemLimit
+	// per page this is 20 requests, which bounds the cost of one search.
+	DefaultSearchScanItems = 1000
+
 	// DefaultAuditLimit is the default audit log events to return.
 	DefaultAuditLimit = 50
 

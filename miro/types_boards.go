@@ -126,6 +126,12 @@ type FindBoardByNameArgs struct {
 // FindBoardByNameResult contains the found board. It carries the same
 // metadata as BoardSummary so a lookup-by-name answers "who owns it" and
 // "when was it touched" without a second call.
+//
+// Match says how the board answered the query, because the search answers
+// from more than one tier and the caller cannot otherwise tell which one it
+// got: "exact", "prefix" (the board name starts with the query), "contains",
+// or "none". A "none" result is the fallback candidate rather than a match —
+// the query hit nothing, and Message says so.
 type FindBoardByNameResult struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -136,6 +142,7 @@ type FindBoardByNameResult struct {
 	Owner       *User  `json:"owner,omitempty"`
 	CreatedAt   string `json:"created_at,omitempty"`
 	ModifiedAt  string `json:"modified_at,omitempty"`
+	Match       string `json:"match"`
 	Message     string `json:"message"`
 }
 

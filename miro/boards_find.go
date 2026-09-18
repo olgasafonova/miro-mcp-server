@@ -33,24 +33,30 @@ type boardMatchAccumulator struct {
 // anyway. nameLower must already be lowercased.
 func (a *boardMatchAccumulator) consider(boards []BoardSummary, nameLower string) *BoardSummary {
 	for i := range boards {
-		board := boards[i]
-		lower := strings.ToLower(board.Name)
+		if exact := a.fold(boards[i], nameLower); exact != nil {
+			return exact
+		}
+	}
+	return nil
+}
 
-		if lower == nameLower {
-			return &board
-		}
-		if a.first == nil {
-			a.first = &board
-		}
-		if strings.HasPrefix(lower, nameLower) {
-			if a.prefix == nil {
-				a.prefix = &board
-			}
-			continue
-		}
-		if a.contains == nil && strings.Contains(lower, nameLower) {
-			a.contains = &board
-		}
+// fold classifies one board into the accumulator, returning it when the name
+// matches exactly. A prefix match also satisfies Contains, so it lands in both
+// fields; that is harmless because best() consults prefix first, and it keeps
+// each tier a flat independent test rather than a nested chain.
+func (a *boardMatchAccumulator) fold(board BoardSummary, nameLower string) *BoardSummary {
+	lower := strings.ToLower(board.Name)
+	if lower == nameLower {
+		return &board
+	}
+	if a.first == nil {
+		a.first = &board
+	}
+	if a.prefix == nil && strings.HasPrefix(lower, nameLower) {
+		a.prefix = &board
+	}
+	if a.contains == nil && strings.Contains(lower, nameLower) {
+		a.contains = &board
 	}
 	return nil
 }
@@ -64,6 +70,20 @@ func (a *boardMatchAccumulator) best() *BoardSummary {
 		}
 	}
 	return nil
+}
+
+// nextFindOffset returns the offset of the page after the one just read, and
+// whether the walk should continue. A cursor that is empty or does not advance
+// would re-scan the same page until the page cap, so it counts as the end
+// rather than spending the remaining requests on it.
+func nextFindOffset(result ListBoardsResult, current string) (string, bool) {
+	if !result.HasMore {
+		return "", false
+	}
+	if result.Offset == "" || result.Offset == current {
+		return "", false
+	}
+	return result.Offset, true
 }
 
 // FindBoardByName finds a board by exact or partial name match.
@@ -94,13 +114,11 @@ func (c *Client) FindBoardByName(ctx context.Context, name string) (*BoardSummar
 		if hit := acc.consider(result.Boards, nameLower); hit != nil {
 			return hit, nil
 		}
-		// A cursor that does not advance would re-scan the same page until
-		// the page cap, so treat it as the end rather than spending the
-		// remaining requests on it.
-		if !result.HasMore || result.Offset == "" || result.Offset == offset {
+		next, ok := nextFindOffset(result, offset)
+		if !ok {
 			break
 		}
-		offset = result.Offset
+		offset = next
 	}
 
 	if hit := acc.best(); hit != nil {

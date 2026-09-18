@@ -70,41 +70,35 @@ func TestGetGroupItems_FirstPageHandsBackCursor(t *testing.T) {
 
 // Walking every page must terminate and yield each item exactly once.
 func TestGetGroupItems_FullWalkTerminatesWithoutDuplicates(t *testing.T) {
-	const total = 25
-	server := fakeGroupItemsPager(t, total, 10)
+	const total = 137
+	server := fakeGroupItemsPager(t, total, 50)
 	defer server.Close()
 	c := newTestClientWithServer(server.URL)
 
-	seen := map[string]bool{}
-	cursor := ""
-	for pages := 0; ; pages++ {
-		if pages > 20 {
-			t.Fatal("pagination did not terminate")
-		}
-		res, err := c.GetGroupItems(context.Background(), groupItemsArgs(10, cursor))
+	ids := walkCursorPages(t, "group item", func(cursor string) (offsetPage, error) {
+		res, err := c.GetGroupItems(context.Background(), groupItemsArgs(50, cursor))
 		if err != nil {
-			t.Fatalf("page %d: %v", pages, err)
+			return offsetPage{}, err
 		}
-		for _, it := range res.Items {
-			if seen[it.ID] {
-				t.Fatalf("duplicate item %s — cursor did not advance", it.ID)
-			}
-			seen[it.ID] = true
+		out := make([]string, len(res.Items))
+		for i, it := range res.Items {
+			out[i] = it.ID
 		}
-		if !res.HasMore {
-			break
+		return offsetPage{ids: out, hasMore: res.HasMore, nextOffset: res.Cursor}, nil
+	})
+
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			t.Fatalf("duplicate group item %s — cursor did not advance", id)
 		}
-		if res.Cursor == cursor {
-			t.Fatalf("cursor stalled at %q", cursor)
-		}
-		cursor = res.Cursor
+		seen[id] = true
 	}
 	if len(seen) != total {
-		t.Errorf("collected %d items, want %d", len(seen), total)
+		t.Errorf("collected %d group items, want %d", len(seen), total)
 	}
 }
 
-// A group that fits in one page is terminal and carries no cursor.
 func TestGetGroupItems_SinglePageIsTerminal(t *testing.T) {
 	server := fakeGroupItemsPager(t, 4, 10)
 	defer server.Close()

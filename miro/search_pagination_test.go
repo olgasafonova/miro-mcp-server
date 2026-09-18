@@ -66,6 +66,42 @@ func newFakeItemsPager(t *testing.T, corpus itemsCorpus) (*httptest.Server, *fak
 // filler is board content guaranteed not to contain any test query.
 func filler(i int) string { return fmt.Sprintf("ordinary sticky %d", i) }
 
+// searchWant is the shape a SearchBoard result is expected to have. Pulling
+// the assertions into one helper keeps each test's own body about the thing it
+// is actually testing.
+type searchWant struct {
+	count     int
+	scanned   int
+	truncated bool
+}
+
+// assertSearch checks a result against searchWant, reporting every mismatch
+// rather than stopping at the first.
+func assertSearch(t *testing.T, res SearchBoardResult, want searchWant) {
+	t.Helper()
+	if res.Count != want.count {
+		t.Errorf("Count = %d, want %d", res.Count, want.count)
+	}
+	if res.ItemsScanned != want.scanned {
+		t.Errorf("ItemsScanned = %d, want %d", res.ItemsScanned, want.scanned)
+	}
+	if res.Truncated != want.truncated {
+		t.Errorf("Truncated = %v, want %v", res.Truncated, want.truncated)
+	}
+}
+
+// searchFor runs one SearchBoard call against a corpus and fails on error.
+func searchFor(t *testing.T, c *Client, query string, limit int) SearchBoardResult {
+	t.Helper()
+	res, err := c.SearchBoard(context.Background(), SearchBoardArgs{
+		BoardID: "uXjVLmnBBBB=", Query: query, Limit: limit,
+	})
+	if err != nil {
+		t.Fatalf("SearchBoard(query=%q, limit=%d): %v", query, limit, err)
+	}
+	return res
+}
+
 // Regression: SearchBoard fetched one page and filtered it client-side without
 // ever following the cursor, so a match beyond the first page came back as a
 // confident "No items found matching X". The old code made exactly one request
@@ -80,16 +116,11 @@ func TestSearchBoard_FindsMatchOnLaterPage(t *testing.T) {
 			return filler(i)
 		},
 	})
-	c := newTestClientWithServer(server.URL)
+	res := searchFor(t, newTestClientWithServer(server.URL), "needle", 0)
 
-	res, err := c.SearchBoard(context.Background(), SearchBoardArgs{
-		BoardID: "uXjVLmnBBBB=", Query: "needle",
-	})
-	if err != nil {
-		t.Fatalf("SearchBoard: %v", err)
-	}
+	assertSearch(t, res, searchWant{count: 1, scanned: 120, truncated: false})
 	if res.Count != 1 {
-		t.Fatalf("Count = %d, want 1 (the match sits on page 3)", res.Count)
+		t.Fatalf("no match to inspect")
 	}
 	if res.Matches[0].ID != "item0117" {
 		t.Errorf("matched %q, want item0117", res.Matches[0].ID)
@@ -97,34 +128,28 @@ func TestSearchBoard_FindsMatchOnLaterPage(t *testing.T) {
 	if pager.requests < 2 {
 		t.Errorf("served %d requests, want more than one — the cursor was not followed", pager.requests)
 	}
-	if res.Truncated {
-		t.Error("Truncated = true, want false — the board was fully scanned")
-	}
-	if res.ItemsScanned != 120 {
-		t.Errorf("ItemsScanned = %d, want 120", res.ItemsScanned)
-	}
 }
 
 // The absence claim must only be made about a board that was actually read to
-// the end, and the message must say how far the scan got.
+// the end, and the message must say how far the scan got. An empty board is
+// the same claim at zero depth: exhausted, not truncated.
 func TestSearchBoard_ExhaustedBoardReportsAbsenceHonestly(t *testing.T) {
-	server, _ := newFakeItemsPager(t, itemsCorpus{total: 73, contentAt: filler})
-	c := newTestClientWithServer(server.URL)
+	for _, tt := range []struct {
+		name  string
+		total int
+	}{
+		{"populated board with no match", 73},
+		{"empty board", 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server, _ := newFakeItemsPager(t, itemsCorpus{total: tt.total, contentAt: filler})
+			res := searchFor(t, newTestClientWithServer(server.URL), "needle", 0)
 
-	res, err := c.SearchBoard(context.Background(), SearchBoardArgs{
-		BoardID: "uXjVLmnBBBB=", Query: "needle",
-	})
-	if err != nil {
-		t.Fatalf("SearchBoard: %v", err)
-	}
-	if res.Count != 0 || res.Truncated {
-		t.Errorf("Count=%d Truncated=%v, want 0 and false", res.Count, res.Truncated)
-	}
-	if res.ItemsScanned != 73 {
-		t.Errorf("ItemsScanned = %d, want 73", res.ItemsScanned)
-	}
-	if !strings.Contains(res.Message, "73") {
-		t.Errorf("Message = %q, want the scan depth in it", res.Message)
+			assertSearch(t, res, searchWant{count: 0, scanned: tt.total, truncated: false})
+			if !strings.Contains(res.Message, strconv.Itoa(tt.total)) {
+				t.Errorf("Message = %q, want the scan depth in it", res.Message)
+			}
+		})
 	}
 }
 
@@ -139,14 +164,8 @@ func TestSearchBoard_LimitCapsMatchesNotScanDepth(t *testing.T) {
 			total:     300,
 			contentAt: func(i int) string { return fmt.Sprintf("needle %d", i) },
 		})
-		c := newTestClientWithServer(server.URL)
+		res := searchFor(t, newTestClientWithServer(server.URL), "needle", limit)
 
-		res, err := c.SearchBoard(context.Background(), SearchBoardArgs{
-			BoardID: "uXjVLmnBBBB=", Query: "needle", Limit: limit,
-		})
-		if err != nil {
-			t.Fatalf("limit=%d: %v", limit, err)
-		}
 		if res.Count != limit {
 			t.Errorf("limit=%d: Count = %d, want %d", limit, res.Count, limit)
 		}
@@ -270,23 +289,6 @@ func TestSearchBoard_ForwardsTypeFilterOnEveryPage(t *testing.T) {
 		if got != "sticky_note" {
 			t.Errorf("request %d sent type=%q, want sticky_note", i, got)
 		}
-	}
-}
-
-// An empty board is exhausted, not truncated.
-func TestSearchBoard_EmptyBoardIsExhausted(t *testing.T) {
-	server, _ := newFakeItemsPager(t, itemsCorpus{total: 0, contentAt: filler})
-	c := newTestClientWithServer(server.URL)
-
-	res, err := c.SearchBoard(context.Background(), SearchBoardArgs{
-		BoardID: "uXjVLmnBBBB=", Query: "needle",
-	})
-	if err != nil {
-		t.Fatalf("SearchBoard: %v", err)
-	}
-	if res.Truncated || res.ItemsScanned != 0 || res.Count != 0 {
-		t.Errorf("Truncated=%v ItemsScanned=%d Count=%d, want false, 0, 0",
-			res.Truncated, res.ItemsScanned, res.Count)
 	}
 }
 

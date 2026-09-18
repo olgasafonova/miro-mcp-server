@@ -55,6 +55,9 @@ const (
 	stopMatchLimit
 	// stopScanCap means the scan cap was hit before the board ran out.
 	stopScanCap
+	// stopContinue means the page just read ended neither budget, so the walk
+	// should fetch the next one. It never reaches a result.
+	stopContinue
 )
 
 // message composes the human-readable result message. Scan depth and the stop
@@ -87,24 +90,57 @@ func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchB
 		return SearchBoardResult{}, fmt.Errorf("query is required")
 	}
 
-	search := boardSearch{query: args.Query, queryLower: strings.ToLower(args.Query)}
-	matches, scanned, stop, err := c.collectSearchMatches(
-		ctx, args, search, searchBoardLimit(args.Limit), DefaultSearchScanItems)
+	scan := &searchScan{
+		search:     boardSearch{query: args.Query, queryLower: strings.ToLower(args.Query)},
+		maxMatches: searchBoardLimit(args.Limit),
+		maxScan:    DefaultSearchScanItems,
+	}
+	stop, err := c.collectSearchMatches(ctx, args, scan)
 	if err != nil {
 		return SearchBoardResult{}, err
 	}
 
 	return SearchBoardResult{
-		Matches:      matches,
-		Count:        len(matches),
+		Matches:      scan.matches,
+		Count:        len(scan.matches),
 		Query:        args.Query,
 		Truncated:    stop != stopExhausted,
-		ItemsScanned: scanned,
-		Message:      search.message(len(matches), scanned, stop),
+		ItemsScanned: scan.scanned,
+		Message:      scan.search.message(len(scan.matches), scan.scanned, stop),
 	}, nil
 }
 
-// collectSearchMatches pages through ListItems, matching each page client-side
+// searchScan carries the running state of one SearchBoard walk: the query
+// being matched, the two budgets that can end it, and what has been found so
+// far. Bundling them keeps the page loop from taking a long argument list.
+type searchScan struct {
+	search     boardSearch
+	maxMatches int
+	maxScan    int
+
+	matches []ItemMatch
+	scanned int
+}
+
+// consumePage folds one page of items into the scan. It returns the reason
+// the walk should stop, or stopContinue when both budgets still have room.
+func (s *searchScan) consumePage(items []ItemSummary) searchStop {
+	for i := range items {
+		s.scanned++
+		if m := s.search.match(items[i]); m != nil {
+			s.matches = append(s.matches, *m)
+		}
+		if len(s.matches) >= s.maxMatches {
+			return stopMatchLimit
+		}
+		if s.scanned >= s.maxScan {
+			return stopScanCap
+		}
+	}
+	return stopContinue
+}
+
+// collectSearchMatches pages through ListItems, folding each page into scan
 // and stopping at the match cap, the scan cap, or the end of the board. It
 // mirrors collectAllItems' cursor loop; the difference is that the cap driving
 // the loop counts items scanned rather than items returned.
@@ -112,13 +148,8 @@ func (c *Client) SearchBoard(ctx context.Context, args SearchBoardArgs) (SearchB
 // The page size is MaxItemLimit rather than collectAllItems' MaxItemLimitExtended
 // because buildListItemsPath silently falls back to DefaultItemLimit for any
 // value above MaxItemLimit, so the larger constant never reaches the wire.
-func (c *Client) collectSearchMatches(
-	ctx context.Context, args SearchBoardArgs, search boardSearch, maxMatches, maxScan int,
-) ([]ItemMatch, int, searchStop, error) {
-	var matches []ItemMatch
+func (c *Client) collectSearchMatches(ctx context.Context, args SearchBoardArgs, scan *searchScan) (searchStop, error) {
 	cursor := ""
-	scanned := 0
-
 	for {
 		result, err := c.ListItems(ctx, ListItemsArgs{
 			BoardID: args.BoardID,
@@ -127,24 +158,13 @@ func (c *Client) collectSearchMatches(
 			Cursor:  cursor,
 		})
 		if err != nil {
-			return nil, scanned, stopExhausted, err
+			return stopExhausted, err
 		}
-
-		for _, item := range result.Items {
-			scanned++
-			if m := search.match(item); m != nil {
-				matches = append(matches, *m)
-				if len(matches) >= maxMatches {
-					return matches, scanned, stopMatchLimit, nil
-				}
-			}
-			if scanned >= maxScan {
-				return matches, scanned, stopScanCap, nil
-			}
+		if stop := scan.consumePage(result.Items); stop != stopContinue {
+			return stop, nil
 		}
-
 		if !result.HasMore || result.Cursor == "" {
-			return matches, scanned, stopExhausted, nil
+			return stopExhausted, nil
 		}
 		cursor = result.Cursor
 	}

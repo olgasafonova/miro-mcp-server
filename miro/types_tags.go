@@ -38,13 +38,19 @@ type CreateTagResult struct {
 // ListTagsArgs contains parameters for listing tags on a board.
 type ListTagsArgs struct {
 	BoardID string `json:"board_id" jsonschema:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"Max tags to return (default 50)"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max tags to return (default 50, max 50)"`
+	Offset  int    `json:"offset,omitempty" jsonschema:"Offset for pagination; pass the offset from the previous response"`
 }
 
-// ListTagsResult contains the list of tags.
+// ListTagsResult contains one page of tags. Offset is the cursor for the next
+// page, ready to be passed straight back as the offset argument; it is zero
+// when the collection is exhausted.
 type ListTagsResult struct {
 	Tags    []Tag  `json:"tags"`
 	Count   int    `json:"count"`
+	Total   int    `json:"total"`
+	HasMore bool   `json:"has_more"`
+	Offset  int    `json:"offset,omitempty"`
 	Message string `json:"message"`
 }
 

@@ -53,41 +53,96 @@ func (c *Client) CreateTag(ctx context.Context, args CreateTagArgs) (CreateTagRe
 	}, nil
 }
 
-// ListTags retrieves all tags from a board.
+// maxTagListPageSize is the upper bound Miro enforces on the board tag
+// listing. The endpoint has no lower bound: limit=1 answers HTTP 200,
+// verified live against api.miro.com on 18-09-2026, so unlike the items,
+// connectors and groups routes this one takes no minimum-page-size floor.
+const maxTagListPageSize = 50
+
+// tagListRequest is one page of the board tag listing: which board, where to
+// start, and how many rows. The page rules live on it as methods so ListTags
+// reads as named steps rather than as a handful of loose ints.
+type tagListRequest struct {
+	boardID string
+	limit   int
+	offset  int
+}
+
+// validate rejects a negative offset instead of reading it as the first page,
+// which would silently restart a walk the caller believed was advancing.
+func (r tagListRequest) validate() error {
+	if r.offset < 0 {
+		return fmt.Errorf("invalid offset %d: must be a non-negative integer", r.offset)
+	}
+	return nil
+}
+
+// clamped applies the endpoint's page-size rules: a non-positive limit falls
+// back to the cap, and a larger one is clamped to it.
+func (r tagListRequest) clamped() tagListRequest {
+	if r.limit <= 0 || r.limit > maxTagListPageSize {
+		r.limit = maxTagListPageSize
+	}
+	return r
+}
+
+// path builds the /tags URL. The offset is left off the first page, keeping
+// the common request the shape Miro's own examples use.
+func (r tagListRequest) path() string {
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(r.limit))
+	if r.offset > 0 {
+		params.Set("offset", strconv.Itoa(r.offset))
+	}
+	return "/boards/" + r.boardID + "/tags?" + params.Encode()
+}
+
+// ListTags retrieves one page of tag definitions from a board.
 func (c *Client) ListTags(ctx context.Context, args ListTagsArgs) (ListTagsResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
 		return ListTagsResult{}, err
 	}
 
-	params := url.Values{}
-	limit := DefaultItemLimit
-	if args.Limit > 0 && args.Limit <= MaxItemLimit {
-		limit = args.Limit
+	req := tagListRequest{boardID: args.BoardID, limit: args.Limit, offset: args.Offset}
+	if err := req.validate(); err != nil {
+		return ListTagsResult{}, err
 	}
-	params.Set("limit", strconv.Itoa(limit))
+	req = req.clamped()
 
-	path := "/boards/" + args.BoardID + "/tags?" + params.Encode()
-
-	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	respBody, err := c.request(ctx, http.MethodGet, req.path(), nil)
 	if err != nil {
 		return ListTagsResult{}, err
 	}
 
 	var resp struct {
-		Data []Tag `json:"data"`
+		Data  []Tag `json:"data"`
+		Total int   `json:"total,omitempty"`
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return ListTagsResult{}, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	message := fmt.Sprintf("Found %d tags", len(resp.Data))
-	if len(resp.Data) == 0 {
+	// Ensure tags is never nil (MCP schema validation requires array, not null).
+	tags := resp.Data
+	if tags == nil {
+		tags = []Tag{}
+	}
+
+	// The tags endpoint echoes back the offset of the page it just served, so
+	// the next cursor comes from the offset we requested plus the rows we got.
+	next := req.offset + len(tags)
+
+	message := fmt.Sprintf("Found %d tags", len(tags))
+	if len(tags) == 0 {
 		message = "No tags on this board"
 	}
 
 	return ListTagsResult{
-		Tags:    resp.Data,
-		Count:   len(resp.Data),
+		Tags:    tags,
+		Count:   len(tags),
+		Total:   resp.Total,
+		HasMore: offsetHasMore(next, resp.Total, len(tags), req.limit),
+		Offset:  nextOffset(next, resp.Total, len(tags), req.limit),
 		Message: message,
 	}, nil
 }

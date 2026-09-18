@@ -49,3 +49,9 @@ api-tracking/gap-analysis.md
 .dolt/
 *.db
 .beads-credential-key
+
+# bd hook lock file, written per-invocation by the beads pre-commit shim
+.beads.gate.lock
+
+# Agent worktrees created by Agent(isolation: "worktree")
+.claude/worktrees/

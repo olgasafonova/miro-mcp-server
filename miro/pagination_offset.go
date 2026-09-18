@@ -17,10 +17,6 @@ import (
 // therefore useless as a cursor, and deriving the next one from the offset we
 // requested plus the rows we received is the only source immune to that
 // semantics.
-//
-// ListBoards carries its own copies of these helpers (boardsHaveMore,
-// nextBoardOffset) because it was fixed first. They are the same two functions;
-// fold them into these once both branches have landed.
 
 // parseOffsetArg converts a caller-supplied offset string to an index. An empty
 // string means the first page. Anything non-numeric or negative is rejected

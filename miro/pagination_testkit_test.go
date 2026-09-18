@@ -140,7 +140,12 @@ func runOffsetPaginationContract(t *testing.T, ep offsetEndpoint, checkTotal boo
 			if page.nextOffset != sc.wantOffset {
 				t.Errorf("next offset = %q, want %q", page.nextOffset, sc.wantOffset)
 			}
-			if checkTotal && !sc.omitTotal && page.total != sc.wantTotal {
+			// Endpoints without a total in their result, and scenarios where
+			// the fake withholds it, have nothing to assert here.
+			if !checkTotal || sc.omitTotal {
+				return
+			}
+			if page.total != sc.wantTotal {
 				t.Errorf("Total = %d, want %d", page.total, sc.wantTotal)
 			}
 		})

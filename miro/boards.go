@@ -80,6 +80,11 @@ func summarizeBoards(data []Board) []BoardSummary {
 
 func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoardsResult, error) {
 	limit := clampBoardLimit(args.Limit)
+
+	requestedOffset, err := parseOffsetArg(args.Offset)
+	if err != nil {
+		return ListBoardsResult{}, err
+	}
 	params := c.buildListBoardsQuery(args, limit)
 
 	// params always carries at least the limit, so the query string is
@@ -103,17 +108,18 @@ func (c *Client) ListBoards(ctx context.Context, args ListBoardsArgs) (ListBoard
 
 	boards := summarizeBoards(resp.Data)
 
-	// Convert numeric offset to string for external API compatibility
-	offsetStr := ""
-	if resp.Offset > 0 {
-		offsetStr = fmt.Sprintf("%d", resp.Offset)
-	}
+	// Miro echoes back the offset of the page it just served, not the next
+	// one (verified live: request offset=1 returns offset=1). Deriving the
+	// next cursor from the offset we *requested* is therefore the only
+	// correct source, and it stays correct even if the API omits the field.
+	next := requestedOffset + len(boards)
 
 	return ListBoardsResult{
 		Boards:  boards,
 		Count:   len(boards),
-		HasMore: resp.Offset > 0 && len(resp.Data) >= limit,
-		Offset:  offsetStr,
+		Total:   resp.Total,
+		HasMore: offsetHasMore(next, resp.Total, len(boards), limit),
+		Offset:  nextOffsetString(next, resp.Total, len(boards), limit),
 	}, nil
 }
 

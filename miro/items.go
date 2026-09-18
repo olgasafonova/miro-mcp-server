@@ -64,7 +64,7 @@ func buildListItemsPath(args ListItemsArgs) string {
 	if args.Limit > 0 && args.Limit <= MaxItemLimit {
 		limit = args.Limit
 	}
-	params.Set("limit", strconv.Itoa(limit))
+	params.Set("limit", strconv.Itoa(atLeastMinPage(limit)))
 	if args.Cursor != "" {
 		params.Set("cursor", args.Cursor)
 	}
@@ -259,6 +259,18 @@ func (c *Client) DeleteItem(ctx context.Context, args DeleteItemArgs) (DeleteIte
 		ItemID:  args.ItemID,
 		Message: "Item deleted successfully",
 	}, nil
+}
+
+// atLeastMinPage raises a page size to the minimum the items, connectors and
+// groups endpoints accept. Requesting fewer is rejected outright with HTTP
+// 400 rather than served as a short page, so a caller asking for five results
+// would otherwise get a bare "Bad Request". Over-fetching is invisible to the
+// caller: the surplus is discarded or paged over.
+func atLeastMinPage(limit int) int {
+	if limit < MinPagedLimit {
+		return MinPagedLimit
+	}
+	return limit
 }
 
 // ListAllItems retrieves all items from a board with automatic pagination.

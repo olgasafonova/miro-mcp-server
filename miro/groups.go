@@ -154,6 +154,7 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 		Items:   items,
 		Count:   len(items),
 		HasMore: page.Cursor != "",
+		Cursor:  page.Cursor,
 		Message: fmt.Sprintf("Found %d items in group", len(items)),
 	}, nil
 }
@@ -162,7 +163,7 @@ func (c *Client) GetGroupItems(ctx context.Context, args GetGroupItemsArgs) (Get
 // (including values above the extended maximum) fall back to the default.
 func clampGroupItemsLimit(limit int) int {
 	if limit > 0 && limit <= MaxItemLimitExtended {
-		return limit
+		return atLeastMinPage(limit)
 	}
 	return DefaultItemLimit
 }

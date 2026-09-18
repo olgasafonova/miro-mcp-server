@@ -187,6 +187,10 @@ func (c *Client) ListComments(ctx context.Context, args ListCommentsArgs) (ListC
 		return ListCommentsResult{}, err
 	}
 
+	if args.Offset < 0 {
+		return ListCommentsResult{}, fmt.Errorf("invalid offset %d: must be a non-negative integer", args.Offset)
+	}
+
 	limit := clampCommentLimit(args.Limit)
 	params := url.Values{}
 	params.Set("limit", strconv.Itoa(limit))
@@ -201,10 +205,12 @@ func (c *Client) ListComments(ctx context.Context, args ListCommentsArgs) (ListC
 	}
 
 	var resp struct {
-		Data   []apiComment `json:"data"`
-		Total  int          `json:"total"`
-		Offset int          `json:"offset"`
-		Size   int          `json:"size"`
+		Data  []apiComment `json:"data"`
+		Total int          `json:"total"`
+		// Offset is the offset of the page just served, not the next one, so it
+		// is parsed for completeness and never used as a cursor.
+		Offset int `json:"offset"`
+		Size   int `json:"size"`
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return ListCommentsResult{}, fmt.Errorf("failed to parse response: %w", err)
@@ -215,11 +221,13 @@ func (c *Client) ListComments(ctx context.Context, args ListCommentsArgs) (ListC
 		comments = append(comments, summarizeComment(wire))
 	}
 
+	next := args.Offset + len(comments)
 	result := ListCommentsResult{
 		Comments: comments,
 		Count:    len(comments),
 		Total:    resp.Total,
-		HasMore:  resp.Offset+len(comments) < resp.Total,
+		HasMore:  offsetHasMore(next, resp.Total, len(comments), limit),
+		Offset:   nextOffset(next, resp.Total, len(comments), limit),
 	}
 	if result.Count == 0 {
 		result.Message = "No comments on this board"

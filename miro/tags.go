@@ -399,6 +399,10 @@ func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (Get
 		return GetItemsByTagResult{}, fmt.Errorf("tag_id is required")
 	}
 
+	if args.Offset < 0 {
+		return GetItemsByTagResult{}, fmt.Errorf("invalid offset %d: must be a non-negative integer", args.Offset)
+	}
+
 	limit := clampTagItemsLimit(args.Limit)
 	respBody, err := c.request(ctx, http.MethodGet, buildTagItemsPath(args.BoardID, args.TagID, limit, args.Offset), nil)
 	if err != nil {
@@ -406,8 +410,9 @@ func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (Get
 	}
 
 	var resp struct {
-		Data []json.RawMessage `json:"data"`
-		Size int               `json:"size"`
+		Data  []json.RawMessage `json:"data"`
+		Total int               `json:"total,omitempty"`
+		Size  int               `json:"size"`
 	}
 	if err := json.Unmarshal(respBody, &resp); err != nil {
 		return GetItemsByTagResult{}, fmt.Errorf("failed to parse response: %w", err)
@@ -418,10 +423,17 @@ func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (Get
 		items = append(items, parseItemSummary(raw, false))
 	}
 
+	// The items-by-tag endpoint reports total (verified live against
+	// api.miro.com on 18-09-2026), so a page that happens to be an exact
+	// multiple of the limit no longer reports a phantom next page.
+	next := args.Offset + len(items)
+
 	return GetItemsByTagResult{
 		Items:   items,
 		Count:   len(items),
-		HasMore: len(items) >= limit,
+		Total:   resp.Total,
+		HasMore: offsetHasMore(next, resp.Total, len(items), limit),
+		Offset:  nextOffset(next, resp.Total, len(items), limit),
 		TagID:   args.TagID,
 		Message: fmt.Sprintf("Found %d items with tag %s", len(items), args.TagID),
 	}, nil

@@ -24,6 +24,13 @@ const (
 	// MaxItemLimitExtended is the max limit for endpoints supporting 100 items.
 	MaxItemLimitExtended = 100
 
+	// MinPagedLimit is the smallest page size the items, connectors and groups
+	// endpoints accept. Miro rejects anything lower with HTTP 400 (error code
+	// 2.0703, "minimum items page size is 10"). The boards, tags and members
+	// endpoints have no such floor. Verified live against api.miro.com on
+	// 18-09-2026.
+	MinPagedLimit = 10
+
 	// MaxConnectorLimit is the maximum connectors allowed per request.
 	// limit=51 and limit=100 both answer 400 (verified live 18-08-2026).
 	MaxConnectorLimit = 50
@@ -33,6 +40,13 @@ const (
 
 	// MaxSearchLimit is the maximum search results allowed.
 	MaxSearchLimit = 50
+
+	// DefaultSearchScanItems is how many items SearchBoard reads before it
+	// gives up on the rest of the board. The items endpoint has no text
+	// filter, so search pages the board and matches client-side; scan depth
+	// is therefore a separate budget from the result limit. At MaxItemLimit
+	// per page this is 20 requests, which bounds the cost of one search.
+	DefaultSearchScanItems = 1000
 
 	// DefaultAuditLimit is the default audit log events to return.
 	DefaultAuditLimit = 50

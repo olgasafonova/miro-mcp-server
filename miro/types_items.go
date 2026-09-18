@@ -404,7 +404,7 @@ type SearchBoardArgs struct {
 	BoardID string `json:"board_id" jsonschema:"Board ID to search"`
 	Query   string `json:"query" jsonschema:"Text to search for in item content"`
 	Type    string `json:"type,omitempty" jsonschema:"Filter by item type: sticky_note, shape, text, frame"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"Max results (default 20, max 50). Values below 10 are raised to 10, the smallest page size the items endpoint accepts"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max matches to return (default 20, max 50). This caps results only: the search pages the whole board regardless, up to a 1000-item scan cap. Check 'truncated' to see whether the board was fully scanned"`
 }
 
 // SearchBoardResult contains matching items.
@@ -412,5 +412,13 @@ type SearchBoardResult struct {
 	Matches []ItemMatch `json:"matches"`
 	Count   int         `json:"count"`
 	Query   string      `json:"query"`
-	Message string      `json:"message"`
+	// ItemsScanned is how many items were read from the board to produce
+	// this result. Count/ItemsScanned is the hit rate, not a page size.
+	ItemsScanned int `json:"items_scanned"`
+	// Truncated is true when the search stopped before the end of the board,
+	// either because the result limit filled or because the scan cap was
+	// reached. A zero Count with Truncated false is the only result that
+	// means "this text is not on the board".
+	Truncated bool   `json:"truncated"`
+	Message   string `json:"message"`
 }

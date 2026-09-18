@@ -7,7 +7,7 @@ package miro
 // ListConnectorsArgs contains parameters for listing connectors on a board.
 type ListConnectorsArgs struct {
 	BoardID string `json:"board_id" jsonschema:"Board ID"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"Max connectors to return (default 50, max 100)"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"Max connectors to return, 10-50 (default 50). Miro rejects anything outside that window"`
 	Cursor  string `json:"cursor,omitempty" jsonschema:"Pagination cursor"`
 }
 

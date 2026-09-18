@@ -218,6 +218,97 @@ func TestFindBoardByName_StopsAtPageCap(t *testing.T) {
 	}
 }
 
+// The tool result must say which tier answered, and must not call a board a
+// find when it reached no tier at all.
+//
+// The last row is the one that used to lie. It is close to unreachable
+// through the live API, because Miro's `query` filters on the board name, so
+// every board it returns already contains the query and the contains tier
+// always hits. boardNamePager ignores `query` on purpose, which reproduces
+// what a query that also matched on description or another field would hand
+// back: a page of boards whose names do not contain what was asked for.
+func TestFindBoardByNameTool_ReportsMatchTier(t *testing.T) {
+	cases := []struct {
+		name        string
+		boards      []string
+		query       string
+		wantID      string
+		wantMatch   string
+		wantMessage string
+	}{
+		{
+			name:        "exact match, ignoring case",
+			boards:      []string{"Annual Planning", "Design Sprint"},
+			query:       "design sprint",
+			wantID:      "board1",
+			wantMatch:   "exact",
+			wantMessage: "Found board 'Design Sprint': exact name match for 'design sprint'",
+		},
+		{
+			name:        "prefix match",
+			boards:      []string{"Annual Planning", "Design Sprint Q1"},
+			query:       "Design",
+			wantID:      "board1",
+			wantMatch:   "prefix",
+			wantMessage: "Found board 'Design Sprint Q1': name starts with 'Design'",
+		},
+		{
+			name:        "contains match",
+			boards:      []string{"Annual Planning", "Q1 Design Sprint"},
+			query:       "Design",
+			wantID:      "board1",
+			wantMatch:   "contains",
+			wantMessage: "Found board 'Q1 Design Sprint': name contains 'Design'",
+		},
+		{
+			name:        "no tier matched",
+			boards:      []string{"Annual Planning", "Retro Notes"},
+			query:       "Roadmap",
+			wantID:      "board0",
+			wantMatch:   "none",
+			wantMessage: "No board name matched 'Roadmap'. Returning 'Annual Planning' as the nearest candidate: it is a guess, not a match. Use miro_list_boards to see what exists",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, _ := newBoardNameClient(t, tc.boards)
+
+			result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{Name: tc.query})
+			if err != nil {
+				t.Fatalf("FindBoardByNameTool: %v", err)
+			}
+			if result.ID != tc.wantID {
+				t.Errorf("ID = %q (%q), want %q", result.ID, result.Name, tc.wantID)
+			}
+			if result.Match != tc.wantMatch {
+				t.Errorf("Match = %q, want %q", result.Match, tc.wantMatch)
+			}
+			if result.Message != tc.wantMessage {
+				t.Errorf("Message = %q,\n want %q", result.Message, tc.wantMessage)
+			}
+		})
+	}
+}
+
+// The board handed back when nothing matched is still the board the previous
+// contract promised, so a caller that only reads ID keeps working. What
+// changed is that the result now admits what it is.
+func TestFindBoardByNameTool_UnmatchedResultKeepsTheBoardAndDropsTheClaim(t *testing.T) {
+	client, _ := newBoardNameClient(t, []string{"Annual Planning", "Retro Notes"})
+
+	result, err := client.FindBoardByNameTool(context.Background(), FindBoardByNameArgs{Name: "Roadmap"})
+	if err != nil {
+		t.Fatalf("FindBoardByNameTool: %v", err)
+	}
+	if result.Name != "Annual Planning" {
+		t.Errorf("Name = %q, want %q (the unchanged fallback)", result.Name, "Annual Planning")
+	}
+	if strings.Contains(result.Message, "Found board") {
+		t.Errorf("Message = %q, want it not to claim a find for a board that matched no tier", result.Message)
+	}
+}
+
 // An empty name is rejected before any request is made.
 func TestFindBoardByName_EmptyNameMakesNoRequest(t *testing.T) {
 	client, pager := newBoardNameClient(t, []string{"Annual Planning"})

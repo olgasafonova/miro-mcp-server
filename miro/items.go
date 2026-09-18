@@ -54,15 +54,17 @@ func (c *Client) ListItems(ctx context.Context, args ListItemsArgs) (ListItemsRe
 }
 
 // buildListItemsPath assembles the items-list URL with query parameters,
-// applying the limit fallback rules (default if unset, capped at MaxItemLimit).
+// clamping the page size into the [MinPagedLimit, MaxItemLimit] window the
+// items endpoint accepts. Both ends are hard: limit=9 and limit=51 each answer
+// HTTP 400 rather than a short or long page.
 func buildListItemsPath(args ListItemsArgs) string {
 	params := url.Values{}
 	if args.Type != "" {
 		params.Set("type", args.Type)
 	}
 	limit := DefaultItemLimit
-	if args.Limit > 0 && args.Limit <= MaxItemLimit {
-		limit = args.Limit
+	if args.Limit > 0 {
+		limit = min(args.Limit, MaxItemLimit)
 	}
 	params.Set("limit", strconv.Itoa(atLeastMinPage(limit)))
 	if args.Cursor != "" {
@@ -313,11 +315,14 @@ func (c *Client) collectAllItems(ctx context.Context, args ListAllItemsArgs, max
 	cursor := ""
 	pageCount := 0
 
+	// MaxItemLimit, not MaxItemLimitExtended: 50 is the largest page this
+	// endpoint serves, and asking for 100 only worked because
+	// buildListItemsPath quietly reduced it.
 	for {
 		result, err := c.ListItems(ctx, ListItemsArgs{
 			BoardID:     args.BoardID,
 			Type:        args.Type,
-			Limit:       MaxItemLimitExtended,
+			Limit:       MaxItemLimit,
 			Cursor:      cursor,
 			DetailLevel: args.DetailLevel,
 		})

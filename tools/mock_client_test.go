@@ -285,7 +285,8 @@ func (m *MockClient) FindBoardByNameTool(ctx context.Context, args miro.FindBoar
 		ID:       "found-board-123",
 		Name:     args.Name,
 		ViewLink: "https://miro.com/found-board-123",
-		Message:  fmt.Sprintf("Found board '%s'", args.Name),
+		Match:    "exact",
+		Message:  fmt.Sprintf("Found board '%s': exact name match for '%s'", args.Name, args.Name),
 	})
 }
 

@@ -34,7 +34,7 @@ func httpResponse(status int, body string) *http.Response {
 func exchangeTestConfig() *Config {
 	return &Config{
 		ClientID:     "test-id",
-		ClientSecret: "test-secret",
+		ClientSecret: secretFixture,
 		RedirectURI:  "http://localhost:8089/callback",
 	}
 }
@@ -52,7 +52,7 @@ func newMockedProvider(config *Config, handler func(req *http.Request) *http.Res
 func newStubProvider(status int, body string) *Provider {
 	config := &Config{
 		ClientID:     "test-id",
-		ClientSecret: "test-secret",
+		ClientSecret: secretFixture,
 	}
 	return newMockedProvider(config, func(req *http.Request) *http.Response {
 		return httpResponse(status, body)

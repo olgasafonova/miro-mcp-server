@@ -35,19 +35,19 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	}{
 		{name: "missing token returns error", wantErr: true},
 		{
-			name: "valid token returns config", token: "test-token",
+			name: "valid token returns config", token: tokenFixture,
 			wantTimeout: DefaultTimeout, wantUA: "miro-mcp-server/1.0",
 		},
 		{
-			name: "custom timeout", token: "test-token", timeout: "60s",
+			name: "custom timeout", token: tokenFixture, timeout: "60s",
 			wantTimeout: 60 * time.Second, wantUA: "miro-mcp-server/1.0",
 		},
 		{
-			name: "custom user agent", token: "test-token", userAgent: "custom-agent/2.0",
+			name: "custom user agent", token: tokenFixture, userAgent: "custom-agent/2.0",
 			wantTimeout: DefaultTimeout, wantUA: "custom-agent/2.0",
 		},
 		{
-			name: "invalid timeout uses default", token: "test-token", timeout: "invalid",
+			name: "invalid timeout uses default", token: tokenFixture, timeout: "invalid",
 			wantTimeout: DefaultTimeout, wantUA: "miro-mcp-server/1.0",
 		},
 	}
@@ -91,14 +91,14 @@ func TestValidateConfig(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: &Config{
-				AccessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+				AccessToken: jwtFixture,
 				Timeout:     30 * time.Second,
 				UserAgent:   "test-agent",
 			},
 		},
 		{
 			name:    "invalid token format",
-			cfg:     &Config{AccessToken: "too-short"},
+			cfg:     &Config{AccessToken: shortTokenFixture},
 			wantErr: true,
 		},
 		{

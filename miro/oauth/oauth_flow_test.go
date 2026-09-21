@@ -18,7 +18,7 @@ func flowTestConfig(t *testing.T) *Config {
 	t.Helper()
 	return &Config{
 		ClientID:       "test-id",
-		ClientSecret:   "test-secret",
+		ClientSecret:   secretFixture,
 		RedirectURI:    "http://localhost:8089/callback",
 		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
 	}
@@ -93,7 +93,7 @@ func TestAuthFlowStatus_ExpiredTokenNoRefresh(t *testing.T) {
 
 	// Pre-save expired tokens without refresh token
 	seedStoredTokens(t, config, &TokenSet{
-		AccessToken:  "expired-access-token",
+		AccessToken:  expiredAccessFixture,
 		RefreshToken: "",                             // No refresh token
 		ExpiresAt:    time.Now().Add(-1 * time.Hour), // Expired 1 hour ago
 		UserID:       "user-123",
@@ -117,8 +117,8 @@ func TestAuthFlowLogout(t *testing.T) {
 
 	// Pre-save tokens
 	store := seedStoredTokens(t, config, &TokenSet{
-		AccessToken:  "access-token",
-		RefreshToken: "refresh-token",
+		AccessToken:  accessTokenFixture,
+		RefreshToken: refreshTokenFixture,
 		ExpiresAt:    time.Now().Add(1 * time.Hour),
 		UserID:       "user-123",
 	})

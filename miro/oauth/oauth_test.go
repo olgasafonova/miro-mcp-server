@@ -169,8 +169,8 @@ func TestTokenSetNeedsRefresh(t *testing.T) {
 
 func TestTokenResponseToTokenSet(t *testing.T) {
 	resp := &TokenResponse{
-		AccessToken:  "access-123",
-		RefreshToken: "refresh-456",
+		AccessToken:  access123Fixture,
+		RefreshToken: refresh456Fixture,
 		ExpiresIn:    3600, // 1 hour
 		TokenType:    "bearer",
 		Scope:        "boards:read boards:write",

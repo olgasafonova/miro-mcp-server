@@ -28,7 +28,7 @@ func newTestAuthFlow(t *testing.T, tokens *TokenSet, handler func(*http.Request)
 
 	config := &Config{
 		ClientID:       "test-id",
-		ClientSecret:   "test-secret",
+		ClientSecret:   secretFixture,
 		RedirectURI:    "http://localhost:8089/callback",
 		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
 	}
@@ -62,8 +62,8 @@ func jsonResponse(status int, body string) *http.Response {
 
 func TestAuthFlowStatus_RefreshesExpiredToken(t *testing.T) {
 	expired := &TokenSet{
-		AccessToken:  "stale-access-token",
-		RefreshToken: "good-refresh-token",
+		AccessToken:  staleAccessFixture,
+		RefreshToken: goodRefreshFixture,
 		ExpiresAt:    time.Now().Add(-1 * time.Hour),
 		UserID:       "user-123",
 	}
@@ -103,8 +103,8 @@ func TestAuthFlowStatus_RefreshesExpiredToken(t *testing.T) {
 
 func TestAuthFlowStatus_RefreshFailureIsReported(t *testing.T) {
 	expired := &TokenSet{
-		AccessToken:  "stale-access-token",
-		RefreshToken: "revoked-refresh-token",
+		AccessToken:  staleAccessFixture,
+		RefreshToken: revokedRefreshFixture,
 		ExpiresAt:    time.Now().Add(-1 * time.Hour),
 	}
 

@@ -21,7 +21,7 @@ func testLogger() *slog.Logger {
 // testConfig creates a test configuration.
 func testConfig() *Config {
 	return &Config{
-		AccessToken: "test-token",
+		AccessToken: tokenFixture,
 		Timeout:     5 * time.Second,
 		UserAgent:   "test-agent",
 	}
@@ -299,7 +299,7 @@ func TestWithTokenRefresher(t *testing.T) {
 	client := NewClient(testConfig(), testLogger())
 
 	// Create a mock token refresher
-	mockRefresher := &mockTokenRefresher{token: "refreshed-token"}
+	mockRefresher := &mockTokenRefresher{token: refreshedTokenFixture}
 
 	// Chain should work
 	result := client.WithTokenRefresher(mockRefresher)

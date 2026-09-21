@@ -56,7 +56,7 @@ func testHTTPOpts(t *testing.T, bearerToken string) httpServerOpts {
 	t.Helper()
 
 	logger := quietLogger()
-	client := miro.NewClient(&miro.Config{AccessToken: "test-token"}, logger)
+	client := miro.NewClient(&miro.Config{AccessToken: tokenFixture}, logger)
 
 	return httpServerOpts{
 		server:        createMCPServer(logger),
@@ -493,7 +493,7 @@ func TestRegisterTools_ProfileHandling(t *testing.T) {
 
 			logger := quietLogger()
 			server := createMCPServer(logger)
-			client := miro.NewClient(&miro.Config{AccessToken: "test-token"}, logger)
+			client := miro.NewClient(&miro.Config{AccessToken: tokenFixture}, logger)
 
 			auditLogger := initAuditLogger(logger)
 			defer auditLogger.Close()
@@ -515,7 +515,7 @@ func TestRegisterTools_WithUser(t *testing.T) {
 
 	logger := quietLogger()
 	server := createMCPServer(logger)
-	client := miro.NewClient(&miro.Config{AccessToken: "test-token"}, logger)
+	client := miro.NewClient(&miro.Config{AccessToken: tokenFixture}, logger)
 
 	auditLogger := initAuditLogger(logger)
 	defer auditLogger.Close()
@@ -533,7 +533,7 @@ func TestRegisterTools_WithUser(t *testing.T) {
 func TestRegisterResourcesAndPrompts(t *testing.T) {
 	logger := quietLogger()
 	server := createMCPServer(logger)
-	client := miro.NewClient(&miro.Config{AccessToken: "test-token"}, logger)
+	client := miro.NewClient(&miro.Config{AccessToken: tokenFixture}, logger)
 
 	registerResourcesAndPrompts(server, client, logger)
 }
@@ -591,7 +591,7 @@ func TestBuildHTTPMux_ParamHeaderPassthrough(t *testing.T) {
 	// testHTTPOpts builds an empty server; the annotations live on registered
 	// tools, so register the full profile the way main does.
 	logger := quietLogger()
-	client := miro.NewClient(&miro.Config{AccessToken: "test-token"}, logger)
+	client := miro.NewClient(&miro.Config{AccessToken: tokenFixture}, logger)
 	tools.NewHandlerRegistry(client, logger).RegisterProfile(opts.server, tools.ProfileFull)
 	mux := buildHTTPMux(opts)
 

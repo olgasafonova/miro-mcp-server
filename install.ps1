@@ -56,7 +56,7 @@ Write-Host "Version: $version"
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Get a Miro token: https://miro.com/app/settings/user-profile/apps"
-Write-Host "2. Set environment variable: `$env:MIRO_ACCESS_TOKEN = 'your-token'"
+Write-Host "2. Set environment variable: `$env:MIRO_ACCESS_TOKEN = <your-token>"
 Write-Host "3. Configure your AI tool (see SETUP.md)"
 Write-Host ""
 Write-Host "Restart your terminal for PATH changes to take effect."

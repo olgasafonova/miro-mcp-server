@@ -155,7 +155,7 @@ jobs:
                    claude mcp add miro-mcp-server -- miro-mcp-server
 
                 3. Set the token as environment variable:
-                   export MIRO_ACCESS_TOKEN="your_token_here"
+                   export MIRO_ACCESS_TOKEN=<your_token_here>
 
                 For more information, see:
                   https://github.com/olgasafonova/miro-mcp-server#readme

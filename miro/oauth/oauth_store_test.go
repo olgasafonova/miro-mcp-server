@@ -66,8 +66,8 @@ func TestFileTokenStore(t *testing.T) {
 
 	// Save tokens
 	tokens := &TokenSet{
-		AccessToken:  "test-access",
-		RefreshToken: "test-refresh",
+		AccessToken:  accessFixture,
+		RefreshToken: refreshFixture,
 		ExpiresAt:    time.Now().Add(1 * time.Hour),
 		UserID:       "test-user",
 	}
@@ -106,8 +106,8 @@ func TestMemoryTokenStore(t *testing.T) {
 
 	// Save tokens
 	tokens := &TokenSet{
-		AccessToken:  "test-access",
-		RefreshToken: "test-refresh",
+		AccessToken:  accessFixture,
+		RefreshToken: refreshFixture,
 		ExpiresAt:    time.Now().Add(1 * time.Hour),
 	}
 	mustSaveTokens(t, ctx, store, tokens)
@@ -124,7 +124,7 @@ func TestMemoryTokenStore(t *testing.T) {
 	}
 
 	// Modify original should not affect stored copy
-	tokens.AccessToken = "modified"
+	tokens.AccessToken = modifiedFixture
 	loaded2, _ := store.Load(ctx)
 	if loaded2.AccessToken == "modified" {
 		t.Error("stored tokens should be a copy, not reference")

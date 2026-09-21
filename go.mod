@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/olgasafonova/mcp-cache-go v0.1.0
 	github.com/olgasafonova/mcp-otel-go v0.2.1
 )

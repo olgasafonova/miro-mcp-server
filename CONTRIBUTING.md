@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Miro account with API access
 - Git
 

@@ -70,7 +70,7 @@ It was not always true. Until 26-08-2026 this article had no enforcement at all,
 
 | Site | What was lost |
 |---|---|
-| `main.go` health endpoint, two writes | response write failures unreported |
+| `http.go` health endpoint, two writes | response write failures unreported |
 | `miro/audit/file.go` newline after each event | a failed newline leaves a torn JSONL record no reader can parse |
 | `miro/audit/file.go` flush before `Query` | a query after a failed flush silently omits buffered events |
 | `miro/audit/file.go` flush inside `Close` | buffered audit events lost while `Close` returns nil |
@@ -107,9 +107,9 @@ Why this is stated as contract rather than advice: on 10-08-2026 a shipped CLI i
 **Bounded scope.** Two things this article does not currently require, stated so the gap is visible rather than implied:
 
 1. **Explicit zero-result messages.** An empty list returns `Count: 0` and an empty array. No tool emits a literal "no matching records" string. `rules/agent-interface-design.md` principle 5 asks for one; this server does not do it today, so this article does not claim it. Adding it is a change worth making, and it needs an amendment plus the code, not a sentence here.
-2. **Unknown environment values.** `MIRO_TOOLS_PROFILE` deviates deliberately: an unrecognized value logs a warning and falls back to `full` rather than refusing to start. The reasoning is in the comment at `main.go:329`, and it is sound in this one case, because failing loud on a typo would strip the operator of every tool rather than give them too many. This is the single permitted exception. Any other unknown input fails loud.
+2. **Unknown environment values.** `MIRO_TOOLS_PROFILE` deviates deliberately: an unrecognized value logs a warning and falls back to `full` rather than refusing to start. The reasoning is in the comment at `main.go:309`, and it is sound in this one case, because failing loud on a typo would strip the operator of every tool rather than give them too many. This is the single permitted exception. Any other unknown input fails loud.
 
-Codifies: `main.go:699`, `main.go:712-714`, `main.go:741` (exit paths), `main.go:329-336` (the documented exception), the `Count` field on `ListBoardsResult`, `ListItemsResult`, `ListConnectorsResult`, `ListGroupsResult`, `ListCommentsResult`, `ListDiagramsResult`, `ListCodeWidgetsResult`; `rules/agent-interface-design.md` principles 4 and 6.
+Codifies: `auth.go:31`, `auth.go:46-49`, `auth.go:73` (exit paths), `main.go:309-319` (the documented exception), the `Count` field on `ListBoardsResult`, `ListItemsResult`, `ListConnectorsResult`, `ListGroupsResult`, `ListCommentsResult`, `ListDiagramsResult`, `ListCodeWidgetsResult`; `rules/agent-interface-design.md` principles 4 and 6.
 
 **Enforcement: none mechanical.** No test asserts an exit code. No test asserts that a new list result type has a count field. Both rest on review.
 
@@ -217,17 +217,17 @@ The exception: `govulncheck` runs with `|| echo "::warning::..."`, so a known vu
 
 ## Articles considered and rejected
 
-**Test-first development, with tests required on every exported function.** gridctl's Article III. Rejected because it is not what this repository does and stating it would make the document a wish. Test coverage here is real but uneven: `tools/` and `miro/` carry substantial table-driven tests against a mock client, while `main.go` at 29,857 bytes is covered by three root-level test files (`main_test.go`, `main_cache_test.go`, `http_test.go`) that reach a fraction of its exported and unexported surface. `CONTRIBUTING.md` asks for ">80% coverage on new code", which is the honest form of this rule and already written where it belongs.
+**Test-first development, with tests required on every exported function.** gridctl's Article III. Rejected because it is not what this repository does and stating it would make the document a wish. Test coverage here is real but uneven: `tools/` and `miro/` carry substantial table-driven tests against a mock client, while the entry-point code (`main.go`, `http.go` and `auth.go`, about 27 KB together) is covered by three root-level test files (`main_test.go`, `main_cache_test.go`, `http_test.go`) that reach a fraction of its exported and unexported surface. `CONTRIBUTING.md` asks for ">80% coverage on new code", which is the honest form of this rule and already written where it belongs.
 
 **No mocks in integration tests.** gridctl's Article IV. Rejected because this repository has no integration test suite to apply it to. Every test in `tools/` runs against `mock_client_test.go` by design, and the live-dependency checking that gridctl gets from integration tests is done here by a different mechanism, the weekly `api-tracking` live probe. Writing the article would describe a directory that does not exist. Article XI captures the part of the intent that this repository actually implements: fixtures must come from real captured responses.
 
-**Structured logging with `log/slog` everywhere.** Rejected as written, because the repository is genuinely mixed and an absolute rule would be violated on day one. `slog` is used correctly throughout `tools/` and the request path. But `main.go` uses `log.Fatalf` at six startup sites and `fmt.Println`/`fmt.Printf` throughout the `auth` subcommands, where printing to stdout for a human at a terminal is the right behaviour, not a lapse. An article would need to carve out the CLI paths, at which point it constrains almost nothing. Worth revisiting if the startup paths ever move to `slog`.
+**Structured logging with `log/slog` everywhere.** Rejected as written, because the repository is genuinely mixed and an absolute rule would be violated on day one. `slog` is used correctly throughout `tools/` and the request path. But `main.go` and `http.go` use `log.Fatalf` at six startup sites, and `auth.go` uses `fmt.Println`/`fmt.Printf` throughout the `auth` subcommands, where printing to stdout for a human at a terminal is the right behaviour, not a lapse. An article would need to carve out the CLI paths, at which point it constrains almost nothing. Worth revisiting if the startup paths ever move to `slog`.
 
 **Explicit zero-result messages on every list.** Rejected as a standalone article for the same reason: the server does not do it. It is recorded instead as a named, bounded gap inside Article VI, which makes it visible without pretending it is already policy. Turning it into an article is a reasonable future amendment, once the code is there.
 
 **Secure defaults as a general principle.** gridctl's Article XII. Rejected as too broad to check. Its one concrete instance here, the share allowlist, is strong enough to stand as its own article with its own test file, and that is Article IX. A general "prefer the restrictive option" article would add words without adding a decidable rule.
 
-**Minimal attack surface.** gridctl's Article XIII. Rejected as not applicable in the same shape. This server exposes an HTTP mode with a `/health` endpoint and optional bearer-token authentication, and `main.go` already warns when binding to an external interface. The relevant discipline here is not "expose less" but "fail closed on the operations that grant access", which Article IX covers concretely.
+**Minimal attack surface.** gridctl's Article XIII. Rejected as not applicable in the same shape. This server exposes an HTTP mode with a `/health` endpoint and optional bearer-token authentication, and `http.go` already warns when binding to an external interface. The relevant discipline here is not "expose less" but "fail closed on the operations that grant access", which Article IX covers concretely.
 
 **Ownership before mutation.** gridctl's Article XVI, about writing into user-owned files. Rejected as out of scope. This server writes exactly two things outside the Miro API: the OAuth token store at `~/.miro/tokens.json` and an optional audit log at an operator-specified path. Neither is a shared file with regions other tools own, which is the problem that article exists to solve.
 

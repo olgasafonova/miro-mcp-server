@@ -4,7 +4,10 @@
 Go MCP server for Miro REST API v2. 110 tools across boards, items, diagrams, mindmaps, code widgets, comments, canvas SVG, tags, groups, connectors, export, and audit. OAuth2 + token auth. Single binary with stdio + HTTP transport.
 
 ## Architecture
-- `main.go` — entry point, dual stdio/HTTP transport, health/metrics endpoints, token validation
+- `main.go` — entry point, config, stdio transport, tool registration
+- `http.go` — HTTP transport: middleware, routing, health/metrics endpoints, bearer-token validation, shutdown
+- `auth.go` — `auth` subcommands (login, status, logout)
+- `instructions.go` — MCP server instructions text
 - `miro/client.go` — HTTP client with connection pooling (100 max idle, 10 per host)
 - `miro/cache.go` — LRU cache with 2-minute TTL
 - `miro/circuitbreaker.go` — circuit breaker isolating failing endpoints

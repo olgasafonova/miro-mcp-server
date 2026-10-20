@@ -1,0 +1,213 @@
+package miro
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+)
+
+// =============================================================================
+// Tag <-> Item Operations
+// =============================================================================
+
+// tagItemRequest bundles the per-call inputs to runTagItemAction, the shared
+// dispatcher that backs AttachTag and DetachTag.
+type tagItemRequest struct {
+	method      string // POST for attach, DELETE for detach
+	successMsg  string // populated into the result on success
+	failureVerb string // verb in "Failed to <verb> tag" failure message
+	boardID     string
+	itemID      string
+	tagID       string
+}
+
+// validateTagItemRequest validates the (boardID, itemID, tagID) trio shared by
+// AttachTag and DetachTag. tagID is required because the underlying endpoint
+// encodes it as a query parameter.
+func validateTagItemRequest(req tagItemRequest) error {
+	if err := ValidateBoardID(req.boardID); err != nil {
+		return err
+	}
+	if err := ValidateItemID(req.itemID); err != nil {
+		return err
+	}
+	if req.tagID == "" {
+		return fmt.Errorf("tag_id is required")
+	}
+	return nil
+}
+
+// tagItemPath returns the attach/detach endpoint path with tag_id encoded as
+// a query parameter (Miro's per-item tag endpoint is the same URL regardless
+// of HTTP method).
+func tagItemPath(boardID, itemID, tagID string) string {
+	return fmt.Sprintf("/boards/%s/items/%s?tag_id=%s", boardID, itemID, tagID)
+}
+
+// runTagItemAction validates args, executes the request, and shapes the
+// shared result for the AttachTag/DetachTag wrappers. On validation error it
+// returns a zero result; on request error it returns a populated failure
+// result alongside the error.
+func (c *Client) runTagItemAction(ctx context.Context, req tagItemRequest) (TagItemResult, error) {
+	if err := validateTagItemRequest(req); err != nil {
+		return TagItemResult{}, err
+	}
+	result := TagItemResult{ItemID: req.itemID, TagID: req.tagID}
+	if _, err := c.request(ctx, req.method, tagItemPath(req.boardID, req.itemID, req.tagID), nil); err != nil {
+		result.Message = fmt.Sprintf("Failed to %s tag: %v", req.failureVerb, err)
+		return result, err
+	}
+	result.Success = true
+	result.Message = req.successMsg
+	return result, nil
+}
+
+// attachTagAction and detachTagAction are the per-verb templates for the
+// two tag item operations; withIDs fills in the target identifiers.
+var (
+	attachTagAction = tagItemRequest{
+		method:      http.MethodPost,
+		successMsg:  "Tag attached successfully",
+		failureVerb: "attach",
+	}
+	detachTagAction = tagItemRequest{
+		method:      http.MethodDelete,
+		successMsg:  "Tag removed successfully",
+		failureVerb: "detach",
+	}
+)
+
+// withIDs returns a copy of the template with the target identifiers set.
+func (r tagItemRequest) withIDs(boardID, itemID, tagID string) tagItemRequest {
+	r.boardID = boardID
+	r.itemID = itemID
+	r.tagID = tagID
+	return r
+}
+
+// AttachTag attaches a tag to an item (sticky note).
+func (c *Client) AttachTag(ctx context.Context, args AttachTagArgs) (AttachTagResult, error) {
+	return c.runTagItemAction(ctx, attachTagAction.withIDs(args.BoardID, args.ItemID, args.TagID))
+}
+
+// DetachTag removes a tag from an item.
+func (c *Client) DetachTag(ctx context.Context, args DetachTagArgs) (DetachTagResult, error) {
+	return c.runTagItemAction(ctx, detachTagAction.withIDs(args.BoardID, args.ItemID, args.TagID))
+}
+
+// GetItemTags retrieves tags attached to an item.
+func (c *Client) GetItemTags(ctx context.Context, args GetItemTagsArgs) (GetItemTagsResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetItemTagsResult{}, err
+	}
+	if err := ValidateItemID(args.ItemID); err != nil {
+		return GetItemTagsResult{}, err
+	}
+
+	path := fmt.Sprintf("/boards/%s/items/%s/tags", args.BoardID, args.ItemID)
+
+	respBody, err := c.request(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return GetItemTagsResult{}, err
+	}
+
+	var resp struct {
+		Data []Tag `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return GetItemTagsResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Ensure tags is never nil (MCP schema validation requires array, not null).
+	tags := resp.Data
+	if tags == nil {
+		tags = []Tag{}
+	}
+
+	message := fmt.Sprintf("Item has %d tags", len(tags))
+	if len(tags) == 0 {
+		message = "No tags on this item"
+	}
+
+	return GetItemTagsResult{
+		Tags:    tags,
+		Count:   len(tags),
+		ItemID:  args.ItemID,
+		Message: message,
+	}, nil
+}
+
+// maxTagItemsPageSize is the upper bound Miro enforces for the items-by-tag endpoint.
+const maxTagItemsPageSize = 50
+
+// clampTagItemsLimit applies the items-by-tag page-size rules: a non-positive
+// limit defaults to the cap, a request larger than the cap is clamped to it.
+func clampTagItemsLimit(requested int) int {
+	if requested <= 0 || requested > maxTagItemsPageSize {
+		return maxTagItemsPageSize
+	}
+	return requested
+}
+
+// buildTagItemsPath builds the /items?tag_id=... URL for GetItemsByTag.
+func buildTagItemsPath(boardID, tagID string, limit, offset int) string {
+	params := url.Values{}
+	params.Set("limit", strconv.Itoa(limit))
+	params.Set("tag_id", tagID)
+	if offset > 0 {
+		params.Set("offset", strconv.Itoa(offset))
+	}
+	return "/boards/" + boardID + "/items?" + params.Encode()
+}
+
+// GetItemsByTag returns items on a board filtered by tag ID.
+func (c *Client) GetItemsByTag(ctx context.Context, args GetItemsByTagArgs) (GetItemsByTagResult, error) {
+	if err := ValidateBoardID(args.BoardID); err != nil {
+		return GetItemsByTagResult{}, err
+	}
+	if args.TagID == "" {
+		return GetItemsByTagResult{}, fmt.Errorf("tag_id is required")
+	}
+
+	if args.Offset < 0 {
+		return GetItemsByTagResult{}, fmt.Errorf("invalid offset %d: must be a non-negative integer", args.Offset)
+	}
+
+	limit := clampTagItemsLimit(args.Limit)
+	respBody, err := c.request(ctx, http.MethodGet, buildTagItemsPath(args.BoardID, args.TagID, limit, args.Offset), nil)
+	if err != nil {
+		return GetItemsByTagResult{}, err
+	}
+
+	var resp struct {
+		Data  []json.RawMessage `json:"data"`
+		Total int               `json:"total,omitempty"`
+		Size  int               `json:"size"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return GetItemsByTagResult{}, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	items := make([]ItemSummary, 0, len(resp.Data))
+	for _, raw := range resp.Data {
+		items = append(items, parseItemSummary(raw, false))
+	}
+
+	// The items-by-tag endpoint reports total (verified live against
+	// api.miro.com on 18-09-2026), so a page that happens to be an exact
+	// multiple of the limit no longer reports a phantom next page.
+	next := args.Offset + len(items)
+
+	return GetItemsByTagResult{
+		Items:   items,
+		Count:   len(items),
+		Total:   resp.Total,
+		HasMore: offsetHasMore(next, resp.Total, len(items), limit),
+		Offset:  nextOffset(next, resp.Total, len(items), limit),
+		TagID:   args.TagID,
+		Message: fmt.Sprintf("Found %d items with tag %s", len(items), args.TagID),
+	}, nil
+}

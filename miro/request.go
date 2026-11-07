@@ -26,20 +26,28 @@ type requestState struct {
 	cb          *CircuitBreaker
 }
 
-// request makes an authenticated request to the Miro API with retry support.
-func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	return c.requestAt(ctx, c.baseURL, method, path, body)
+// apiCall describes one API request. The base URL travels with the call rather
+// than being written to the shared client, so concurrent calls to different
+// API versions cannot redirect each other.
+type apiCall struct {
+	baseURL string
+	method  string
+	path    string
+	body    interface{}
 }
 
-// requestAt is request against an explicit base URL. The base URL travels with
-// the call rather than being written to the shared client, so concurrent calls
-// to different API versions cannot redirect each other.
-func (c *Client) requestAt(ctx context.Context, baseURL, method, path string, body interface{}) ([]byte, error) {
+// request makes an authenticated request to the Miro API with retry support.
+func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	return c.requestAt(ctx, apiCall{baseURL: c.baseURL, method: method, path: path, body: body})
+}
+
+// requestAt is request with an explicit base URL, carried in call.
+func (c *Client) requestAt(ctx context.Context, call apiCall) ([]byte, error) {
 	if !c.config.IsConfigured() {
 		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN is not configured. Set the MIRO_ACCESS_TOKEN environment variable. Get one at https://miro.com/app/settings/user-profile/apps")
 	}
 
-	cb, err := c.checkCircuitBreaker(path)
+	cb, err := c.checkCircuitBreaker(call.path)
 	if err != nil {
 		return nil, err
 	}
@@ -59,17 +67,17 @@ func (c *Client) requestAt(ctx context.Context, baseURL, method, path string, bo
 		return nil, fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	bodyBytes, err := marshalRequestBody(body)
+	bodyBytes, err := marshalRequestBody(call.body)
 	if err != nil {
 		return nil, err
 	}
 
 	return c.runRetryLoop(ctx, requestState{
-		baseURL:     baseURL,
-		method:      method,
-		path:        path,
+		baseURL:     call.baseURL,
+		method:      call.method,
+		path:        call.path,
 		bodyBytes:   bodyBytes,
-		hasJSONBody: body != nil,
+		hasJSONBody: call.body != nil,
 		token:       token,
 		cb:          cb,
 	})
@@ -335,13 +343,13 @@ func (c *Client) versionedBaseURL(productionURL string) string {
 // requestExperimental makes a request to the v2-experimental API endpoints.
 // Used for features that are not yet in the stable v2 API (e.g., mindmaps).
 func (c *Client) requestExperimental(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	return c.requestAt(ctx, c.versionedBaseURL(ExperimentalBaseURL), method, path, body)
+	return c.requestAt(ctx, apiCall{baseURL: c.versionedBaseURL(ExperimentalBaseURL), method: method, path: path, body: body})
 }
 
 // requestV1 makes a request to the legacy v1 API. Only token introspection
 // (GET /v1/oauth-token) still lives there; everything else is v2.
 func (c *Client) requestV1(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	return c.requestAt(ctx, c.versionedBaseURL(V1BaseURL), method, path, body)
+	return c.requestAt(ctx, apiCall{baseURL: c.versionedBaseURL(V1BaseURL), method: method, path: path, body: body})
 }
 
 // =============================================================================

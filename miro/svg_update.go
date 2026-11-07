@@ -3,7 +3,6 @@ package miro
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
 // =============================================================================
@@ -109,20 +108,6 @@ func (c *Client) routeSVGElement(ctx context.Context, boardID string, el svgElem
 	}
 }
 
-// validateUpdateFromSVGArgs checks the request bounds before any parsing.
-func validateUpdateFromSVGArgs(args UpdateFromSVGArgs) error {
-	if err := ValidateBoardID(args.BoardID); err != nil {
-		return err
-	}
-	if strings.TrimSpace(args.SVG) == "" {
-		return fmt.Errorf("svg is required")
-	}
-	if len(args.SVG) > maxSVGDocumentBytes {
-		return fmt.Errorf("svg exceeds %d bytes (got %d)", maxSVGDocumentBytes, len(args.SVG))
-	}
-	return nil
-}
-
 // updateFromSVGMessage summarizes one applied diff.
 func updateFromSVGMessage(out *svgUpdateOutcome, created, skipped int) string {
 	return fmt.Sprintf("Updated %d, deleted %d, created %d item(s) (%d failed, %d skipped)",
@@ -133,7 +118,7 @@ func updateFromSVGMessage(out *svgUpdateOutcome, created, skipped int) string {
 // data-miro-id: identified elements update in place, data-deleted elements
 // are removed, unidentified elements are created.
 func (c *Client) UpdateFromSVG(ctx context.Context, args UpdateFromSVGArgs) (UpdateFromSVGResult, error) {
-	if err := validateUpdateFromSVGArgs(args); err != nil {
+	if err := validateSVGInput(args.BoardID, args.SVG); err != nil {
 		return UpdateFromSVGResult{}, err
 	}
 

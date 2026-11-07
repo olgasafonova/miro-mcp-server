@@ -78,23 +78,6 @@ func buildCreatePosition(x, y float64) map[string]interface{} {
 	return map[string]interface{}{"x": x, "y": y, "origin": "center"}
 }
 
-// buildUpdatePosition returns the position payload for an app-card update call,
-// or nil when both coordinate pointers are nil. Either pointer can be set
-// independently.
-func buildUpdatePosition(x, y *float64) map[string]interface{} {
-	if x == nil && y == nil {
-		return nil
-	}
-	pos := map[string]interface{}{"origin": "center"}
-	if x != nil {
-		pos["x"] = *x
-	}
-	if y != nil {
-		pos["y"] = *y
-	}
-	return pos
-}
-
 // CreateAppCard creates an app card on a board.
 func (c *Client) CreateAppCard(ctx context.Context, args CreateAppCardArgs) (CreateAppCardResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -322,7 +305,7 @@ func buildUpdateAppCardBody(args UpdateAppCardArgs) (map[string]interface{}, err
 	if len(data) > 0 {
 		reqBody["data"] = data
 	}
-	if pos := buildUpdatePosition(args.X, args.Y); pos != nil {
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
 	if args.Width != nil {

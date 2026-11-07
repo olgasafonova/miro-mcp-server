@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 )
@@ -59,7 +60,7 @@ func (l *MemoryLogger) Query(ctx context.Context, opts QueryOptions) (*QueryResu
 	defer l.mu.RUnlock()
 
 	matches := l.collectMatches(opts)
-	reverseEvents(matches) // most recent first
+	slices.Reverse(matches) // most recent first
 
 	total := len(matches)
 	page, hasMore := paginate(matches, opts.Offset, opts.Limit)
@@ -83,13 +84,6 @@ func (l *MemoryLogger) collectMatches(opts QueryOptions) []Event {
 		}
 	}
 	return matches
-}
-
-// reverseEvents reverses events in place.
-func reverseEvents(events []Event) {
-	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
-		events[i], events[j] = events[j], events[i]
-	}
 }
 
 // paginate applies offset and limit to events. Returns the page slice and

@@ -17,6 +17,7 @@ import (
 // requestState carries the per-call inputs that the retry loop reuses across
 // attempts. Marshaled body bytes live here so retries don't re-serialize.
 type requestState struct {
+	baseURL     string
 	method      string
 	path        string
 	bodyBytes   []byte
@@ -27,6 +28,13 @@ type requestState struct {
 
 // request makes an authenticated request to the Miro API with retry support.
 func (c *Client) request(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
+	return c.requestAt(ctx, c.baseURL, method, path, body)
+}
+
+// requestAt is request against an explicit base URL. The base URL travels with
+// the call rather than being written to the shared client, so concurrent calls
+// to different API versions cannot redirect each other.
+func (c *Client) requestAt(ctx context.Context, baseURL, method, path string, body interface{}) ([]byte, error) {
 	if !c.config.IsConfigured() {
 		return nil, fmt.Errorf("MIRO_ACCESS_TOKEN is not configured. Set the MIRO_ACCESS_TOKEN environment variable. Get one at https://miro.com/app/settings/user-profile/apps")
 	}
@@ -57,6 +65,7 @@ func (c *Client) request(ctx context.Context, method, path string, body interfac
 	}
 
 	return c.runRetryLoop(ctx, requestState{
+		baseURL:     baseURL,
 		method:      method,
 		path:        path,
 		bodyBytes:   bodyBytes,
@@ -247,7 +256,7 @@ func (c *Client) buildRequest(ctx context.Context, st requestState) (*http.Reque
 		reqBody = bytes.NewReader(st.bodyBytes)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, st.method, c.baseURL+st.path, reqBody)
+	req, err := http.NewRequestWithContext(ctx, st.method, st.baseURL+st.path, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -313,30 +322,26 @@ func (c *Client) requestMultipart(ctx context.Context, mr multipartRequest) ([]b
 	return c.readAndCheckResponse(resp, cb)
 }
 
+// versionedBaseURL returns productionURL when the client targets the
+// production v2 API, and the client's own base URL otherwise, so tests
+// pointed at an httptest server keep hitting that server.
+func (c *Client) versionedBaseURL(productionURL string) string {
+	if c.baseURL == BaseURL {
+		return productionURL
+	}
+	return c.baseURL
+}
+
 // requestExperimental makes a request to the v2-experimental API endpoints.
 // Used for features that are not yet in the stable v2 API (e.g., mindmaps).
 func (c *Client) requestExperimental(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	// Only swap to experimental if using production URL (preserve test server URLs)
-	if c.baseURL == BaseURL {
-		originalBaseURL := c.baseURL
-		c.baseURL = ExperimentalBaseURL
-		defer func() { c.baseURL = originalBaseURL }()
-	}
-
-	return c.request(ctx, method, path, body)
+	return c.requestAt(ctx, c.versionedBaseURL(ExperimentalBaseURL), method, path, body)
 }
 
 // requestV1 makes a request to the legacy v1 API. Only token introspection
 // (GET /v1/oauth-token) still lives there; everything else is v2.
 func (c *Client) requestV1(ctx context.Context, method, path string, body interface{}) ([]byte, error) {
-	// Only swap to v1 if using production URL (preserve test server URLs)
-	if c.baseURL == BaseURL {
-		originalBaseURL := c.baseURL
-		c.baseURL = V1BaseURL
-		defer func() { c.baseURL = originalBaseURL }()
-	}
-
-	return c.request(ctx, method, path, body)
+	return c.requestAt(ctx, c.versionedBaseURL(V1BaseURL), method, path, body)
 }
 
 // =============================================================================

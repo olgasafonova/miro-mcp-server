@@ -394,7 +394,7 @@ func buildUpdateShapeBody(args UpdateShapeArgs) (map[string]interface{}, error) 
 		reqBody["style"] = style
 	}
 
-	if pos := buildUpdatePosition(args.X, args.Y); pos != nil {
+	if pos := buildPositionSection(args.X, args.Y); pos != nil {
 		reqBody["position"] = pos
 	}
 	if geom := buildUpdateGeometry(args.Width, args.Height); geom != nil {

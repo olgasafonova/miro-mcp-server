@@ -2,6 +2,7 @@ package desirepath
 
 import (
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 )
@@ -82,13 +83,6 @@ func matchesQuery(event Event, opts QueryOptions) bool {
 	return opts.Since.IsZero() || !event.Timestamp.Before(opts.Since)
 }
 
-// reverseEvents reverses the slice in place to most-recent-first order.
-func reverseEvents(events []Event) {
-	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
-		events[i], events[j] = events[j], events[i]
-	}
-}
-
 // Query retrieves events matching the specified criteria.
 func (l *Logger) Query(opts QueryOptions) []Event {
 	l.mu.RLock()
@@ -103,7 +97,7 @@ func (l *Logger) Query(opts QueryOptions) []Event {
 		}
 	}
 
-	reverseEvents(matches)
+	slices.Reverse(matches)
 
 	if opts.Limit > 0 && len(matches) > opts.Limit {
 		matches = matches[:opts.Limit]

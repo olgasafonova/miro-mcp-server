@@ -11,31 +11,33 @@ import (
 // Image Operations - Create, Get, Update
 // =============================================================================
 
-// buildCreateImageBody assembles the POST body for an image create.
-func buildCreateImageBody(args CreateImageArgs) map[string]interface{} {
+// buildCreateURLItemBody assembles the POST body for a URL-backed item create.
+// Images and documents share this exact payload shape: data.url, optional
+// data.title, a centered position, optional geometry.width and optional parent.
+func buildCreateURLItemBody(url, title string, x, y, width float64, parentID string) map[string]interface{} {
 	data := map[string]interface{}{
-		"url": args.URL,
+		"url": url,
 	}
-	if args.Title != "" {
-		data["title"] = args.Title
+	if title != "" {
+		data["title"] = title
 	}
 
 	reqBody := map[string]interface{}{
 		"data": data,
 		"position": map[string]interface{}{
-			"x":      args.X,
-			"y":      args.Y,
+			"x":      x,
+			"y":      y,
 			"origin": "center",
 		},
 	}
-	if args.Width > 0 {
+	if width > 0 {
 		reqBody["geometry"] = map[string]interface{}{
-			"width": args.Width,
+			"width": width,
 		}
 	}
-	if args.ParentID != "" {
+	if parentID != "" {
 		reqBody["parent"] = map[string]interface{}{
-			"id": args.ParentID,
+			"id": parentID,
 		}
 	}
 	return reqBody
@@ -50,7 +52,7 @@ func (c *Client) CreateImage(ctx context.Context, args CreateImageArgs) (CreateI
 		return CreateImageResult{}, fmt.Errorf("url is required")
 	}
 
-	reqBody := buildCreateImageBody(args)
+	reqBody := buildCreateURLItemBody(args.URL, args.Title, args.X, args.Y, args.Width, args.ParentID)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/images", reqBody)
 	if err != nil {
 		return CreateImageResult{}, err

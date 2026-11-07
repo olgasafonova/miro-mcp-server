@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "miro": {
+    "miro-cursor": {
       "command": "miro-mcp-server",
       "env": {
         "MIRO_ACCESS_TOKEN": ""

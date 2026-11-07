@@ -1,7 +1,7 @@
 {
   "comment": "Tool names the OFFICIAL hosted Miro MCP server (mcp.miro.com) registers, enumerated via an authenticated claude.ai connector session. The README's Official-vs-Community comparison cites len(tools). Re-enumerate monthly or on Miro announcements (bead 6kn); this needs an interactive authenticated session, so it stays manual \u2014 CI cannot do it. Diff against this file and update both it and README on drift.",
-  "enumerated": "2026-09-18",
-  "count": 45,
+  "enumerated": "2026-11-07",
+  "count": 42,
   "history": [
     {
       "date": "2026-08-13",
@@ -28,6 +28,13 @@
       "note": "61 -> 45, the largest drop yet and all removals: board_list_items, board_show, context_explore, context_get, all three diagram_*, all three doc_*, all four layout_*, import-claude-design-from-url, record_ui_feedback. One coherent story rather than attrition - every removed tool is a content read/write path superseded by canvas_*, and the server's own connection instructions now lead with Canvas Composer SVG as 'Miro's unified interaction/representation protocol for the canvas'. The 09-09 pass predicted this: layout_* were already self-describing as deprecated in favour of canvas.",
       "channel": "Claude Code MCP client against mcp.miro.com, scopes boards:read boards:write openid email",
       "caveat": "Prior passes enumerated via a claude.ai connector; this one used Claude Code, so a scope-gated difference cannot be fully excluded. Evidence against that reading: every write tool survives (board_create, space_create, table_create, section_create, comment_create) while reads were removed, which is the opposite of what scope gating produces. Re-enumerate via claude.ai next pass to close it out."
+    },
+    {
+      "date": "2026-11-07",
+      "count": 42,
+      "note": "45 -> 42. Removed: preview_resource_poll, prototype_create, prototype_get_upload_url, prototype_read, table_create, table_list_rows, table_sync_rows, table_update_view (all prototype tools; 4 of 5 table tools). Added: canvas_get_html_upload_url, content_search, create_boardcast, get_brand_context, user_search_organization_users. Every tool's schema now carries is_repository and invocation_source parameters the agent must populate.",
+      "channel": "Claude Code MCP client against mcp.miro.com, scopes boards:read boards:write openid email, personal Miro account (team 'Dev team')",
+      "caveat": "Same channel as 18-09, so the comparison is like for like. The claude.ai re-enumeration suggested on 18-09 is still not done."
     }
   ],
   "tools": [
@@ -43,6 +50,7 @@
     "board_update_metadata",
     "canvas_create_from_svg",
     "canvas_get_canvas_composer_skill",
+    "canvas_get_html_upload_url",
     "canvas_load_format_skill",
     "canvas_read_as_svg",
     "canvas_search",
@@ -52,14 +60,13 @@
     "comment_reply",
     "comment_resolve",
     "content_item_list_roles",
+    "content_search",
+    "create_boardcast",
+    "get_brand_context",
     "image_create",
     "image_get_data",
     "image_get_upload_url",
     "image_get_url",
-    "preview_resource_poll",
-    "prototype_create",
-    "prototype_get_upload_url",
-    "prototype_read",
     "section_create",
     "section_delete",
     "section_update_metadata",
@@ -70,11 +77,8 @@
     "space_role_update",
     "space_share",
     "space_update_metadata",
-    "table_create",
     "table_get_latest_update_history",
-    "table_list_rows",
-    "table_sync_rows",
-    "table_update_view",
+    "user_search_organization_users",
     "user_who_am_i"
   ]
 }

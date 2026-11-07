@@ -114,8 +114,16 @@ docker-compose-down: ## Stop docker-compose
 	docker-compose down
 
 .PHONY: install
+# GOPATH is rarely exported in the shell, so ask go for it rather than reading
+# the environment (an empty value made this copy to /bin).
+INSTALL_DIR ?= $(shell $(GOCMD) env GOPATH)/bin
+
+# rm before cp: overwriting a binary in place keeps the old file's cached
+# code signature on macOS, and the new binary is killed at launch (exit 137).
 install: build ## Install binary to GOPATH/bin
-	cp $(BINARY_NAME) $(GOPATH)/bin/
+	mkdir -p $(INSTALL_DIR)
+	rm -f $(INSTALL_DIR)/$(BINARY_NAME)
+	cp $(BINARY_NAME) $(INSTALL_DIR)/
 
 .PHONY: all
 all: clean deps fmt vet lint test build ## Run all checks and build

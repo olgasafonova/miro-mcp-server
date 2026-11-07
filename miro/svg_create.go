@@ -31,16 +31,17 @@ const maxSVGDocumentBytes = 1 << 20 // 1 MiB
 // maxSVGCreateElements bounds how many items one call may create.
 const maxSVGCreateElements = 200
 
-// validateCreateFromSVGArgs checks the request bounds before any parsing.
-func validateCreateFromSVGArgs(args CreateFromSVGArgs) error {
-	if err := ValidateBoardID(args.BoardID); err != nil {
+// validateSVGInput checks the request bounds shared by every SVG tool
+// (create and update) before any parsing.
+func validateSVGInput(boardID, svg string) error {
+	if err := ValidateBoardID(boardID); err != nil {
 		return err
 	}
-	if strings.TrimSpace(args.SVG) == "" {
+	if strings.TrimSpace(svg) == "" {
 		return fmt.Errorf("svg is required")
 	}
-	if len(args.SVG) > maxSVGDocumentBytes {
-		return fmt.Errorf("svg exceeds %d bytes (got %d)", maxSVGDocumentBytes, len(args.SVG))
+	if len(svg) > maxSVGDocumentBytes {
+		return fmt.Errorf("svg exceeds %d bytes (got %d)", maxSVGDocumentBytes, len(svg))
 	}
 	return nil
 }
@@ -257,7 +258,7 @@ func (c *Client) createSVGElements(ctx context.Context, boardID string, elements
 // CreateFromSVG parses an SVG document and creates matching items on the
 // board. Unsupported elements are reported, not silently dropped.
 func (c *Client) CreateFromSVG(ctx context.Context, args CreateFromSVGArgs) (CreateFromSVGResult, error) {
-	if err := validateCreateFromSVGArgs(args); err != nil {
+	if err := validateSVGInput(args.BoardID, args.SVG); err != nil {
 		return CreateFromSVGResult{}, err
 	}
 

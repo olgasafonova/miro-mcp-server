@@ -11,36 +11,6 @@ import (
 // Document Operations - Create, Get, Update
 // =============================================================================
 
-// buildCreateDocumentBody assembles the POST body for a document create.
-func buildCreateDocumentBody(args CreateDocumentArgs) map[string]interface{} {
-	data := map[string]interface{}{
-		"url": args.URL,
-	}
-	if args.Title != "" {
-		data["title"] = args.Title
-	}
-
-	reqBody := map[string]interface{}{
-		"data": data,
-		"position": map[string]interface{}{
-			"x":      args.X,
-			"y":      args.Y,
-			"origin": "center",
-		},
-	}
-	if args.Width > 0 {
-		reqBody["geometry"] = map[string]interface{}{
-			"width": args.Width,
-		}
-	}
-	if args.ParentID != "" {
-		reqBody["parent"] = map[string]interface{}{
-			"id": args.ParentID,
-		}
-	}
-	return reqBody
-}
-
 // CreateDocument creates a document on a board from a URL.
 func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (CreateDocumentResult, error) {
 	if err := ValidateBoardID(args.BoardID); err != nil {
@@ -50,7 +20,7 @@ func (c *Client) CreateDocument(ctx context.Context, args CreateDocumentArgs) (C
 		return CreateDocumentResult{}, fmt.Errorf("url is required")
 	}
 
-	reqBody := buildCreateDocumentBody(args)
+	reqBody := buildCreateURLItemBody(args.URL, args.Title, args.X, args.Y, args.Width, args.ParentID)
 	respBody, err := c.request(ctx, http.MethodPost, "/boards/"+args.BoardID+"/documents", reqBody)
 	if err != nil {
 		return CreateDocumentResult{}, err

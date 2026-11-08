@@ -12,13 +12,13 @@ Written 26-08-2026 against `main` at go-sdk v1.7.0, 110 registered tools.
 
 ## Article I: Tool registration is declarative and single-entry
 
-Adding a tool means adding one `ToolSpec` to `AllTools` in `tools/definitions.go` and one entry to the matching per-category map in `tools/handlers.go`. Handlers MUST NOT be registered by hand-written boilerplate: they go through the generic `makeHandler[Args, Result]`, which is what attaches panic recovery, execution logging, audit events, and desire-path normalization to every tool uniformly. A tool wired around `makeHandler` gets none of those and MUST NOT be merged.
+Adding a tool means adding one `ToolSpec` to the matching category slice in `tools/definitions_*.go` (all of which `AllTools` in `tools/definitions.go` concatenates) and one entry to the matching per-category map in `tools/handlers.go`. Handlers MUST NOT be registered by hand-written boilerplate: they go through the generic `makeHandler[Args, Result]`, which is what attaches panic recovery, execution logging, audit events, and desire-path normalization to every tool uniformly. A tool wired around `makeHandler` gets none of those and MUST NOT be merged.
 
 Every spec MUST carry a non-empty `Name`, `Method`, `Title`, `Category`, and `Description`. Names begin with `miro_`. Names and methods are unique. Categories come from the fixed set in `TestToolCategories`.
 
 Why: 110 tools with 110 hand-written registrations would drift into 110 slightly different error, logging, and audit behaviours. The single generic wrapper is the reason a claim like "every tool recovers from panics" can be true at all.
 
-Codifies: `tools/definitions.go` (`ToolSpec`, `AllTools`), `tools/handlers.go` (`buildHandlerMap`, `makeHandler`, `registerTool`), `CONTRIBUTING.md` "Adding a New Tool", `rules/mcp-server-patterns.md` "Standard Project Structure".
+Codifies: `tools/definitions.go` (`ToolSpec`, `AllTools`), `tools/definitions_*.go` (category slices), `tools/handlers.go` (`buildHandlerMap`, `makeHandler`, `registerTool`), `CONTRIBUTING.md` "Adding a New Tool", `rules/mcp-server-patterns.md` "Standard Project Structure".
 
 **Enforcement: mechanically checked, with one hole.** `tools/definitions_test.go` runs `TestAllToolsHaveRequiredFields`, `TestToolNamingConvention`, `TestToolCategories`, `TestToolNamesUnique`, `TestToolMethodsUnique`, and `TestToolCount` (pinned at 110). All run in CI via `go test -race ./...` in `.github/workflows/ci.yml`. The hole: a spec whose `Method` has no entry in the handler map does not fail any test. `HandlerRegistry.registerTool` logs `"Unknown method, tool not registered"` at error level and continues, so the server starts successfully with that tool missing from `tools/list`. Nothing fails. See Article IV, which this contradicts.
 
@@ -125,7 +125,7 @@ Every tool marked `Destructive` MUST carry the word `WARNING` in its description
 
 Why: 110 tools include genuinely confusable pairs, and the descriptions are what separate them. `evals/confusion_pairs.json` pins 11 such pairs across 44 tests precisely because the distinctions are subtle enough to lose in an edit.
 
-Codifies: `tools/definitions.go` (every spec), `evals/confusion_pairs.json`, `evals/tool_selection.json` (50 tests), `evals/argument_correctness.json` (25 tests), `rules/mcp-server-patterns.md` "Context-Gap Tool Design".
+Codifies: `tools/definitions_*.go` (every spec), `evals/confusion_pairs.json`, `evals/tool_selection.json` (50 tests), `evals/argument_correctness.json` (25 tests), `rules/mcp-server-patterns.md` "Context-Gap Tool Design".
 
 **Enforcement: partially mechanical.** `TestAllToolsHaveRequiredFields` checks the description is non-empty. `TestDestructiveToolsHaveWarning` checks the `WARNING` string on destructive tools. The eval suites load and validate under `go test -race ./...` in CI. Nothing checks that a description edit preserved its `NOT FOR` cross-references, and nothing checks that a description change reached `CHANGELOG.md`.
 
@@ -197,7 +197,7 @@ Every user-visible change is recorded in `CHANGELOG.md` under `[Unreleased]` in 
 
 Codifies: `CHANGELOG.md` (38 KB of entries in this format), `.github/workflows/release.yml`, `.github/workflows/docker.yml`, `.github/workflows/mcp-registry.yml`, `server.json`, `CONTRIBUTING.md` commit prefix conventions.
 
-**Enforcement: none.** No CI job checks that a pull request touching `tools/definitions.go` also touched `CHANGELOG.md`. The discipline has held so far entirely through practice.
+**Enforcement: none.** No CI job checks that a pull request touching `tools/definitions*.go` also touched `CHANGELOG.md`. The discipline has held so far entirely through practice.
 
 ---
 

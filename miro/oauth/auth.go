@@ -15,6 +15,10 @@ type AuthFlow struct {
 	tokenStore TokenStore
 	logger     *slog.Logger
 	config     *Config
+	// openURL shows the consent screen to the user. It is openBrowser in
+	// production; tests swap it for a function that calls the callback
+	// server directly, so Login can run without a browser.
+	openURL func(url string) error
 }
 
 // NewAuthFlow creates a new auth flow handler.
@@ -24,6 +28,7 @@ func NewAuthFlow(config *Config, logger *slog.Logger) *AuthFlow {
 		tokenStore: NewFileTokenStore(config.TokenStorePath),
 		logger:     logger,
 		config:     config,
+		openURL:    openBrowser,
 	}
 }
 
@@ -82,7 +87,7 @@ func (f *AuthFlow) authorize(ctx context.Context, server *CallbackServer, state 
 	authURL := f.provider.GetAuthorizationURL(state)
 
 	f.logger.Info("Opening browser for authorization...", "url", authURL)
-	if err := openBrowser(authURL); err != nil {
+	if err := f.openURL(authURL); err != nil {
 		f.logger.Warn("Failed to open browser automatically", "error", err)
 		fmt.Printf("\nPlease open this URL in your browser:\n%s\n\n", authURL)
 	}

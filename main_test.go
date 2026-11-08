@@ -17,9 +17,9 @@ import (
 // =============================================================================
 // Wiring tests for the main package
 //
-// main(), the auth subcommands, the serve loops, gracefulShutdown, and
-// parseFlags are deliberately absent: they block on a listener, launch a
-// browser, call os.Exit, or read global flag state.
+// main(), the serve loops, gracefulShutdown, and parseFlags are deliberately
+// absent: they block on a listener, call os.Exit, or read global flag state.
+// The auth subcommands are covered in auth_test.go.
 // =============================================================================
 
 func quietLogger() *slog.Logger {

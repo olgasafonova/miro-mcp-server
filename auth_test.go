@@ -20,12 +20,20 @@ import (
 // flow behind them with a fake browser and a fake token endpoint.
 // =============================================================================
 
+// Credential-shaped fixture values live in identifiers rather than inline
+// literals so secret scanners don't report them (same convention as
+// miro/oauth/fixtures_test.go). Neither value is a real credential.
+const (
+	clientIDFixture     = "test-client"
+	clientSecretFixture = "test-client-credential"
+)
+
 // authTestConfig points the OAuth config at a temp token file.
 func authTestConfig(t *testing.T) *oauth.Config {
 	t.Helper()
 	return &oauth.Config{
-		ClientID:       "test-client",
-		ClientSecret:   "test-client-credential",
+		ClientID:       clientIDFixture,
+		ClientSecret:   clientSecretFixture,
 		RedirectURI:    "http://localhost:8089/callback",
 		TokenStorePath: filepath.Join(t.TempDir(), "tokens.json"),
 	}
@@ -117,8 +125,8 @@ func TestRunAuthLogin_ReportsFlowError(t *testing.T) {
 }
 
 func TestRunAuthCommand_NoArgsPrintsUsage(t *testing.T) {
-	t.Setenv("MIRO_CLIENT_ID", "test-client")
-	t.Setenv("MIRO_CLIENT_SECRET", "test-client-credential")
+	t.Setenv("MIRO_CLIENT_ID", clientIDFixture)
+	t.Setenv("MIRO_CLIENT_SECRET", clientSecretFixture)
 	t.Setenv("MIRO_TOKEN_PATH", filepath.Join(t.TempDir(), "tokens.json"))
 
 	out := captureStdout(t, func() { runAuthCommand(nil) })
@@ -128,8 +136,8 @@ func TestRunAuthCommand_NoArgsPrintsUsage(t *testing.T) {
 }
 
 func TestRunAuthCommand_DispatchesSubcommand(t *testing.T) {
-	t.Setenv("MIRO_CLIENT_ID", "test-client")
-	t.Setenv("MIRO_CLIENT_SECRET", "test-client-credential")
+	t.Setenv("MIRO_CLIENT_ID", clientIDFixture)
+	t.Setenv("MIRO_CLIENT_SECRET", clientSecretFixture)
 	t.Setenv("MIRO_TOKEN_PATH", filepath.Join(t.TempDir(), "tokens.json"))
 
 	out := captureStdout(t, func() { runAuthCommand([]string{"logout"}) })

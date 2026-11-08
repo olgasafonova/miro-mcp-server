@@ -105,7 +105,7 @@ Prefix conventions:
    }
    ```
 
-3. **Add tool spec** in `tools/definitions.go`:
+3. **Add tool spec** to the matching category file, `tools/definitions_<category>.go` (a new category also needs its slice added to `AllTools` in `tools/definitions.go`):
    ```go
    {
        Name:        "miro_new_feature",

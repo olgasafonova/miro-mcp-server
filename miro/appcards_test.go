@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // =============================================================================
@@ -477,6 +478,76 @@ func TestDeleteAppCard_Success(t *testing.T) {
 	if result.ItemID != "appcard456" {
 		t.Errorf("ItemID = %q, want %q", result.ItemID, "appcard456")
 	}
+}
+
+// TestDeleteAppCard_InvalidatesCache asserts a successful delete drops the
+// cached item and the board's cached item lists, and leaves other boards alone.
+func TestDeleteAppCard_InvalidatesCache(t *testing.T) {
+	client := newAppCardClient(t, appCardServerSpec{
+		wantMethod: http.MethodDelete,
+		wantPath:   "/boards/board123/app_cards/appcard456",
+		status:     http.StatusNoContent,
+	})
+
+	itemKey := CacheKeyItem("board123", "appcard456")
+	listKey := "items:board123:app_card:"
+	otherBoardKey := "items:board999:app_card:"
+	client.cache.Set(itemKey, "item", time.Minute)
+	client.cache.Set(listKey, "list", time.Minute)
+	client.cache.Set(otherBoardKey, "other", time.Minute)
+
+	if _, err := client.DeleteAppCard(context.Background(), DeleteAppCardArgs{
+		BoardID: "board123",
+		ItemID:  "appcard456",
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := client.cache.Get(itemKey); ok {
+		t.Errorf("cache key %q survived the delete", itemKey)
+	}
+	if _, ok := client.cache.Get(listKey); ok {
+		t.Errorf("cache key %q survived the delete", listKey)
+	}
+	if _, ok := client.cache.Get(otherBoardKey); !ok {
+		t.Errorf("cache key %q for another board was invalidated", otherBoardKey)
+	}
+}
+
+// TestDeleteAppCard_KeepsCacheWhenNothingDeleted asserts a failed or dry-run
+// delete leaves the cache untouched, since the app card still exists.
+func TestDeleteAppCard_KeepsCacheWhenNothingDeleted(t *testing.T) {
+	listKey := "items:board123:app_card:"
+	args := DeleteAppCardArgs{BoardID: "board123", ItemID: "appcard456"}
+
+	t.Run("api error", func(t *testing.T) {
+		client := newAppCardClient(t, appCardServerSpec{
+			status:   http.StatusNotFound,
+			response: map[string]interface{}{"status": 404, "message": "App card not found"},
+		})
+		client.cache.Set(listKey, "list", time.Minute)
+
+		if _, err := client.DeleteAppCard(context.Background(), args); err == nil {
+			t.Fatal("expected error for not found")
+		}
+		if _, ok := client.cache.Get(listKey); !ok {
+			t.Errorf("cache key %q was invalidated by a failed delete", listKey)
+		}
+	})
+
+	t.Run("dry run", func(t *testing.T) {
+		client := newAppCardClient(t, appCardServerSpec{status: http.StatusNoContent})
+		client.cache.Set(listKey, "list", time.Minute)
+
+		dryArgs := args
+		dryArgs.DryRun = true
+		if _, err := client.DeleteAppCard(context.Background(), dryArgs); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := client.cache.Get(listKey); !ok {
+			t.Errorf("cache key %q was invalidated by a dry run", listKey)
+		}
+	})
 }
 
 func TestDeleteAppCard_APIError(t *testing.T) {

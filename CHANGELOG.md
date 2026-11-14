@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-11-14
+
+### Fixed
+
+- **A request could be sent to the wrong Miro API version when tool calls ran at the same time** (#137). The v1 and experimental request paths overwrote the client's shared base URL for the length of their call. MCP tool calls run concurrently, so a v2 request issued during a mindmap, comment, code-widget or token-introspection call could go to `v2-experimental` or `v1`: in the reproducing test, `GET /boards/b2` went to `https://api.miro.com/v2-experimental/boards/b2`. Each request now carries its own base URL.
+
+- **`make install` works without `GOPATH` exported and no longer leaves a binary that macOS kills at launch** (#138). The install directory now comes from `go env GOPATH` (overridable with `INSTALL_DIR`), and the old binary is removed before the new one is copied.
+
+### Security
+
+- **The Docker image carries current CA certificates** (#147). The eMudhra intermediate CA keys leaked on 19-10-2026, and Alpine published `ca-certificates` 20261020-r0 the next day. An image keeps the certificates it was built with, and the `latest` image from 1.25.0 predates the leak. The certificate install step now runs on every build, and the runtime base moves from `alpine:3.20`, which is past end of life, to `alpine:3.24`.
+
+### Internal
+
+- `tools/definitions.go` split into per-category files with an unchanged tool list (#142), duplicate helpers removed (#137, #139), and test coverage added for the OAuth login flow (#143).
+
 ## [1.25.0] - 2026-09-18
 
 ### Fixed

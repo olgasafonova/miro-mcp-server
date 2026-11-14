@@ -341,6 +341,10 @@ func (c *Client) DeleteAppCard(ctx context.Context, args DeleteAppCardArgs) (Del
 		}, err
 	}
 
+	// Drop the cached item and the board's cached item lists so the deleted
+	// app card does not linger in either.
+	c.cache.InvalidateItem(args.BoardID, args.ItemID)
+
 	return DeleteAppCardResult{
 		Success: true,
 		ItemID:  args.ItemID,

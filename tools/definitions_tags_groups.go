@@ -39,13 +39,17 @@ FAILS WHEN: tag_id doesn't exist on this board (list with miro_list_tags), item 
 VOICE-FRIENDLY: "Tagged sticky with 'Urgent'"`,
 	},
 	{
-		Name:     "miro_detach_tag",
-		Method:   "DetachTag",
-		Title:    "Remove Tag",
-		Category: "tags",
+		Name:        "miro_detach_tag",
+		Method:      "DetachTag",
+		Title:       "Remove Tag",
+		Category:    "tags",
+		Destructive: true,
+		Idempotent:  true,
 		Description: `Remove a tag from a sticky note or card. The tag stays on the board for reuse; to delete it entirely, use miro_delete_tag.
 
-USE WHEN: "remove the Urgent tag", "untag this card", "take off the Done label"`,
+USE WHEN: "remove the Urgent tag", "untag this card", "take off the Done label"
+
+WARNING: Removes the tag from the item.`,
 	},
 	{
 		Name:     "miro_get_item_tags",
@@ -80,18 +84,21 @@ RETURNS: Tag ID, title, and color.
 VOICE-FRIENDLY: "Tag 'Urgent' is red"`,
 	},
 	{
-		Name:       "miro_update_tag",
-		Method:     "UpdateTag",
-		Title:      "Update Tag",
-		Category:   "tags",
-		Idempotent: true,
+		Name:        "miro_update_tag",
+		Method:      "UpdateTag",
+		Title:       "Update Tag",
+		Category:    "tags",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Update a tag's title or color. At least one must be provided.
 
 USE WHEN: "rename this tag", "change tag color", "update tag to green"
 
 RETURNS: Confirmation with tag ID, updated title, and color.
 
-VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
+VOICE-FRIENDLY: "Updated tag to 'Done' with green color"
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 	{
 		Name:        "miro_delete_tag",
@@ -99,6 +106,7 @@ VOICE-FRIENDLY: "Updated tag to 'Done' with green color"`,
 		Title:       "Delete Tag",
 		Category:    "tags",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a tag from a board. Removes the tag from all items.
 
 USE WHEN: "delete this tag", "remove tag from board", "get rid of tag X"
@@ -169,11 +177,12 @@ RETURNS: Array of items with IDs, types, and content.
 VOICE-FRIENDLY: "Group has 4 items: 2 stickies, 1 shape, 1 text"`,
 	},
 	{
-		Name:       "miro_update_group",
-		Method:     "UpdateGroup",
-		Title:      "Update Group",
-		Category:   "update",
-		Idempotent: true,
+		Name:        "miro_update_group",
+		Method:      "UpdateGroup",
+		Title:       "Update Group",
+		Category:    "update",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Update a group's member items. Replaces all members; include existing IDs to keep them. Minimum 2 items.
 
 USE WHEN: "add item to group", "remove item from group", "change group members"
@@ -182,7 +191,9 @@ RETURNS: Group ID and updated member item IDs.
 
 FAILS WHEN: Fewer than 2 item IDs provided. Item IDs not found on the board.
 
-VOICE-FRIENDLY: "Updated group with 5 items"`,
+VOICE-FRIENDLY: "Updated group with 5 items"
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 	{
 		Name:        "miro_delete_group",
@@ -190,6 +201,7 @@ VOICE-FRIENDLY: "Updated group with 5 items"`,
 		Title:       "Delete Group",
 		Category:    "delete",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a group. Set delete_items=true to also delete items (default: items are released to move independently).
 
 USE WHEN: deleting a group OR ungrouping items. With delete_items=false (default), items are ungrouped and remain on the board. With delete_items=true, both the group and its items are permanently deleted.

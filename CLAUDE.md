@@ -17,7 +17,7 @@ Go MCP server for Miro REST API v2. 110 tools across boards, items, diagrams, mi
 - `miro/audit/` — local execution audit log (JSON file-based)
 - `miro/oauth/` — OAuth2 authentication flow
 - `tools/definitions.go` — ToolSpec type and `AllTools` (concatenates the category slices in registration order)
-- `tools/definitions_*.go` — ToolSpec declarations per category, with annotations (ReadOnly, Destructive, Idempotent)
+- `tools/definitions_*.go` — ToolSpec declarations per category, with annotations (ReadOnly, Destructive, Idempotent, OpenWorld)
 - `tools/handlers.go` — HandlerRegistry with generic makeHandler[Args, Result] + panic recovery + audit logging
 - `prompts/prompts.go` — MCP workflow prompts (sprint board, retro, brainstorm, story map, kanban)
 - `resources/resources.go` — MCP resource URIs (board summary, items, frames)
@@ -26,7 +26,7 @@ Go MCP server for Miro REST API v2. 110 tools across boards, items, diagrams, mi
 ## Key Patterns
 - `makeHandler[Args, Result]` generic wraps every tool handler with: panic recovery, timing, audit event creation
 - `HandlerRegistry.buildHandlerMap()` maps Method name -> registration function; adding a tool = one map entry
-- `ToolSpec` annotations drive MCP tool hints (ReadOnly, Destructive, Idempotent, OpenWorld)
+- `ToolSpec` annotations drive MCP tool hints (ReadOnly, Destructive, Idempotent, OpenWorld). `buildTool` emits destructiveHint (true or false) on every non-read-only tool and openWorldHint on every tool; `OpenWorld` is `*bool`, nil meaning true, and only the local tools (`miro_tool_search`, `miro_get_audit_log`, `miro_get_desire_paths`) set `ptr(false)`. Additive tools are non-destructive; tools that delete, remove, or overwrite fields of an existing object (every `update_*`) are destructive
 - All API methods live on the `MiroClient` interface for testability (mock in `tools/mock_client_test.go`)
 - Mermaid diagrams parsed locally (no external service), supporting flowchart + sequenceDiagram
 

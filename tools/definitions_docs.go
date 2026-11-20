@@ -48,6 +48,7 @@ RELATED: Use miro_create_doc to create new documents. Use miro_delete_doc to rem
 		Title:       "Delete Doc Format Item",
 		Category:    "delete",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a doc format item from a Miro board.
 
 USE WHEN: User says "remove the document", "delete that doc"
@@ -63,11 +64,11 @@ Use dry_run=true to preview what will be deleted before executing.
 RELATED: Use miro_get_doc to inspect before deleting. Use miro_create_doc to create new documents.`,
 	},
 	{
-		Name:       "miro_update_doc",
-		Method:     "UpdateDocFormat",
-		Title:      "Update Doc Format Item",
-		Category:   "update",
-		Idempotent: true,
+		Name:        "miro_update_doc",
+		Method:      "UpdateDocFormat",
+		Title:       "Update Doc Format Item",
+		Category:    "update",
+		Destructive: true,
 		Description: `Update a doc format item's Markdown content. Supports two modes: full content replacement or find-and-replace.
 
 USE WHEN: "edit the document", "update doc content", "change the text in that doc", "replace X with Y in the document"
@@ -94,7 +95,9 @@ RETURNS: New item ID, old item ID, updated content, view link.
 
 RELATED: Use miro_get_doc to read before editing. Use miro_create_doc to create new documents.
 
-VOICE-FRIENDLY: "Updated document content"`,
+VOICE-FRIENDLY: "Updated document content"
+
+WARNING: Deletes the original doc item and recreates it, so the item gets a new ID and references to the old ID break.`,
 	},
 }
 
@@ -197,10 +200,11 @@ VOICE-FRIENDLY: "Uploaded document 'report.pdf' to board"`,
 // Update from File Tools (PATCH multipart)
 var updateFromFileTools = []ToolSpec{
 	{
-		Name:     "miro_update_image_from_file",
-		Method:   "UpdateImageFromFile",
-		Title:    "Replace Image File",
-		Category: "update",
+		Name:        "miro_update_image_from_file",
+		Method:      "UpdateImageFromFile",
+		Title:       "Replace Image File",
+		Category:    "update",
+		Destructive: true,
 		Description: `Replace the file on an existing image item with a new local image file.
 
 USE WHEN: User says "replace this image", "swap the screenshot", "update the image file". Use this to change the file on an existing image item without creating a new one. For updating metadata only (title, position), use miro_update_image instead.
@@ -217,13 +221,16 @@ NOTE: The item must already exist as an image. The file must exist on the local 
 
 RELATED: To create a new image from file, use miro_upload_image. To update metadata only, use miro_update_image.
 
-VOICE-FRIENDLY: "Replaced image file on item"`,
+VOICE-FRIENDLY: "Replaced image file on item"
+
+WARNING: Replaces the existing image file; the previous file is not kept.`,
 	},
 	{
-		Name:     "miro_update_document_from_file",
-		Method:   "UpdateDocumentFromFile",
-		Title:    "Replace Document File",
-		Category: "update",
+		Name:        "miro_update_document_from_file",
+		Method:      "UpdateDocumentFromFile",
+		Title:       "Replace Document File",
+		Category:    "update",
+		Destructive: true,
 		Description: `Replace the file on an existing document item with a new local document file.
 
 USE WHEN: User says "replace this document", "update the PDF", "swap the file on this document". Use this to change the file on an existing document item without creating a new one. For updating metadata only (title, position), use miro_update_document instead.
@@ -240,6 +247,8 @@ NOTE: The item must already exist as a document. The file must exist on the loca
 
 RELATED: To create a new document from file, use miro_upload_document. To update metadata only, use miro_update_document.
 
-VOICE-FRIENDLY: "Replaced document file on item"`,
+VOICE-FRIENDLY: "Replaced document file on item"
+
+WARNING: Replaces the existing document file; the previous file is not kept.`,
 	},
 }

@@ -72,6 +72,7 @@ VOICE-FRIENDLY: "Copied board to 'Sprint Planning Copy'"`,
 		Title:       "Delete Board",
 		Category:    "boards",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a Miro board permanently.
 
 USE WHEN: "delete this board", "remove the board", "get rid of board X"
@@ -81,18 +82,21 @@ WARNING: Cannot be undone. Use dry_run=true to preview first.
 RETURNS: Confirmation with deleted board ID.`,
 	},
 	{
-		Name:       "miro_update_board",
-		Method:     "UpdateBoard",
-		Title:      "Update Board",
-		Category:   "boards",
-		Idempotent: true,
+		Name:        "miro_update_board",
+		Method:      "UpdateBoard",
+		Title:       "Update Board",
+		Category:    "boards",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Update a Miro board's name or description. At least one field must be provided.
 
 USE WHEN: "rename the board", "change board description", "update board name to X"
 
 RETURNS: Board ID, updated name, description, and view link.
 
-VOICE-FRIENDLY: "Updated board name to 'Sprint Planning Q1'"`,
+VOICE-FRIENDLY: "Updated board name to 'Sprint Planning Q1'"
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 }
 

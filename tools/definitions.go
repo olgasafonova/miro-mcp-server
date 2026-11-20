@@ -45,11 +45,20 @@ type ToolSpec struct {
 	// ReadOnly indicates the tool doesn't modify Miro state
 	ReadOnly bool
 
-	// Destructive indicates the tool can delete data
+	// Destructive indicates the tool can delete or overwrite existing data.
+	// Emitted as destructiveHint (true or false) on every non-read-only tool.
+	// Additive tools (create, upload, copy, attach) leave it false; tools
+	// that delete, remove, or overwrite fields of an existing object set it.
 	Destructive bool
 
 	// Idempotent indicates repeated calls have the same effect
 	Idempotent bool
+
+	// OpenWorld indicates the tool talks to an external system (the Miro
+	// API). nil means true, matching the MCP spec default, so a new tool
+	// that calls Miro needs no annotation. Set ptr(false) only for tools
+	// answered entirely on the local server.
+	OpenWorld *bool
 
 	// HeaderParams maps an input-schema property name to the Mcp-Param-*
 	// header suffix that mirrors it over Streamable HTTP (SEP-2243
@@ -102,6 +111,14 @@ var AllTools = slices.Concat(
 	diagramTools,
 	appCardTools,
 )
+
+// openWorld resolves the OpenWorld annotation, defaulting to true.
+func (s ToolSpec) openWorld() bool {
+	if s.OpenWorld == nil {
+		return true
+	}
+	return *s.OpenWorld
+}
 
 // ptr is a helper to create a pointer to a value.
 func ptr[T any](v T) *T {

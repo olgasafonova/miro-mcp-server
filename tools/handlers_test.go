@@ -39,11 +39,6 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// isTrue reports whether an optional bool is present and set.
-func isTrue(b *bool) bool {
-	return b != nil && *b
-}
-
 // mustSucceed fails the test immediately on an unexpected handler error.
 func mustSucceed(t *testing.T, err error) {
 	t.Helper()
@@ -118,13 +113,29 @@ func TestRegisterAll(t *testing.T) {
 	registry.RegisterAll(server)
 }
 
-// buildToolCase describes one buildTool expectation.
+// buildToolCase describes one buildTool expectation. expectDestr is nil when
+// destructiveHint must be omitted (read-only tools).
 type buildToolCase struct {
-	name        string
-	spec        ToolSpec
-	expectTitle string
-	expectRO    bool
-	expectDestr bool
+	name            string
+	spec            ToolSpec
+	expectTitle     string
+	expectRO        bool
+	expectDestr     *bool
+	expectIdem      bool
+	expectOpenWorld bool
+}
+
+// assertBoolHint checks an emitted *bool hint, distinguishing omitted from false.
+func assertBoolHint(t *testing.T, hint string, got, want *bool) {
+	t.Helper()
+	switch {
+	case want == nil && got != nil:
+		t.Errorf("%s = %v, want omitted", hint, *got)
+	case want != nil && got == nil:
+		t.Errorf("%s omitted, want %v", hint, *want)
+	case want != nil && *got != *want:
+		t.Errorf("%s = %v, want %v", hint, *got, *want)
+	}
 }
 
 // assertBuiltTool verifies the tool buildTool produced for one case.
@@ -139,11 +150,11 @@ func assertBuiltTool(t *testing.T, tool *mcp.Tool, tt buildToolCase) {
 	if tool.Annotations.ReadOnlyHint != tt.expectRO {
 		t.Errorf("ReadOnlyHint = %v, want %v", tool.Annotations.ReadOnlyHint, tt.expectRO)
 	}
-	if tt.expectDestr {
-		if !isTrue(tool.Annotations.DestructiveHint) {
-			t.Error("DestructiveHint should be true")
-		}
+	if tool.Annotations.IdempotentHint != tt.expectIdem {
+		t.Errorf("IdempotentHint = %v, want %v", tool.Annotations.IdempotentHint, tt.expectIdem)
 	}
+	assertBoolHint(t, "DestructiveHint", tool.Annotations.DestructiveHint, tt.expectDestr)
+	assertBoolHint(t, "OpenWorldHint", tool.Annotations.OpenWorldHint, ptr(tt.expectOpenWorld))
 }
 
 func TestBuildTool(t *testing.T) {
@@ -158,9 +169,10 @@ func TestBuildTool(t *testing.T) {
 				Title:    "Test Read",
 				ReadOnly: true,
 			},
-			expectTitle: "Test Read",
-			expectRO:    true,
-			expectDestr: false,
+			expectTitle:     "Test Read",
+			expectRO:        true,
+			expectDestr:     nil,
+			expectOpenWorld: true,
 		},
 		{
 			name: "destructive tool",
@@ -168,16 +180,77 @@ func TestBuildTool(t *testing.T) {
 				Name:        "test_delete",
 				Title:       "Test Delete",
 				Destructive: true,
+				Idempotent:  true,
 			},
-			expectTitle: "Test Delete",
-			expectRO:    false,
-			expectDestr: true,
+			expectTitle:     "Test Delete",
+			expectDestr:     ptr(true),
+			expectIdem:      true,
+			expectOpenWorld: true,
+		},
+		{
+			name: "additive tool emits destructiveHint false",
+			spec: ToolSpec{
+				Name:  "test_create",
+				Title: "Test Create",
+			},
+			expectTitle:     "Test Create",
+			expectDestr:     ptr(false),
+			expectOpenWorld: true,
+		},
+		{
+			name: "local tool emits openWorldHint false",
+			spec: ToolSpec{
+				Name:      "test_local",
+				Title:     "Test Local",
+				ReadOnly:  true,
+				OpenWorld: ptr(false),
+			},
+			expectTitle:     "Test Local",
+			expectRO:        true,
+			expectOpenWorld: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assertBuiltTool(t, registry.buildTool(tt.spec), tt)
+		})
+	}
+}
+
+// TestEmittedToolAnnotations checks the annotations buildTool emits for real
+// tool specs, including explicit false values.
+func TestEmittedToolAnnotations(t *testing.T) {
+	registry := newTestRegistry(&MockClient{})
+	byName := make(map[string]ToolSpec, len(AllTools))
+	for _, spec := range AllTools {
+		byName[spec.Name] = spec
+	}
+
+	cases := []struct {
+		tool        string
+		destructive *bool
+		openWorld   bool
+	}{
+		{"miro_create_sticky", ptr(false), true},
+		{"miro_bulk_create", ptr(false), true},
+		{"miro_attach_tag", ptr(false), true},
+		{"miro_delete_item", ptr(true), true},
+		{"miro_update_doc", ptr(true), true},
+		{"miro_list_boards", nil, true},
+		{"miro_tool_search", nil, false},
+		{"miro_get_audit_log", nil, false},
+		{"miro_get_desire_paths", nil, false},
+	}
+	for _, c := range cases {
+		t.Run(c.tool, func(t *testing.T) {
+			spec, ok := byName[c.tool]
+			if !ok {
+				t.Fatalf("tool %s not in AllTools", c.tool)
+			}
+			ann := registry.buildTool(spec).Annotations
+			assertBoolHint(t, "DestructiveHint", ann.DestructiveHint, c.destructive)
+			assertBoolHint(t, "OpenWorldHint", ann.OpenWorldHint, ptr(c.openWorld))
 		})
 	}
 }

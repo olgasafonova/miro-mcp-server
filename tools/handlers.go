@@ -333,9 +333,13 @@ func (h *HandlerRegistry) buildTool(spec ToolSpec) *mcp.Tool {
 		Title:          spec.Title,
 		ReadOnlyHint:   spec.ReadOnly,
 		IdempotentHint: spec.Idempotent,
+		OpenWorldHint:  ptr(spec.openWorld()),
 	}
-	if spec.Destructive {
-		annotations.DestructiveHint = ptr(true)
+	// destructiveHint is meaningful only for tools that modify state. Emit
+	// the real value, including false: an omitted hint means true per the
+	// MCP spec, which would mark every additive tool as destructive.
+	if !spec.ReadOnly {
+		annotations.DestructiveHint = ptr(spec.Destructive)
 	}
 
 	return &mcp.Tool{

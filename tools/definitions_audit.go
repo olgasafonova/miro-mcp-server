@@ -3,11 +3,12 @@ package tools
 // Audit Tools (Local Operations)
 var auditTools = []ToolSpec{
 	{
-		Name:     "miro_get_audit_log",
-		Method:   "GetAuditLog",
-		Title:    "Get Audit Log",
-		Category: "audit",
-		ReadOnly: true,
+		Name:      "miro_get_audit_log",
+		Method:    "GetAuditLog",
+		Title:     "Get Audit Log",
+		Category:  "audit",
+		ReadOnly:  true,
+		OpenWorld: ptr(false),
 		Description: `Query THIS SERVER's local execution log — which MCP tools ran here, when, and whether they succeeded. Covers this process only; it knows nothing about actions taken in Miro's UI or by other clients.
 
 USE WHEN debugging what this server did. For who did what in the Miro workspace, use miro_get_org_audit_logs instead.
@@ -41,11 +42,12 @@ USE WHEN a call returned 403 or you need to know what this token may do BEFORE b
 RETURNS: user, team, organization, application (each id + name), and the scopes list.`,
 	},
 	{
-		Name:     "miro_get_desire_paths",
-		Method:   "GetDesirePathReport",
-		Title:    "Get Desire Path Report",
-		Category: "audit",
-		ReadOnly: true,
+		Name:      "miro_get_desire_paths",
+		Method:    "GetDesirePathReport",
+		Title:     "Get Desire Path Report",
+		Category:  "audit",
+		ReadOnly:  true,
+		OpenWorld: ptr(false),
 		Description: `Query desire path normalizations. Shows what agents tried to send and how it was auto-corrected (URLs in ID fields, camelCase keys, string numbers, etc.). USE WHEN reviewing tool usage patterns to improve descriptions or schemas.
 
 Filter by tool name or normalizer rule. Returns top patterns and recent events.`,

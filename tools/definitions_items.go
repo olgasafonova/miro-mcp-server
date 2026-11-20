@@ -101,11 +101,12 @@ EXAMPLE:
 VOICE-FRIENDLY: "Frame 'Sprint Planning' is 800x600 with 12 items inside"`,
 	},
 	{
-		Name:       "miro_update_frame",
-		Method:     "UpdateFrame",
-		Title:      "Update Frame",
-		Category:   "update",
-		Idempotent: true,
+		Name:        "miro_update_frame",
+		Method:      "UpdateFrame",
+		Title:       "Update Frame",
+		Category:    "update",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Update a frame's title, position, size, or color. At least one field must be provided.
 
 PARAMETERS:
@@ -113,7 +114,9 @@ PARAMETERS:
 
 RETURNS: Confirmation with frame ID.
 
-VOICE-FRIENDLY: "Updated frame title to 'Q1 Goals'"`,
+VOICE-FRIENDLY: "Updated frame title to 'Q1 Goals'"
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 	{
 		Name:        "miro_delete_frame",
@@ -121,6 +124,7 @@ VOICE-FRIENDLY: "Updated frame title to 'Q1 Goals'"`,
 		Title:       "Delete Frame",
 		Category:    "delete",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a frame from a Miro board. Items inside are NOT deleted; they become ungrouped.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
@@ -168,10 +172,12 @@ FAILS WHEN: More than 20 items. Empty items list. Individual items may fail whil
 VOICE-FRIENDLY: "Created 5 items on the board"`,
 	},
 	{
-		Name:     "miro_bulk_update",
-		Method:   "BulkUpdate",
-		Title:    "Bulk Update Items",
-		Category: "update",
+		Name:        "miro_bulk_update",
+		Method:      "BulkUpdate",
+		Title:       "Bulk Update Items",
+		Category:    "update",
+		Destructive: true,
+		Idempotent:  true,
 		Description: `Update multiple items at once (max 20). Only provide fields you want to change.
 
 USE WHEN: "update positions for these items", "rename these stickies", "move several items into a frame", "center the text on these shapes".
@@ -188,7 +194,9 @@ RETURNS: Count of updated items and their IDs.
 
 FAILS WHEN: More than 20 items. Empty items list. Individual items may fail while others succeed; check errors in response.
 
-VOICE-FRIENDLY: "Updated 5 items on the board"`,
+VOICE-FRIENDLY: "Updated 5 items on the board"
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 	{
 		Name:        "miro_bulk_delete",
@@ -464,15 +472,19 @@ RETURNS: App card ID, title, description, status, custom fields, and view link.
 VOICE-FRIENDLY: "App card 'API Status' shows 3 custom fields"`,
 	},
 	{
-		Name:     "miro_update_app_card",
-		Method:   "UpdateAppCard",
-		Title:    "Update App Card",
-		Category: "update",
+		Name:        "miro_update_app_card",
+		Method:      "UpdateAppCard",
+		Title:       "Update App Card",
+		Category:    "update",
+		Destructive: true,
+		Idempotent:  true,
 		Description: `Update an app card's title, description, status, or custom fields.
 
 RETURNS: Confirmation with app card ID.
 
-VOICE-FRIENDLY: "Updated app card status to 'connected'"`,
+VOICE-FRIENDLY: "Updated app card status to 'connected'"
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 	{
 		Name:        "miro_delete_app_card",
@@ -480,6 +492,7 @@ VOICE-FRIENDLY: "Updated app card status to 'connected'"`,
 		Title:       "Delete App Card",
 		Category:    "delete",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete an app card from a Miro board.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.

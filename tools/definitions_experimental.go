@@ -49,6 +49,7 @@ RETURNS: Array of nodes with IDs, content, and parent IDs. Use parent_id to reco
 		Title:       "Delete Mindmap Node",
 		Category:    "delete",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a mindmap node. Deleting a parent may affect children. Uses v2-experimental API.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
@@ -102,32 +103,38 @@ USE WHEN: "what code snippets are on this board", "find the code widgets"
 RETURNS: Array of widgets with IDs, titles, languages, and 80-char code previews. Use miro_get_code_widget for full source. Paginated via cursor.`,
 	},
 	{
-		Name:       "miro_update_code_widget",
-		Method:     "UpdateCodeWidget",
-		Title:      "Update Code Widget",
-		Category:   "update",
-		Idempotent: true,
+		Name:        "miro_update_code_widget",
+		Method:      "UpdateCodeWidget",
+		Title:       "Update Code Widget",
+		Category:    "update",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Update a code widget's content, language, title, line numbers, size, or parent frame. Uses v2-experimental API. May change or become unavailable before GA.
 
 USE WHEN: "change the code in that widget", "fix the snippet", "retitle the code block"
 
 NOTE: To move the widget to a new position, use miro_move_code_widget instead. Omitted fields keep their current values.
 
-RETURNS: Confirmation with widget ID.`,
+RETURNS: Confirmation with widget ID.
+
+WARNING: Overwrites the fields you pass; their previous values are not kept.`,
 	},
 	{
-		Name:       "miro_move_code_widget",
-		Method:     "MoveCodeWidget",
-		Title:      "Move Code Widget",
-		Category:   "update",
-		Idempotent: true,
+		Name:        "miro_move_code_widget",
+		Method:      "MoveCodeWidget",
+		Title:       "Move Code Widget",
+		Category:    "update",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Move a code widget to a new x/y position on the board. Uses v2-experimental API. May change or become unavailable before GA.
 
 USE WHEN: "move the code widget", "reposition that snippet"
 
 NOTE: Position only (center origin). To change content or size, use miro_update_code_widget instead.
 
-RETURNS: Confirmation with widget ID and new coordinates.`,
+RETURNS: Confirmation with widget ID and new coordinates.
+
+WARNING: Overwrites the widget's position.`,
 	},
 	{
 		Name:        "miro_delete_code_widget",
@@ -135,6 +142,7 @@ RETURNS: Confirmation with widget ID and new coordinates.`,
 		Title:       "Delete Code Widget",
 		Category:    "delete",
 		Destructive: true,
+		Idempotent:  true,
 		Description: `Delete a code widget from a board. Uses v2-experimental API. May change or become unavailable before GA.
 
 WARNING: Cannot be undone. Use dry_run=true to preview first.
@@ -214,11 +222,12 @@ RETURNS: Thread ID and new message count.
 VOICE-FRIENDLY: "Replied to the thread - now 3 messages"`,
 	},
 	{
-		Name:       "miro_resolve_comment",
-		Method:     "ResolveComment",
-		Title:      "Resolve Comment",
-		Category:   "comments",
-		Idempotent: true,
+		Name:        "miro_resolve_comment",
+		Method:      "ResolveComment",
+		Title:       "Resolve Comment",
+		Category:    "comments",
+		Idempotent:  true,
+		Destructive: true,
 		Description: `Resolve a comment thread, or reopen it with resolved=false. Uses a v2-experimental API that Miro ships undocumented; it may change or become unavailable without notice.
 
 USE WHEN: "mark that feedback as done", "resolve the comment", "reopen that thread"
@@ -229,6 +238,8 @@ PARAMETERS:
 
 RETURNS: Thread ID and its new resolved state.
 
-VOICE-FRIENDLY: "Resolved - 2 threads still open"`,
+VOICE-FRIENDLY: "Resolved - 2 threads still open"
+
+WARNING: Overwrites the comment's resolved state.`,
 	},
 }
